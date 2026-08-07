@@ -21,7 +21,7 @@ interface NavItem {
 const NAV: Record<Sector, NavItem[]> = {
   clinic: [
     { label: 'HOME', href: '/clinic' },
-    { label: '주문등록', sprint: 'Sprint 3' },
+    { label: '주문등록', href: '/clinic/orders/new' },
     { label: '주문목록', sprint: 'Sprint 4' },
     { label: '배송조회', sprint: 'Sprint 7' },
     { label: '청구내역', sprint: 'Sprint 8' },
@@ -188,3 +188,4 @@ export default function SectorShell({
     </div>
   );
 }
+
