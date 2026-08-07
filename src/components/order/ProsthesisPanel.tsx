@@ -57,3 +57,154 @@ function chip(active: boolean): string {
     ? 'rounded border border-blue-600 bg-blue-50 px-3 py-1.5 text-[13px] font-semibold text-blue-700'
     : 'rounded border border-gray-300 bg-white px-3 py-1.5 text-[13px] hover:border-gray-400';
 }
+
+export default function ProsthesisPanel({ value, onChange }: ProsthesisPanelProps) {
+  const [implantOpen, setImplantOpen] = useState(false);
+
+  const materials = getMaterials(value.typeCode);
+  const shades = getShades(value.shadeSystem);
+  const isImplant = value.typeCode === 'implant';
+  const canPontic = value.typeCode !== 'inlay';
+
+  function changeType(next: string) {
+    onChange({
+      ...value,
+      typeCode: next,
+      materialCode: getMaterials(next)[0]?.code ?? '',
+      isPontic: next === 'inlay' ? false : value.isPontic,
+      implant: next === 'implant' ? value.implant : EMPTY_SELECTION,
+    });
+  }
+
+  function pickShade(code: string) {
+    const next: ToothShade =
+      value.shade.cervical === null
+        ? { cervical: code, incisal: code }
+        : { ...value.shade, cervical: code };
+    onChange({ ...value, shade: next });
+  }
+
+  function pickIncisal(code: string) {
+    onChange({ ...value, shade: { ...value.shade, incisal: code } });
+  }
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-5">
+      <Row label="종류">
+        <div className="flex flex-wrap gap-2">
+          {PROSTHESIS_TYPES.map((t) => (
+            <button key={t.code} onClick={() => changeType(t.code)} className={chip(value.typeCode === t.code)}>
+              {t.name}
+            </button>
+          ))}
+        </div>
+      </Row>
+
+      <Row label="재료">
+        <div className="flex flex-wrap gap-2">
+          {materials.map((m) => (
+            <button key={m.code} onClick={() => onChange({ ...value, materialCode: m.code })} className={chip(value.materialCode === m.code)}>
+              {m.name}
+            </button>
+          ))}
+        </div>
+      </Row>
+      <Row label="쉐이드">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={value.shadeSystem}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                shadeSystem: e.target.value as ShadeSystemCode,
+                shade: EMPTY_SHADE,
+              })
+            }
+            className="rounded border border-gray-300 px-2 py-1.5 text-[13px]"
+          >
+            {SHADE_SYSTEMS.map((s) => (
+              <option key={s.code} value={s.code}>{s.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={value.shade.cervical ?? ''}
+            onChange={(e) => pickShade(e.target.value)}
+            className="rounded border border-gray-300 px-2 py-1.5 text-[13px]"
+          >
+            <option value="">치경부</option>
+            {shades.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+
+          <select
+            value={value.shade.incisal ?? ''}
+            onChange={(e) => pickIncisal(e.target.value)}
+            disabled={value.shade.cervical === null}
+            className="rounded border border-gray-300 px-2 py-1.5 text-[13px] disabled:bg-gray-100 disabled:text-gray-400"
+          >
+            <option value="">절단부</option>
+            {shades.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+
+          {formatShade(value.shade) && (
+            <span className="rounded bg-blue-50 px-2 py-1 font-mono text-[13px] font-semibold text-blue-700">
+              {formatShade(value.shade)}
+            </span>
+          )}
+        </div>
+      </Row>
+      {isImplant && (
+        <Row label="모델">
+          <div className="w-full">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setImplantOpen(!implantOpen)}
+                className="rounded border border-gray-300 px-3 py-1.5 text-[13px] hover:bg-gray-50"
+              >
+                {implantOpen ? '접기' : '선택'}
+              </button>
+
+              <span
+                className={
+                  'font-mono text-[13px] ' +
+                  (implantComplete(value.implant) ? 'text-gray-800' : 'text-red-600')
+                }
+              >
+                {formatSelection(value.implant) || '제조사와 타입을 골라 주세요'}
+              </span>
+            </div>
+
+            {implantOpen && (
+              <div className="mt-3">
+                <ImplantPicker
+                  value={value.implant}
+                  onChange={(implant) => onChange({ ...value, implant })}
+                />
+              </div>
+            )}
+          </div>
+        </Row>
+      )}
+
+      <Row label="폰틱">
+        <button
+          onClick={() => onChange({ ...value, isPontic: !value.isPontic })}
+          disabled={!canPontic}
+          className={
+            !canPontic
+              ? 'cursor-not-allowed rounded border border-gray-200 bg-gray-100 px-3 py-1.5 text-[13px] text-gray-400'
+              : value.isPontic
+                ? 'rounded border border-amber-600 bg-amber-50 px-3 py-1.5 text-[13px] font-semibold text-amber-700'
+                : 'rounded border border-gray-300 px-3 py-1.5 text-[13px]'
+          }
+        >
+          {value.isPontic ? 'ON - 누르는 치아가 폰틱이 됩니다' : 'OFF'}
+        </button>
+      </Row>
+    </div>
+  );
+}
