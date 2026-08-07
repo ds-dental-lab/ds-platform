@@ -1,16 +1,16 @@
-﻿import { redirect } from 'next/navigation';
-import { getSession } from '@/server/policies/session';
-import LogoutButton from '@/components/logout-button';
+﻿import { redirect } from "next/navigation";
+import { getSession } from "@/server/policies/session";
+import LogoutButton from "@/components/logout-button";
 
 export default async function Home() {
   const session = await getSession();
-  if (!session) redirect('/login');
+  if (!session) redirect("/login");
 
   const destination = {
-    clinic: '/clinic',
-    design_center: '/design',
-    lab: '/lab',
-  }[session.orgType ?? ''];
+    clinic: "/clinic",
+    design_center: "/design",
+    lab: "/lab",
+  }[session.orgType ?? ""];
 
   if (destination) redirect(destination);
 
