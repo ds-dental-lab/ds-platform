@@ -2,17 +2,19 @@
 import { getSession } from "@/server/policies/session";
 import LogoutButton from "@/components/logout-button";
 
+const HOME_BY_SECTOR = {
+  clinic: "/clinic",
+  design_center: "/design",
+  lab: "/lab",
+} as const;
+
 export default async function Home() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const destination = {
-    clinic: "/clinic",
-    design_center: "/design",
-    lab: "/lab",
-  }[session.orgType ?? ""];
-
-  if (destination) redirect(destination);
+  if (session.orgType) {
+    redirect(HOME_BY_SECTOR[session.orgType]);
+  }
 
   return (
     <main className="grid min-h-screen place-items-center bg-gray-50 p-6">
