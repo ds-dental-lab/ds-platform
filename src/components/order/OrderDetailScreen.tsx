@@ -31,14 +31,19 @@ import ToothChart from '@/components/dental/ToothChart';
 import OrderStatusActions from '@/components/order/OrderStatusActions';
 import OrderChat from '@/components/order/OrderChat';
 import OrderActions from '@/components/order/OrderActions';
-import OrderFileList from '@/components/order/OrderFileList';
+import OrderFileList, { DownloadAllButton } from '@/components/order/OrderFileList';
 import LabAssignSelect from '@/components/order/LabAssignSelect';
 import MissingFileBar from '@/components/order/MissingFileBar';
 import { computeDDay } from '@/server/domain/order-list';
 import { buildSummaryLines } from '@/server/domain/summary';
 import { colorOfType, type ProsthesisCatalog } from '@/server/domain/prosthesis';
 import { formatSelection } from '@/server/domain/implant';
-import { STATUS_LABEL, type Sector } from '@/server/domain/order-status';
+import {
+  STATUS_LABEL,
+  canDeleteFile,
+  canEditFiles,
+  type Sector,
+} from '@/server/domain/order-status';
 import type { ChartPlacement } from '@/components/dental/ToothChart';
 import type { ToothShade } from '@/server/domain/shade';
 import type { ImplantCatalog, ImplantSelection } from '@/server/domain/implant';
@@ -164,12 +169,14 @@ export default function OrderDetailScreen({
   const scanExpected = scanFiles.length;
   const scanMissing = scanMissingFiles.length;
 
-  // 파일을 더 올릴 수 있는 자리인가 — 디자인센터가 손대기 전까지입니다
-  const canEditFiles = ['received', 'rescan', 'designing'].includes(order.status);
+  // 무엇을 지울 수 있는가는 도메인이 정합니다 (설계서 §8.3)
+  const canRemoveScan = canDeleteFile('scan', order.status, order.roles);
+  const canRemoveDesign = canDeleteFile('design', order.status, order.roles);
+  const canAddFiles = canEditFiles(order.status);
 
   // ★ 기공소는 넘기기 전까지만 바꿉니다.
   //   제작대기로 가면 그 기공소가 이미 일을 받았습니다.
-  const canAssignLab = ['received', 'rescan', 'designing'].includes(order.status);
+  const canAssignLab = canEditFiles(order.status);
 
   // 임플란트 주문이면 치아별 모델을 따로 세웁니다 (시안 #dtImplantCard)
   const implantTeeth = order.items.filter((i) => i.type_code === 'implant');
@@ -312,7 +319,7 @@ export default function OrderDetailScreen({
               */
               <span
                 className={
-                  'ml-auto text-[12.5px] font-semibold ' +
+                  'ml-auto flex items-center gap-1.5 text-[12.5px] font-semibold ' +
                   (scanMissing > 0 ? 'text-[#B3312C]' : 'text-[#4A5567]')
                 }
                 title={
@@ -322,6 +329,7 @@ export default function OrderDetailScreen({
                 }
               >
                 File Count ({scanArrived.length}/{scanExpected})
+                <DownloadAllButton files={scanFiles} />
               </span>
             }
           >
@@ -335,7 +343,7 @@ export default function OrderDetailScreen({
                 fileSize: f.file_size,
               }))}
               /* 스캔은 치과가 올립니다. 디자인센터는 무엇이 빠졌는지 보기만 합니다 */
-              editable={sector === 'clinic' && canEditFiles}
+              editable={sector === 'clinic' && canAddFiles}
             />
 
             <div className="flex min-h-[172px] flex-col">
@@ -344,7 +352,7 @@ export default function OrderDetailScreen({
                   업로드된 스캔 파일이 없습니다.
                 </p>
               ) : (
-                <OrderFileList files={scanFiles} />
+                <OrderFileList files={scanFiles} deletable={canRemoveScan} />
               )}
             </div>
           </Card>
@@ -410,7 +418,12 @@ export default function OrderDetailScreen({
             className="lg:col-start-2 lg:row-start-2 lg:row-end-4"
             title={`디자인 파일(${designFiles.length})`}
             /* ★ 올리기는 머리줄의 아이콘 하나입니다 — 본문은 목록만 씁니다 */
-            right={designSlot ? <span className="ml-auto flex items-center gap-2">{designSlot}</span> : undefined}
+            right={
+              <span className="ml-auto flex items-center gap-1.5">
+                <DownloadAllButton files={designFiles} />
+                {designSlot}
+              </span>
+            }
           >
             <div className="flex min-h-[172px] flex-col">
               {designFiles.length === 0 ? (
@@ -418,7 +431,7 @@ export default function OrderDetailScreen({
                   아직 디자인 파일이 없습니다.
                 </p>
               ) : (
-                <OrderFileList files={designFiles} />
+                <OrderFileList files={designFiles} deletable={canRemoveDesign} />
               )}
             </div>
           </Card>

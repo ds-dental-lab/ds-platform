@@ -72,9 +72,11 @@ export default async function DesignNewOrderPage({
   const today = todayInKst();
 
   return (
-    <div>
+    // ★ 폼과 같은 폭·같은 자리입니다. 치과 화면과 다른 것은
+    //   위의 '어느 치과인가' 띠 하나뿐입니다.
+    <div className="mx-auto max-w-5xl space-y-3">
       {/* 누구를 대신해 넣고 있는지 늘 보이게 둡니다 */}
-      <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-[#EFEDFB] bg-[#F8F7FE] px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#EFEDFB] bg-[#F8F7FE] px-4 py-3">
         <span className="rounded bg-[#5546C8] px-2 py-0.5 text-[11px] font-bold text-white">
           대리등록
         </span>
@@ -101,6 +103,13 @@ export default async function DesignNewOrderPage({
         clinicName={clinic.name}
         clinicOrgId={clinic.id}
         basePath="/design/orders"
+        /*
+          ★ 요청시한을 오늘부터 고를 수 있습니다.
+            전화로 들어오는 건에는 이미 약속된 날짜가 있습니다.
+            4영업일을 강요하면 실제와 다른 날을 적게 되고, 그 날짜로
+            돌아가는 D-day·배송조회·정산 예상이 전부 어긋납니다.
+        */
+        dueDatePolicy="free"
         today={today}
         defaultDue={defaultDueDate(today)}
         implantCatalog={implantCatalog}

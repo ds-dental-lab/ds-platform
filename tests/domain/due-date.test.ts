@@ -148,3 +148,47 @@ describe('표시', () => {
     expect(formatDueLabel('2026-08-17')).toBe('2026-08-17 (월)');
   });
 });
+
+// =========================================================
+// 디자인센터 대리등록은 오늘부터 자유롭게 (사용자 결정 2026-08-12)
+// =========================================================
+
+describe('요청시한 정책', () => {
+  // 2026-08-12 는 수요일입니다
+  const today = '2026-08-12';
+
+  it('치과는 4번째 영업일이 가장 이르다', () => {
+    expect(minimumDueDate(today)).toBe('2026-08-17');
+    expect(minimumDueDate(today, 'standard')).toBe('2026-08-17');
+  });
+
+  it('★ 디자인센터는 오늘부터 고를 수 있다', () => {
+    expect(minimumDueDate(today, 'free')).toBe(today);
+  });
+
+  it('★ 치과가 못 고르는 날을 디자인센터는 고른다', () => {
+    // 내일(목)은 치과에겐 이르지만 대리등록은 됩니다
+    expect(checkDueDate('2026-08-13', today).selectable).toBe(false);
+    expect(checkDueDate('2026-08-13', today, 'free').selectable).toBe(true);
+  });
+
+  it('오늘도 고를 수 있다', () => {
+    expect(checkDueDate(today, today, 'free').selectable).toBe(true);
+  });
+
+  it('★ 지난 날짜는 둘 다 막는다', () => {
+    const verdict = checkDueDate('2026-08-11', today, 'free');
+
+    expect(verdict.selectable).toBe(false);
+    expect(verdict.reason).toBe('지난 날짜는 고를 수 없습니다');
+  });
+
+  // ★ 납기가 아니라 배송의 문제입니다 — 일요일에는 물건이 안 나갑니다
+  it('★ 일요일은 대리등록도 막힌다', () => {
+    expect(checkDueDate('2026-08-16', today, 'free').selectable).toBe(false);
+  });
+
+  it('토요일은 둘 다 되고, 배송만 된다고 알려 준다', () => {
+    expect(checkDueDate('2026-08-15', today, 'free').note).toBe('토요일은 배송만 가능합니다');
+  });
+});

@@ -365,3 +365,39 @@ export const STATUS_ORDER: OrderStatus[] = [
   'completed',
   'cancelled',
 ];
+
+// ---------- 파일 지우기 ----------
+
+/**
+ * 올린 파일을 지울 수 있는가.
+ *
+ * ★ 올린 쪽이 지웁니다 (설계서 §8.3).
+ *   스캔은 치과가, 디자인은 디자인센터가 올립니다.
+ *   디자인센터도 스캔을 지울 수 있게 열어 둡니다 — 재스캔을 걸고 나면
+ *   못 쓰는 옛 파일이 목록에 남아 어느 것이 최신인지 헷갈립니다.
+ *   반대로 치과가 디자인 파일을 지우는 길은 없습니다.
+ *
+ * ★ 기공소는 못 지웁니다.
+ *   받은 파일로 만들기만 합니다. 남의 자료를 지울 자리가 아닙니다.
+ *
+ * ★ 넘어간 뒤에는 아무도 못 지웁니다.
+ *   제작이 시작되면 그 파일이 무엇으로 만들었는지의 근거가 됩니다.
+ */
+export function canDeleteFile(
+  kind: string,
+  status: OrderStatus,
+  roles: Sector[],
+): boolean {
+  if (!FILE_EDITABLE_STATUSES.includes(status)) return false;
+
+  if (kind === 'design') return roles.includes('design_center');
+
+  return roles.includes('clinic') || roles.includes('design_center');
+}
+
+/** 파일을 더 올리거나 지울 수 있는 상태 */
+const FILE_EDITABLE_STATUSES: OrderStatus[] = ['received', 'rescan', 'designing'];
+
+export function canEditFiles(status: OrderStatus): boolean {
+  return FILE_EDITABLE_STATUSES.includes(status);
+}

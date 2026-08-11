@@ -19,6 +19,8 @@ import {
   isActionRequired,
   getAvailableActions,
   canEditDueDate,
+  canDeleteFile,
+  canEditFiles,
 } from '@/server/domain/order-status';
 
 describe('상태 목록', () => {
@@ -281,5 +283,47 @@ describe('요청시한 변경 권한', () => {
       expect(canEditDueDate('completed', sector)).toBe(false);
       expect(canEditDueDate('cancelled', sector)).toBe(false);
     }
+  });
+});
+
+// =========================================================
+// 파일 지우기 — 올린 쪽이 지웁니다 (2026-08-12)
+// =========================================================
+
+describe('파일 지우기', () => {
+  it('스캔은 치과가 지운다', () => {
+    expect(canDeleteFile('scan', 'received', ['clinic'])).toBe(true);
+  });
+
+  // 재스캔을 걸고 나면 못 쓰는 옛 파일이 남습니다
+  it('스캔은 디자인센터도 지운다', () => {
+    expect(canDeleteFile('scan', 'designing', ['design_center'])).toBe(true);
+  });
+
+  it('★ 치과는 디자인 파일을 못 지운다', () => {
+    expect(canDeleteFile('design', 'designing', ['clinic'])).toBe(false);
+    expect(canDeleteFile('design', 'designing', ['design_center'])).toBe(true);
+  });
+
+  it('★ 기공소는 아무것도 못 지운다', () => {
+    expect(canDeleteFile('scan', 'designing', ['lab'])).toBe(false);
+    expect(canDeleteFile('design', 'designing', ['lab'])).toBe(false);
+  });
+
+  it('★ 제작으로 넘어가면 아무도 못 지운다', () => {
+    expect(canDeleteFile('scan', 'production_wait', ['clinic'])).toBe(false);
+    expect(canDeleteFile('design', 'production', ['design_center'])).toBe(false);
+    expect(canDeleteFile('scan', 'completed', ['design_center'])).toBe(false);
+  });
+
+  it('자사 제작이면 두 자리를 겸해도 규칙은 같다', () => {
+    expect(canDeleteFile('design', 'designing', ['design_center', 'lab'])).toBe(true);
+  });
+
+  it('파일을 손댈 수 있는 상태', () => {
+    expect(canEditFiles('received')).toBe(true);
+    expect(canEditFiles('rescan')).toBe(true);
+    expect(canEditFiles('designing')).toBe(true);
+    expect(canEditFiles('production_wait')).toBe(false);
   });
 });

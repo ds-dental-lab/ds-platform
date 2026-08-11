@@ -66,6 +66,7 @@ import type { ImplantFavorite } from '@/server/repositories/implant';
 import type { ProductionOptionGroup } from '@/server/repositories/production-option';
 import type { OptionPreset } from '@/server/repositories/option-preset';
 import type { IsoDate } from '@/server/domain/week';
+import type { DueDatePolicy } from '@/server/domain/due-date';
 import type { OrderFormInitial } from '@/components/order/orderFormInitial';
 
 interface Entry extends ToothPlacement {
@@ -95,6 +96,12 @@ export interface NewOrderFormProps {
   clinicOrgId?: string;
   /** 돌아갈 곳. 대리등록은 디자인센터 주문목록으로 갑니다 */
   basePath?: string;
+  /**
+   * 요청시한을 어디까지 고를 수 있는가.
+   * 대리등록('free')은 오늘부터입니다 — 전화로 들어온 건에는 이미
+   * 약속된 날짜가 있어, 4영업일을 강요하면 실제와 다른 날을 적게 됩니다.
+   */
+  dueDatePolicy?: DueDatePolicy;
   today: IsoDate;
   defaultDue: IsoDate;
   implantCatalog: ImplantCatalog;
@@ -137,6 +144,7 @@ function OrderFormBody({
   clinicName,
   clinicOrgId,
   basePath = '/clinic/orders',
+  dueDatePolicy = 'standard',
   today,
   defaultDue,
   implantCatalog,
@@ -637,8 +645,20 @@ function OrderFormBody({
             />
           </Field>
 
-          <Field label="요청시한" hint="일요일과 최소 납기 이전은 선택할 수 없습니다">
-            <DueDatePicker value={dueDate} today={today} onChange={setDueDate} />
+          <Field
+            label="요청시한"
+            hint={
+              dueDatePolicy === 'free'
+                ? '오늘부터 고를 수 있습니다 (일요일 제외)'
+                : '일요일과 최소 납기 이전은 선택할 수 없습니다'
+            }
+          >
+            <DueDatePicker
+              value={dueDate}
+              today={today}
+              policy={dueDatePolicy}
+              onChange={setDueDate}
+            />
           </Field>
 
           <Field label="주문유형">

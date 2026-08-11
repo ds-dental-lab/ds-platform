@@ -18,6 +18,7 @@ import {
   formatMonthTitle,
   formatDueLabel,
   checkDueDate,
+  type DueDatePolicy,
 } from '@/server/domain/due-date';
 import type { IsoDate } from '@/server/domain/week';
 
@@ -26,18 +27,29 @@ const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 export interface DueDatePickerProps {
   value: IsoDate;
   today: IsoDate;
+  /**
+   * 무엇까지 고를 수 있는가.
+   *   standard  치과 — 4번째 영업일부터
+   *   free      디자인센터 대리등록 — 오늘부터
+   */
+  policy?: DueDatePolicy;
   onChange: (date: IsoDate) => void;
 }
 
-export default function DueDatePicker({ value, today, onChange }: DueDatePickerProps) {
+export default function DueDatePicker({
+  value,
+  today,
+  policy = 'standard',
+  onChange,
+}: DueDatePickerProps) {
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(() => ({
     year: Number(value.slice(0, 4)),
     month: Number(value.slice(5, 7)),
   }));
 
-  const cells = buildCalendar(cursor.year, cursor.month, today);
-  const selectedNote = checkDueDate(value, today).note;
+  const cells = buildCalendar(cursor.year, cursor.month, today, policy);
+  const selectedNote = checkDueDate(value, today, policy).note;
 
   function shiftMonth(delta: number) {
     setCursor((c) => {

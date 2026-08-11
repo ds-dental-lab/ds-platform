@@ -25,3 +25,24 @@ export function formatBytes(bytes: number | null): string {
   if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
   return (bytes / 1024 / 1024).toFixed(1) + ' MB';
 }
+
+/**
+ * 긴 파일 이름의 가운데를 접습니다 — `김지영2026-08…15-47-06.dxd`
+ *
+ * ★ 끝을 자르면 안 됩니다.
+ *   `김지영2026-08-11_15-47-06.dxd` 처럼 뒤쪽에 시각이 붙는 이름이 많아,
+ *   끝을 자르면 두 파일이 화면에서 똑같아 보입니다.
+ *   앞과 뒤를 남기고 가운데를 접어야 어느 것이 어느 것인지 알아봅니다.
+ *
+ * ★ 기본 28자는 주문상세 파일칸에 들어가는 폭입니다.
+ *   CSS 의 truncate 도 함께 걸어 둡니다 — 창을 줄이면 그쪽이 더 자릅니다.
+ *   여기서 접는 것은 '어느 정도 넓을 때 가운데를 접는' 몫입니다.
+ */
+export function middleEllipsis(name: string, max = 28): string {
+  if (name.length <= max) return name;
+
+  const head = Math.ceil((max - 1) * 0.55);
+  const tail = max - 1 - head;
+
+  return `${name.slice(0, head)}…${name.slice(-tail)}`;
+}

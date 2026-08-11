@@ -55,9 +55,27 @@ export function isSaturday(date: IsoDate): boolean {
   return getWeekday(date) === 6;
 }
 
-/** 고를 수 있는 가장 이른 날 — 4번째 영업일 */
-export function minimumDueDate(today: IsoDate): IsoDate {
-  return nthBusinessDay(today, 4);
+/**
+ * 누가 고르느냐에 따라 가장 이른 날이 다릅니다. (사용자 결정 2026-08-12)
+ *
+ *   standard  치과 — 4번째 영업일. 만들 시간이 필요합니다
+ *   free      디자인센터 — 오늘부터. 대리등록은 사정이 다릅니다
+ *
+ * ★ 디자인센터를 푸는 이유.
+ *   전화로 들어오는 주문에는 이미 약속된 날짜가 있습니다.
+ *   "내일까지 해 주기로 했다" 는 건을 대신 넣는데 화면이 4영업일을
+ *   강요하면, 실제와 다른 날짜를 적게 됩니다 — 그러면 그 날짜로 돌아가는
+ *   D-day·배송조회·정산 예상이 전부 어긋납니다.
+ *   무리한 일정인지는 일정을 쥔 사람이 판단할 일입니다.
+ *
+ * ★ 일요일은 둘 다 막힙니다.
+ *   납기가 아니라 배송의 문제입니다. 일요일에는 물건이 안 나갑니다.
+ */
+export type DueDatePolicy = 'standard' | 'free';
+
+/** 고를 수 있는 가장 이른 날 */
+export function minimumDueDate(today: IsoDate, policy: DueDatePolicy = 'standard'): IsoDate {
+  return policy === 'free' ? today : nthBusinessDay(today, 4);
 }
 
 /** 주문등록을 열었을 때 미리 맞춰져 있는 날 — 5번째 영업일 */
@@ -79,16 +97,21 @@ export interface DueDateVerdict {
  * ★ 화면에서 흐리게 만드는 것만으로는 부족합니다.
  *   저장할 때도 같은 함수로 다시 검사합니다. (설계서 §5.3 결정 2)
  */
-export function checkDueDate(date: IsoDate, today: IsoDate): DueDateVerdict {
+export function checkDueDate(
+  date: IsoDate,
+  today: IsoDate,
+  policy: DueDatePolicy = 'standard',
+): DueDateVerdict {
   if (isSunday(date)) {
     return { selectable: false, reason: '일요일은 고를 수 없습니다' };
   }
 
-  const minimum = minimumDueDate(today);
+  const minimum = minimumDueDate(today, policy);
   if (date < minimum) {
     return {
       selectable: false,
-      reason: `최소 납기는 ${minimum} 입니다`,
+      reason:
+        policy === 'free' ? '지난 날짜는 고를 수 없습니다' : `최소 납기는 ${minimum} 입니다`,
     };
   }
 
@@ -115,13 +138,18 @@ export interface CalendarCell {
  * 한 달치 달력을 만듭니다. 일요일로 시작하는 7칸 × 6줄입니다.
  * 앞뒤로 남는 칸은 이웃 달 날짜로 채워 격자가 깨지지 않게 합니다.
  */
-export function buildCalendar(year: number, month: number, today: IsoDate): CalendarCell[] {
+export function buildCalendar(
+  year: number,
+  month: number,
+  today: IsoDate,
+  policy: DueDatePolicy = 'standard',
+): CalendarCell[] {
   const first = `${year}-${String(month).padStart(2, '0')}-01`;
   const start = addDays(first, -getWeekday(first)); // 그 주 일요일까지 되돌립니다
 
   return Array.from({ length: 42 }, (_, i) => {
     const date = addDays(start, i);
-    const verdict = checkDueDate(date, today);
+    const verdict = checkDueDate(date, today, policy);
 
     return {
       date,

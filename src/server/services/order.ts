@@ -20,7 +20,7 @@ import {
 import { isAllowedPair, MAX_PER_TOOTH, type Placement } from '@/server/domain/duplicate';
 import { computeBridges, type ToothPlacement } from '@/server/domain/bridge';
 import { isValidShade } from '@/server/domain/shade';
-import { checkDueDate } from '@/server/domain/due-date';
+import { checkDueDate, type DueDatePolicy } from '@/server/domain/due-date';
 import { canEditSpec, type OrderStatus } from '@/server/domain/order-status';
 import { todayInKst } from '@/server/domain/week';
 import { publishOrderCreated } from '@/server/events';
@@ -86,13 +86,19 @@ export function validateOrder(
    */
   catalog: ProsthesisCatalog,
   today?: string,
+  /**
+   * 요청시한 규칙. 대리등록(디자인센터)은 오늘부터입니다.
+   * ★ 화면이 보낸 값이 아니라 **누가 로그인했는지**로 정합니다 —
+   *   치과가 'free' 를 보내 최소 납기를 건너뛸 수 없어야 합니다.
+   */
+  dueDatePolicy: DueDatePolicy = 'standard',
 ): string | null {
   if (!input.patientLabel?.trim()) return '환자를 선택해 주세요';
   if (!input.dueDate) return '요청시한을 입력해 주세요';
 
   // ★ 화면에서 달력을 막아 둔 것만으로는 부족합니다 (설계서 §5.3 결정 2)
   if (today) {
-    const verdict = checkDueDate(input.dueDate, today);
+    const verdict = checkDueDate(input.dueDate, today, dueDatePolicy);
     if (!verdict.selectable) return verdict.reason ?? '고를 수 없는 요청시한입니다';
   }
   if (input.items.length === 0) return '보철물을 하나 이상 선택해 주세요';
@@ -164,10 +170,6 @@ export function validateOrder(
 // ---------- 저장 ----------
 
 export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
-  const catalog = await getProsthesisCatalog({ includeInactive: true });
-  const problem = validateOrder(input, catalog, todayInKst());
-  if (problem) return { ok: false, error: problem };
-
   const supabase = await createClient();
 
   // 내가 누구인지, 어느 치과 소속인지
@@ -187,6 +189,19 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   if (!membership || (org?.org_type !== 'clinic' && org?.org_type !== 'design_center')) {
     return { ok: false, error: '치과 또는 디자인센터만 주문을 등록할 수 있습니다' };
   }
+
+  // ★ 검증을 로그인 확인 뒤로 옮겼습니다.
+  //   요청시한 규칙이 '누가 넣는가' 에 따라 다릅니다 —
+  //   디자인센터 대리등록은 오늘부터 고를 수 있습니다.
+  //   화면이 보낸 값이 아니라 세션으로 정해야 치과가 우회하지 못합니다.
+  const catalog = await getProsthesisCatalog({ includeInactive: true });
+  const problem = validateOrder(
+    input,
+    catalog,
+    todayInKst(),
+    org.org_type === 'design_center' ? 'free' : 'standard',
+  );
+  if (problem) return { ok: false, error: problem };
 
   const owners = await resolveOwners(supabase, membership.org_id, org.org_type, input);
   if ('error' in owners) return { ok: false, error: owners.error };
