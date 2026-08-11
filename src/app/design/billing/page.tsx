@@ -24,6 +24,7 @@ import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { periodRange, isValidYearMonth, canClosePeriod } from '@/server/domain/billing';
 import { todayInKst } from '@/server/domain/week';
 import SettlementScreen from '@/components/billing/SettlementScreen';
+import BillingTabs from '@/components/billing/BillingTabs';
 import BulkClosePanel, { type ClosingGroup } from '@/components/billing/BulkClosePanel';
 import type { PartnerRow } from '@/server/repositories/partner';
 
@@ -57,6 +58,7 @@ export default async function DesignBillingPage({
 
     return (
       <div className="mx-auto max-w-[1400px] space-y-3">
+        <BillingTabs active="/design/billing" />
         <BulkClosePanel yearMonth={yearMonth} groups={groups} />
 
         <SettlementScreen
@@ -91,7 +93,8 @@ export default async function DesignBillingPage({
   const verdict = canClosePeriod({ from, to }, today, closed);
 
   return (
-    <div className="mx-auto max-w-[1400px]">
+    <div className="mx-auto max-w-[1400px] space-y-3">
+      <BillingTabs active="/design/billing" />
       <SettlementScreen
         parties={parties}
         partner={partner}

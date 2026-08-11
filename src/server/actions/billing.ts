@@ -16,6 +16,9 @@ import {
 } from '@/server/services/billing';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
+import { todayInKst } from '@/server/domain/week';
+import { paymentDueDate } from '@/server/domain/invoice';
+import { missingContact, wantsEmail, type InvoiceMethod } from '@/server/domain/invoice-method';
 import { checkAdjustment } from '@/server/domain/billing';
 
 export type BillingResult =
@@ -145,6 +148,11 @@ export async function submitRemoveAdjustments(orderItemId: string): Promise<Adju
  *
  * ★ 발행하면 마감을 되돌릴 수 없습니다.
  *   한 번 나간 문서의 숫자가 나중에 달라지면 신뢰가 무너집니다.
+ *
+ * ★ 이때 청구서가 '문서' 가 됩니다 — 번호 · 납부기한 · 받는 곳이 붙습니다.
+ *   받는 곳(이메일/팩스)을 **여기서 베껴 둡니다.** 치과가 나중에 이메일을
+ *   바꿔도, 지난 청구서가 "새 주소로 보냈다" 고 말하면 안 됩니다.
+ *   금액을 billing_lines 로 굳히는 것과 같은 이유입니다.
  */
 export async function submitIssueInvoice(
   partyOrgId: string,
@@ -157,9 +165,59 @@ export async function submitIssueInvoice(
 
   const supabase = await createClient();
 
+  // 발행 시점의 받는 곳
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('invoice_method, invoice_email, fax')
+    .eq('id', partyOrgId)
+    .maybeSingle();
+
+  const contact = org as {
+    invoice_method: InvoiceMethod;
+    invoice_email: string | null;
+    fax: string | null;
+  } | null;
+
+  const method = contact?.invoice_method ?? 'all';
+
+  /*
+    ★ 갈 데가 없으면 발행을 막습니다.
+      번호까지 붙여 놓고 아무 데도 안 가면, 목록에는 '보냄' 으로 남고
+      치과는 못 받은 채 납부기한이 지납니다.
+  */
+  const missing = missingContact({
+    method,
+    email: contact?.invoice_email ?? null,
+    fax: contact?.fax ?? null,
+  });
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error:
+        `정산서 받을 곳이 비어 있습니다 (${missing.includes('email') ? '이메일' : ''}` +
+        `${missing.length === 2 ? '·' : ''}${missing.includes('fax') ? '팩스' : ''}). ` +
+        '위에서 넣고 다시 눌러 주세요',
+    };
+  }
+
+  // 이메일이 먼저입니다 — 둘 다면 이메일로 갑니다
+  const sentTo = wantsEmail(method) ? contact?.invoice_email : contact?.fax;
+
+  const { data: no, error: noError } = await supabase.rpc('next_invoice_no');
+  if (noError || !no) return { ok: false, error: '청구서 번호를 만들지 못했습니다' };
+
+  const today = todayInKst();
+
   const { data, error } = await supabase
     .from('billing_periods')
-    .update({ issued_at: new Date().toISOString() })
+    .update({
+      issued_at: new Date().toISOString(),
+      invoice_no: no as string,
+      invoice_method: method,
+      invoice_to: sentTo ?? null,
+      due_date: paymentDueDate(today),
+    })
     .eq('party_org_id', partyOrgId)
     .eq('year_month', yearMonth)
     .not('closed_at', 'is', null) // 마감한 것만 뽑습니다

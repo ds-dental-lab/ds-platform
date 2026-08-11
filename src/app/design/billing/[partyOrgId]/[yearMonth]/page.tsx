@@ -21,17 +21,22 @@ import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { periodRange, invoicePartiesFor, isValidYearMonth } from '@/server/domain/billing';
 import InvoiceSheet from '@/components/billing/InvoiceSheet';
 import InvoiceBar from '@/components/billing/InvoiceBar';
+import AutoPrint from '@/components/billing/AutoPrint';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function InvoicePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ partyOrgId: string; yearMonth: string }>;
+  searchParams: Promise<{ print?: string }>;
 }) {
   const session = await requireSector('design_center');
   const { partyOrgId, yearMonth } = await params;
+  // 청구 내역의 ⬇ 가 이 주소로 엽니다 — 뜨자마자 인쇄창을 띄웁니다
+  const { print } = await searchParams;
 
   if (!isValidYearMonth(yearMonth)) notFound();
 
@@ -83,6 +88,8 @@ export default async function InvoicePage({
 
   return (
     <div className="mx-auto max-w-[900px]">
+      <AutoPrint on={print === '1'} />
+
       <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
         <Link
           href={`/design/billing?type=${partner.orgType}&party=${partner.id}&ym=${yearMonth}`}
