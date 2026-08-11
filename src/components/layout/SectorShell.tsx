@@ -177,13 +177,15 @@ export default function SectorShell({
 
   const sidebarWidth = collapsed ? 56 : 200;
 
+  /** 이 섹터의 뿌리 주소 — /clinic · /design · /lab */
+  const root = `/${sector === 'design_center' ? 'design' : sector}`;
+
   /**
    * 지금 켜져 있어야 할 메뉴 하나.
    *
    * ★ HOME 은 정확히 같을 때만입니다 — 그것을 뺀 모든 주소가 HOME 으로 시작합니다.
    *   나머지는 '앞이 같은 것 중 가장 긴 것' 이 이깁니다.
    */
-  const root = `/${sector === 'design_center' ? 'design' : sector}`;
 
   const activeHref = items
     .map((item) => item.href)
@@ -242,7 +244,18 @@ export default function SectorShell({
         <div className="flex flex-1 items-center justify-end gap-1 pr-2.5">
           {bell}
 
-          <IconButton label="계정">
+          {/* 계정 정보 — 사업자 정보를 넣는 곳입니다. 청구서에 실립니다 */}
+          <Link
+            href={`${root}/account`}
+            aria-label="계정 정보"
+            title="계정 정보"
+            className={
+              'grid h-[30px] w-[30px] shrink-0 place-items-center rounded-md hover:bg-[#F4F6F9] ' +
+              (pathname === `${root}/account`
+                ? 'text-[color:var(--brand)]'
+                : 'text-[#98A2B3] hover:text-[#4A5567]')
+            }
+          >
             <svg
               width="18"
               height="18"
@@ -254,7 +267,7 @@ export default function SectorShell({
               <circle cx="10" cy="7" r="3.1" />
               <path d="M4 16.5c.7-2.8 3-4.2 6-4.2s5.3 1.4 6 4.2" />
             </svg>
-          </IconButton>
+          </Link>
 
           <div className="flex items-center gap-3 px-1.5 text-[13px] font-semibold text-[#4A5567]">
             <span>{orgName}</span>

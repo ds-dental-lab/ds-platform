@@ -363,10 +363,18 @@ export function getAvailableActions(status: OrderStatus, sector: Sector): Status
 
   // 디자인으로 되돌리기 — 기공소가 수정을 요청했을 때
   if (canReturnToDesign(status, sector)) {
+    /*
+      ★ 사유를 묻지 않습니다 (사용자 결정 2026-08-12).
+        기공소가 전화나 대화로 이미 말한 뒤에 누르는 버튼입니다.
+        같은 말을 창에 또 적게 하면 손만 늘어납니다.
+
+        누가 언제 되돌렸는지는 order_status_history 에 그대로 남습니다 —
+        기록이 없어지는 것이 아니라 한 번 덜 묻는 것입니다.
+    */
     actions.push({
       to: 'designing',
       label: '디자인 수정',
-      requiresReason: true,
+      requiresReason: false,
       requiresLab: false,
       danger: true,
     });

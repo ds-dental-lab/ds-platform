@@ -55,17 +55,17 @@ function rolesOf(
 /**
  * 사유를 받아야 하는 전이인가.
  *
- * ★ 뒤로 가는 길에만 붙습니다.
- *   되돌리면 상대의 일이 헛수고가 됩니다. 왜 그랬는지가 없으면
- *   같은 일이 반복돼도 아무도 원인을 모릅니다.
+ * ★ 재스캔과 취소만입니다.
+ *   둘 다 상대에게 무언가를 다시 하라고 시키는 일이라, 무엇 때문인지가
+ *   없으면 받는 쪽이 손을 못 댑니다.
  *
- * ★ 접수 → 디자인은 묻지 않습니다.
- *   같은 'designing' 이지만 이쪽은 앞으로 가는 길입니다.
+ * ★ 디자인으로 되돌리는 것은 안 묻습니다 (사용자 결정 2026-08-12).
+ *   기공소가 이미 대화로 말한 뒤에 누르는 버튼입니다. 같은 말을 창에
+ *   또 적게 하면 손만 늘어납니다.
+ *   누가 언제 되돌렸는지는 order_status_history 에 그대로 남습니다.
  */
-function needsReason(from: OrderStatus, to: OrderStatus): boolean {
-  if (to === 'rescan' || to === 'cancelled') return true;
-
-  return to === 'designing' && from !== 'received';
+function needsReason(to: OrderStatus): boolean {
+  return to === 'rescan' || to === 'cancelled';
 }
 
 export async function changeOrderStatus(
@@ -116,7 +116,7 @@ export async function changeOrderStatus(
     return { ok: false, error: verdicts[0].reason ?? '진행할 수 없습니다' };
   }
 
-  if (needsReason(from, to) && !reason?.trim()) {
+  if (needsReason(to) && !reason?.trim()) {
     return { ok: false, error: '사유를 입력해 주세요' };
   }
 
