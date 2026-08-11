@@ -15,6 +15,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { todayInKst } from '@/server/domain/week';
+import { getHomeMoney, type HomeMoney } from '@/server/repositories/home-money';
 import type { OrderStatus } from '@/server/domain/order-status';
 import type { IssueType } from '@/server/domain/order-list';
 
@@ -41,6 +42,8 @@ export interface HomeSummary {
   todayDeliveries: HomeDelivery[];
   /** 아직 안 가져간 수거 */
   pickups: HomePickup[];
+  /** 왼쪽 위 금액 카드. 세는 기준이 섹터마다 다릅니다 (home-money) */
+  money: HomeMoney;
 }
 
 interface RawRow {
@@ -58,6 +61,9 @@ const DONE: OrderStatus[] = ['completed', 'cancelled'];
 export async function getHomeSummary(): Promise<HomeSummary> {
   const supabase = await createClient();
   const today = todayInKst();
+
+  // 금액은 세는 기준이 달라 따로 읽습니다 (접수일/배송일 · 정산기간/달력 월)
+  const money = getHomeMoney();
 
   const { data, error } = await supabase
     .from('orders')
@@ -101,6 +107,7 @@ export async function getHomeSummary(): Promise<HomeSummary> {
     issueCounts,
     todayDeliveries,
     pickups: await listOpenPickups(supabase),
+    money: await money,
   };
 }
 

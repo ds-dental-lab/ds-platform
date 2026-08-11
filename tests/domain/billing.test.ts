@@ -25,6 +25,7 @@ import {
   checkAdjustment,
   groupInvoiceLines,
   formatTeeth,
+  moneyRange,
   type GroupableItem,
 } from '@/server/domain/billing';
 
@@ -539,5 +540,62 @@ describe('세부내역 묶기', () => {
     ).reduce((n, l) => n + l.amount, 0);
 
     expect(after).toBe(before);
+  });
+});
+
+// =========================================================
+// HOME 금액 카드 (사용자 결정 2026-08-12)
+//   치과        접수일 · 자기 정산기간
+//   디자인센터  배송일 · 달력 월
+//   기공소      배송일 · 자기 정산기간
+// =========================================================
+describe('HOME 금액 구간', () => {
+  it('치과는 접수일로, 자기 정산기간 안에서 센다', () => {
+    expect(moneyRange('2026-08-11', 'clinic', 26)).toEqual({
+      from: '2026-07-26',
+      to: '2026-08-25',
+      basis: 'period',
+      countBy: 'received',
+    });
+  });
+
+  // ★ 넣은 것과 나간 것은 다릅니다. 치과가 알고 싶은 건 넣은 쪽입니다
+  it('치과와 기공소는 같은 구간이라도 세는 날짜가 다르다', () => {
+    const clinic = moneyRange('2026-08-11', 'clinic', 26);
+    const lab = moneyRange('2026-08-11', 'lab', 26);
+
+    expect(clinic.from).toBe(lab.from);
+    expect(clinic.to).toBe(lab.to);
+    expect(clinic.countBy).toBe('received');
+    expect(lab.countBy).toBe('shipped');
+  });
+
+  // ★ 거래처마다 기준일이 달라 '이번 정산기간' 이라는 게 하나로 안 나옵니다
+  it('디자인센터는 기준일을 무시하고 달력 월을 쓴다', () => {
+    expect(moneyRange('2026-08-11', 'design_center', 26)).toEqual({
+      from: '2026-08-01',
+      to: '2026-08-31',
+      basis: 'calendar',
+      countBy: 'shipped',
+    });
+  });
+
+  it('기준일을 넘긴 날은 다음 정산기간으로 간다', () => {
+    expect(moneyRange('2026-08-26', 'clinic', 26)).toMatchObject({
+      from: '2026-08-26',
+      to: '2026-09-25',
+    });
+  });
+
+  it('1일 기준이면 정산기간이 달력 월과 같아진다', () => {
+    expect(moneyRange('2026-08-11', 'clinic', 1)).toMatchObject({
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+  });
+
+  // 화면이 죽으면 안 됩니다 — 기준일이 비어 있는 거래처가 있을 수 있습니다
+  it('잘못된 기준일이 와도 구간이 나온다', () => {
+    expect(moneyRange('2026-08-11', 'lab', 0).from).toBe('2026-08-01');
   });
 });

@@ -38,28 +38,62 @@ const ISSUE_ROWS: Record<Sector, IssueType[]> = {
   lab: ['remake', 'repair', 'analog'],
 };
 
-const MONEY_LABEL: Record<Sector, { title: string; trend: string; empty: string }> = {
+/**
+ * 금액 카드의 말.
+ *
+ * ★ 무엇을 세는지 카드에 적습니다 (사용자 결정 2026-08-12).
+ *   치과는 **접수** 기준, 디자인센터·기공소는 **배송** 기준입니다.
+ *   그래서 치과의 HOME 금액과 치과의 정산 금액은 **일부러 다릅니다** —
+ *   하나는 넣은 것, 하나는 나간 것입니다. 안 적어 두면 "왜 다르냐" 는
+ *   전화가 옵니다. 규칙은 domain/billing 의 moneyRange 에 있습니다.
+ */
+interface MoneyLabel {
+  title: string;
+  /** 물음표에 뜨는 말 */
+  hint: string;
+  /** 건수 앞에 붙는 말 — '접수 17건' */
+  countLabel: string;
+  trend: string;
+  empty: string;
+}
+
+const MONEY_LABEL: Record<Sector, MoneyLabel> = {
   clinic: {
     title: '이용 금액',
+    hint: '접수한 건을 기준으로 셉니다. 아직 안 나간 건도 들어 있어 정산서 금액과는 다릅니다',
+    countLabel: '접수',
     trend: '사용금액 추이',
     empty: '최근 6개월 사용 내역이 없습니다.',
   },
   design_center: {
     title: '이용 금액',
+    hint: '배송된 건을 기준으로 셉니다. 거래처마다 정산일이 달라 달력 월로 묶었습니다',
+    countLabel: '배송',
     trend: '사용금액 추이',
     empty: '최근 6개월 사용 내역이 없습니다.',
   },
   lab: {
     title: '당월 판매금액',
+    hint: '배송된 건을 기준으로 셉니다',
+    countLabel: '배송',
     trend: '판매금액 추이',
     empty: '표시할 사용 내역이 없습니다.',
   },
 };
 
-const HOME_PATH: Record<Sector, { deliveries: string; orders: string }> = {
-  clinic: { deliveries: '/clinic/deliveries', orders: '/clinic/orders' },
-  design_center: { deliveries: '/design/deliveries', orders: '/design/orders' },
-  lab: { deliveries: '/lab/shipments', orders: '/lab/orders' },
+/** '2026-07-26' → '07.26' — 카드 안에서는 연도가 군더더기입니다 */
+function shortDate(iso: string): string {
+  return iso.length >= 10 ? `${iso.slice(5, 7)}.${iso.slice(8, 10)}` : iso;
+}
+
+const HOME_PATH: Record<Sector, { deliveries: string; orders: string; billing: string }> = {
+  clinic: { deliveries: '/clinic/deliveries', orders: '/clinic/orders', billing: '/clinic/billing' },
+  design_center: {
+    deliveries: '/design/deliveries',
+    orders: '/design/orders',
+    billing: '/design/billing',
+  },
+  lab: { deliveries: '/lab/shipments', orders: '/lab/orders', billing: '/lab/billing' },
 };
 
 export interface HomeScreenProps {
@@ -80,19 +114,41 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
         <Card>
           <div className="flex items-center gap-1.5">
             <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">{money.title}</h2>
-            <InfoDot title="배송된 건을 기준으로 셉니다" />
+            <InfoDot title={money.hint} />
             <Link
-              href={path.orders}
-              aria-label="자세히 보기"
+              href={path.billing}
+              aria-label="정산에서 자세히 보기"
               className="ml-auto text-[#98A2B3] hover:text-[#1279E8]"
             >
               <ExternalIcon />
             </Link>
           </div>
 
-          <p className="mt-2.5 text-[26px] font-extrabold tracking-[-0.04em] text-[#1A2130]">
-            ₩0
+          <p className="mt-2.5 text-[26px] font-extrabold tracking-[-0.04em] tabular-nums text-[#1A2130]">
+            ₩{summary.money.amount.toLocaleString('ko-KR')}
           </p>
+
+          {/* ★ 구간과 건수를 같이 적습니다.
+              금액만 있으면 '무엇을 센 건지' 를 물어보러 전화가 옵니다.
+              구간이 07.26~08.25 로 보이면 정산일이 26일이라는 것도 같이 압니다 */}
+          <p className="mt-1 text-[12px] text-[#98A2B3]">
+            {summary.money.from ? (
+              <>
+                {shortDate(summary.money.from)} ~ {shortDate(summary.money.to)}
+                <span className="mx-1.5 text-[#DDE2EA]">·</span>
+                {money.countLabel} {summary.money.orderCount}건
+              </>
+            ) : (
+              '아직 셀 것이 없습니다.'
+            )}
+          </p>
+
+          {/* 단가를 안 정한 제품은 0원이 아니라 '미정' 입니다 — 조용히 빠지면 안 됩니다 */}
+          {summary.money.unpricedCount > 0 && (
+            <p className="mt-1.5 text-[11.5px] font-semibold text-[#B3312C]">
+              단가를 안 정한 {summary.money.unpricedCount}건은 이 금액에 안 들어 있습니다.
+            </p>
+          )}
         </Card>
 
         <div className="grid grid-cols-2 gap-3.5">

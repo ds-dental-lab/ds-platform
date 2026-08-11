@@ -132,6 +132,59 @@ function clampClosingDay(day: number): number {
   return Math.min(MAX_CLOSING_DAY, Math.max(MIN_CLOSING_DAY, Math.trunc(day)));
 }
 
+// ---------- HOME 금액 카드가 셀 구간 ----------
+
+/** 구간을 무엇으로 갈랐는가 */
+export type MoneyBasis = 'period' | 'calendar';
+
+/** 어느 날짜로 세는가 */
+export type MoneyCountBy = 'received' | 'shipped';
+
+export interface MoneyRange extends PeriodRange {
+  basis: MoneyBasis;
+  countBy: MoneyCountBy;
+}
+
+/**
+ * HOME 의 금액 카드가 더할 구간과, 그 안에서 무엇을 셀지. (사용자 결정 2026-08-12)
+ *
+ * ★ 치과만 **접수일**로 셉니다.
+ *   *"치과는 접수기준, 디자인센터는 배송일 기준으로"*.
+ *   치과가 HOME 에서 알고 싶은 것은 청구서가 아니라 **"이번 달에 얼마나
+ *   쓰고 있나"** 입니다. 8월에 스무 건을 넣었는데 아직 두 건만 나갔다면,
+ *   배송으로 세는 숫자는 그 달의 씀씀이를 전혀 안 보여 줍니다.
+ *
+ * ★ 디자인센터·기공소는 **배송일**입니다.
+ *   이쪽 숫자는 실제로 주고받을 돈입니다. 청구의 근거가 나간 물건이라
+ *   정산과 같은 잣대여야 합니다 (isBillable 도 배송을 봅니다).
+ *   기공소에는 '접수' 라는 시점 자체가 없습니다 — 배정으로 시작합니다.
+ *
+ * ★ 그래서 치과 HOME 과 치과 정산은 **일부러 다른 숫자**입니다.
+ *   하나는 넣은 것, 하나는 나간 것입니다. 화면이 그렇다고 말해 줘야 합니다.
+ *
+ * ★ 구간은 치과·기공소가 **자기 정산기간**, 디자인센터만 **달력 월**.
+ *   당사자가 하나면 기준일이 하나로 정해집니다. 26일 치과의 HOME 이
+ *   달력 8월을 보여 주면 옆의 정산과 시작·끝이 어긋납니다.
+ *   디자인센터의 금액은 기준일이 제각각인 치과 여럿을 더한 값이라
+ *   '이번 정산기간' 이라는 것이 아예 없습니다 — 없는 기준을 지어내느니
+ *   달력 월이라고 밝히는 편이 낫습니다.
+ */
+export function moneyRange(
+  today: IsoDate,
+  orgType: 'clinic' | 'design_center' | 'lab',
+  closingDay: number,
+): MoneyRange {
+  if (orgType === 'design_center') {
+    return { ...periodRange(yearMonthOf(today), 1), basis: 'calendar', countBy: 'shipped' };
+  }
+
+  return {
+    ...periodRange(periodOfDate(today, closingDay), closingDay),
+    basis: 'period',
+    countBy: orgType === 'clinic' ? 'received' : 'shipped',
+  };
+}
+
 // ---------- 무엇을 청구하는가 ----------
 
 export interface BillableOrder {
