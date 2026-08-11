@@ -20,6 +20,7 @@ import { isAllowedPair, MAX_PER_TOOTH, type Placement } from '@/server/domain/du
 import { computeBridges, type ToothPlacement } from '@/server/domain/bridge';
 import { isValidShade } from '@/server/domain/shade';
 import { checkDueDate } from '@/server/domain/due-date';
+import { canEditSpec, type OrderStatus } from '@/server/domain/order-status';
 import { todayInKst } from '@/server/domain/week';
 import { publishOrderCreated } from '@/server/events';
 
@@ -352,4 +353,132 @@ async function saveBridges(
       await supabase.from('order_bridge_members').insert(memberIds);
     }
   }
+}
+
+// ---------- 수정 ----------
+
+export interface UpdateOrderInput extends CreateOrderInput {
+  orderId: string;
+}
+
+export type UpdateOrderResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * 주문 사양을 고칩니다. (설계서 §2.1 C-4 — 2026-08-11 확정 A안)
+ *
+ * ★ 접수 상태에서만 됩니다.
+ *   재스캔에서는 파일만 바꿉니다 — 디자인센터가 요청한 것은 파일이지
+ *   사양이 아닌데, 몰래 사양이 바뀌면 그대로 잘못 만듭니다.
+ *   화면에서도 막지만 여기서 다시 봅니다 (설계서 §5.3 결정 2).
+ *
+ * ★ 항목은 고치지 않고 지웠다 다시 넣습니다.
+ *   치아 하나를 빼고 둘을 더하는 식의 변경을 일일이 맞춰 넣으려면
+ *   slot 번호와 브릿지 묶음이 어긋나기 쉽습니다. 통째로 다시 만들면
+ *   저장 결과가 늘 화면과 같습니다.
+ */
+export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderResult> {
+  const problem = validateOrder(input, todayInKst());
+  if (problem) return { ok: false, error: problem };
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: '로그인이 필요합니다' };
+
+  // RLS 가 관련 조직만 읽게 해 줍니다 — 여기서는 상태만 다시 봅니다
+  const { data: current } = await supabase
+    .from('orders')
+    .select('status, patient_id')
+    .eq('id', input.orderId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (!current) return { ok: false, error: '주문을 찾을 수 없습니다' };
+
+  const status = current.status as OrderStatus;
+  if (!canEditSpec(status)) {
+    return {
+      ok: false,
+      error:
+        status === 'rescan'
+          ? '재스캔 상태에서는 파일만 바꿀 수 있습니다. 사양을 바꾸려면 주문을 취소하고 새로 넣어 주세요'
+          : '이미 작업이 시작되어 고칠 수 없습니다',
+    };
+  }
+
+  // 환자 표시값은 화면 문자열을 믿지 않고 DB 에서 다시 만듭니다
+  const labels = await buildPatientLabels(supabase, input);
+  if (!labels) return { ok: false, error: '환자를 찾을 수 없습니다' };
+
+  const { error: headError } = await supabase
+    .from('orders')
+    .update({
+      patient_id: input.patientId ?? null,
+      patient_label: labels.plain,
+      patient_label_masked: labels.masked,
+      order_type: input.orderType ?? 'modelless',
+      due_date: input.dueDate,
+      notes: input.notes ?? null,
+    })
+    .eq('id', input.orderId);
+
+  if (headError) {
+    return { ok: false, error: `저장하지 못했습니다: ${headError.message}` };
+  }
+
+  // ★ 항목·브릿지·옵션을 통째로 갈아끼웁니다.
+  //   order_bridges 는 order_id 로 매달려 있어 지우면 멤버도 따라 지워집니다.
+  await supabase.from('order_bridges').delete().eq('order_id', input.orderId);
+  await supabase.from('order_items').delete().eq('order_id', input.orderId);
+  await supabase.from('order_options').delete().eq('order_id', input.orderId);
+
+  const slotCount = new Map<number, number>();
+
+  const rows = input.items.map((item) => {
+    const slot = (slotCount.get(item.tooth) ?? 0) + 1;
+    slotCount.set(item.tooth, slot);
+
+    return {
+      order_id: input.orderId,
+      tooth_number: item.tooth,
+      slot,
+      type_code: item.typeCode,
+      material_code: item.materialCode,
+      is_pontic: item.isPontic ?? false,
+      shade_system: item.shadeSystem ?? null,
+      shade_cervical: item.shadeCervical ?? null,
+      shade_incisal: item.shadeIncisal ?? null,
+      implant_manufacturer: item.implantManufacturer ?? null,
+      implant_type: item.implantType ?? null,
+      implant_size: item.implantSize ?? null,
+      implant_screw: item.implantScrew ?? null,
+      implant_option: item.implantOption ?? null,
+      has_gingival: item.hasGingival ?? false,
+    };
+  });
+
+  const { data: savedItems, error: itemError } = await supabase
+    .from('order_items')
+    .insert(rows)
+    .select('id, tooth_number, slot, type_code, material_code, is_pontic');
+
+  if (itemError || !savedItems) {
+    return { ok: false, error: `보철물 저장에 실패했습니다: ${itemError?.message}` };
+  }
+
+  await saveBridges(supabase, input.orderId, savedItems, input);
+
+  const optionRows = Object.entries(input.options ?? {}).map(([groupId, valueId]) => ({
+    order_id: input.orderId,
+    option_group_id: groupId,
+    option_value_id: valueId,
+  }));
+
+  if (optionRows.length > 0) {
+    await supabase.from('order_options').insert(optionRows);
+  }
+
+  return { ok: true };
 }

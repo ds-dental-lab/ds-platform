@@ -10,6 +10,8 @@ import {
   canTransition,
   requiresDesignFile,
   canEditOrder,
+  canEditSpec,
+  editScopeOf,
   canDeleteOrder,
   canRequestRemake,
   canRequestRepair,
@@ -150,5 +152,45 @@ describe('수정과 리메이크', () => {
     expect(isActionRequired('received', 'design_center')).toBe(true);
     expect(isActionRequired('received', 'clinic')).toBe(false);
     expect(isActionRequired('completed', 'clinic')).toBe(false);
+  });
+});
+
+// =========================================================
+// 무엇을 고칠 수 있는가 (설계서 §2.1 C-4 — 2026-08-11 확정 A안)
+//
+// ★ 재스캔에서 사양까지 열어 두면, 디자인센터는 자기가 요청한 것(파일)만
+//   바뀐 줄 알고 작업을 시작하는데 사양이 달라져 있어 잘못 만듭니다.
+//   그래서 재스캔은 파일만 바꿉니다.
+// =========================================================
+
+describe('수정 범위', () => {
+  it('★ 접수는 전부 고칠 수 있다', () => {
+    expect(editScopeOf('received')).toBe('full');
+    expect(canEditSpec('received')).toBe(true);
+  });
+
+  it('★ 재스캔은 파일만 — 보철 사양은 못 바꾼다', () => {
+    expect(editScopeOf('rescan')).toBe('files');
+    expect(canEditOrder('rescan')).toBe(true);
+    expect(canEditSpec('rescan')).toBe(false);
+  });
+
+  it('작업이 시작된 뒤로는 아무것도 못 고친다', () => {
+    for (const status of ['designing', 'production_wait', 'production', 'shipping'] as const) {
+      expect(editScopeOf(status)).toBe('none');
+      expect(canEditOrder(status)).toBe(false);
+      expect(canEditSpec(status)).toBe(false);
+    }
+  });
+
+  it('끝난 주문도 못 고친다', () => {
+    expect(editScopeOf('completed')).toBe('none');
+    expect(editScopeOf('cancelled')).toBe('none');
+  });
+
+  it('★ 사양을 바꾸려면 취소하고 새로 넣는 길이 열려 있다', () => {
+    // 재스캔에서 사양을 막아도 막다른 길이 아니어야 합니다
+    expect(canCancel('rescan', 'clinic')).toBe(true);
+    expect(canCancel('received', 'clinic')).toBe(true);
   });
 });

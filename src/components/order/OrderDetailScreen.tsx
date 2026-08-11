@@ -390,6 +390,7 @@ export default function OrderDetailScreen({
             status={order.status}
             roles={order.roles}
             orderPath={home.href}
+            editPath={sector === 'clinic' ? `/clinic/orders/${order.id}/edit` : undefined}
           />
 
           <OrderStatusActions

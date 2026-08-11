@@ -133,10 +133,42 @@ export function canUploadDesignFile(status: OrderStatus, sector: Sector): boolea
   return sector === 'design_center' && DESIGN_UPLOAD_FROM.includes(status);
 }
 
-const EDITABLE_STATUSES: OrderStatus[] = ['received', 'rescan'];
+/**
+ * 이 상태에서 무엇을 고칠 수 있는가. (설계서 §2.1 C-4 — 2026-08-11 확정 A안)
+ *
+ *   full   보철 사양 · 요청시한 · 파일 전부
+ *   files  파일만
+ *   none   못 고칩니다
+ *
+ * ★ 재스캔에서는 파일만 바꿉니다.
+ *   재스캔은 디자인센터가 "스캔이 이상하니 다시 찍어 달라" 고 부른 상태입니다.
+ *   문제가 된 것은 파일이지 사양이 아닙니다.
+ *
+ *   여기서 사양까지 열어 두면 이런 일이 생깁니다 —
+ *     치과: 16번 지르코니아 + 스캔 업로드
+ *     디자인센터: 스캔이 흐리네요 → 재스캔 요청
+ *     치과: 스캔 다시 올리면서 17번 추가, 재료도 PMMA 로 변경
+ *     디자인센터: 자기가 요청한 것(파일)만 바뀐 줄 알고 그대로 제작
+ *
+ *   사양을 바꾸려면 취소하고 새로 넣습니다. 취소는 접수·재스캔 둘 다
+ *   되므로 길이 막히지도 않습니다.
+ */
+export type EditScope = 'full' | 'files' | 'none';
 
+export function editScopeOf(status: OrderStatus): EditScope {
+  if (status === 'received') return 'full';
+  if (status === 'rescan') return 'files';
+  return 'none';
+}
+
+/** 무엇이든 고칠 수 있는가 */
 export function canEditOrder(status: OrderStatus): boolean {
-  return EDITABLE_STATUSES.includes(status);
+  return editScopeOf(status) !== 'none';
+}
+
+/** 보철 사양까지 고칠 수 있는가 — 접수 상태에서만 */
+export function canEditSpec(status: OrderStatus): boolean {
+  return editScopeOf(status) === 'full';
 }
 
 export function canDeleteOrder(status: OrderStatus): boolean {

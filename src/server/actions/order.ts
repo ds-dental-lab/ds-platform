@@ -10,8 +10,11 @@
 import { revalidatePath } from 'next/cache';
 import {
   createOrder,
+  updateOrder,
   type CreateOrderInput,
   type CreateOrderResult,
+  type UpdateOrderInput,
+  type UpdateOrderResult,
 } from '@/server/services/order';
 import {
   changeOrderStatus,
@@ -25,6 +28,19 @@ export async function submitOrder(input: CreateOrderInput): Promise<CreateOrderR
 
   if (result.ok) {
     revalidatePath('/clinic');
+  }
+
+  return result;
+}
+
+/** 주문 사양 수정. 접수 상태에서만 됩니다 (설계서 §2.1 C-4) */
+export async function submitUpdateOrder(input: UpdateOrderInput): Promise<UpdateOrderResult> {
+  const result = await updateOrder(input);
+
+  if (result.ok) {
+    // 같은 주문을 치과와 디자인센터가 각자의 화면에서 봅니다
+    revalidatePath('/clinic/orders', 'layout');
+    revalidatePath('/design/orders', 'layout');
   }
 
   return result;

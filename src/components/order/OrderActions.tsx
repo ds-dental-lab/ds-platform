@@ -12,10 +12,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { submitDeleteOrder } from '@/server/actions/order-delete';
 import {
   canDeleteOrder,
-  canEditOrder,
+  canEditSpec,
   canManageOrder,
   STATUS_LABEL,
   type OrderStatus,
@@ -28,6 +29,8 @@ export interface OrderActionsProps {
   roles: Sector[];
   /** 목록으로 돌아갈 주소. 지우고 나면 여기로 보냅니다 */
   orderPath: string;
+  /** 수정 화면 주소. 없으면 수정 버튼이 잠깁니다 (치과에만 있습니다) */
+  editPath?: string;
 }
 
 export default function OrderActions({
@@ -35,6 +38,7 @@ export default function OrderActions({
   status,
   roles,
   orderPath,
+  editPath,
 }: OrderActionsProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -47,9 +51,20 @@ export default function OrderActions({
 
   const busy = saving || pending;
   const deletable = canDeleteOrder(status);
-  const editable = canEditOrder(status);
+  // ★ 사양 수정은 접수에서만. 재스캔은 파일만 바꿉니다 (설계서 §2.1 C-4)
+  const editable = canEditSpec(status) && Boolean(editPath);
 
   const lockedReason = `${STATUS_LABEL[status]} 단계에서는 할 수 없습니다 — 이미 작업이 시작됐습니다`;
+
+  /**
+   * 수정이 안 되는 이유.
+   * 재스캔은 "아직 안 만들었다" 가 아니라 "일부러 막았다" 이므로
+   * 그 자리에서 어떻게 하면 되는지까지 알려 줍니다.
+   */
+  const editLockedReason =
+    status === 'rescan'
+      ? '재스캔에서는 파일만 바꿀 수 있습니다. 사양을 바꾸려면 주문을 취소하고 새로 넣어 주세요'
+      : lockedReason;
 
   async function remove() {
     setError('');
@@ -86,20 +101,25 @@ export default function OrderActions({
         주문 삭제
       </button>
 
-      {/* ★ 수정 화면은 아직 없습니다. 눌러서 404 로 보내느니 이유를 붙여 잠급니다 */}
-      <button
-        type="button"
-        disabled
-        title={
-          editable
-            ? '수정 화면은 아직 준비 중입니다'
-            : lockedReason
-        }
-        className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md border border-[#EEF1F5] px-4 py-2.5 text-[13.5px] font-semibold text-[#C4CBD6]"
-      >
-        <PencilIcon />
-        주문 수정
-      </button>
+      {editable ? (
+        <Link
+          href={editPath!}
+          className="inline-flex items-center gap-1.5 rounded-md border border-[#DDE2EA] px-4 py-2.5 text-[13.5px] font-semibold text-[#4A5567] hover:border-[#1279E8] hover:text-[#1279E8]"
+        >
+          <PencilIcon />
+          주문 수정
+        </Link>
+      ) : (
+        <button
+          type="button"
+          disabled
+          title={editLockedReason}
+          className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md border border-[#EEF1F5] px-4 py-2.5 text-[13.5px] font-semibold text-[#C4CBD6]"
+        >
+          <PencilIcon />
+          주문 수정
+        </button>
+      )}
 
       {error && !asking && (
         <span className="text-[12.5px] font-semibold text-[#D8453F]">{error}</span>

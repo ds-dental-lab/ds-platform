@@ -29,7 +29,7 @@ import ToothChart from '@/components/dental/ToothChart';
 import ProsthesisSummary from '@/components/dental/ProsthesisSummary';
 import ImplantModelDialog from '@/components/dental/ImplantPicker/ImplantModelDialog';
 import { submitAddImplantFavorite } from '@/server/actions/implant';
-import { submitOrder } from '@/server/actions/order';
+import { submitOrder, submitUpdateOrder } from '@/server/actions/order';
 import { uploadOrderFiles } from '@/lib/upload';
 import {
   PROSTHESIS_TYPES,
@@ -60,6 +60,7 @@ import type { ImplantFavorite } from '@/server/repositories/implant';
 import type { ProductionOptionGroup } from '@/server/repositories/production-option';
 import type { OptionPreset } from '@/server/repositories/option-preset';
 import type { IsoDate } from '@/server/domain/week';
+import type { OrderFormInitial } from '@/components/order/orderFormInitial';
 
 interface Entry extends ToothPlacement {
   shadeSystem: string;
@@ -84,6 +85,11 @@ export interface NewOrderFormProps {
   implantFavorites: ImplantFavorite[];
   optionGroups: ProductionOptionGroup[];
   optionPresets: OptionPreset[];
+  /**
+   * 고칠 주문. 주면 수정 모드가 됩니다.
+   * 접수 상태에서만 넘어옵니다 — 재스캔은 파일만 바꿉니다 (설계서 §2.1 C-4).
+   */
+  initial?: OrderFormInitial;
 }
 
 export default function NewOrderForm({
@@ -94,16 +100,18 @@ export default function NewOrderForm({
   implantFavorites,
   optionGroups,
   optionPresets,
+  initial,
 }: NewOrderFormProps) {
   const router = useRouter();
+  const editing = Boolean(initial);
 
   // ---------- 환자정보 ----------
   // 적힌 글자와, 그 글자가 실제 환자와 맞아떨어졌을 때의 환자.
   // 안 맞아도 주문은 나갑니다 — 이름만 적고 지나가는 경우가 더 많습니다.
-  const [patientText, setPatientText] = useState('');
+  const [patientText, setPatientText] = useState(initial?.patientText ?? '');
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [dueDate, setDueDate] = useState<IsoDate>(defaultDue);
-  const [orderType, setOrderType] = useState<string>('modelless');
+  const [dueDate, setDueDate] = useState<IsoDate>(initial?.dueDate ?? defaultDue);
+  const [orderType, setOrderType] = useState<string>(initial?.orderType ?? 'modelless');
 
   // ---------- 보철선택 ----------
   const [typeCode, setTypeCode] = useState('crown');
@@ -125,18 +133,20 @@ export default function NewOrderForm({
 
   // ---------- 치식선택 ----------
   const [isPontic, setIsPontic] = useState(false);
-  const [entries, setEntries] = useState<Entry[]>([]);
+  const [entries, setEntries] = useState<Entry[]>(initial?.entries ?? []);
   const [severedKeys, setSeveredKeys] = useState<string[]>([]);
 
   // ---------- 제작옵션 · 나머지 ----------
-  const [options, setOptions] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
+  const [options, setOptions] = useState<Record<string, string>>(() => {
+    const defaults = Object.fromEntries(
       optionGroups
         .map((g) => [g.id, (g.values.find((v) => v.isDefault) ?? g.values[0])?.id])
         .filter(([, v]) => Boolean(v)) as [string, string][],
-    ),
-  );
-  const [notes, setNotes] = useState('');
+    );
+    // 저장된 값이 있으면 덮어씁니다. 못 찾은 줄은 기본값 그대로 둡니다
+    return { ...defaults, ...(initial?.options ?? {}) };
+  });
+  const [notes, setNotes] = useState(initial?.notes ?? '');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const [saving, setSaving] = useState(false);
@@ -386,34 +396,53 @@ export default function NewOrderForm({
     setSaving(true);
     setProgress('');
 
+    /** 주문 하나로 묶어 보낼 항목들 — 등록과 수정이 같은 모양을 씁니다 */
+    const payload = {
+      patientId: patient?.id ?? null,
+      patientLabel: patientText.trim(),
+      orderType: orderType as 'modelless' | 'analog',
+      dueDate,
+      notes,
+      severedKeys,
+      options,
+      items: entries.map((e) => ({
+        tooth: e.tooth,
+        typeCode: e.typeCode,
+        materialCode: e.materialCode,
+        isPontic: e.isPontic,
+        shadeSystem: e.shadeSystem,
+        shadeCervical: e.shade.cervical,
+        shadeIncisal: e.shade.incisal,
+        implantManufacturer: e.implant.manufacturerCode,
+        implantType: e.implant.typeCode,
+        implantSize: e.implant.sizeCode,
+        implantScrew: e.implant.screwCode,
+        implantOption: e.implant.option,
+        hasGingival: e.hasGingival,
+      })),
+    };
+
+    // ---------- 수정 ----------
+    if (initial) {
+      const result = await submitUpdateOrder({ ...payload, orderId: initial.orderId });
+      setSaving(false);
+
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      router.push(`/clinic/orders/${initial.orderId}`);
+      router.refresh();
+      return;
+    }
+
+    // ---------- 등록 ----------
     let orderId = createdOrderId;
     let orderNo = createdOrderNo;
 
     if (!orderId) {
-      const result = await submitOrder({
-        patientId: patient?.id ?? null,
-        patientLabel: patientText.trim(),
-        orderType: orderType as 'modelless' | 'analog',
-        dueDate,
-        notes,
-        severedKeys,
-        options,
-        items: entries.map((e) => ({
-          tooth: e.tooth,
-          typeCode: e.typeCode,
-          materialCode: e.materialCode,
-          isPontic: e.isPontic,
-          shadeSystem: e.shadeSystem,
-          shadeCervical: e.shade.cervical,
-          shadeIncisal: e.shade.incisal,
-          implantManufacturer: e.implant.manufacturerCode,
-          implantType: e.implant.typeCode,
-          implantSize: e.implant.sizeCode,
-          implantScrew: e.implant.screwCode,
-          implantOption: e.implant.option,
-          hasGingival: e.hasGingival,
-        })),
-      });
+      const result = await submitOrder(payload);
 
       if (!result.ok) {
         setSaving(false);
@@ -500,16 +529,28 @@ export default function NewOrderForm({
    *   손도 안 댄 폼에서 나가려는데 묻는 건 성가시기만 합니다.
    *   이미 저장된 뒤(done)에도 묻지 않습니다 — 잃을 것이 없습니다.
    */
-  const dirty =
-    !done &&
-    (patientText.trim().length > 0 ||
-      entries.length > 0 ||
-      notes.trim().length > 0 ||
-      pendingFiles.length > 0);
+  const dirty = editing
+    // 수정 모드는 처음부터 값이 차 있습니다. 무엇이든 손댔으면 지킵니다
+    ? patientText !== initial!.patientText ||
+      notes !== initial!.notes ||
+      dueDate !== initial!.dueDate ||
+      orderType !== initial!.orderType ||
+      entries.length !== initial!.entries.length ||
+      pendingFiles.length > 0
+    : !done &&
+      (patientText.trim().length > 0 ||
+        entries.length > 0 ||
+        notes.trim().length > 0 ||
+        pendingFiles.length > 0);
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
-      <LeaveGuard dirty={dirty} />
+      <LeaveGuard
+        dirty={dirty}
+        title={
+          editing ? '수정 중인 내용이 있습니다. 이동할까요?' : '작성 중인 주문이 있습니다. 이동할까요?'
+        }
+      />
       {/* ---------- ① 환자정보 ---------- */}
       <div id="sec-patient" className="scroll-mt-16">
         <OrderSection icon={SECTION_ICON.patient} title="환자정보">
@@ -958,7 +999,9 @@ export default function NewOrderForm({
       <div className="flex gap-2 pb-10">
         <button
           type="button"
-          onClick={() => router.push('/clinic/orders')}
+          onClick={() =>
+            router.push(editing ? `/clinic/orders/${initial!.orderId}` : '/clinic/orders')
+          }
           className="h-12 rounded border border-[#DDE2EA] px-6 text-[14px] text-[#4A5567] hover:bg-[#F4F6F9]"
         >
           취소
@@ -970,7 +1013,13 @@ export default function NewOrderForm({
           disabled={saving}
           className="h-12 flex-1 rounded bg-[#1279E8] text-[15px] font-bold text-white hover:bg-[#0F68C9] disabled:cursor-not-allowed disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
         >
-          {saving ? '처리 중…' : createdOrderId ? '파일 다시 시도' : '주문완료'}
+          {saving
+            ? '처리 중…'
+            : editing
+              ? '수정 완료'
+              : createdOrderId
+                ? '파일 다시 시도'
+                : '주문완료'}
         </button>
       </div>
     </div>
