@@ -87,14 +87,28 @@ function shortDate(iso: string): string {
   return iso.length >= 10 ? `${iso.slice(5, 7)}.${iso.slice(8, 10)}` : iso;
 }
 
-const HOME_PATH: Record<Sector, { deliveries: string; orders: string; billing: string }> = {
-  clinic: { deliveries: '/clinic/deliveries', orders: '/clinic/orders', billing: '/clinic/billing' },
+const HOME_PATH: Record<
+  Sector,
+  { deliveries: string; orders: string; billing: string; notices: string }
+> = {
+  clinic: {
+    deliveries: '/clinic/deliveries',
+    orders: '/clinic/orders',
+    billing: '/clinic/billing',
+    notices: '/clinic/notices',
+  },
   design_center: {
     deliveries: '/design/deliveries',
     orders: '/design/orders',
     billing: '/design/billing',
+    notices: '/design/notices',
   },
-  lab: { deliveries: '/lab/shipments', orders: '/lab/orders', billing: '/lab/billing' },
+  lab: {
+    deliveries: '/lab/shipments',
+    orders: '/lab/orders',
+    billing: '/lab/billing',
+    notices: '/lab/notices',
+  },
 };
 
 export interface HomeScreenProps {
@@ -259,9 +273,43 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
         <Card className="min-h-[230px]">
           <div className="flex items-center">
             <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">공지사항</h2>
-            <span className="ml-auto text-[12.5px] text-[#4A5567]">전체보기 ›</span>
+            <Link
+              href={path.notices}
+              className="ml-auto text-[12.5px] text-[#4A5567] hover:text-[#1279E8]"
+            >
+              전체보기 ›
+            </Link>
           </div>
-          <Empty className="py-16">등록된 공지가 없습니다.</Empty>
+
+          {/* ★ 제목만 보여 주고 본문은 게시판에서 읽습니다.
+              카드에 본문까지 펴면 공지 두 건에 카드가 화면을 채웁니다 */}
+          {summary.notices.length === 0 ? (
+            <Empty className="py-16">등록된 공지가 없습니다.</Empty>
+          ) : (
+            <ul className="-mx-1.5 mt-2">
+              {summary.notices.map((notice) => (
+                <li key={notice.id}>
+                  <Link
+                    href={path.notices}
+                    className="flex items-baseline gap-2 rounded px-1.5 py-[7px] hover:bg-[#F4F8FE]"
+                  >
+                    {notice.isPinned && (
+                      <span className="shrink-0 text-[11px] font-bold text-[#D8453F]">고정</span>
+                    )}
+                    {notice.publishedAt === null && (
+                      <span className="shrink-0 text-[11px] font-bold text-[#98A2B3]">임시</span>
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] text-[#1A2130]">
+                      {notice.title}
+                    </span>
+                    <span className="shrink-0 text-[11px] tabular-nums text-[#C4CBD6]">
+                      {(notice.publishedAt ?? notice.createdAt).slice(5, 10)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
 
         <Card className="min-h-[300px]">

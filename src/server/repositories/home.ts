@@ -16,6 +16,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { todayInKst } from '@/server/domain/week';
 import { getHomeMoney, type HomeMoney } from '@/server/repositories/home-money';
+import { listNotices, type NoticeRow } from '@/server/repositories/notice';
 import type { OrderStatus } from '@/server/domain/order-status';
 import type { IssueType } from '@/server/domain/order-list';
 
@@ -67,7 +68,12 @@ export interface HomeSummary {
   money: HomeMoney;
   /** 디자인센터 작업 리스트. 급한 것부터 */
   worklist: HomeWork[];
+  /** 오른쪽 위 공지 카드. 고정 먼저, 최근 먼저 */
+  notices: NoticeRow[];
 }
+
+/** HOME 카드에 몇 줄까지 보일지 */
+const HOME_NOTICES = 5;
 
 interface RawRow {
   id: string;
@@ -87,6 +93,8 @@ export async function getHomeSummary(): Promise<HomeSummary> {
 
   // 금액은 세는 기준이 달라 따로 읽습니다 (접수일/배송일 · 정산기간/달력 월)
   const money = getHomeMoney();
+  // 공지는 다른 표라 함께 시작해 두고 아래에서 받습니다
+  const notices = listNotices(HOME_NOTICES);
 
   const { data, error } = await supabase
     .from('orders')
@@ -155,6 +163,7 @@ export async function getHomeSummary(): Promise<HomeSummary> {
     pickups: await listOpenPickups(supabase),
     money: await money,
     worklist,
+    notices: await notices,
   };
 }
 

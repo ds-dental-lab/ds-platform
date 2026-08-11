@@ -126,7 +126,7 @@ const NAV: Record<Sector, NavItem[]> = {
     { label: '배송조회', href: '/clinic/deliveries', icon: NAV_ICON.delivery },
     { label: '정산', href: '/clinic/billing', icon: NAV_ICON.billing },
     { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
-    { label: '게시판', icon: NAV_ICON.board, soon: 'Sprint 9' },
+    { label: '게시판', href: '/clinic/notices', icon: NAV_ICON.board },
   ],
   // 시안 순서 그대로입니다 — HOME · 주문등록 · 주문목록 · 배송조회 ·
   // 정산관리 · 사용자 · 제품 · 휴일 · 임플란트 · 게시판
@@ -140,7 +140,7 @@ const NAV: Record<Sector, NavItem[]> = {
     { label: '제품', href: '/design/products', icon: NAV_ICON.product },
     { label: '휴일', icon: NAV_ICON.holiday, soon: '휴일 관리' },
     { label: '임플란트', href: '/design/implants', icon: NAV_ICON.implant },
-    { label: '게시판', icon: NAV_ICON.board, soon: 'Sprint 9' },
+    { label: '게시판', href: '/design/notices', icon: NAV_ICON.board },
   ],
   lab: [
     { label: 'HOME', href: '/lab', icon: NAV_ICON.home },
@@ -149,7 +149,7 @@ const NAV: Record<Sector, NavItem[]> = {
     { label: '정산', href: '/lab/billing', icon: NAV_ICON.billing },
     { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
     { label: '제품', icon: NAV_ICON.product, soon: '기공소 단가' },
-    { label: '게시판', icon: NAV_ICON.board, soon: 'Sprint 9' },
+    { label: '게시판', href: '/lab/notices', icon: NAV_ICON.board },
   ],
 };
 
