@@ -125,3 +125,33 @@ export function isBridgeable(typeCode: string): boolean {
 export function requiresImplantModel(typeCode: string): boolean {
   return typeCode === 'implant';
 }
+
+// ---------- 표시 색 (시안 .proto --pc / --ps) ----------
+
+/**
+ * 보철 종류마다 고유한 색이 있습니다.
+ * 칩·치식도·요약이 모두 같은 색을 씁니다 — 화면 어디서 보든 같은 것으로 읽히도록.
+ */
+export const TYPE_COLOR: Record<string, { line: string; soft: string }> = {
+  crown:   { line: '#E0409A', soft: '#FCEAF3' },
+  inlay:   { line: '#1B63E8', soft: '#EDF3FE' },
+  implant: { line: '#7C6BE8', soft: '#EDEBFB' },
+};
+
+export function colorOfType(typeCode: string): { line: string; soft: string } {
+  return TYPE_COLOR[typeCode] ?? { line: '#4A5567', soft: '#F4F6F9' };
+}
+
+// ---------- 치은포셀린 ----------
+
+/**
+ * 치은포셀린을 붙일 수 있는가.
+ *
+ * ★ 인레이에는 붙지 않습니다.
+ *   인레이는 치아 안쪽을 메우는 것이라 잇몸에 닿는 부위가 없습니다.
+ *
+ * 추가 과금 항목이라 금액은 디자인센터가 정합니다 (surcharge_prices).
+ */
+export function allowsGingival(typeCode: string): boolean {
+  return typeCode !== 'inlay';
+}

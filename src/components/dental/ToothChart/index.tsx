@@ -1,76 +1,40 @@
 // =========================================================
 // 놓을 위치: src/components/dental/ToothChart/index.tsx
 //
-// 치식도. (기능명세서 §4.2.5, §4.2.6)
+// 치식도. (기능명세서 §4.2.5 §4.2.6, 시안 .arch)
 //   상악 18~28 / 하악 48~38
-//   치종별 외곽선 · 정중선 기준 좌우 반전 · 상악은 상하 반전
-//   폰틱은 번호 대신 X · 중복 등록은 2 배지
-//   브릿지 박스와 − 버튼
+//
+// 조작 (시안 arch-hint)
+//   왼쪽 클릭 — 지금 고른 보철을 그 치아에 찍습니다
+//   우클릭   — 그 치아를 폰틱으로 지정 · 해제
+//   휠클릭   — 치은포셀린 추가 · 해제 (인레이에는 붙지 않습니다)
+//
+// 연결된 치아는 하나의 상자로 묶이고, 이음매의 − 버튼으로 끊습니다.
+// 끊어 둔 자리에는 + 가 남아 다시 붙일 수 있습니다.
 // =========================================================
 
 'use client';
 
-import { getAllTeeth, getToothType, getArch, getQuadrant } from '@/server/domain/tooth';
-import {
-  computeBridges,
-  canSever,
-  type ToothPlacement,
-} from '@/server/domain/bridge';
-import { getShape, MAX_TOOTH_HEIGHT } from './toothShapes';
+import { getAllTeeth, getToothType, getArch } from '@/server/domain/tooth';
+import { computeBridges, canSever, linkKey, type ToothPlacement } from '@/server/domain/bridge';
+import { colorOfType, allowsGingival } from '@/server/domain/prosthesis';
+import { getShape } from './toothShapes';
 
-// ---------- 보철 종류별 색 ----------
-
-const TYPE_COLOR: Record<string, { fill: string; stroke: string; text: string }> = {
-  crown:   { fill: '#DBEAFE', stroke: '#1279E8', text: '#0F4C96' },
-  inlay:   { fill: '#DCFCE7', stroke: '#16A34A', text: '#14532D' },
-  implant: { fill: '#FEF3C7', stroke: '#D97706', text: '#7C4A03' },
-};
-
-const EMPTY_STYLE = { fill: '#FFFFFF', stroke: '#4A5567', text: '#1A2130' };
-
-// ---------- 배치 ----------
-
-const GAP = 8;
-const PAD_X = 12;
-const TOP = 26;                                    // 브릿지 버튼 자리
-const ROW_HEIGHT = TOP + MAX_TOOTH_HEIGHT + 18;
-
-interface Slot {
-  tooth: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+/** 치식도가 다루는 한 치아. 중복 등록된 치아는 두 줄이 됩니다 */
+export interface ChartPlacement extends ToothPlacement {
+  /** 치은포셀린이 붙었는가 */
+  hasGingival?: boolean;
 }
-
-/**
- * 한 줄을 배치합니다.
- * 상악은 아래 끝을, 하악은 위 끝을 맞춰 서로 마주 보게 합니다.
- */
-function layoutRow(teeth: number[]): { slots: Slot[]; totalWidth: number } {
-  const slots: Slot[] = [];
-  let x = PAD_X;
-
-  for (const tooth of teeth) {
-    const arch = getArch(tooth);
-    const { width, height } = getShape(getToothType(tooth), arch);
-    const y = arch === 'upper' ? TOP + (MAX_TOOTH_HEIGHT - height) : TOP;
-
-    slots.push({ tooth, x, y, width, height });
-    x += width + GAP;
-  }
-
-  return { slots, totalWidth: x - GAP + PAD_X };
-}
-
-// ---------- Props ----------
 
 export interface ToothChartProps {
-  /** 치식도에 올라간 보철 전부. 중복 등록된 치아는 두 줄이 됩니다 */
-  placements?: ToothPlacement[];
+  placements?: ChartPlacement[];
   /** 사용자가 − 로 끊어 둔 연결 지점 */
   severedKeys?: string[];
   onToothClick?: (tooth: number) => void;
+  /** 우클릭 — 폰틱 토글 */
+  onTogglePontic?: (tooth: number) => void;
+  /** 휠클릭 — 치은포셀린 토글 */
+  onToggleGingival?: (tooth: number) => void;
   onSeverLink?: (key: string) => void;
   readOnly?: boolean;
 }
@@ -79,6 +43,8 @@ export default function ToothChart({
   placements = [],
   severedKeys = [],
   onToothClick,
+  onTogglePontic,
+  onToggleGingival,
   onSeverLink,
   readOnly = false,
 }: ToothChartProps) {
@@ -86,24 +52,33 @@ export default function ToothChart({
   const bridges = computeBridges(placements, severedKeys);
 
   return (
-    <div className="w-full overflow-x-auto">
-      <div className="min-w-[860px] select-none">
+    <div className="w-full overflow-x-auto px-2.5 pb-4 pt-1.5">
+      <div className="min-w-[860px]">
         <ArchRow
           teeth={upper}
           placements={placements}
           bridges={bridges}
+          severedKeys={severedKeys}
           onToothClick={onToothClick}
+          onTogglePontic={onTogglePontic}
+          onToggleGingival={onToggleGingival}
           onSeverLink={onSeverLink}
           readOnly={readOnly}
         />
-        <div className="h-4" />
+
+        <div className="h-7" />
+
         <ArchRow
           teeth={lower}
           placements={placements}
           bridges={bridges}
+          severedKeys={severedKeys}
           onToothClick={onToothClick}
+          onTogglePontic={onTogglePontic}
+          onToggleGingival={onToggleGingival}
           onSeverLink={onSeverLink}
           readOnly={readOnly}
+          lower
         />
       </div>
     </div>
@@ -112,183 +87,313 @@ export default function ToothChart({
 
 // ---------- 한 줄 (상악 또는 하악) ----------
 
+interface RowProps {
+  teeth: number[];
+  placements: ChartPlacement[];
+  bridges: ReturnType<typeof computeBridges>;
+  severedKeys: string[];
+  onToothClick?: (tooth: number) => void;
+  onTogglePontic?: (tooth: number) => void;
+  onToggleGingival?: (tooth: number) => void;
+  onSeverLink?: (key: string) => void;
+  readOnly: boolean;
+  lower?: boolean;
+}
+
 function ArchRow({
   teeth,
   placements,
   bridges,
+  severedKeys,
   onToothClick,
+  onTogglePontic,
+  onToggleGingival,
   onSeverLink,
   readOnly,
-}: {
-  teeth: number[];
-  placements: ToothPlacement[];
-  bridges: ReturnType<typeof computeBridges>;
-  onToothClick?: (tooth: number) => void;
-  onSeverLink?: (key: string) => void;
-  readOnly: boolean;
-}) {
-  const { slots, totalWidth } = layoutRow(teeth);
-  const slotOf = (tooth: number) => slots.find((s) => s.tooth === tooth);
+  lower = false,
+}: RowProps) {
+  /**
+   * 이 줄을 [묶음 | 낱개] 덩어리로 나눕니다.
+   * 묶음은 한 상자 안에 들어가고, 그 사이에는 이음매가 생깁니다.
+   */
+  const chunks: { teeth: number[]; bridge: (typeof bridges)[number] | null }[] = [];
+  let index = 0;
 
-  const rowBridges = bridges.filter((b) => b.teeth.every((t) => slotOf(t)));
+  while (index < teeth.length) {
+    const tooth = teeth[index];
+    const bridge = bridges.find((b) => b.teeth.includes(tooth) && b.teeth.every((t) => teeth.includes(t)));
+
+    if (bridge) {
+      // 묶음은 통째로 담고 그만큼 건너뜁니다
+      const run = teeth.slice(index, index + bridge.teeth.length);
+      chunks.push({ teeth: run, bridge });
+      index += bridge.teeth.length;
+    } else {
+      chunks.push({ teeth: [tooth], bridge: null });
+      index += 1;
+    }
+  }
 
   return (
-    <svg
-      viewBox={`0 0 ${totalWidth} ${ROW_HEIGHT}`}
-      className="w-full"
-      role="group"
-      aria-label={getArch(teeth[0]) === 'upper' ? '상악 치식도' : '하악 치식도'}
-    >
-      {/* 브릿지 박스는 치아 뒤에 깔립니다 */}
-      {rowBridges.map((bridge) => {
-        const boxSlots = bridge.teeth.map((t) => slotOf(t)!);
-        const left = Math.min(...boxSlots.map((s) => s.x)) - 5;
-        const right = Math.max(...boxSlots.map((s) => s.x + s.width)) + 5;
-        const color = TYPE_COLOR[bridge.typeCode] ?? EMPTY_STYLE;
+    <div className={'flex flex-nowrap items-center justify-center ' + (lower ? 'items-start' : '')}>
+      {chunks.map((chunk, ci) => {
+        const prev = chunks[ci - 1];
+
+        // 덩어리 사이의 틈 — 끊어 둔 자리면 + 로 되붙일 수 있습니다
+        const gapKey =
+          prev && prev.teeth.length && chunk.teeth.length
+            ? linkKey(prev.teeth[prev.teeth.length - 1], chunk.teeth[0])
+            : null;
+
+        const rejoinable = gapKey !== null && severedKeys.includes(gapKey);
 
         return (
-          <g key={`${bridge.typeCode}-${bridge.materialCode}-${bridge.teeth[0]}`}>
-            <rect
-              x={left}
-              y={TOP - 9}
-              width={right - left}
-              height={MAX_TOOTH_HEIGHT + 18}
-              rx={9}
-              fill="none"
-              stroke={color.stroke}
-              strokeWidth={1.5}
-              strokeDasharray={bridge.hasPontic ? '0' : '5 3'}
+          <div key={chunk.teeth[0]} className="flex items-center">
+            {ci > 0 && (
+              <span className="relative grid h-[22px] w-[13px] shrink-0 place-items-center self-center">
+                {rejoinable && !readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => onSeverLink?.(gapKey!)}
+                    aria-label={`${prev!.teeth[prev!.teeth.length - 1]}번과 ${chunk.teeth[0]}번 다시 연결`}
+                    title="다시 연결"
+                    className="grid h-[17px] w-[17px] place-items-center rounded-full border-[1.6px] border-[#1B63E8] bg-white p-0 text-[12px] font-extrabold leading-none text-[#1B63E8] opacity-40 transition hover:scale-110 hover:opacity-100"
+                  >
+                    +
+                  </button>
+                )}
+              </span>
+            )}
+
+            {chunk.bridge ? (
+              <BridgeBox
+                bridge={chunk.bridge}
+                placements={placements}
+                onToothClick={onToothClick}
+                onTogglePontic={onTogglePontic}
+                onToggleGingival={onToggleGingival}
+                onSeverLink={onSeverLink}
+                readOnly={readOnly}
+                lower={lower}
+              />
+            ) : (
+              <Tooth
+                tooth={chunk.teeth[0]}
+                placements={placements.filter((p) => p.tooth === chunk.teeth[0])}
+                onClick={onToothClick}
+                onTogglePontic={onTogglePontic}
+                onToggleGingival={onToggleGingival}
+                readOnly={readOnly}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------- 연결된 묶음 ----------
+
+function BridgeBox({
+  bridge,
+  placements,
+  onToothClick,
+  onTogglePontic,
+  onToggleGingival,
+  onSeverLink,
+  readOnly,
+  lower,
+}: {
+  bridge: ReturnType<typeof computeBridges>[number];
+  placements: ChartPlacement[];
+  onToothClick?: (tooth: number) => void;
+  onTogglePontic?: (tooth: number) => void;
+  onToggleGingival?: (tooth: number) => void;
+  onSeverLink?: (key: string) => void;
+  readOnly: boolean;
+  lower: boolean;
+}) {
+  const color = colorOfType(bridge.typeCode);
+
+  return (
+    <div
+      className="relative flex items-center rounded-xl border-2 px-2.5 py-2"
+      style={{
+        borderColor: color.line,
+        background: color.soft,
+        boxShadow: '0 1px 3px rgba(26,33,48,.07)',
+      }}
+    >
+      {bridge.teeth.map((tooth, i) => {
+        const prev = bridge.teeth[i - 1];
+        const key = prev !== undefined ? linkKey(prev, tooth) : null;
+        const severable = key !== null && canSever(bridge, key);
+
+        return (
+          <div key={tooth} className="flex items-center">
+            {i > 0 && (
+              <span className="relative w-1 shrink-0 self-stretch">
+                {severable && !readOnly && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSeverLink?.(key!);
+                    }}
+                    aria-label={`${prev}번과 ${tooth}번 연결 끊기`}
+                    title="연결 끊기"
+                    className={
+                      'absolute left-1/2 grid h-5 w-5 -translate-x-1/2 place-items-center rounded-full border-2 border-white bg-[#5C6779] p-0 text-[13px] font-extrabold leading-none text-white shadow transition hover:scale-110 hover:bg-[#C4383A] ' +
+                      (lower ? '-bottom-[19px]' : '-top-[19px]')
+                    }
+                  >
+                    −
+                  </button>
+                )}
+              </span>
+            )}
+
+            <Tooth
+              tooth={tooth}
+              placements={placements.filter((p) => p.tooth === tooth)}
+              onClick={onToothClick}
+              onTogglePontic={onTogglePontic}
+              onToggleGingival={onToggleGingival}
+              readOnly={readOnly}
             />
-
-            {/* 연결 지점마다 − 버튼. 폰틱이 끼면 나오지 않습니다 */}
-            {bridge.links.map((link) => {
-              if (!canSever(bridge, link.key) || readOnly) return null;
-
-              const a = slotOf(link.from)!;
-              const b = slotOf(link.to)!;
-              const cx = (a.x + a.width / 2 + b.x + b.width / 2) / 2;
-
-              return (
-                <g
-                  key={link.key}
-                  className="cursor-pointer"
-                  onClick={() => onSeverLink?.(link.key)}
-                  role="button"
-                  aria-label={`${link.from}번과 ${link.to}번 연결 끊기`}
-                >
-                  <circle cx={cx} cy={TOP - 9} r={8.5} fill="#FFFFFF" stroke={color.stroke} strokeWidth={1.5} />
-                  <line x1={cx - 4} y1={TOP - 9} x2={cx + 4} y2={TOP - 9} stroke={color.stroke} strokeWidth={2} />
-                </g>
-              );
-            })}
-          </g>
+          </div>
         );
       })}
 
-      {/* 치아 */}
-      {slots.map((slot) => (
-        <Tooth
-          key={slot.tooth}
-          slot={slot}
-          placements={placements.filter((p) => p.tooth === slot.tooth)}
-          onClick={readOnly ? undefined : () => onToothClick?.(slot.tooth)}
-        />
-      ))}
-    </svg>
+      <span
+        className={
+          'absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg px-[7px] py-px text-[9.5px] font-extrabold tracking-[-0.02em] text-white ' +
+          (lower ? '-top-[9px]' : '-bottom-[9px]')
+        }
+        style={{ background: color.line }}
+      >
+        연결
+      </span>
+    </div>
   );
 }
 
 // ---------- 치아 하나 ----------
 
 function Tooth({
-  slot,
+  tooth,
   placements,
   onClick,
+  onTogglePontic,
+  onToggleGingival,
+  readOnly,
 }: {
-  slot: Slot;
-  placements: ToothPlacement[];
-  onClick?: () => void;
+  tooth: number;
+  placements: ChartPlacement[];
+  onClick?: (tooth: number) => void;
+  onTogglePontic?: (tooth: number) => void;
+  onToggleGingival?: (tooth: number) => void;
+  readOnly: boolean;
 }) {
-  const { tooth, x, y, width, height } = slot;
   const arch = getArch(tooth);
   const shape = getShape(getToothType(tooth), arch);
 
-  // 좌측 사분악(2·3)은 좌우로, 상악은 위아래로 뒤집습니다
-  const quadrant = getQuadrant(tooth);
-  const mirrored = quadrant === 2 || quadrant === 3;
-  const flipped = arch === 'upper';
-
-  // 100×100 경로를 실제 크기로 늘린 뒤 뒤집습니다.
-  // 가로·세로를 따로 늘리므로 앞니가 작아지지 않습니다.
-  const transform = [
-    `translate(${x},${y})`,
-    `scale(${width / 100},${height / 100})`,
-    `translate(${mirrored ? 100 : 0},${flipped ? 100 : 0})`,
-    `scale(${mirrored ? -1 : 1},${flipped ? -1 : 1})`,
-  ].join(' ');
-
   const primary = placements[0];
-  const style = primary ? TYPE_COLOR[primary.typeCode] ?? EMPTY_STYLE : EMPTY_STYLE;
+  const color = primary ? colorOfType(primary.typeCode) : null;
   const isPontic = placements.some((p) => p.isPontic);
   const isDuplicate = placements.length >= 2;
+  const hasGingival = placements.some((p) => p.hasGingival);
 
-  // 글자는 뒤집히면 안 되므로 바깥 좌표계에 그립니다
-  const cx = x + width / 2;
-  const cy = y + height * 0.58;
+  const label = [
+    `${tooth}번`,
+    primary ? '선택됨' : '',
+    isPontic ? '폰틱' : '',
+    hasGingival ? '치은포셀린' : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
-    <g
-      className={onClick ? 'cursor-pointer' : undefined}
-      onClick={onClick}
-      role={onClick ? 'button' : undefined}
-      aria-label={`${tooth}번 치아${isPontic ? ' 폰틱' : ''}`}
+    <button
+      type="button"
+      disabled={readOnly}
+      onClick={() => onClick?.(tooth)}
+      // 우클릭 = 폰틱
+      onContextMenu={(e) => {
+        if (readOnly) return;
+        e.preventDefault();
+        onTogglePontic?.(tooth);
+      }}
+      // 휠(가운데) 클릭 = 치은포셀린
+      // ★ 우클릭은 contextmenu 에서만 받습니다. 두 곳에서 받으면 두 번 토글돼 서로 취소됩니다.
+      onAuxClick={(e) => {
+        if (readOnly || e.button !== 1) return;
+        e.preventDefault();
+        onToggleGingival?.(tooth);
+      }}
+      onMouseDown={(e) => {
+        if (e.button === 1) e.preventDefault(); // 가운데 클릭의 자동 스크롤을 막습니다
+      }}
+      aria-label={label}
+      className={
+        'relative grid shrink-0 place-items-center border-none bg-transparent p-0 transition-transform ' +
+        (readOnly ? '' : 'hover:-translate-y-0.5')
+      }
     >
-      <path
-        d={shape.path}
-        transform={transform}
-        fill={style.fill}
-        stroke={style.stroke}
-        strokeWidth={primary ? 2.4 : 1.6}
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
+      <svg
+        width={shape.width}
+        height={shape.height}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="block overflow-visible"
+        style={arch === 'upper' ? { transform: 'scaleY(-1)' } : undefined}
+        aria-hidden="true"
+      >
+        <path
+          d={shape.path}
+          fill={color ? color.soft : '#fff'}
+          stroke={color ? color.line : '#7C8595'}
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
 
       {/* 폰틱은 번호 대신 X (명세서 §4.2.5) */}
-      {isPontic ? (
-        <g stroke={style.text} strokeWidth={2.6} strokeLinecap="round" style={{ pointerEvents: 'none' }}>
-          <line x1={cx - 7} y1={cy - 7} x2={cx + 7} y2={cy + 7} />
-          <line x1={cx + 7} y1={cy - 7} x2={cx - 7} y2={cy + 7} />
-        </g>
-      ) : (
-        <text
-          x={cx}
-          y={cy + 4}
-          textAnchor="middle"
-          fontSize={13}
-          fontWeight={600}
-          fill={style.text}
-          style={{ pointerEvents: 'none' }}
-        >
-          {tooth}
-        </text>
-      )}
+      <span
+        className={
+          'pointer-events-none absolute tabular-nums tracking-[-0.02em] ' +
+          (isPontic ? 'text-[14px] font-extrabold tracking-normal' : 'text-[12px] font-semibold')
+        }
+        style={{
+          color: color ? color.line : '#1E3A6E',
+          textShadow: '0 0 3px #fff, 0 0 3px #fff',
+        }}
+      >
+        {isPontic ? 'X' : tooth}
+      </span>
 
       {/* 중복 등록 2 배지 (명세서 §4.2.7) */}
       {isDuplicate && (
-        <g style={{ pointerEvents: 'none' }}>
-          <circle cx={x + width - 3} cy={y + 5} r={8} fill={style.stroke} />
-          <text
-            x={x + width - 3}
-            y={y + 9}
-            textAnchor="middle"
-            fontSize={10}
-            fontWeight={700}
-            fill="#FFFFFF"
-          >
-            2
-          </text>
-        </g>
+        <span
+          className="pointer-events-none absolute -right-1 -top-1 grid h-[15px] w-[15px] place-items-center rounded-full text-[9px] font-extrabold text-white"
+          style={{ background: color?.line ?? '#5C6779' }}
+        >
+          2
+        </span>
       )}
-    </g>
+
+      {/* 치은포셀린 표시 */}
+      {hasGingival && (
+        <span
+          className="pointer-events-none absolute -bottom-1 left-1/2 h-[7px] w-[7px] -translate-x-1/2 rounded-full border border-white bg-[#E0409A]"
+          title="치은포셀린"
+        />
+      )}
+    </button>
   );
 }
+
+/** 치은포셀린을 붙일 수 있는 치아인지 — 화면이 안내를 띄울 때 씁니다 */
+export { allowsGingival };

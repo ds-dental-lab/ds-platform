@@ -1,0 +1,51 @@
+// =========================================================
+// 놓을 위치: src/app/clinic/orders/[orderId]/page.tsx
+//
+// 주문상세 (치과). (설계서 §9.1)
+//   화면은 OrderDetailScreen 하나로 세 섹터가 나눠 씁니다.
+//   RLS 가 이 조직 주문이 아니면 걸러주므로, 못 찾으면 404 입니다.
+//
+// ★ 치과에는 치과 이름을 보이지 않습니다. 자기 이름을 볼 이유가 없습니다.
+// =========================================================
+
+import { notFound } from 'next/navigation';
+import { getOrderDetail, listStatusHistory } from '@/server/repositories/order';
+import { getImplantCatalog } from '@/server/repositories/implant';
+import { listOrderMessages } from '@/server/repositories/order-message';
+import { todayInKst } from '@/server/domain/week';
+import OrderDetailScreen from '@/components/order/OrderDetailScreen';
+import OrderHistory from '@/components/order/OrderHistory';
+import RepairRequest from '@/components/order/RepairRequest';
+
+export const dynamic = 'force-dynamic';
+
+interface OrderDetailPageProps {
+  params: Promise<{ orderId: string }>;
+}
+
+export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
+  const { orderId } = await params;
+  const order = await getOrderDetail(orderId);
+  if (!order) notFound();
+
+  const [history, implantCatalog, messages] = await Promise.all([
+    listStatusHistory(orderId),
+    getImplantCatalog(),
+    listOrderMessages(orderId),
+  ]);
+
+  return (
+    <OrderDetailScreen
+      order={order}
+      sector="clinic"
+      today={todayInKst()}
+      implantCatalog={implantCatalog}
+      messages={messages}
+      showClinic={false}
+      extraSlot={
+        <RepairRequest orderId={order.id} status={order.status} items={order.items} />
+      }
+      footerSlot={<OrderHistory rows={history} />}
+    />
+  );
+}

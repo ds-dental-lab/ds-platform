@@ -9,11 +9,15 @@ export interface UploadResult {
   failed: string[];
 }
 
+/** 스캔은 치과가, 디자인은 디자인센터가 올립니다 (설계서 §8.3) */
+export type UploadKind = 'scan' | 'design';
+
 /** 주문이 만들어진 뒤에 부릅니다. 실패한 파일 이름을 돌려줍니다. */
 export async function uploadOrderFiles(
   orderId: string,
   files: File[],
   onProgress?: (done: number, total: number) => void,
+  kind: UploadKind = 'scan',
 ): Promise<UploadResult> {
   const supabase = createClient();
   const uploaded: UploadedFile[] = [];
@@ -34,7 +38,7 @@ export async function uploadOrderFiles(
     } else {
       await supabase.from('order_files').insert({
         order_id: orderId,
-        kind: 'scan',
+        kind,
         storage_path: path,
         file_name: file.name,
         file_size: file.size,

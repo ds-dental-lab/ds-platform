@@ -11,6 +11,7 @@ import {
   getShades,
   isValidShade,
   findSystemOf,
+  getShadeLayout,
   EMPTY_SHADE,
   isUniform,
   isSplit,
@@ -167,5 +168,68 @@ describe('요약 표기', () => {
 
   it('한쪽만 있으면 나머지는 -', () => {
     expect(formatShade({ cervical: 'A3', incisal: null })).toBe('A3/-');
+  });
+});
+
+// =========================================================
+// 색표 배치
+//
+// ★ 배치는 손으로 적은 표라 색조가 빠지거나 두 번 들어가기 쉽습니다.
+//   원장이 못 찾는 색조가 생기므로 목록과 정확히 맞는지 잠가 둡니다.
+// =========================================================
+
+describe('색표 배치', () => {
+  for (const system of SHADE_SYSTEMS) {
+    it(`${system.name} — 색조가 하나도 빠지지 않고 중복도 없다`, () => {
+      const placed = getShadeLayout(system.code)
+        .rows.flat()
+        .filter((cell): cell is string => Boolean(cell));
+
+      expect([...placed].sort()).toEqual([...system.shades].sort());
+      expect(new Set(placed).size).toBe(placed.length);
+    });
+
+    it(`${system.name} — 모든 줄의 길이가 같다`, () => {
+      const { rows } = getShadeLayout(system.code);
+      const width = Math.max(...rows.map((r) => r.length));
+
+      // 마지막 줄은 남은 것만 채우므로 넘치지만 않으면 됩니다
+      for (const row of rows) expect(row.length).toBeLessThanOrEqual(width);
+    });
+  }
+
+  it('★ 3D Master 는 명도 묶음대로 11열이다', () => {
+    const layout = getShadeLayout('vita_3d_master');
+
+    expect(layout.rows).toHaveLength(3);
+    for (const row of layout.rows) expect(row).toHaveLength(11);
+
+    // 열 이름은 각 묶음의 M 자리에만 붙습니다
+    expect(layout.columnLabels).toEqual([
+      '1M', null, '2M', null, null, '3M', null, null, '4M', null, '5M',
+    ]);
+    expect(layout.columnLabels).toHaveLength(11);
+  });
+
+  it('Ivoclar 는 빈 자리와 색 없는 칸을 구분한다', () => {
+    const rows = getShadeLayout('ivoclar').rows;
+
+    // 첫 줄은 1E 하나뿐 — 나머지는 칸 자체가 없습니다
+    expect(rows[0].filter(Boolean)).toEqual(['1E']);
+    expect(rows[0]).toContain(null);
+
+    // 가운데 줄에는 자리만 있고 색이 없는 칸이 있습니다
+    expect(rows[1]).toContain('');
+  });
+
+  it('Vita classic 은 6칸씩 끊는다', () => {
+    const rows = getShadeLayout('vita_classic').rows;
+
+    expect(rows[0]).toEqual(['A1', 'A2', 'A3', 'A3.5', 'A4', 'B1']);
+    expect(rows[rows.length - 1]).toEqual(['D3.5', 'D4']);
+  });
+
+  it('모르는 체계는 빈 표를 준다', () => {
+    expect(getShadeLayout('nope').rows).toEqual([]);
   });
 });

@@ -9,9 +9,14 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  MANUFACTURERS,
+  submitAddImplantFavorite,
+  submitRemoveImplantFavorite,
+} from '@/server/actions/implant';
+import type { ImplantFavorite } from '@/server/repositories/implant';
+import {
   EMPTY_SELECTION,
   getTypes,
   getSizes,
@@ -21,16 +26,23 @@ import {
   isComplete,
   getMissingStep,
   formatSelection,
+  type ImplantCatalog,
   type ImplantOption,
   type ImplantSelection,
 } from '@/server/domain/implant';
 
 export interface ImplantPickerProps {
+  /** DB 에서 읽어온 마스터. 서버 컴포넌트가 내려줍니다 */
+  catalog: ImplantCatalog;
+  /** 이 치과가 자주 쓰는 조합. 없으면 빠른 선택 줄이 나오지 않습니다 */
+  favorites?: ImplantFavorite[];
   value?: ImplantSelection;
   onChange?: (selection: ImplantSelection) => void;
 }
 
 export default function ImplantPicker({
+  catalog,
+  favorites,
   value = EMPTY_SELECTION,
   onChange,
 }: ImplantPickerProps) {
@@ -43,19 +55,39 @@ export default function ImplantPicker({
 
   const { manufacturerCode, typeCode } = selection;
 
-  const types = getTypes(manufacturerCode);
-  const sizes = getSizes(manufacturerCode, typeCode);
-  const screws = getScrews(manufacturerCode, typeCode);
+  const types = getTypes(catalog, manufacturerCode);
+  const sizes = getSizes(catalog, manufacturerCode, typeCode);
+  const screws = getScrews(catalog, manufacturerCode, typeCode);
 
-  const complete = isComplete(selection);
-  const missing = getMissingStep(selection);
+  const complete = isComplete(catalog, selection);
+  const missing = getMissingStep(catalog, selection);
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white">
+      {favorites && (
+        <FavoriteBar
+          favorites={favorites}
+          selection={selection}
+          complete={complete}
+          onPick={(favorite) =>
+            update({
+              manufacturerCode: favorite.makerCode,
+              typeCode: favorite.typeCode,
+              sizeCode: favorite.sizeCode,
+              screwCode: favorite.screwCode,
+              option: selection.option,
+            })
+          }
+        />
+      )}
+
       <div className="grid grid-cols-1 divide-y divide-gray-200 md:grid-cols-5 md:divide-x md:divide-y-0">
         {/* ---------- 제조사 ---------- */}
-        <Column title="제조사">
-          {MANUFACTURERS.map((m) => (
+        <Column
+          title="제조사"
+          hint={catalog.length === 0 ? '등록된 제조사가 없습니다' : undefined}
+        >
+          {catalog.map((m) => (
             <Card
               key={m.code}
               name={m.name}
@@ -139,7 +171,7 @@ export default function ImplantPicker({
       {/* ---------- 요약 ---------- */}
       <div className="flex items-center justify-between border-t border-gray-200 px-5 py-3">
         <span className="font-mono text-sm text-gray-700">
-          {formatSelection(selection) || '선택 없음'}
+          {formatSelection(catalog, selection) || '선택 없음'}
         </span>
         <span
           className={`text-[13px] ${complete ? 'font-semibold text-green-700' : 'text-gray-400'}`}
@@ -147,6 +179,125 @@ export default function ImplantPicker({
           {complete ? '선택 완료' : `${missing} 를 골라 주세요`}
         </span>
       </div>
+    </div>
+  );
+}
+
+// ---------- 빠른 선택 ----------
+
+/**
+ * 자주 쓰는 조합을 한 번에 집어넣습니다. (설계서 §4.4 clinic_implant_favorites)
+ *
+ * ★ 디자인센터가 배포한 항목은 빼는 버튼이 없습니다.
+ *   실제 차단은 RLS 가 하고, 여기서는 버튼을 감출 뿐입니다.
+ */
+function FavoriteBar({
+  favorites,
+  selection,
+  complete,
+  onPick,
+}: {
+  favorites: ImplantFavorite[];
+  selection: ImplantSelection;
+  complete: boolean;
+  onPick: (favorite: ImplantFavorite) => void;
+}) {
+  const router = useRouter();
+  const [refreshing, startTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const busy = saving || refreshing;
+
+  // 지금 고른 것이 이미 담겨 있는가
+  const alreadySaved = favorites.some(
+    (f) =>
+      f.makerCode === selection.manufacturerCode &&
+      f.typeCode === selection.typeCode &&
+      f.sizeCode === selection.sizeCode &&
+      f.screwCode === selection.screwCode,
+  );
+
+  async function run(action: () => Promise<{ ok: boolean; error?: string }>) {
+    setError('');
+    setSaving(true);
+    const result = await action();
+    setSaving(false);
+
+    if (!result.ok) {
+      setError(result.error ?? '처리하지 못했습니다');
+      return;
+    }
+    startTransition(() => router.refresh());
+  }
+
+  return (
+    <div className="border-b border-gray-200 px-5 py-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[12px] font-bold text-gray-500">자주 쓰는 조합</span>
+
+        {favorites.length === 0 && (
+          <span className="text-[12px] text-gray-400">
+            아직 없습니다. 아래에서 고른 뒤 담아 두면 다음부터 한 번에 선택됩니다.
+          </span>
+        )}
+
+        {favorites.map((favorite) => (
+          <span
+            key={favorite.id}
+            className={
+              'inline-flex items-center gap-1 rounded-full border py-1 pl-3 text-[12px] ' +
+              (favorite.pushed
+                ? 'border-purple-300 bg-purple-50 pr-3'
+                : 'border-gray-300 bg-white pr-1')
+            }
+          >
+            <button
+              type="button"
+              onClick={() => onPick(favorite)}
+              className="font-semibold text-gray-800 hover:text-blue-700"
+            >
+              {favorite.label}
+            </button>
+
+            {favorite.pushed ? (
+              <span className="text-[10px] font-bold text-purple-600">배포</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => run(() => submitRemoveImplantFavorite(favorite.id))}
+                disabled={busy}
+                aria-label={`${favorite.label} 빼기`}
+                className="px-1 text-gray-400 hover:text-red-500"
+              >
+                ×
+              </button>
+            )}
+          </span>
+        ))}
+
+        {complete && !alreadySaved && (
+          <button
+            type="button"
+            onClick={() =>
+              run(() =>
+                submitAddImplantFavorite({
+                  makerCode: selection.manufacturerCode!,
+                  typeCode: selection.typeCode!,
+                  sizeCode: selection.sizeCode,
+                  screwCode: selection.screwCode,
+                }),
+              )
+            }
+            disabled={busy}
+            className="rounded-full border border-blue-500 px-3 py-1 text-[12px] font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+          >
+            + 지금 조합 담기
+          </button>
+        )}
+      </div>
+
+      {error && <p className="mt-2 text-[12px] text-red-600">{error}</p>}
     </div>
   );
 }

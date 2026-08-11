@@ -28,6 +28,13 @@ export async function getSession() {
     .eq('is_active', true)
     .maybeSingle();
 
+  // 상단바에 조직명과 나란히 찍습니다
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('name')
+    .eq('id', user.id)
+    .maybeSingle();
+
   const org = (data?.organizations ?? null) as {
     name: string;
     org_type: Sector;
@@ -40,6 +47,7 @@ export async function getSession() {
     orgId: data?.org_id ?? null,
     orgName: org?.name ?? null,
     orgType: org?.org_type ?? null,
+    userName: profile?.name ?? user.email?.split('@')[0] ?? '',
   };
 }
 

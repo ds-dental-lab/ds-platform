@@ -8,12 +8,20 @@
 //   (설계서 §5.3 결정 2 — 2중 검사)
 // =========================================================
 
+import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { isValidTooth } from '@/server/domain/tooth';
-import { isValidCombination, requiresImplantModel } from '@/server/domain/prosthesis';
+import {
+  isValidCombination,
+  requiresImplantModel,
+  allowsGingival,
+} from '@/server/domain/prosthesis';
 import { isAllowedPair, MAX_PER_TOOTH, type Placement } from '@/server/domain/duplicate';
 import { computeBridges, type ToothPlacement } from '@/server/domain/bridge';
 import { isValidShade } from '@/server/domain/shade';
+import { checkDueDate } from '@/server/domain/due-date';
+import { todayInKst } from '@/server/domain/week';
+import { publishOrderCreated } from '@/server/events';
 
 // ---------- 입력 모양 ----------
 
@@ -30,16 +38,20 @@ export interface OrderItemInput {
   implantSize?: string | null;
   implantScrew?: string | null;
   implantOption?: string | null;
+  /** 치은포셀린. 추가 과금 항목입니다 */
+  hasGingival?: boolean;
 }
 
 export interface CreateOrderInput {
   patientId?: string | null;
   patientLabel: string;
-  orderType?: 'modelless' | 'with_model' | 'model_only' | 'repair';
+  orderType?: 'modelless' | 'analog' | 'with_model' | 'model_only' | 'repair';
   dueDate: string;          // YYYY-MM-DD
   notes?: string;
   items: OrderItemInput[];
   severedKeys?: string[];   // 사용자가 끊어 둔 브릿지 연결
+  /** 제작옵션 — { 그룹id: 값id } (명세서 §4.2.8) */
+  options?: Record<string, string>;
 }
 
 export type CreateOrderResult =
@@ -52,9 +64,15 @@ export type CreateOrderResult =
  * 저장해도 되는 주문인지 확인합니다.
  * 문제가 있으면 첫 번째 이유를 돌려줍니다.
  */
-export function validateOrder(input: CreateOrderInput): string | null {
+export function validateOrder(input: CreateOrderInput, today?: string): string | null {
   if (!input.patientLabel?.trim()) return '환자를 선택해 주세요';
   if (!input.dueDate) return '요청시한을 입력해 주세요';
+
+  // ★ 화면에서 달력을 막아 둔 것만으로는 부족합니다 (설계서 §5.3 결정 2)
+  if (today) {
+    const verdict = checkDueDate(input.dueDate, today);
+    if (!verdict.selectable) return verdict.reason ?? '고를 수 없는 요청시한입니다';
+  }
   if (input.items.length === 0) return '보철물을 하나 이상 선택해 주세요';
 
   const seen = new Map<number, Placement[]>();
@@ -73,6 +91,11 @@ export function validateOrder(input: CreateOrderInput): string | null {
     // 인레이 폰틱은 현실에 없습니다
     if (item.isPontic && item.typeCode === 'inlay') {
       return `${item.tooth}번 — 인레이는 폰틱이 될 수 없습니다`;
+    }
+
+    // 인레이는 잇몸에 닿는 부위가 없어 치은포셀린이 붙지 않습니다
+    if (item.hasGingival && !allowsGingival(item.typeCode)) {
+      return `${item.tooth}번 — 인레이에는 치은포셀린을 붙일 수 없습니다`;
     }
 
     // 임플란트는 모델이 필요합니다
@@ -119,7 +142,7 @@ export function validateOrder(input: CreateOrderInput): string | null {
 // ---------- 저장 ----------
 
 export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
-  const problem = validateOrder(input);
+  const problem = validateOrder(input, todayInKst());
   if (problem) return { ok: false, error: problem };
 
   const supabase = await createClient();
@@ -161,6 +184,11 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     return { ok: false, error: '주문번호를 만들지 못했습니다' };
   }
 
+  // ★ 환자 표시값은 화면이 보낸 문자열을 쓰지 않고 DB 에서 다시 만듭니다.
+  //   실명과 마스킹 값이 어긋나면 기공소에 실명이 새기 때문입니다. (설계서 §8.5)
+  const labels = await buildPatientLabels(supabase, input);
+  if (!labels) return { ok: false, error: '환자를 찾을 수 없습니다' };
+
   // 주문 만들기
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -169,7 +197,8 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       clinic_org_id: membership.org_id,
       design_org_id: partnership.to_org_id,
       patient_id: input.patientId ?? null,
-      patient_label: input.patientLabel,
+      patient_label: labels.plain,
+      patient_label_masked: labels.masked,
       order_type: input.orderType ?? 'modelless',
       status: 'received',
       due_date: input.dueDate,
@@ -206,6 +235,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       implant_size: item.implantSize ?? null,
       implant_screw: item.implantScrew ?? null,
       implant_option: item.implantOption ?? null,
+      has_gingival: item.hasGingival ?? false,
     };
   });
 
@@ -223,7 +253,55 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   // 브릿지 묶음 저장
   await saveBridges(supabase, order.id, savedItems, input);
 
+  // 제작옵션 저장 (명세서 §4.2.8)
+  const optionRows = Object.entries(input.options ?? {}).map(([groupId, valueId]) => ({
+    order_id: order.id,
+    option_group_id: groupId,
+    option_value_id: valueId,
+  }));
+
+  if (optionRows.length > 0) {
+    await supabase.from('order_options').insert(optionRows);
+  }
+
+  // 디자인센터에 접수 알림 (설계서 Q-7 ①)
+  await publishOrderCreated({
+    orderId: order.id,
+    actorOrgId: membership.org_id,
+    actorUserId: user.id,
+  });
+
   return { ok: true, orderId: order.id, orderNo: order.order_no };
+}
+
+/**
+ * 목록에 찍을 환자 표시값 두 벌을 만듭니다.
+ *   plain  — 치과 · 디자인센터가 봅니다 (실명)
+ *   masked — 기공소가 봅니다 (김*수)
+ *
+ * 환자를 고르지 않은 주문은 기공소에 알려줄 것이 없으므로 비공개로 둡니다.
+ */
+async function buildPatientLabels(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  input: CreateOrderInput,
+): Promise<{ plain: string; masked: string } | null> {
+  if (!input.patientId) {
+    return { plain: input.patientLabel.trim(), masked: '(비공개)' };
+  }
+
+  const { data: patient } = await supabase
+    .from('patients')
+    .select('name, name_masked, chart_no')
+    .eq('id', input.patientId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (!patient) return null;
+
+  return {
+    plain: `${patient.name} (${patient.chart_no})`,
+    masked: `${patient.name_masked} (${patient.chart_no})`,
+  };
 }
 
 /**

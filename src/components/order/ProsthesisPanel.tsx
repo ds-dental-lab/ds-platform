@@ -14,9 +14,11 @@ import {
   EMPTY_SELECTION,
   formatSelection,
   isComplete as implantComplete,
+  type ImplantCatalog,
   type ImplantSelection,
 } from '@/server/domain/implant';
 import ImplantPicker from '@/components/dental/ImplantPicker';
+import type { ImplantFavorite } from '@/server/repositories/implant';
 
 export interface Brush {
   typeCode: string;
@@ -39,6 +41,10 @@ export const DEFAULT_BRUSH: Brush = {
 export interface ProsthesisPanelProps {
   value: Brush;
   onChange: (brush: Brush) => void;
+  /** 임플란트 마스터. 서버 컴포넌트가 DB 에서 읽어 내려줍니다 */
+  implantCatalog: ImplantCatalog;
+  /** 이 치과의 자주 쓰는 조합 */
+  implantFavorites?: ImplantFavorite[];
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -58,7 +64,12 @@ function chip(active: boolean): string {
     : 'rounded border border-gray-300 bg-white px-3 py-1.5 text-[13px] hover:border-gray-400';
 }
 
-export default function ProsthesisPanel({ value, onChange }: ProsthesisPanelProps) {
+export default function ProsthesisPanel({
+  value,
+  onChange,
+  implantCatalog,
+  implantFavorites,
+}: ProsthesisPanelProps) {
   const [implantOpen, setImplantOpen] = useState(false);
 
   const materials = getMaterials(value.typeCode);
@@ -171,16 +182,21 @@ export default function ProsthesisPanel({ value, onChange }: ProsthesisPanelProp
               <span
                 className={
                   'font-mono text-[13px] ' +
-                  (implantComplete(value.implant) ? 'text-gray-800' : 'text-red-600')
+                  (implantComplete(implantCatalog, value.implant)
+                    ? 'text-gray-800'
+                    : 'text-red-600')
                 }
               >
-                {formatSelection(value.implant) || '제조사와 타입을 골라 주세요'}
+                {formatSelection(implantCatalog, value.implant) ||
+                  '제조사와 타입을 골라 주세요'}
               </span>
             </div>
 
             {implantOpen && (
               <div className="mt-3">
                 <ImplantPicker
+                  catalog={implantCatalog}
+                  favorites={implantFavorites}
                   value={value.implant}
                   onChange={(implant) => onChange({ ...value, implant })}
                 />

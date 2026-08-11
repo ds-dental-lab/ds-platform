@@ -115,6 +115,24 @@ export function requiresDesignFile(from: OrderStatus, to: OrderStatus): boolean 
   return from === 'designing' && to === 'production_wait';
 }
 
+/**
+ * 기공소를 지정해야 넘어갈 수 있는가. (설계서 Q-2 확정)
+ * 배정 시점은 제작대기 진입입니다. 자동 배정 규칙은 두지 않습니다.
+ */
+export function requiresLabAssignment(from: OrderStatus, to: OrderStatus): boolean {
+  return to === 'production_wait' && from === 'designing';
+}
+
+const DESIGN_UPLOAD_FROM: OrderStatus[] = ['received', 'designing'];
+
+/**
+ * 디자인 파일을 올릴 수 있는가. (설계서 §8.3)
+ * 디자인센터가 작업 중일 때만입니다. 넘긴 뒤에는 올릴 수 없습니다.
+ */
+export function canUploadDesignFile(status: OrderStatus, sector: Sector): boolean {
+  return sector === 'design_center' && DESIGN_UPLOAD_FROM.includes(status);
+}
+
 const EDITABLE_STATUSES: OrderStatus[] = ['received', 'rescan'];
 
 export function canEditOrder(status: OrderStatus): boolean {
@@ -141,6 +159,102 @@ export function getNewOrderStatus(kind: 'remake' | 'repair'): OrderStatus {
 
 export function isActionRequired(status: OrderStatus, sector: Sector): boolean {
   return OWNER_SECTOR[status] === sector;
+}
+
+// ---------- 화면에 보여줄 버튼 ----------
+
+/**
+ * 앞으로 넘기는 버튼의 이름. 어느 상태에서 누르는지로 정합니다.
+ * "다음 상태 이름"을 그대로 쓰면 어색해집니다 — 재스캔 상태에서
+ * 누르는 버튼은 '접수'가 아니라 '재업로드 완료'입니다.
+ */
+const FORWARD_LABEL: Record<OrderStatus, string> = {
+  received: '디자인 시작',
+  rescan: '재업로드 완료',
+  designing: '디자인 완료',
+  production_wait: '제작 시작',
+  production: '출고',
+  shipping: '수령 완료',
+  completed: '',
+  cancelled: '',
+};
+
+export interface StatusAction {
+  to: OrderStatus;
+  label: string;
+  /** 사유를 받아야 하는가 */
+  requiresReason: boolean;
+  /** 기공소를 골라야 하는가 */
+  requiresLab: boolean;
+  /** 되돌리거나 끝내는 동작인가. 화면에서 빨갛게 그립니다 */
+  danger: boolean;
+}
+
+/**
+ * 이 상태에서 이 섹터가 지금 누를 수 있는 것 전부.
+ *
+ * ★ 판정은 전부 canTransition 을 거칩니다.
+ *   버튼 목록과 실제 허용 규칙이 따로 놀 수 없게 하려는 것입니다.
+ */
+export function getAvailableActions(status: OrderStatus, sector: Sector): StatusAction[] {
+  const actions: StatusAction[] = [];
+
+  // 앞으로 한 칸
+  const next = getNextStatus(status);
+  if (next && canTransition(status, next, sector).allowed) {
+    actions.push({
+      to: next,
+      label: FORWARD_LABEL[status],
+      requiresReason: false,
+      requiresLab: requiresLabAssignment(status, next),
+      danger: false,
+    });
+  }
+
+  // 되돌리기 — 디자인센터만 (C-7)
+  if (canRequestRescan(status, sector)) {
+    actions.push({
+      to: 'rescan',
+      label: '재스캔 요청',
+      requiresReason: true,
+      requiresLab: false,
+      danger: true,
+    });
+  }
+
+  // 취소 — 치과가 접수·재스캔에서만
+  if (canCancel(status, sector)) {
+    actions.push({
+      to: 'cancelled',
+      label: '주문 취소',
+      requiresReason: true,
+      requiresLab: false,
+      danger: true,
+    });
+  }
+
+  return actions;
+}
+
+/**
+ * 여러 자리를 맡았을 때 누를 수 있는 것 전부.
+ *
+ * ★ 자사 제작이면 디자인센터가 기공소 자리도 함께 맡습니다.
+ *   그때는 '디자인 완료'와 '제작 시작'이 상태에 따라 번갈아 나옵니다.
+ */
+export function getActionsForRoles(status: OrderStatus, roles: Sector[]): StatusAction[] {
+  const seen = new Set<OrderStatus>();
+  const merged: StatusAction[] = [];
+
+  for (const role of roles) {
+    for (const action of getAvailableActions(status, role)) {
+      if (seen.has(action.to)) continue;
+      seen.add(action.to);
+      merged.push(action);
+    }
+  }
+
+  return merged;
 }
 
 export const STATUS_ORDER: OrderStatus[] = [

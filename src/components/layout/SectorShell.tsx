@@ -1,5 +1,20 @@
-﻿'use client';
+// =========================================================
+// 놓을 위치: src/components/layout/SectorShell.tsx
+//
+// 세 섹터가 공유하는 껍데기. (시안 .topbar / .sidebar / .main)
+//
+// 치수는 시안 CSS 를 그대로 옮겼습니다.
+//   상단바 48px · 사이드바 200px (접으면 56px)
+//   메뉴 항목 padding 11px 12px, 아이콘과 글자 간격 13px
+//   켜진 항목은 --brand-soft 배경에 --brand 글자
+//
+// ★ 섹터 색은 CSS 변수로만 갈아끼웁니다.
+//   같은 마크업이 치과·디자인센터·기공소에서 색만 달리 보입니다.
+// =========================================================
 
+'use client';
+
+import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -7,71 +22,142 @@ import { createClient } from '@/lib/supabase/client';
 export type Sector = 'clinic' | 'design_center' | 'lab';
 
 const THEME: Record<Sector, { brand: string; soft: string; label: string }> = {
-  clinic:        { brand: '#1279E8', soft: '#E7F1FD', label: '치과' },
+  clinic: { brand: '#1B63E8', soft: '#EDF3FE', label: '치과' },
   design_center: { brand: '#5546C8', soft: '#EFEDFB', label: '디자인센터' },
-  lab:           { brand: '#12855B', soft: '#E6F4EE', label: '기공소' },
+  lab: { brand: '#12855B', soft: '#E6F4EE', label: '기공소' },
+};
+
+// ---------- 메뉴 아이콘 (시안 nav) ----------
+
+const icon = (children: React.ReactNode) => (
+  <svg
+    width="19"
+    height="19"
+    viewBox="0 0 20 20"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.6}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="shrink-0"
+    aria-hidden="true"
+  >
+    {children}
+  </svg>
+);
+
+const NAV_ICON = {
+  home: icon(<path d="M3 8.5 10 3l7 5.5V16a1 1 0 0 1-1 1h-3.5v-5h-5v5H4a1 1 0 0 1-1-1V8.5Z" />),
+  new: icon(
+    <>
+      <circle cx="10" cy="10" r="7.2" />
+      <path d="M10 6.6v6.8M6.6 10h6.8" />
+    </>,
+  ),
+  list: icon(
+    <>
+      <path d="M7 5h10M7 10h10M7 15h10" />
+      <circle cx="3.6" cy="5" r=".9" fill="currentColor" stroke="none" />
+      <circle cx="3.6" cy="10" r=".9" fill="currentColor" stroke="none" />
+      <circle cx="3.6" cy="15" r=".9" fill="currentColor" stroke="none" />
+    </>,
+  ),
+  delivery: icon(
+    <>
+      <path d="M1.8 5.5h9.4v8.2H1.8zM11.2 8.4h3.3L18.2 11v2.7h-7z" />
+      <circle cx="5.6" cy="15.4" r="1.6" />
+      <circle cx="14.3" cy="15.4" r="1.6" />
+    </>,
+  ),
+  billing: icon(
+    <>
+      <rect x="2.2" y="4.6" width="15.6" height="10.8" rx="1.6" />
+      <path d="M2.2 8.4h15.6" />
+    </>,
+  ),
+  users: icon(
+    <>
+      <circle cx="7.6" cy="7" r="2.8" />
+      <path d="M2.4 16c.6-2.5 2.7-3.8 5.2-3.8s4.6 1.3 5.2 3.8" />
+      <path d="M13.4 4.5a2.8 2.8 0 0 1 0 5.3M15 12.6c1.6.5 2.5 1.7 2.9 3.4" />
+    </>,
+  ),
+  board: icon(
+    <>
+      <path d="M10 2.5v1.4M4.6 4.6l1 1M15.4 4.6l-1 1M2.6 10H4M16 10h1.4" />
+      <path d="M7.4 15.2h5.2M8.2 17.4h3.6" />
+      <path d="M13.4 10.6a3.4 3.4 0 1 0-6.8 0c0 1.6 1.2 2.4 1.2 4h4.4c0-1.6 1.2-2.4 1.2-4Z" />
+    </>,
+  ),
+  implant: icon(
+    <>
+      <rect x="2.6" y="5.4" width="14.8" height="11" rx="1.8" />
+      <path d="M7.2 5.4V4a1.2 1.2 0 0 1 1.2-1.2h3.2A1.2 1.2 0 0 1 12.8 4v1.4" />
+      <path d="M10 9v4M8 11h4" />
+    </>,
+  ),
 };
 
 interface NavItem {
   label: string;
   href?: string;
-  sprint?: string;
+  icon: React.ReactNode;
+  /** 아직 안 만든 화면 */
+  soon?: string;
 }
 
 const NAV: Record<Sector, NavItem[]> = {
   clinic: [
-    { label: 'HOME', href: '/clinic' },
-    { label: '주문등록', href: '/clinic/orders/new' },
-    { label: '주문목록', sprint: 'Sprint 4' },
-    { label: '배송조회', sprint: 'Sprint 7' },
-    { label: '청구내역', sprint: 'Sprint 8' },
-    { label: '구성원', sprint: 'Sprint 9' },
-    { label: '설정', sprint: 'Sprint 9' },
+    { label: 'HOME', href: '/clinic', icon: NAV_ICON.home },
+    { label: '주문등록', href: '/clinic/orders/new', icon: NAV_ICON.new },
+    { label: '주문목록', href: '/clinic/orders', icon: NAV_ICON.list },
+    { label: '배송조회', href: '/clinic/deliveries', icon: NAV_ICON.delivery },
+    { label: '정산', icon: NAV_ICON.billing, soon: 'Sprint 8' },
+    { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
+    { label: '게시판', icon: NAV_ICON.board, soon: 'Sprint 9' },
   ],
   design_center: [
-    { label: 'HOME', href: '/design' },
-    { label: '주문관리', sprint: 'Sprint 5' },
-    { label: '임플란트', sprint: 'Sprint 6' },
-    { label: '배송관리', sprint: 'Sprint 7' },
-    { label: '정산', sprint: 'Sprint 8' },
-    { label: '구성원', sprint: 'Sprint 9' },
-    { label: '설정', sprint: 'Sprint 9' },
+    { label: 'HOME', href: '/design', icon: NAV_ICON.home },
+    { label: '주문관리', href: '/design/orders', icon: NAV_ICON.list },
+    { label: '임플란트', href: '/design/implants', icon: NAV_ICON.implant },
+    { label: '제품', href: '/design/products', icon: NAV_ICON.billing },
+    { label: '배송관리', href: '/design/deliveries', icon: NAV_ICON.delivery },
+    { label: '정산', icon: NAV_ICON.billing, soon: 'Sprint 8' },
+    { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
+    { label: '게시판', icon: NAV_ICON.board, soon: 'Sprint 9' },
   ],
   lab: [
-    { label: 'HOME', href: '/lab' },
-    { label: '작업목록', sprint: 'Sprint 7' },
-    { label: '출고', sprint: 'Sprint 7' },
-    { label: '설정', sprint: 'Sprint 9' },
+    { label: 'HOME', href: '/lab', icon: NAV_ICON.home },
+    { label: '작업목록', href: '/lab/orders', icon: NAV_ICON.list },
+    { label: '출고', href: '/lab/shipments', icon: NAV_ICON.delivery },
+    { label: '정산', icon: NAV_ICON.billing, soon: 'Sprint 8' },
+    { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
   ],
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  owner: '대표',
-  admin: '관리자',
-  staff: '직원',
-  designer: '디자이너',
-  technician: '기공사',
 };
 
 export interface SectorShellProps {
   sector: Sector;
   orgName: string;
-  email: string;
-  role: string | null;
+  userName: string;
+  bell?: React.ReactNode;
   children: React.ReactNode;
 }
 
 export default function SectorShell({
   sector,
   orgName,
-  email,
-  role,
+  userName,
+  bell,
   children,
 }: SectorShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const theme = THEME[sector];
   const items = NAV[sector];
+
+  const [collapsed, setCollapsed] = useState(false);
+
+  const sidebarWidth = collapsed ? 56 : 200;
 
   async function handleLogout() {
     const supabase = createClient();
@@ -91,58 +177,107 @@ export default function SectorShell({
       }
       className="min-h-screen bg-[#F4F6F9]"
     >
-      <header className="fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-3 border-b border-[#E8EBF0] bg-white px-4">
-        <div className="flex items-center gap-2">
-          <span
-            className="grid h-6 w-6 place-items-center rounded text-[11px] font-extrabold text-white"
-            style={{ background: 'var(--brand)' }}
-          >
-            DS
-          </span>
-          <span className="text-[15px] font-extrabold tracking-tight text-[#1B2A4A]">
-            DS <span className="font-semibold text-[#9AA3AE]">FLOW</span>
-          </span>
-        </div>
-
-        <span
-          className="rounded px-2 py-0.5 text-[11px] font-bold"
-          style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+      {/* ---------- 상단바 ---------- */}
+      <header className="fixed inset-x-0 top-0 z-30 flex h-12 items-center border-b border-[#E8EBF0] bg-white">
+        <div
+          className="flex shrink-0 items-center gap-1.5 pl-2 transition-[width] duration-200"
+          style={{ width: sidebarWidth }}
         >
-          {theme.label}
-        </span>
+          <IconButton label="메뉴 접기" onClick={() => setCollapsed(!collapsed)}>
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={collapsed ? 'rotate-180' : ''}
+            >
+              <path d="M12 4 6 10l6 6" />
+            </svg>
+          </IconButton>
 
-        <div className="ml-auto flex items-center gap-2 text-[13px] text-[#4A5567]">
-          <span className="font-semibold text-[#1A2130]">{orgName}</span>
-          <span className="text-[#DDE2EA]">|</span>
-          <span className="hidden sm:inline">{email}</span>
-          {role && (
-            <span className="rounded bg-[#F4F6F9] px-2 py-0.5 text-[11px] font-semibold">
-              {ROLE_LABEL[role] ?? role}
+          {!collapsed && (
+            <span className="flex items-baseline gap-[.3em] whitespace-nowrap text-[17px] font-extrabold leading-none tracking-[-0.045em]">
+              <b className="text-[#1B2A4A]">DS</b>
+              <i className="font-semibold not-italic tracking-[.01em] text-[#9AA3AE]">FLOW</i>
             </span>
           )}
+        </div>
+
+        <div className="flex flex-1 items-center justify-end gap-1 pr-2.5">
+          {bell}
+
+          <IconButton label="계정">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <circle cx="10" cy="7" r="3.1" />
+              <path d="M4 16.5c.7-2.8 3-4.2 6-4.2s5.3 1.4 6 4.2" />
+            </svg>
+          </IconButton>
+
+          <div className="flex items-center gap-3 px-1.5 text-[13px] font-semibold text-[#4A5567]">
+            <span>{orgName}</span>
+            <span className="text-[#DDE2EA]">|</span>
+            <span>{userName}</span>
+          </div>
+
+          <span
+            className="rounded px-2 py-0.5 text-[11px] font-bold"
+            style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+          >
+            {theme.label}
+          </span>
+
           <button
             onClick={handleLogout}
-            className="ml-2 rounded border border-[#DDE2EA] px-3 py-1 text-[12px] hover:bg-[#F4F6F9]"
+            className="ml-1 rounded border border-[#DDE2EA] px-3 py-1 text-[12px] text-[#4A5567] hover:bg-[#F4F6F9]"
           >
             로그아웃
           </button>
         </div>
       </header>
 
-      <nav className="fixed bottom-0 left-0 top-12 z-20 w-[200px] overflow-y-auto border-r border-[#E8EBF0] bg-white p-2">
+      {/* ---------- 사이드바 ---------- */}
+      <nav
+        className="fixed bottom-0 left-0 top-12 z-20 overflow-y-auto border-r border-[#E8EBF0] bg-white p-2 transition-[width] duration-200"
+        style={{ width: sidebarWidth }}
+      >
         <div className="flex flex-col gap-0.5">
           {items.map((item) => {
-            const active = item.href === pathname;
+            const active = item.href
+              ? item.href === '/clinic' || item.href === '/design' || item.href === '/lab'
+                ? pathname === item.href
+                : pathname.startsWith(item.href)
+              : false;
+
+            const inner = (
+              <>
+                {item.icon}
+                {!collapsed && <span>{item.label}</span>}
+              </>
+            );
+
+            const base =
+              'flex items-center gap-[13px] rounded-md text-[14px] font-semibold whitespace-nowrap transition-colors ' +
+              (collapsed ? 'justify-center py-[11px]' : 'px-3 py-[11px]');
 
             if (!item.href) {
               return (
                 <div
                   key={item.label}
-                  className="flex cursor-not-allowed items-center justify-between rounded-md px-3 py-2.5 text-sm font-semibold text-[#C4CBD6]"
-                  title={`${item.sprint} 에서 만듭니다`}
+                  title={collapsed ? item.label : `${item.soon} 에서 만듭니다`}
+                  className={`${base} cursor-not-allowed text-[#C4CBD6]`}
                 >
-                  <span>{item.label}</span>
-                  <span className="text-[10px] font-medium">{item.sprint}</span>
+                  {inner}
                 </div>
               );
             }
@@ -151,42 +286,48 @@ export default function SectorShell({
               <Link
                 key={item.label}
                 href={item.href}
-                className="rounded-md px-3 py-2.5 text-sm font-semibold transition-colors"
+                title={collapsed ? item.label : undefined}
+                className={base + (active ? '' : ' text-[#4A5567] hover:bg-[#F4F6F9]')}
                 style={
                   active
                     ? { background: 'var(--brand-soft)', color: 'var(--brand)' }
-                    : { color: '#4A5567' }
+                    : undefined
                 }
               >
-                {item.label}
+                {inner}
               </Link>
             );
           })}
         </div>
-
-        <div className="mt-6 border-t border-[#E8EBF0] pt-3">
-          <p className="px-3 pb-1 text-[10px] font-bold text-[#98A2B3]">시연 (개발용)</p>
-          {[
-            { label: '치식도', href: '/playground/tooth-chart' },
-            { label: '쉐이드', href: '/playground/shade' },
-            { label: '임플란트', href: '/playground/implant' },
-          ].map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="block rounded-md px-3 py-2 text-[13px] text-[#98A2B3] hover:bg-[#F4F6F9]"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
       </nav>
 
-      <main className="ml-[200px] pt-12">
-        <div className="p-6">{children}</div>
+      {/* ---------- 본문 ---------- */}
+      <main
+        className="pt-12 transition-[margin] duration-200"
+        style={{ marginLeft: sidebarWidth }}
+      >
+        <div className="p-3.5">{children}</div>
       </main>
     </div>
   );
 }
 
-
+function IconButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-md text-[#98A2B3] hover:bg-[#F4F6F9] hover:text-[#4A5567]"
+    >
+      {children}
+    </button>
+  );
+}

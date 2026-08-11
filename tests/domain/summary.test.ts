@@ -10,6 +10,7 @@ import {
   countTeeth,
 } from '@/server/domain/summary';
 import type { ToothPlacement } from '@/server/domain/bridge';
+import { CATALOG } from '../fixtures/implant-catalog';
 
 const zir = (tooth: number, isPontic = false): ToothPlacement => ({
   tooth,
@@ -94,8 +95,27 @@ describe('임플란트', () => {
           option: '',
         },
       },
+      implantCatalog: CATALOG,
     });
     expect(lines[0].text).toContain('Osstem TS Regular Hex');
+  });
+
+  it('★ 카탈로그가 없으면 이름 대신 코드가 남는다', () => {
+    // 마스터에서 지워진 값이 옛 주문에 남아 있는 경우입니다.
+    // 화면이 비어 버리는 것보다 코드라도 보이는 편이 낫습니다.
+    const lines = buildSummaryLines({
+      placements: [scrp(16)],
+      implants: {
+        16: {
+          manufacturerCode: 'OST',
+          typeCode: 'OST_TS',
+          sizeCode: null,
+          screwCode: null,
+          option: '',
+        },
+      },
+    });
+    expect(lines[0].text).toContain('OST OST_TS');
   });
 });
 

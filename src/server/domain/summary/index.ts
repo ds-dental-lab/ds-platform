@@ -10,7 +10,7 @@
 import { byArchOrder } from '../tooth';
 import { buildAbbr } from '../prosthesis';
 import { formatShade, EMPTY_SHADE, type ToothShade } from '../shade';
-import { formatSelection, type ImplantSelection } from '../implant';
+import { formatSelection, type ImplantCatalog, type ImplantSelection } from '../implant';
 import type { ToothPlacement } from '../bridge';
 
 export interface SummaryLine {
@@ -31,6 +31,8 @@ export interface SummaryInput {
   shades?: Record<number, ToothShade>;
   /** 치아별 임플란트 모델 */
   implants?: Record<number, ImplantSelection>;
+  /** 임플란트 코드를 이름으로 바꾸는 데 씁니다. 없으면 코드가 그대로 보입니다 */
+  implantCatalog?: ImplantCatalog;
 }
 
 /**
@@ -42,6 +44,7 @@ export function buildSummaryLines({
   placements,
   shades = {},
   implants = {},
+  implantCatalog = [],
 }: SummaryInput): SummaryLine[] {
   const groups = new Map<string, ToothPlacement[]>();
 
@@ -63,7 +66,7 @@ export function buildSummaryLines({
       .join(', ');
 
     const shadeLabel = summarizeShades(sorted, shades);
-    const implantLabel = summarizeImplants(sorted, implants);
+    const implantLabel = summarizeImplants(sorted, implants, implantCatalog);
 
     const parts = [`${abbr} | ${teethLabel}`];
     if (shadeLabel) parts.push(`(${shadeLabel})`);
@@ -109,10 +112,11 @@ function summarizeShades(
 function summarizeImplants(
   placements: ToothPlacement[],
   implants: Record<number, ImplantSelection>,
+  catalog: ImplantCatalog,
 ): string {
   const labels = placements
     .filter((p) => !p.isPontic && implants[p.tooth])
-    .map((p) => formatSelection(implants[p.tooth]))
+    .map((p) => formatSelection(catalog, implants[p.tooth]))
     .filter(Boolean);
 
   if (labels.length === 0) return '';

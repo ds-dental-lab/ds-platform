@@ -80,6 +80,71 @@ export function findSystemOf(shade: string): ShadeSystem | null {
   return SHADE_SYSTEMS.find((s) => s.shades.includes(shade)) ?? null;
 }
 
+// ---------- 색표 배치 ----------
+
+/**
+ * 색표 한 칸.
+ *
+ *   문자열  — 그 색조 버튼
+ *   ''      — 그 체계의 색표에 원래 자리는 있으나 색이 없는 칸 (회색 빈칸)
+ *   null    — 칸 자체가 없는 자리 (아무것도 그리지 않음)
+ *
+ * ★ 색조를 그냥 순서대로 늘어놓으면 안 됩니다.
+ *   3D Master 는 1M~5M 명도 묶음 안에서 L·M·R 로 갈리고,
+ *   Ivoclar 는 계열마다 있는 번호가 달라 자리가 비어 있습니다.
+ *   실제 색표와 자리가 같아야 원장이 눈으로 찾습니다.
+ */
+export type ShadeCell = string | null;
+
+export interface ShadeLayout {
+  rows: ShadeCell[][];
+  /** 열 아래에 붙는 이름. 3D Master 의 1M~5M 처럼 묶음이 있을 때만 */
+  columnLabels?: ShadeCell[];
+}
+
+/** Vita classic — 색표 순서 그대로 6칸씩 끊습니다 */
+function chunk(list: string[], size: number): ShadeCell[][] {
+  const rows: ShadeCell[][] = [];
+  for (let i = 0; i < list.length; i += size) {
+    rows.push(list.slice(i, i + size));
+  }
+  return rows;
+}
+
+/**
+ * Vita 3D Master — 11열.
+ *   1M | 2L 2M 2R | 3L 3M 3R | 4L 4M 4R | 5M
+ * 위에서부터 명도 3 · 2 · 1 입니다.
+ */
+const MASTER_3D_LAYOUT: ShadeLayout = {
+  rows: [
+    [null, null, '2M3', null, null, '3M3', null, null, '4M3', null, '5M3'],
+    ['1M2', '2L2.5', '2M2', '2R2.5', '3L2.5', '3M2', '3R2.5', '4L2.5', '4M2', '4R2.5', '5M2'],
+    ['1M1', '2L1.5', '2M1', '2R1.5', '3L1.5', '3M1', '3R1.5', '4L1.5', '4M1', '4R1.5', '5M1'],
+  ],
+  columnLabels: ['1M', null, '2M', null, null, '3M', null, null, '4M', null, '5M'],
+};
+
+/**
+ * Ivoclar Chromascop — 8열.
+ * 왼쪽 끝 01 과 오른쪽 끝 BL 계열은 한 칸씩만 씁니다.
+ */
+const IVOCLAR_LAYOUT: ShadeLayout = {
+  rows: [
+    [null, '1E', null, null, null, null, null, null],
+    [null, '1D', '2E', '3E', '4E', '', '6E', 'BL4'],
+    [null, '1C', '2C', '3C', '4C', '', '6C', 'BL3'],
+    [null, '', '2B', '', '4B', '5B', '6B', 'BL2'],
+    ['01', '1A', '2A', '3A', '4A', '', '', 'BL1'],
+  ],
+};
+
+export function getShadeLayout(systemCode: string): ShadeLayout {
+  if (systemCode === 'vita_3d_master') return MASTER_3D_LAYOUT;
+  if (systemCode === 'ivoclar') return IVOCLAR_LAYOUT;
+  return { rows: chunk(getShades(systemCode), 6) };
+}
+
 // ---------- 치아에 입힌 색 ----------
 
 /**
