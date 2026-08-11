@@ -40,20 +40,20 @@ export function planStatusNotifications(
   context: {
     orderNo: string;
     patientLabel: string;
-    /** 기공소에 나가는 본문에 쓸 마스킹 이름 (설계서 §8.5) */
-    patientLabelMasked: string;
     reason?: string | null;
   },
 ): NotificationPlan[] {
-  const { orderNo, patientLabel, patientLabelMasked, reason } = context;
+  const { orderNo, patientLabel, reason } = context;
 
   /**
-   * ★ 알림 본문에도 §8.5 가 적용됩니다.
-   *   조회 화면에서 실명을 가려 놓고 알림으로 흘려보내면 아무 의미가 없습니다.
-   *   받는 쪽이 기공소면 마스킹 이름을 씁니다.
+   * ★ 기공소에게도 실명이 나갑니다 (사용자 결정 2026-08-11).
+   *   배정 알림을 받고 그 이름으로 케이스를 찾아 배송합니다.
+   *   가려 보내면 어느 건인지 알 수가 없어 쓸모가 없습니다.
+   *
+   *   알림은 '배정된 기공소 한 곳' 에만 갑니다 — 누구에게 보낼지는
+   *   주문의 lab_org_id 가 정합니다. 남의 건이 섞일 자리가 없습니다.
    */
-  const subjectFor = (slot: RecipientSlot) =>
-    `${orderNo} · ${slot === 'lab' ? patientLabelMasked : patientLabel}`;
+  const subject = `${orderNo} · ${patientLabel}`;
 
   // ① 접수 — 새 주문이 디자인센터로 들어옴
   //    (재스캔 → 접수 복귀도 디자인센터가 다시 봐야 합니다)
@@ -63,14 +63,13 @@ export function planStatusNotifications(
         to: 'design',
         channel: 'kakao',
         title: '새 주문이 접수되었습니다',
-        body: subjectFor('design'),
+        body: subject,
       },
     ];
   }
 
   // ② 재스캔 — 치과가 다시 찍어 올려야 함
   if (to === 'rescan') {
-    const subject = subjectFor('clinic');
     return [
       {
         to: 'clinic',
@@ -88,7 +87,7 @@ export function planStatusNotifications(
         to: 'lab',
         channel: 'kakao',
         title: '새 제작 건이 배정되었습니다',
-        body: subjectFor('lab'),   // 마스킹된 이름이 나갑니다
+        body: subject,
       },
     ];
   }
@@ -102,7 +101,7 @@ export function planStatusNotifications(
       to: inAppTarget,
       channel: 'in_app',
       title: `${STATUS_LABEL[from]} → ${STATUS_LABEL[to]}`,
-      body: subjectFor(inAppTarget),
+      body: subject,
     },
   ];
 }

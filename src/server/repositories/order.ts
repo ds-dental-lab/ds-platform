@@ -11,17 +11,22 @@ import { getSession } from '@/server/policies/session';
 import type { OrderStatus, Sector } from '@/server/domain/order-status';
 
 /**
- * 환자 이름을 어느 컬럼에서 읽을지 정합니다. (설계서 §8.5)
+ * 환자 이름을 어느 컬럼에서 읽을지 정합니다.
  *
- * ★ 기공소에게는 마스킹 컬럼만 씁니다. 실명 컬럼은 select 에도 filter 에도
- *   들어가지 않습니다. 읽기만 막고 검색을 열어 두면, 이름을 넣어 보며
- *   맞는지 확인하는 식으로 실명을 알아낼 수 있기 때문입니다.
+ * ★ 기공소도 실명을 봅니다 (사용자 결정 2026-08-11).
+ *   완성품을 치과로 보낼 때 케이스를 환자 이름으로 구분합니다.
+ *   이름을 가리면 어느 봉투가 누구 것인지 알 수가 없습니다.
  *
- *   호출하는 쪽이 깜빡해도 새지 않도록 판정을 여기 한 곳에 둡니다.
+ * ★ 대신 '배정받은 주문만' 이 실명 차단을 대신합니다.
+ *   orders 의 select 정책이 lab_org_id = my_org_id() 로 잠가 두어,
+ *   기공소는 자기에게 넘어온 건만 봅니다. 디자인센터가 물량을 나눠 주므로
+ *   기공소가 치과 전체의 환자 명단을 긁을 길은 없습니다.
+ *
+ *   그래서 여기서는 섹터를 따지지 않고 늘 실명 컬럼을 씁니다.
+ *   patient_label_masked 컬럼은 지우지 않고 둡니다 — 다시 가려야 할 때를 위해서.
  */
-async function patientLabelColumn(): Promise<'patient_label' | 'patient_label_masked'> {
-  const session = await getSession();
-  return session?.orgType === 'lab' ? 'patient_label_masked' : 'patient_label';
+function patientLabelColumn(): 'patient_label' {
+  return 'patient_label';
 }
 
 export interface OrderListRow {
@@ -61,7 +66,7 @@ interface RawListRow {
 /** 목록. 최신순으로 돌려줍니다. RLS가 내 조직이 관련된 주문만 골라줍니다 */
 export async function listOrders(filter: OrderListFilter = {}): Promise<OrderListRow[]> {
   const supabase = await createClient();
-  const labelColumn = await patientLabelColumn();
+  const labelColumn = patientLabelColumn();
 
   let query = supabase
     .from('orders')
@@ -263,7 +268,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
   const { data, error } = await supabase
     .from('orders')
     .select(
-      `id, order_no, patient_label:${await patientLabelColumn()}, ` +
+      `id, order_no, patient_label:${patientLabelColumn()}, ` +
         'status, order_type, due_date, notes, created_at, received_at, ' +
         'clinic_org_id, design_org_id, lab_org_id, ' +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
@@ -397,7 +402,7 @@ export async function listOrdersByDueDate(
   to: string,
 ): Promise<OrderListRow[]> {
   const supabase = await createClient();
-  const labelColumn = await patientLabelColumn();
+  const labelColumn = patientLabelColumn();
 
   const { data, error } = await supabase
     .from('orders')

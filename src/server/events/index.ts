@@ -40,13 +40,9 @@ export async function publishOrderStatusChanged(
     const supabase = await createClient();
 
     // 알림을 보낼 조직 id 는 주문에 들어 있습니다
-    // 마스킹 이름도 같이 읽습니다 — 기공소 앞으로 나가는 알림에 씁니다 (§8.5)
     const { data } = await supabase
       .from('orders')
-      .select(
-        'order_no, patient_label, patient_label_masked, ' +
-          'clinic_org_id, design_org_id, lab_org_id',
-      )
+      .select('order_no, patient_label, clinic_org_id, design_org_id, lab_org_id')
       .eq('id', event.orderId)
       .maybeSingle();
 
@@ -55,7 +51,6 @@ export async function publishOrderStatusChanged(
     const order = data as unknown as {
       order_no: string;
       patient_label: string;
-      patient_label_masked: string;
       clinic_org_id: string | null;
       design_org_id: string | null;
       lab_org_id: string | null;
@@ -81,7 +76,6 @@ export async function publishOrderStatusChanged(
     const plans = planStatusNotifications(event.from, event.to, event.actorSector, {
       orderNo: order.order_no,
       patientLabel: order.patient_label,
-      patientLabelMasked: order.patient_label_masked,
       reason: event.reason,
     });
 
@@ -191,10 +185,10 @@ export async function publishRepairRequested(event: {
   try {
     const supabase = await createClient();
 
-    // ★ 기공소 앞으로 가는 알림이라 마스킹 이름을 씁니다 (§8.5)
+    // ★ 기공소가 이 이름으로 케이스를 찾아 수거합니다 — 가리면 못 찾습니다
     const { data } = await supabase
       .from('orders')
-      .select('order_no, patient_label_masked')
+      .select('order_no, patient_label')
       .eq('id', event.repairOrderId)
       .maybeSingle();
 
@@ -202,7 +196,7 @@ export async function publishRepairRequested(event: {
 
     const order = data as unknown as {
       order_no: string;
-      patient_label_masked: string;
+      patient_label: string;
     };
 
     const { data: saved } = await supabase
@@ -226,7 +220,7 @@ export async function publishRepairRequested(event: {
       event_type: 'order.repair_requested',
       title: '리페어가 접수되었습니다 · 수거 필요',
       body:
-        `${order.order_no} · ${order.patient_label_masked}\n` +
+        `${order.order_no} · ${order.patient_label}\n` +
         `요청: ${event.notes}\n` +
         '보철물 수거를 택배사에 접수해 주세요.',
       link: `/lab/orders/${event.repairOrderId}`,

@@ -95,12 +95,13 @@ interface RawRow {
 
 export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderListResult> {
   const session = await getSession();
-  const isLab = session?.orgType === 'lab';
   const isClinic = session?.orgType === 'clinic';
 
   const supabase = await createClient();
 
-  const patientColumn = isLab ? 'patient_label_masked' : 'patient_label';
+  // ★ 기공소도 실명을 봅니다 — 배송할 케이스를 이름으로 구분합니다.
+  //   대신 RLS 가 배정받은 주문만 열어 주어, 남의 건까지 긁을 수는 없습니다.
+  const patientColumn = 'patient_label';
 
   // 치과에게는 기공소명을 아예 읽지 않습니다 (§8.5)
   const labSelect = isClinic ? '' : 'lab:organizations!orders_lab_org_id_fkey(name), ';

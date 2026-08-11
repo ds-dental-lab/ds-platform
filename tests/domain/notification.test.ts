@@ -1,6 +1,6 @@
 // =========================================================
 // 놓을 위치: tests/domain/notification.test.ts
-// 기준: 시스템설계서 Q-7 알림 트리거, §8.5 민감 필드 차단
+// 기준: 시스템설계서 Q-7 알림 트리거, 기공소 환자명 정책 (2026-08-11 변경)
 // =========================================================
 
 import { describe, it, expect } from 'vitest';
@@ -9,7 +9,6 @@ import { planStatusNotifications } from '@/server/domain/notification';
 const context = {
   orderNo: 'ORD-260808-006',
   patientLabel: '박민 (10003)',
-  patientLabelMasked: '박* (10003)',
 };
 
 describe('Q-7 알림 트리거', () => {
@@ -58,10 +57,22 @@ describe('Q-7 알림 트리거', () => {
   });
 });
 
-// ★ 화면에서 실명을 가려 놓고 알림으로 흘려보내면 아무 의미가 없습니다.
-//   실제로 한 번 새서 막았고, 다시 새지 않도록 여기서 지킵니다.
-describe('환자 실명 차단 (§8.5)', () => {
-  it('★ 기공소 앞으로 가는 알림에는 실명이 들어가지 않는다', () => {
+// =========================================================
+// 기공소 환자명
+//
+// ★ 2026-08-11 에 정책이 뒤집혔습니다.
+//   전에는 기공소에 마스킹 이름(박*)을 보냈습니다. 그런데 기공소는
+//   완성품을 치과로 보낼 때 환자 이름으로 케이스를 구분합니다.
+//   가려 보내면 어느 건인지 알 수가 없어 알림이 쓸모없어집니다.
+//
+//   대신 '배정받은 주문만' 이 실명 차단을 대신합니다 —
+//   알림은 주문의 lab_org_id 가 가리키는 기공소 한 곳에만 갑니다.
+//   디자인센터가 물량을 나눠 주므로, 기공소가 치과 전체의
+//   환자 명단을 긁을 길은 없습니다.
+// =========================================================
+
+describe('기공소 환자명', () => {
+  it('★ 배정 알림에 실명이 들어간다 — 이 이름으로 케이스를 찾습니다', () => {
     const plans = planStatusNotifications(
       'designing',
       'production_wait',
@@ -69,16 +80,12 @@ describe('환자 실명 차단 (§8.5)', () => {
       context,
     );
 
-    for (const plan of plans) {
-      expect(plan.to).toBe('lab');
-      expect(plan.body).not.toContain('박민');
-      expect(plan.body).toContain('박*');
-    }
+    expect(plans).toHaveLength(1);
+    expect(plans[0].to).toBe('lab');
+    expect(plans[0].body).toContain('박민 (10003)');
   });
 
-  it('★ 기공소가 받는 인앱 알림에도 실명이 없다', () => {
-    // 제작대기 → 제작 은 기공소가 하지만, 디자인센터가 되돌리는 등
-    // 기공소가 받는 인앱 알림 경로도 같은 규칙을 지켜야 합니다.
+  it('★ 기공소가 받는 인앱 알림에도 실명이 들어간다', () => {
     const plans = planStatusNotifications(
       'production_wait',
       'production',
@@ -86,12 +93,22 @@ describe('환자 실명 차단 (§8.5)', () => {
       context,
     );
 
-    for (const plan of plans.filter((p) => p.to === 'lab')) {
-      expect(plan.body).not.toContain('박민');
+    const toLab = plans.filter((p) => p.to === 'lab');
+    expect(toLab.length).toBeGreaterThan(0);
+
+    for (const plan of toLab) {
+      expect(plan.body).toContain('박민');
     }
   });
 
-  it('치과와 디자인센터에는 실명이 그대로 간다', () => {
+  it('★ 알림은 받는 쪽에 상관없이 같은 본문을 씁니다', () => {
+    const toLab = planStatusNotifications('designing', 'production_wait', 'design_center', context);
+    const toDesign = planStatusNotifications('rescan', 'received', 'clinic', context);
+
+    expect(toLab[0].body).toBe(toDesign[0].body);
+  });
+
+  it('치과와 디자인센터에도 실명이 그대로 간다', () => {
     const toClinic = planStatusNotifications('shipping', 'completed', 'clinic', context);
     const toDesign = planStatusNotifications('rescan', 'received', 'clinic', context);
 

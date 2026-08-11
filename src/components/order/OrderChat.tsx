@@ -210,9 +210,9 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
         />
 
         <div className="mt-1.5 flex items-center gap-2">
-          {/* ★ 누가 함께 보는지 늘 알려 줍니다 — 실명을 적으면 기공소도 봅니다 */}
+          {/* 누가 함께 보는지는 알려 둡니다 — 기공소까지 읽는다는 걸 모르면 곤란합니다 */}
           <span className="min-w-0 flex-1 text-[11px] leading-tight text-[#98A2B3]">
-            치과 · 디자인센터 · 기공소가 함께 봅니다. 환자 실명은 적지 마세요.
+            치과 · 디자인센터 · 배정된 기공소가 함께 봅니다.
           </span>
 
           <span className="shrink-0 text-[11px] text-[#C4CBD6]">
