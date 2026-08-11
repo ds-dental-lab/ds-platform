@@ -47,6 +47,91 @@ export function nextYearMonth(ym: YearMonth): YearMonth {
     : `${year}-${String(month + 1).padStart(2, '0')}`;
 }
 
+/** 지난 달. 1월은 해를 내려갑니다 */
+export function prevYearMonth(ym: YearMonth): YearMonth {
+  const [year, month] = ym.split('-').map(Number);
+  return month === 1
+    ? `${year - 1}-12`
+    : `${year}-${String(month - 1).padStart(2, '0')}`;
+}
+
+// ---------- 기준일이 기간을 가릅니다 (거래처마다 다릅니다) ----------
+//
+// ★ 정산 기준일은 거래처 설정입니다 (organizations.closing_day).
+//   한 달이 모두에게 같은 날 시작하지 않습니다 —
+//     1일  치과 → 08-01 ~ 08-31
+//     26일 치과 → 07-26 ~ 08-25
+//   둘 다 '2026-08 정산' 입니다. **끝나는 달**로 이름을 붙입니다.
+//
+// ★ 기준일은 1~28 만 받습니다.
+//   29·30·31 로 두면 2월에 그 날이 없어 기간이 끊깁니다.
+//   '말일' 이 필요하면 1일 기준과 같은 뜻이라 1일로 적습니다.
+
+export const MIN_CLOSING_DAY = 1;
+export const MAX_CLOSING_DAY = 28;
+
+export function isValidClosingDay(day: number): boolean {
+  return Number.isInteger(day) && day >= MIN_CLOSING_DAY && day <= MAX_CLOSING_DAY;
+}
+
+export interface PeriodRange {
+  /** 첫날 (포함) */
+  from: IsoDate;
+  /** 끝날 (포함) */
+  to: IsoDate;
+}
+
+function lastDayOfMonth(year: number, month: number): number {
+  // month 는 1~12. 다음 달 0일 = 이 달 마지막 날
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function iso(ym: YearMonth, day: number): IsoDate {
+  return `${ym}-${String(day).padStart(2, '0')}`;
+}
+
+/**
+ * '2026-08' 정산이 실제로 어느 날부터 어느 날까지인가.
+ *
+ *   기준일 1일  → 2026-08-01 ~ 2026-08-31
+ *   기준일 26일 → 2026-07-26 ~ 2026-08-25
+ *
+ * ★ 1일은 지난달로 넘어가지 않습니다.
+ *   1일 기준이면 그 달이 통째로 그 달입니다. 다른 날만 앞달에서 시작합니다.
+ */
+export function periodRange(ym: YearMonth, closingDay: number): PeriodRange {
+  const day = clampClosingDay(closingDay);
+
+  if (day === 1) {
+    const [year, month] = ym.split('-').map(Number);
+    return { from: iso(ym, 1), to: iso(ym, lastDayOfMonth(year, month)) };
+  }
+
+  return { from: iso(prevYearMonth(ym), day), to: iso(ym, day - 1) };
+}
+
+/**
+ * 이 날짜(배송일)가 드는 정산 달.
+ *
+ *   26일 기준에서 08-25 는 2026-08, 08-26 은 벌써 2026-09 입니다.
+ *
+ * ★ periodRange 의 역입니다. 둘이 어긋나면 어느 건이 어느 달에도
+ *   안 잡히거나 두 달에 겹쳐 잡힙니다. 테스트가 왕복을 잠급니다.
+ */
+export function periodOfDate(when: string, closingDay: number): YearMonth {
+  const day = clampClosingDay(closingDay);
+  const ym = yearMonthOf(when);
+  const dayOfMonth = Number(when.slice(8, 10));
+
+  return day > 1 && dayOfMonth >= day ? nextYearMonth(ym) : ym;
+}
+
+/** 잘못된 기준일이 와도 화면이 죽지 않게 1~28 안으로 당깁니다 */
+function clampClosingDay(day: number): number {
+  if (!Number.isFinite(day)) return MIN_CLOSING_DAY;
+  return Math.min(MAX_CLOSING_DAY, Math.max(MIN_CLOSING_DAY, Math.trunc(day)));
+}
+
 // ---------- 무엇을 청구하는가 ----------
 
 export interface BillableOrder {
@@ -67,10 +152,15 @@ export function isBillable(order: BillableOrder): boolean {
   return order.isBillable && order.shippedAt !== null;
 }
 
-/** 이 주문의 기본금액이 들어갈 달. 아직 안 나갔으면 null */
-export function basePeriodOf(order: BillableOrder): YearMonth | null {
+/**
+ * 이 주문의 기본금액이 들어갈 달. 아직 안 나갔으면 null.
+ *
+ * ★ 거래처의 기준일이 필요합니다.
+ *   같은 8월 26일 배송이라도 1일 치과는 8월, 26일 치과는 9월입니다.
+ */
+export function basePeriodOf(order: BillableOrder, closingDay: number): YearMonth | null {
   if (!isBillable(order)) return null;
-  return yearMonthOf(order.shippedAt!);
+  return periodOfDate(order.shippedAt!, closingDay);
 }
 
 // ---------- 어느 기간에 딱지를 찍는가 ----------
@@ -127,4 +217,59 @@ export function isExpectedIn(
   if (order.shippedAt) return yearMonthOf(order.shippedAt) === ym;
 
   return yearMonthOf(order.dueDate) === ym;
+}
+
+// ---------- 보철 한 줄이 얼마인가 ----------
+//
+// ★ '값이 없다' 를 0원으로 삼키지 않습니다.
+//   단가를 안 정한 제품을 조용히 0원으로 청구하면 돈을 못 받고,
+//   그 사실을 아무도 모릅니다. 0원과 미정을 갈라 화면에 띄웁니다.
+
+export interface BillableItem {
+  /** 폰틱 자리인가. 폰틱이면 폰틱 단가를 씁니다 */
+  isPontic: boolean;
+  /** 치은(핑크) 포셀린을 붙였는가. 붙였으면 그 값을 더합니다 */
+  hasGingival: boolean;
+
+  /** 이 거래처에 적용되는 값들 (domain/pricing 의 resolvePrice 를 지난 뒤) */
+  price: number | null;
+  ponticPrice: number | null;
+  pinkPrice: number | null;
+}
+
+export interface ItemAmount {
+  amount: number;
+  /** 쓸 단가가 비어 있었는가. 화면에서 '미정' 으로 표시해야 합니다 */
+  unpriced: boolean;
+}
+
+/**
+ * 보철 한 줄의 청구액.
+ *
+ *   폰틱이면 폰틱 단가, 아니면 판매가.
+ *   치은포셀린을 붙였으면 그만큼 더합니다.
+ *
+ * ★ 리메이크·리페어는 여기까지 오지 않습니다 (isBillable 이 먼저 걸러냅니다).
+ *   주문 단위로 걸러야 '리메이크 주문의 한 줄만 청구' 같은 일이 안 생깁니다.
+ */
+export function itemAmount(item: BillableItem): ItemAmount {
+  const base = item.isPontic ? item.ponticPrice : item.price;
+
+  // 치은포셀린 값을 안 정했으면 그것도 미정입니다 — 붙였는데 공짜일 리 없습니다
+  const pink = item.hasGingival ? item.pinkPrice : 0;
+
+  const unpriced = base === null || pink === null;
+
+  return { amount: (base ?? 0) + (pink ?? 0), unpriced };
+}
+
+/** 여러 줄을 더합니다. 하나라도 미정이면 합계도 미정 표시를 답니다 */
+export function sumItems(items: BillableItem[]): ItemAmount {
+  return items.reduce<ItemAmount>(
+    (acc, item) => {
+      const one = itemAmount(item);
+      return { amount: acc.amount + one.amount, unpriced: acc.unpriced || one.unpriced };
+    },
+    { amount: 0, unpriced: false },
+  );
 }

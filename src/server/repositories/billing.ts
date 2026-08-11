@@ -1,0 +1,331 @@
+// =========================================================
+// 놓을 위치: src/server/repositories/billing.ts
+//
+// 정산 조회. 디자인센터가 거래처 하나의 한 기간을 들여다봅니다.
+//
+// ★ 열린 기간은 표에 줄이 없습니다. 주문에서 그때그때 셈합니다.
+//   미리 만들어 두면 주문이 바뀔 때마다 따라 고쳐야 하고,
+//   한 번 어긋나면 어디가 맞는지 알 수 없습니다.
+//   마감을 누르는 순간에만 그 결과가 billing_lines 로 굳습니다.
+//
+// ★ 기간은 거래처의 기준일이 가릅니다 (2026-08-11 결정).
+//   1일 치과는 08-01~08-31, 26일 치과는 07-26~08-25 가 똑같이 '2026-08' 입니다.
+//
+// ★ 단가는 거래처 값이 기본가를 덮어씁니다 (domain/pricing).
+//   치과에는 판매가를, 기공소에는 기공원가를 씁니다.
+// =========================================================
+
+import 'server-only';
+import { createClient } from '@/lib/supabase/server';
+import { getSession } from '@/server/policies/session';
+import { resolvePrice } from '@/server/domain/pricing';
+import { itemAmount, type ItemAmount } from '@/server/domain/billing';
+import { buildAbbr, type ProsthesisCatalog } from '@/server/domain/prosthesis';
+import type { PartnerRow } from '@/server/repositories/partner';
+
+/** 세부내역 한 줄 — 보철 하나 */
+export interface SettlementItem {
+  orderId: string;
+  itemId: string;
+
+  orderNo: string;
+  receivedAt: string | null;
+  shippedAt: string;
+  patientLabel: string;
+
+  /** 리메이크면 'N차' 를 이름 뒤에 붙여 보여 줍니다 */
+  remakeSeq: number;
+  isRemake: boolean;
+
+  typeCode: string;
+  materialCode: string;
+  /** 화면에 찍는 이름. 폰틱이면 (Pontic) 이 붙습니다 */
+  label: string;
+  toothNumber: number;
+  isPontic: boolean;
+  hasGingival: boolean;
+
+  amount: number;
+  /** 단가를 안 정한 제품. 0원이 아니라 '미정' 입니다 */
+  unpriced: boolean;
+  /** 손으로 깎거나 더한 값 */
+  adjustment: number;
+}
+
+/** 청구 내역 한 줄 — 제품별로 묶은 것 */
+export interface SettlementProduct {
+  key: string;
+  label: string;
+  count: number;
+  amount: number;
+  unpriced: boolean;
+}
+
+export interface Settlement {
+  from: string;
+  to: string;
+  items: SettlementItem[];
+  products: SettlementProduct[];
+
+  /** 보철 합계 */
+  subtotal: number;
+  /** 조정 합계 */
+  adjustment: number;
+  total: number;
+
+  /** 단가가 비어 청구액에 안 잡힌 줄 수. 0 이 아니면 화면에 띄웁니다 */
+  unpricedCount: number;
+}
+
+interface RawItem {
+  id: string;
+  tooth_number: number;
+  type_code: string;
+  material_code: string;
+  is_pontic: boolean;
+  has_gingival: boolean;
+}
+
+interface RawOrder {
+  id: string;
+  order_no: string;
+  received_at: string | null;
+  shipped_at: string;
+  patient_label: string;
+  is_remake: boolean;
+  remake_seq: number;
+  order_items: RawItem[] | null;
+}
+
+/**
+ * 거래처 하나의 한 기간.
+ *
+ * ★ 배송일로 자릅니다. 접수일이 아닙니다 —
+ *   물건이 나간 시점이 청구의 근거입니다.
+ *
+ * ★ 리메이크·리페어(is_billable=false)는 아예 안 가져옵니다.
+ *   0원 줄로 끼워 넣으면 "왜 0원이지" 를 매번 설명해야 합니다.
+ *   ('그 달에 뭐가 나갔나' 를 보고 싶다는 요청이 오면 그때 켭니다)
+ */
+export async function getSettlement(
+  partner: PartnerRow,
+  from: string,
+  to: string,
+  catalog: ProsthesisCatalog,
+): Promise<Settlement> {
+  const session = await getSession();
+  if (session?.orgType !== 'design_center' || !session.orgId) {
+    return empty(from, to);
+  }
+
+  const supabase = await createClient();
+  const isClinic = partner.orgType === 'clinic';
+
+  const [orders, prices, overrides, adjustments] = await Promise.all([
+    supabase
+      .from('orders')
+      .select(
+        'id, order_no, received_at, shipped_at, patient_label, is_remake, remake_seq, ' +
+          'order_items(id, tooth_number, type_code, material_code, is_pontic, has_gingival)',
+      )
+      .eq(isClinic ? 'clinic_org_id' : 'lab_org_id', partner.id)
+      .eq('is_billable', true)
+      .is('deleted_at', null)
+      .not('shipped_at', 'is', null)
+      .gte('shipped_at', `${from}T00:00:00`)
+      .lte('shipped_at', `${to}T23:59:59`)
+      .order('shipped_at', { ascending: false }),
+
+    // 제품 기본가 — 코드로 찾을 수 있게 종류·재료를 함께 가져옵니다
+    supabase
+      .from('prosthesis_materials')
+      .select(
+        'id, code, price, pontic_price, pink_price, prosthesis_types!inner(code)',
+      ),
+
+    isClinic
+      ? supabase
+          .from('clinic_product_prices')
+          .select('material_id, price, pontic_price, pink_price')
+          .eq('clinic_org_id', partner.id)
+      : supabase
+          .from('lab_product_costs')
+          .select('material_id, lab_cost, pontic_cost, pink_cost')
+          .eq('lab_org_id', partner.id),
+
+    supabase
+      .from('billing_adjustments')
+      .select('order_item_id, amount')
+      .eq('party_org_id', partner.id),
+  ]);
+
+  if (orders.error || !orders.data) return empty(from, to);
+
+  // ---------- 단가표를 (종류/재료) 로 펼칩니다 ----------
+  interface PriceRow {
+    price: number | null;
+    ponticPrice: number | null;
+    pinkPrice: number | null;
+  }
+
+  const byId = new Map<string, PriceRow>();
+
+  for (const row of (overrides.data ?? []) as Record<string, unknown>[]) {
+    byId.set(row.material_id as string, {
+      price: (isClinic ? row.price : row.lab_cost) as number | null,
+      ponticPrice: (isClinic ? row.pontic_price : row.pontic_cost) as number | null,
+      pinkPrice: (isClinic ? row.pink_price : row.pink_cost) as number | null,
+    });
+  }
+
+  const byCode = new Map<string, PriceRow>();
+
+  for (const raw of (prices.data ?? []) as unknown as {
+    id: string;
+    code: string;
+    price: number | null;
+    pontic_price: number | null;
+    pink_price: number | null;
+    prosthesis_types: { code: string };
+  }[]) {
+    const over = byId.get(raw.id);
+
+    // ★ `??` 여야 합니다. `||` 로 이으면 0원 거래처 단가가 기본가로 새어 나갑니다
+    byCode.set(`${raw.prosthesis_types.code}/${raw.code}`, {
+      price: resolvePrice(raw.price, over?.price ?? null),
+      ponticPrice: resolvePrice(raw.pontic_price, over?.ponticPrice ?? null),
+      pinkPrice: resolvePrice(raw.pink_price, over?.pinkPrice ?? null),
+    });
+  }
+
+  const adjByItem = new Map<string, number>();
+
+  for (const row of ((adjustments.data ?? []) as {
+    order_item_id: string | null;
+    amount: number;
+  }[])) {
+    if (!row.order_item_id) continue;
+    adjByItem.set(row.order_item_id, (adjByItem.get(row.order_item_id) ?? 0) + row.amount);
+  }
+
+  // ---------- 줄을 폅니다 ----------
+  const items: SettlementItem[] = [];
+
+  for (const order of orders.data as unknown as RawOrder[]) {
+    for (const raw of order.order_items ?? []) {
+      const price = byCode.get(`${raw.type_code}/${raw.material_code}`) ?? {
+        price: null,
+        ponticPrice: null,
+        pinkPrice: null,
+      };
+
+      const money: ItemAmount = itemAmount({
+        isPontic: raw.is_pontic,
+        hasGingival: raw.has_gingival,
+        ...price,
+      });
+
+      const abbr = buildAbbr(catalog, raw.type_code, raw.material_code);
+
+      items.push({
+        orderId: order.id,
+        itemId: raw.id,
+        orderNo: order.order_no,
+        receivedAt: order.received_at,
+        shippedAt: order.shipped_at,
+        patientLabel: order.patient_label,
+        remakeSeq: order.remake_seq,
+        isRemake: order.is_remake,
+        typeCode: raw.type_code,
+        materialCode: raw.material_code,
+        label: raw.is_pontic ? `${abbr} (Pontic)` : abbr,
+        toothNumber: raw.tooth_number,
+        isPontic: raw.is_pontic,
+        hasGingival: raw.has_gingival,
+        amount: money.amount,
+        unpriced: money.unpriced,
+        adjustment: adjByItem.get(raw.id) ?? 0,
+      });
+    }
+  }
+
+  // ---------- 제품별로 묶습니다 (청구 내역) ----------
+  const grouped = new Map<string, SettlementProduct>();
+
+  for (const item of items) {
+    const key = item.label;
+    const found = grouped.get(key);
+
+    if (found) {
+      found.count += 1;
+      found.amount += item.amount + item.adjustment;
+      found.unpriced = found.unpriced || item.unpriced;
+    } else {
+      grouped.set(key, {
+        key,
+        label: key,
+        count: 1,
+        amount: item.amount + item.adjustment,
+        unpriced: item.unpriced,
+      });
+    }
+  }
+
+  const subtotal = items.reduce((sum, i) => sum + i.amount, 0);
+  const adjustment = items.reduce((sum, i) => sum + i.adjustment, 0);
+
+  return {
+    from,
+    to,
+    items,
+    products: [...grouped.values()].sort((a, b) => b.amount - a.amount),
+    subtotal,
+    adjustment,
+    total: subtotal + adjustment,
+    unpricedCount: items.filter((i) => i.unpriced).length,
+  };
+}
+
+function empty(from: string, to: string): Settlement {
+  return {
+    from,
+    to,
+    items: [],
+    products: [],
+    subtotal: 0,
+    adjustment: 0,
+    total: 0,
+    unpricedCount: 0,
+  };
+}
+
+// ---------- 마감 상태 ----------
+
+export interface PeriodState {
+  yearMonth: string;
+  closedAt: string | null;
+  issuedAt: string | null;
+  paidAt: string | null;
+}
+
+/** 이 거래처의 마감 기록. 줄이 없는 달은 아직 열려 있습니다 */
+export async function listPeriods(partyOrgId: string): Promise<PeriodState[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('billing_periods')
+    .select('year_month, closed_at, issued_at, paid_at')
+    .eq('party_org_id', partyOrgId)
+    .order('year_month', { ascending: false });
+
+  if (error || !data) return [];
+
+  return (data as { year_month: string; closed_at: string | null; issued_at: string | null; paid_at: string | null }[]).map(
+    (row) => ({
+      yearMonth: row.year_month,
+      closedAt: row.closed_at,
+      issuedAt: row.issued_at,
+      paidAt: row.paid_at,
+    }),
+  );
+}
