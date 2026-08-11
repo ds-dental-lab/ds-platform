@@ -38,6 +38,8 @@ export interface UploadProgress {
   /** 다 올린 파일 수 */
   done: number;
   failed: number;
+  /** 이 파일을 몇 번째로 시도하고 있는가. 1이면 처음입니다 */
+  attempt: number;
 }
 
 export type UploadProgressHandler = (progress: UploadProgress) => void;
@@ -86,6 +88,8 @@ export async function uploadOrderFiles(
     const safeName = ext ? 'file.' + ext.replace(/[^a-zA-Z0-9]/g, '') : 'file';
     const path = 'orders/' + orderId + '/' + crypto.randomUUID() + '_' + safeName;
 
+    let attempt = 1;
+
     const report = (percent: number) => {
       onProgress?.({
         index: i + 1,
@@ -98,13 +102,16 @@ export async function uploadOrderFiles(
         ),
         done: uploaded.length,
         failed: failed.length,
+        attempt,
       });
     };
 
     report(0);
 
     const ok = token
-      ? await putWithProgress(path, file, token, report)
+      ? await putWithRetry(path, file, token, report, (n) => {
+          attempt = n;
+        })
       : // 토큰을 못 읽는 드문 경우 — 진행률 없이라도 올립니다
         !(await supabase.storage.from(BUCKET).upload(path, file)).error;
 
@@ -140,6 +147,51 @@ export async function uploadOrderFiles(
   return { ok: failed.length === 0, uploaded, failed };
 }
 
+/** 몇 번까지 다시 해 보는가. 처음 1번 + 다시 2번 */
+const MAX_ATTEMPTS = 3;
+
+/**
+ * 실패하면 잠깐 쉬었다 다시 올립니다.
+ *
+ * ★ (2/3) 이 생기는 흔한 원인 둘 중 하나가 순간적인 네트워크 끊김입니다.
+ *   (다른 하나는 사람이 중간에 나가는 것 — 그건 화면이 막습니다)
+ *   와이파이가 잠깐 끊기거나 서버가 순간 밀린 것이라면, 한 번 더 하면
+ *   그냥 됩니다. 사람에게 "다시 올려 주세요" 라고 말할 이유가 없습니다.
+ *
+ * ★ 되돌릴 수 없는 실패는 다시 하지 않습니다.
+ *   권한 없음·파일 너무 큼(4xx)은 열 번을 해도 같습니다.
+ *   끊김(status 0)과 서버 오류(5xx)만 다시 합니다.
+ */
+async function putWithRetry(
+  path: string,
+  file: File,
+  token: string,
+  onPercent: (percent: number) => void,
+  onAttempt: (attempt: number) => void,
+): Promise<boolean> {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    onAttempt(attempt);
+
+    const result = await putWithProgress(path, file, token, onPercent);
+    if (result.ok) return true;
+
+    // 다시 해도 소용없는 실패면 여기서 접습니다
+    if (!result.retryable || attempt === MAX_ATTEMPTS) return false;
+
+    // 1초 · 2초 — 끊김이 지나가기를 잠깐 기다립니다
+    await new Promise((r) => setTimeout(r, attempt * 1000));
+    onPercent(0);
+  }
+
+  return false;
+}
+
+interface PutResult {
+  ok: boolean;
+  /** 다시 해 볼 만한 실패인가 */
+  retryable: boolean;
+}
+
 /**
  * 저장소에 파일 하나를 올리며 진행률을 알립니다.
  *
@@ -151,7 +203,7 @@ function putWithProgress(
   file: File,
   token: string,
   onPercent: (percent: number) => void,
-): Promise<boolean> {
+): Promise<PutResult> {
   return new Promise((resolve) => {
     const url =
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/` +
@@ -169,9 +221,17 @@ function putWithProgress(
       if (e.lengthComputable) onPercent(Math.round((e.loaded / e.total) * 100));
     };
 
-    xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300);
-    xhr.onerror = () => resolve(false);
-    xhr.onabort = () => resolve(false);
+    xhr.onload = () =>
+      resolve({
+        ok: xhr.status >= 200 && xhr.status < 300,
+        // 서버가 밀린 것(5xx)은 다시 해 볼 만합니다. 4xx 는 아닙니다
+        retryable: xhr.status >= 500,
+      });
+
+    // 네트워크가 끊긴 것 — 가장 흔하고, 가장 다시 해 볼 만합니다
+    xhr.onerror = () => resolve({ ok: false, retryable: true });
+    xhr.ontimeout = () => resolve({ ok: false, retryable: true });
+    xhr.onabort = () => resolve({ ok: false, retryable: false });
 
     xhr.send(file);
   });

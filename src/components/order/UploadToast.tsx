@@ -1,16 +1,23 @@
 // =========================================================
 // 놓을 위치: src/components/order/UploadToast.tsx
 //
-// 파일 올리는 동안 오른쪽 위에 붙어 있는 알림.
+// 파일을 올리는 동안의 화면. 두 가지를 합니다.
 //
-// ★ 왜 필요한가.
-//   스캔 데이터는 한 개가 수백 MB 입니다. 아무 표시가 없으면
-//   되고 있는 건지 멈춘 건지 알 수 없어 창을 닫아 버립니다.
-//   닫으면 주문은 남고 파일만 없는 상태가 됩니다.
+//   ① 올리는 중  — 화면을 덮고 **못 건드리게 막습니다**
+//   ② 끝난 뒤    — 오른쪽 위에 결과만 남깁니다
 //
-// ★ 다 되면 저절로 사라지지 않습니다.
-//   "몇 개 중 몇 개가 올라갔다" 를 눈으로 확인하는 것이 이 알림의 목적입니다.
-//   실패가 있으면 빨갛게 남아 있고, 사람이 닫아야 없어집니다.
+// ★ 왜 경고가 아니라 막는가.
+//   (2/3) 처럼 파일이 덜 올라가는 일은 대개 사람이 중간에 나가서 생깁니다 —
+//   뒤로가기, 새로고침, 다른 메뉴 클릭. 글자로 "닫지 마세요" 를 적어 두면
+//   급한 사람은 안 읽습니다. 누를 수 없게 하는 편이 확실합니다.
+//
+//   막는 것 세 가지 —
+//     화면 클릭   덮개가 가로챕니다
+//     뒤로가기    popstate 를 되돌립니다
+//     새로고침·닫기 beforeunload 가 브라우저 창으로 묻습니다
+//
+// ★ 다 되면 저절로 사라지지만, 실패는 남습니다.
+//   "몇 개 중 몇 개가 올라갔다" 를 눈으로 확인하는 것이 목적입니다.
 // =========================================================
 
 'use client';
@@ -29,7 +36,40 @@ export interface UploadToastProps {
 }
 
 export default function UploadToast({ state, onClose }: UploadToastProps) {
-  // 다 잘 끝났으면 잠깐 보여 주고 물러납니다. 실패는 남깁니다
+  const uploading = state?.phase === 'uploading';
+
+  // ---------- 올리는 동안 나가지 못하게 ----------
+  useEffect(() => {
+    if (!uploading) return;
+
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+
+    /**
+     * 뒤로가기 막기.
+     *
+     * ★ 브라우저는 뒤로가기를 취소할 방법을 주지 않습니다.
+     *   대신 덫 하나를 미리 쌓아 두고, 뒤로 가면 다시 쌓아 제자리에 둡니다.
+     *   화면은 그대로 있고 덮개도 그대로라, 사람은 "안 눌리네" 로 느낍니다.
+     */
+    function onPopState() {
+      history.pushState(null, '', window.location.href);
+    }
+
+    history.pushState(null, '', window.location.href);
+
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('popstate', onPopState);
+
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [uploading]);
+
+  // 잘 끝났으면 잠깐 보여 주고 물러납니다. 실패는 남깁니다
   useEffect(() => {
     if (state?.phase !== 'done') return;
 
@@ -39,23 +79,78 @@ export default function UploadToast({ state, onClose }: UploadToastProps) {
 
   if (!state) return null;
 
+  // ---------- ① 올리는 중 — 화면을 덮습니다 ----------
+  if (state.phase === 'uploading') {
+    return (
+      <div
+        role="alertdialog"
+        aria-live="assertive"
+        aria-label="파일 올리는 중"
+        className="fixed inset-0 z-[70] grid place-items-center bg-black/45 p-6"
+        // 덮개 위의 클릭·키를 여기서 먹습니다
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.preventDefault()}
+      >
+        <div className="w-full max-w-[380px] rounded-xl bg-white p-6 shadow-xl">
+          <div className="flex items-center gap-2.5">
+            <Spinner />
+            <b className="text-[14px] font-bold text-[#1A2130]">
+              파일 올리는 중 {state.progress.index} / {state.progress.total}
+            </b>
+            <b className="ml-auto text-[16px] font-extrabold tabular-nums text-[#1279E8]">
+              {state.progress.overallPercent}%
+            </b>
+          </div>
+
+          <p
+            className="mt-2.5 truncate text-[12.5px] text-[#4A5567]"
+            title={state.progress.fileName}
+          >
+            {state.progress.fileName}
+            {state.progress.attempt > 1 && (
+              <span className="ml-1.5 font-semibold text-[#C2721B]">
+                다시 시도 {state.progress.attempt}번째
+              </span>
+            )}
+          </p>
+
+          <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-[#EDF0F4]">
+            <div
+              className="h-full rounded-full bg-[#1279E8] transition-[width] duration-200"
+              style={{ width: `${state.progress.overallPercent}%` }}
+            />
+          </div>
+
+          <p className="mt-1.5 text-[11.5px] text-[#98A2B3]">
+            이 파일 {state.progress.percent}%
+          </p>
+
+          {/* ★ 여기가 이 창의 본론입니다 */}
+          <p className="mt-4 rounded-md border border-[#F5D9A8] bg-[#FEF7EA] px-3 py-2.5 text-[12.5px] font-semibold leading-relaxed text-[#8A5A12]">
+            창을 닫거나 뒤로 가지 마세요.
+            <span className="mt-0.5 block font-normal text-[#A07636]">
+              중간에 나가면 파일이 덜 올라가고, 디자인센터가 작업을 시작할 수 없습니다.
+            </span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- ② 끝난 뒤 — 오른쪽 위 ----------
   return (
     <div
       role="status"
       aria-live="polite"
       className="fixed right-4 top-16 z-[60] w-[320px] rounded-lg border border-[#E8EBF0] bg-white p-4 shadow-lg"
     >
-      {state.phase === 'uploading' && <Uploading progress={state.progress} />}
-
-      {state.phase === 'done' && (
+      {state.phase === 'done' ? (
         <Line tone="ok" onClose={onClose} title={`파일 ${state.total}개를 모두 올렸습니다`}>
           <span className="text-[12px] text-[#98A2B3]">
             디자인센터에서 바로 열어 볼 수 있습니다.
           </span>
         </Line>
-      )}
-
-      {state.phase === 'failed' && (
+      ) : (
         <Line
           tone="bad"
           onClose={onClose}
@@ -70,38 +165,6 @@ export default function UploadToast({ state, onClose }: UploadToastProps) {
         </Line>
       )}
     </div>
-  );
-}
-
-function Uploading({ progress }: { progress: UploadProgress }) {
-  return (
-    <>
-      <div className="flex items-center gap-2">
-        <Spinner />
-        <b className="text-[13px] font-bold text-[#1A2130]">
-          파일 올리는 중 {progress.index} / {progress.total}
-        </b>
-        <b className="ml-auto text-[13px] font-bold tabular-nums text-[#1279E8]">
-          {progress.overallPercent}%
-        </b>
-      </div>
-
-      <p className="mt-1.5 truncate text-[12px] text-[#4A5567]" title={progress.fileName}>
-        {progress.fileName}
-      </p>
-
-      {/* 전체 바이트 기준입니다 — 큰 파일 하나가 끝나야 크게 움직입니다 */}
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#EDF0F4]">
-        <div
-          className="h-full rounded-full bg-[#1279E8] transition-[width] duration-200"
-          style={{ width: `${progress.overallPercent}%` }}
-        />
-      </div>
-
-      <p className="mt-1.5 text-[11.5px] text-[#98A2B3]">
-        이 파일 {progress.percent}% · 창을 닫지 말아 주세요
-      </p>
-    </>
   );
 }
 
@@ -148,8 +211,8 @@ function Line({
 function Spinner() {
   return (
     <svg
-      width="15"
-      height="15"
+      width="17"
+      height="17"
       viewBox="0 0 16 16"
       fill="none"
       className="shrink-0 animate-spin text-[#1279E8]"
