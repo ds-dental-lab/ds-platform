@@ -25,6 +25,12 @@ interface RawMaterial {
   abbr: string;
   is_active: boolean;
   sort_order: number;
+  has_shade: boolean;
+  has_pontic: boolean;
+  has_pink: boolean;
+  price: number | null;
+  pontic_price: number | null;
+  pink_price: number | null;
 }
 
 interface RawType {
@@ -50,7 +56,8 @@ export async function getProsthesisCatalog(
     .from('prosthesis_types')
     .select(
       'code, name, abbr, is_active, sort_order, ' +
-        'prosthesis_materials(code, name, abbr, is_active, sort_order)',
+        'prosthesis_materials(code, name, abbr, is_active, sort_order, ' +
+        'has_shade, has_pontic, has_pink, price, pontic_price, pink_price)',
     )
     .order('sort_order');
 
@@ -69,7 +76,17 @@ export async function getProsthesisCatalog(
       materials: (type.prosthesis_materials ?? [])
         .filter((m) => options.includeInactive || m.is_active)
         .sort((a, b) => a.sort_order - b.sort_order)
-        .map((m) => ({ code: m.code, name: m.name, abbr: m.abbr })),
+        .map((m) => ({
+          code: m.code,
+          name: m.name,
+          abbr: m.abbr,
+          hasShade: m.has_shade,
+          hasPontic: m.has_pontic,
+          hasPink: m.has_pink,
+          price: m.price,
+          ponticPrice: m.pontic_price,
+          pinkPrice: m.pink_price,
+        })),
     }))
     // 재료가 하나도 없는 종류는 고를 수 없어 세우지 않습니다
     .filter((type) => options.includeInactive || type.materials.length > 0);

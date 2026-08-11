@@ -19,6 +19,22 @@ export interface Material {
   code: string;
   name: string;        // 화면에 보이는 이름
   abbr: string;        // 약칭 만들 때 쓰는 조각
+
+  /**
+   * 제품마다 다른 성질. (디자인센터 제품탭에서 정합니다)
+   *
+   * ★ 종류로 묶지 않습니다.
+   *   '커스텀 어버트먼트' 는 임플란트인데 쉐이드도 폰틱도 없습니다.
+   *   같은 종류 안에서도 달라, 종류로는 표현할 수 없습니다.
+   */
+  hasShade: boolean;
+  hasPontic: boolean;
+  hasPink: boolean;
+
+  /** 비어 있으면 아직 안 정한 값입니다. 0 은 무료입니다 */
+  price: number | null;
+  ponticPrice: number | null;
+  pinkPrice: number | null;
 }
 
 export interface ProsthesisType {
@@ -37,6 +53,26 @@ export interface ProsthesisType {
  */
 export type ProsthesisCatalog = ProsthesisType[];
 
+/** 최소 목록을 짧게 적기 위한 도우미. 안 준 값은 기본으로 둡니다 */
+function mat(
+  code: string,
+  name: string,
+  abbr: string,
+  opts: { shade?: boolean; pontic?: boolean; pink?: boolean } = {},
+): Material {
+  return {
+    code,
+    name,
+    abbr,
+    hasShade: opts.shade ?? true,
+    hasPontic: opts.pontic ?? false,
+    hasPink: opts.pink ?? false,
+    price: null,
+    ponticPrice: null,
+    pinkPrice: null,
+  };
+}
+
 /**
  * 표를 못 읽었을 때 쓰는 최소 목록.
  *
@@ -50,8 +86,8 @@ export const FALLBACK_TYPES: ProsthesisCatalog = [
     name: '크라운',
     abbr: 'Cr',
     materials: [
-      { code: 'zirconia', name: '지르코니아', abbr: 'Zir' },
-      { code: 'pmma',     name: 'PMMA',       abbr: 'Pmma' },
+      mat('zirconia', '지르코니아', 'Zir',  { pontic: true, pink: true }),
+      mat('pmma',     'PMMA',       'Pmma', { pontic: true, pink: true }),
     ],
   },
   {
@@ -59,8 +95,8 @@ export const FALLBACK_TYPES: ProsthesisCatalog = [
     name: '인레이',
     abbr: 'In',
     materials: [
-      { code: 'hybrid',   name: '하이브리드', abbr: 'Hy' },
-      { code: 'zirconia', name: '지르코니아', abbr: 'Zir' },
+      mat('hybrid',   '하이브리드', 'Hy'),
+      mat('zirconia', '지르코니아', 'Zir'),
     ],
   },
   {
@@ -70,10 +106,11 @@ export const FALLBACK_TYPES: ProsthesisCatalog = [
     // ★ 임플란트는 약칭을 만들지 않고 name 을 그대로 씁니다.
     //   그래서 abbr 에도 같은 값을 넣어 둡니다.
     materials: [
-      { code: 'abut_zir_scrp', name: 'Abut+Zir(SCRP)',          abbr: 'Abut+Zir(SCRP)' },
-      { code: 'abut_zir_cem',  name: 'Abut + Zir(Cementation)', abbr: 'Abut + Zir(Cementation)' },
-      { code: 'abut_pmma',     name: 'Abut + PMMA',             abbr: 'Abut + PMMA' },
-      { code: 'custom_abut',   name: '커스텀 어버트먼트',        abbr: 'Custom Abutment' },
+      mat('abut_zir_scrp', 'Abut+Zir(SCRP)',          'Abut+Zir(SCRP)',          { pontic: true, pink: true }),
+      mat('abut_zir_cem',  'Abut + Zir(Cementation)', 'Abut + Zir(Cementation)', { pontic: true, pink: true }),
+      mat('abut_pmma',     'Abut + PMMA',             'Abut + PMMA',             { pontic: true, pink: true }),
+      // 커스텀 어버트먼트는 쉐이드도 폰틱도 없습니다
+      mat('custom_abut',   '커스텀 어버트먼트',        'Custom Abutment',         { shade: false }),
     ],
   },
 ];
@@ -154,9 +191,32 @@ export function buildAbbr(
   return `${material.abbr}-${type.abbr}`;
 }
 
-/** 브릿지 자동 연결 대상인가. 인레이는 연결되지 않습니다 (명세서 §4.2.6) */
-export function isBridgeable(typeCode: string): boolean {
-  return typeCode === 'crown' || typeCode === 'implant';
+/**
+ * 브릿지로 이어 붙일 수 있는 제품인가. (명세서 §4.2.6)
+ *
+ * ★ 제품에 물어봅니다. 종류로 판정하지 않습니다.
+ *   폰틱이 되는 제품만 이어집니다 — 폰틱이 곧 다리의 가운데 칸입니다.
+ */
+export function isBridgeable(
+  catalog: ProsthesisCatalog,
+  typeCode: string,
+  materialCode: string,
+): boolean {
+  return getMaterial(catalog, typeCode, materialCode)?.hasPontic ?? false;
+}
+
+/**
+ * 쉐이드를 골라야 하는 제품인가.
+ *
+ * ★ 커스텀 어버트먼트처럼 색을 안 내는 제품이 있습니다.
+ *   그런 제품은 치아를 눌러도 쉐이드창이 뜨지 않아야 합니다.
+ */
+export function requiresShade(
+  catalog: ProsthesisCatalog,
+  typeCode: string,
+  materialCode: string,
+): boolean {
+  return getMaterial(catalog, typeCode, materialCode)?.hasShade ?? true;
 }
 
 /** 임플란트 모델(제조사·타입 등) 선택이 필수인가 (명세서 §4.2.4) */
@@ -183,13 +243,17 @@ export function colorOfType(typeCode: string): { line: string; soft: string } {
 // ---------- 치은포셀린 ----------
 
 /**
- * 치은포셀린을 붙일 수 있는가.
+ * 핑크(치은) 포셀린을 붙일 수 있는가.
  *
- * ★ 인레이에는 붙지 않습니다.
- *   인레이는 치아 안쪽을 메우는 것이라 잇몸에 닿는 부위가 없습니다.
+ * ★ 제품에 물어봅니다. 인레이는 잇몸에 닿는 부위가 없어 기본으로 꺼져 있지만,
+ *   그건 제품탭에서 정하는 값이지 코드가 정할 일이 아닙니다.
  *
- * 추가 과금 항목이라 금액은 디자인센터가 정합니다 (surcharge_prices).
+ * 금액도 제품에 붙습니다 (pinkPrice).
  */
-export function allowsGingival(typeCode: string): boolean {
-  return typeCode !== 'inlay';
+export function allowsGingival(
+  catalog: ProsthesisCatalog,
+  typeCode: string,
+  materialCode: string,
+): boolean {
+  return getMaterial(catalog, typeCode, materialCode)?.hasPink ?? false;
 }

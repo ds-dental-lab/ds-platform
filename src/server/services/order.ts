@@ -108,8 +108,8 @@ export function validateOrder(
     }
 
     // 인레이는 잇몸에 닿는 부위가 없어 치은포셀린이 붙지 않습니다
-    if (item.hasGingival && !allowsGingival(item.typeCode)) {
-      return `${item.tooth}번 — 인레이에는 치은포셀린을 붙일 수 없습니다`;
+    if (item.hasGingival && !allowsGingival(catalog, item.typeCode, item.materialCode)) {
+      return `${item.tooth}번 — 이 제품에는 핑크 포셀린을 붙일 수 없습니다`;
     }
 
     // 임플란트는 모델이 필요합니다

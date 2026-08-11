@@ -107,12 +107,12 @@ describe('약칭 생성', () => {
 
 describe('브릿지 연결 가능 여부', () => {
   it('크라운과 임플란트는 연결된다', () => {
-    expect(isBridgeable('crown')).toBe(true);
-    expect(isBridgeable('implant')).toBe(true);
+    expect(isBridgeable(CATALOG, 'crown', CATALOG.find((t) => t.code === 'crown')?.materials[0].code ?? '')).toBe(true);
+    expect(isBridgeable(CATALOG, 'implant', CATALOG.find((t) => t.code === 'implant')?.materials[0].code ?? '')).toBe(true);
   });
 
   it('★ 인레이는 연결되지 않는다', () => {
-    expect(isBridgeable('inlay')).toBe(false);
+    expect(isBridgeable(CATALOG, 'inlay', CATALOG.find((t) => t.code === 'inlay')?.materials[0].code ?? '')).toBe(false);
   });
 });
 

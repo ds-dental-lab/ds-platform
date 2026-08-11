@@ -6,7 +6,7 @@
 // =========================================================
 
 import { isAdjacent, byArchOrder } from '../tooth';
-import { isBridgeable } from '../prosthesis';
+import { isBridgeable, FALLBACK_TYPES, type ProsthesisCatalog } from '../prosthesis';
 
 /** 치아 하나에 올라간 보철 하나. 중복 등록된 치아는 두 줄이 됩니다 */
 export interface ToothPlacement {
@@ -50,23 +50,37 @@ export function linkKey(a: number, b: number): string {
  *
  * 단, 한쪽이라도 폰틱이면 무조건 연결됩니다.
  */
-export function canLink(a: ToothPlacement, b: ToothPlacement): boolean {
+export function canLink(
+  a: ToothPlacement,
+  b: ToothPlacement,
+  /**
+   * 제품 목록. 폰틱이 되는 제품만 이어집니다.
+   *
+   * ★ 안 주면 최소 목록으로 봅니다. 목록을 못 읽었다고 브릿지가
+   *   통째로 사라지는 것보다, 씨앗과 같은 규칙으로 버티는 편이 낫습니다.
+   */
+  catalog: ProsthesisCatalog = FALLBACK_TYPES,
+): boolean {
   if (!isAdjacent(a.tooth, b.tooth)) return false;
   if (a.typeCode !== b.typeCode) return false;
   if (a.materialCode !== b.materialCode) return false;
 
   // ★ 인레이는 브릿지 자체가 성립하지 않습니다.
   //   인레이 폰틱은 현실에 존재하지 않으므로 폰틱보다 이 규칙이 먼저입니다.
-  if (!isBridgeable(a.typeCode)) return false;
+  if (!isBridgeable(catalog, a.typeCode, a.materialCode)) return false;
 
   // 폰틱은 혼자 설 수 없으므로 무조건 이어집니다
   return true;
 }
 
 /** 이 연결을 사용자가 끊을 수 있는가. 폰틱이 끼면 불가 */
-export function isForcedLink(a: ToothPlacement, b: ToothPlacement): boolean {
-  // 인레이는 애초에 안 붙으므로 "끊을 수 없는 연결"도 될 수 없습니다
-  if (!isBridgeable(a.typeCode)) return false;
+export function isForcedLink(
+  a: ToothPlacement,
+  b: ToothPlacement,
+  catalog: ProsthesisCatalog = FALLBACK_TYPES,
+): boolean {
+  // 폰틱이 안 되는 제품은 애초에 안 붙으므로 "끊을 수 없는 연결"도 될 수 없습니다
+  if (!isBridgeable(catalog, a.typeCode, a.materialCode)) return false;
   return Boolean(a.isPontic || b.isPontic);
 }
 

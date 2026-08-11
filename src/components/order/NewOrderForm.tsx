@@ -39,6 +39,8 @@ import {
   getMaterials,
   colorOfType,
   allowsGingival,
+  requiresShade,
+  isBridgeable,
   buildAbbr,
 } from '@/server/domain/prosthesis';
 import { addPlacement, type Placement } from '@/server/domain/duplicate';
@@ -218,7 +220,10 @@ function OrderFormBody({
   function missingStep(): string | null {
     if (!typeCode) return '보철물 종류를 선택해 주세요';
     if (!materialCode) return '재료를 선택해 주세요';
-    if (!isPontic && shade.cervical === null) return '쉐이드를 선택해 주세요';
+    // ★ 색을 안 내는 제품이 있습니다 (커스텀 어버트먼트 등).
+    //   제품탭에서 쉐이드를 꺼 두면 묻지 않습니다.
+    const needsShade = requiresShade(prosthesisCatalog, typeCode, materialCode);
+    if (needsShade && !isPontic && shade.cervical === null) return '쉐이드를 선택해 주세요';
     if (isImplant && !isPontic && !implantComplete(implantCatalog, implant)) {
       return '임플란트 모델을 선택해 주세요';
     }
@@ -229,7 +234,7 @@ function OrderFormBody({
     setTypeCode(next);
     setMaterialCode(getMaterials(prosthesisCatalog, next)[0]?.code ?? '');
     if (next !== 'implant') setImplant(EMPTY_SELECTION);
-    if (next === 'inlay') setIsPontic(false);
+    if (!isBridgeable(prosthesisCatalog, next, getMaterials(prosthesisCatalog, next)[0]?.code ?? '')) setIsPontic(false);
     setHint('');
   }
 
@@ -332,8 +337,9 @@ function OrderFormBody({
       return;
     }
 
-    if (typeCode === 'inlay') {
-      setHint('인레이는 폰틱이 될 수 없습니다');
+    // 폰틱이 안 되는 제품은 우클릭을 막습니다 (제품탭에서 정합니다)
+    if (!isBridgeable(prosthesisCatalog, typeCode, materialCode)) {
+      setHint('이 제품은 폰틱이 될 수 없습니다');
       return;
     }
 
@@ -381,8 +387,8 @@ function OrderFormBody({
       return;
     }
 
-    if (!mine.every((e) => allowsGingival(e.typeCode))) {
-      setHint('인레이에는 치은포셀린을 붙일 수 없습니다');
+    if (!mine.every((e) => allowsGingival(prosthesisCatalog, e.typeCode, e.materialCode))) {
+      setHint('이 제품에는 핑크 포셀린을 붙일 수 없습니다');
       return;
     }
 
@@ -801,7 +807,7 @@ function OrderFormBody({
           <div className="flex items-center gap-4">
             <Toggle
               on={isPontic}
-              disabled={typeCode === 'inlay'}
+              disabled={!isBridgeable(prosthesisCatalog, typeCode, materialCode)}
               onChange={setIsPontic}
               label="폰틱"
             />
@@ -1212,7 +1218,7 @@ function Toggle({
         'flex items-center gap-2 text-[12.5px] font-semibold ' +
         (disabled ? 'cursor-not-allowed text-[#C4CBD6]' : 'cursor-pointer text-[#4A5567]')
       }
-      title={disabled ? '인레이는 폰틱이 될 수 없습니다' : undefined}
+      title={disabled ? '이 제품은 폰틱이 될 수 없습니다' : undefined}
     >
       <input
         type="checkbox"
