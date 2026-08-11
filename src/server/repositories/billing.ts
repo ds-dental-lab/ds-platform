@@ -97,6 +97,15 @@ export interface Settlement {
 
   /** 단가가 비어 청구액에 안 잡힌 줄 수. 0 이 아니면 화면에 띄웁니다 */
   unpricedCount: number;
+
+  /**
+   * 어느 보철이 어느 브릿지에 속하는가. { order_item_id: bridge_id }
+   *
+   * ★ 청구서에서 브릿지를 한 줄로 묶는 데 씁니다.
+   *   다시 계산하지 않고 저장된 것을 씁니다 — 사용자가 손으로 끊어 둔
+   *   연결을 도로 이어 버리면 안 됩니다.
+   */
+  bridgeOf: Record<string, string>;
 }
 
 interface RawItem {
@@ -355,6 +364,7 @@ export async function getSettlement(
     adjustment,
     total: subtotal + adjustment,
     unpricedCount: items.filter((i) => i.unpriced).length,
+    bridgeOf: await loadBridgeMap(items.map((i) => i.orderId)),
   };
 }
 
@@ -368,7 +378,40 @@ function empty(from: string, to: string): Settlement {
     adjustment: 0,
     total: 0,
     unpricedCount: 0,
+    bridgeOf: {},
   };
+}
+
+/**
+ * 이 주문들의 브릿지 묶음. { order_item_id: bridge_id }
+ *
+ * ★ 저장된 것을 그대로 읽습니다.
+ *   computeBridges 로 다시 계산하면, 사용자가 화면에서 손으로 끊어 둔
+ *   연결(severedKeys)이 무시돼 도로 이어집니다.
+ */
+async function loadBridgeMap(orderIds: string[]): Promise<Record<string, string>> {
+  const ids = [...new Set(orderIds)];
+  if (ids.length === 0) return {};
+
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from('order_bridges')
+    .select('id, order_bridge_members(order_item_id)')
+    .in('order_id', ids);
+
+  const map: Record<string, string> = {};
+
+  for (const bridge of (data ?? []) as unknown as {
+    id: string;
+    order_bridge_members: { order_item_id: string }[] | null;
+  }[]) {
+    for (const member of bridge.order_bridge_members ?? []) {
+      map[member.order_item_id] = bridge.id;
+    }
+  }
+
+  return map;
 }
 
 // ---------- 마감 상태 ----------
@@ -545,6 +588,7 @@ export async function getClosedSettlement(
     adjustment,
     total: subtotal + adjustment,
     unpricedCount: 0,
+    bridgeOf: await loadBridgeMap(items.map((i) => i.orderId)),
   };
 }
 

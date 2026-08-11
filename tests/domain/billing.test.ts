@@ -23,6 +23,9 @@ import {
   splitItemLines,
   invoicePartiesFor,
   checkAdjustment,
+  groupInvoiceLines,
+  formatTeeth,
+  type GroupableItem,
 } from '@/server/domain/billing';
 
 describe('달 셈', () => {
@@ -417,5 +420,124 @@ describe('금액 조정', () => {
 
   it('소수는 막는다', () => {
     expect(checkAdjustment(1000.5, '사유').ok).toBe(false);
+  });
+});
+
+// =========================================================
+// 청구서 세부내역 묶기 — 브릿지는 물리적으로 하나입니다 (2026-08-12)
+// =========================================================
+
+describe('세부내역 묶기', () => {
+  function item(over: Partial<GroupableItem> & { itemId: string; toothNumber: number }): GroupableItem {
+    return {
+      orderId: 'o1',
+      typeCode: 'crown',
+      materialCode: 'zirconia',
+      isPontic: false,
+      label: 'Zir-Cr',
+      amount: 50000,
+      adjustment: 0,
+      billable: true,
+      ...over,
+    };
+  }
+
+  // ★ 사용자가 든 예 그대로입니다
+  it('★ 15번 지르코니아 + 16번 폰틱 브릿지는 한 줄이 된다', () => {
+    const items = [
+      item({ itemId: 'a', toothNumber: 15 }),
+      item({ itemId: 'b', toothNumber: 16, isPontic: true, label: 'Zir-Cr (Pontic)' }),
+    ];
+
+    const lines = groupInvoiceLines(items, (id) => (id === 'a' || id === 'b' ? 'br1' : null));
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0].teeth).toEqual([15, 16]);
+    expect(lines[0].amount).toBe(100000);
+    expect(lines[0].label).toBe('Zir-Cr 브릿지 2본 (폰틱 1)');
+    expect(formatTeeth(lines[0].teeth, true)).toBe('15-16');
+  });
+
+  it('세 본 브릿지도 한 줄이다', () => {
+    const items = [
+      item({ itemId: 'a', toothNumber: 15 }),
+      item({ itemId: 'b', toothNumber: 16, isPontic: true, label: 'Zir-Cr (Pontic)' }),
+      item({ itemId: 'c', toothNumber: 17 }),
+    ];
+
+    const lines = groupInvoiceLines(items, () => 'br1');
+
+    expect(lines[0].count).toBe(3);
+    expect(lines[0].label).toBe('Zir-Cr 브릿지 3본 (폰틱 1)');
+    expect(formatTeeth(lines[0].teeth, true)).toBe('15-16-17');
+  });
+
+  it('낱개는 같은 주문·같은 제품끼리 묶인다', () => {
+    const items = [
+      item({ itemId: 'a', toothNumber: 36 }),
+      item({ itemId: 'b', toothNumber: 16 }),
+      item({ itemId: 'c', toothNumber: 26 }),
+    ];
+
+    const lines = groupInvoiceLines(items, () => null);
+
+    expect(lines).toHaveLength(1);
+    expect(formatTeeth(lines[0].teeth, false)).toBe('16, 26, 36');
+    expect(lines[0].amount).toBe(150000);
+  });
+
+  it('★ 다른 주문끼리는 묶지 않는다', () => {
+    const items = [
+      item({ itemId: 'a', toothNumber: 16 }),
+      item({ itemId: 'b', toothNumber: 16, orderId: 'o2' }),
+    ];
+
+    expect(groupInvoiceLines(items, () => null)).toHaveLength(2);
+  });
+
+  it('제품이 다르면 따로 선다', () => {
+    const items = [
+      item({ itemId: 'a', toothNumber: 16 }),
+      item({ itemId: 'b', toothNumber: 26, materialCode: 'pmma', label: 'PMMA-Cr', amount: 20000 }),
+    ];
+
+    expect(groupInvoiceLines(items, () => null)).toHaveLength(2);
+  });
+
+  // ★ 0원이 낱개 금액에 묻히면 안 됩니다
+  it('★ 리메이크(0원)는 청구 줄과 섞이지 않는다', () => {
+    const items = [
+      item({ itemId: 'a', toothNumber: 16 }),
+      item({ itemId: 'b', toothNumber: 26, billable: false, amount: 0 }),
+    ];
+
+    const lines = groupInvoiceLines(items, () => null);
+
+    expect(lines).toHaveLength(2);
+    expect(lines.find((l) => !l.first.billable)?.amount).toBe(0);
+  });
+
+  it('조정도 함께 더해진다', () => {
+    const items = [
+      item({ itemId: 'a', toothNumber: 15 }),
+      item({ itemId: 'b', toothNumber: 16, adjustment: -20000 }),
+    ];
+
+    expect(groupInvoiceLines(items, () => 'br1')[0].adjustment).toBe(-20000);
+  });
+
+  it('묶어도 합계는 그대로다', () => {
+    const items = [
+      item({ itemId: 'a', toothNumber: 15 }),
+      item({ itemId: 'b', toothNumber: 16, isPontic: true, label: 'Zir-Cr (Pontic)' }),
+      item({ itemId: 'c', toothNumber: 36, orderId: 'o2' }),
+    ];
+
+    const before = items.reduce((n, i) => n + i.amount, 0);
+    const after = groupInvoiceLines(items, (id) =>
+      id === 'a' || id === 'b' ? 'br1' : null,
+    ).reduce((n, l) => n + l.amount, 0);
+
+    expect(after).toBe(before);
   });
 });

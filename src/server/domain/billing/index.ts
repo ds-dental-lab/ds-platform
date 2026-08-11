@@ -437,3 +437,122 @@ export function checkAdjustment(amount: number, reason: string): CloseVerdict {
 
   return { ok: true };
 }
+
+// ---------- 청구서 세부내역 묶기 ----------
+//
+// ★ 브릿지는 물리적으로 **하나**입니다 (사용자 제안 2026-08-12).
+//   15번 지르코니아 + 16번 폰틱이 이어진 브릿지는 기공소가 한 덩어리로
+//   만들고 치과가 한 번에 붙입니다. 청구서에서 두 줄로 갈라 놓으면
+//   "이게 따로 만든 두 개인가" 로 읽힙니다.
+//
+//   값은 유닛(치식)당 매기지만, 그것은 **셈하는 방법**이지 물건의 단위가
+//   아닙니다. 문서는 물건 단위로 적고 셈은 안쪽에 보여 줍니다.
+//
+// ★ 저장은 그대로 치식별입니다.
+//   billing_lines 는 한 치아에 한 줄로 굳습니다 — 그것이 근거이고,
+//   묶는 것은 읽기 좋으라고 하는 일입니다. 저장까지 묶으면 나중에
+//   "16번만 얼마였나" 를 되짚을 수 없습니다.
+//
+// ★ 작업 화면(정산관리)은 안 묶습니다.
+//   거기서는 치식마다 금액을 조정합니다. 묶어 놓으면 어느 이빨을
+//   깎는지 고를 수가 없습니다. 문서만 묶습니다.
+
+export interface GroupableItem {
+  orderId: string;
+  itemId: string;
+  toothNumber: number;
+  typeCode: string;
+  materialCode: string;
+  isPontic: boolean;
+  label: string;
+  amount: number;
+  adjustment: number;
+  billable: boolean;
+}
+
+export interface GroupedLine<T extends GroupableItem> {
+  key: string;
+  /** 이 묶음에 든 치식들. 브릿지면 이어진 순서입니다 */
+  teeth: number[];
+  /** 화면에 찍는 이름 */
+  label: string;
+  /** 몇 유닛인가 */
+  count: number;
+  amount: number;
+  adjustment: number;
+  isBridge: boolean;
+  /** 묶음의 첫 줄. 환자·날짜처럼 묶어도 같은 값을 여기서 꺼냅니다 */
+  first: T;
+  items: T[];
+}
+
+/**
+ * 청구서 세부내역을 묶습니다.
+ *
+ *   브릿지          한 줄 — 'Zir-Cr 브릿지 3본 (폰틱 1)' · 치식 15-16-17
+ *   그 밖의 낱개    같은 주문·같은 제품끼리 한 줄 — 치식 16, 26, 36
+ *
+ * ★ 브릿지 여부는 저장된 것을 씁니다 (bridgeOf).
+ *   여기서 다시 계산하면 사용자가 손으로 끊어 둔 연결을 도로 이어 버립니다.
+ */
+export function groupInvoiceLines<T extends GroupableItem>(
+  items: T[],
+  bridgeOf: (itemId: string) => string | null,
+): GroupedLine<T>[] {
+  const groups = new Map<string, GroupedLine<T>>();
+
+  for (const item of items) {
+    const bridgeId = bridgeOf(item.itemId);
+
+    // 청구하지 않는 줄(리메이크)은 섞지 않습니다 — 0원이 낱개 금액에 묻힙니다
+    const key = bridgeId
+      ? `b:${bridgeId}`
+      : `i:${item.orderId}|${item.typeCode}|${item.materialCode}|${item.isPontic}|${item.billable}`;
+
+    const found = groups.get(key);
+
+    if (found) {
+      found.teeth.push(item.toothNumber);
+      found.count += 1;
+      found.amount += item.amount;
+      found.adjustment += item.adjustment;
+      found.items.push(item);
+      continue;
+    }
+
+    groups.set(key, {
+      key,
+      teeth: [item.toothNumber],
+      label: item.label,
+      count: 1,
+      amount: item.amount,
+      adjustment: item.adjustment,
+      isBridge: Boolean(bridgeId),
+      first: item,
+      items: [item],
+    });
+  }
+
+  for (const group of groups.values()) {
+    group.teeth.sort((a, b) => a - b);
+    if (group.isBridge) group.label = bridgeLabel(group.items);
+  }
+
+  return [...groups.values()];
+}
+
+/** 'Zir-Cr 브릿지 3본 (폰틱 1)' — 몇 본이고 그중 폰틱이 몇인지 */
+function bridgeLabel(items: GroupableItem[]): string {
+  const base = items.find((i) => !i.isPontic)?.label ?? items[0].label;
+  const pontics = items.filter((i) => i.isPontic).length;
+
+  const name = base.replace(/\s*\(Pontic\)\s*$/, '');
+  const tail = pontics > 0 ? ` (폰틱 ${pontics})` : '';
+
+  return `${name} 브릿지 ${items.length}본${tail}`;
+}
+
+/** '15-16-17' (브릿지는 이어서) 또는 '16, 26, 36' */
+export function formatTeeth(teeth: number[], isBridge: boolean): string {
+  return teeth.join(isBridge ? '-' : ', ');
+}

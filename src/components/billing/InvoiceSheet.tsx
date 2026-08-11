@@ -20,7 +20,7 @@
 
 'use client';
 
-import type { InvoiceParties } from '@/server/domain/billing';
+import { groupInvoiceLines, formatTeeth, type InvoiceParties } from '@/server/domain/billing';
 import type { Settlement } from '@/server/repositories/billing';
 import type { PartnerRow } from '@/server/repositories/partner';
 
@@ -47,6 +47,19 @@ export default function InvoiceSheet({
 }: InvoiceSheetProps) {
   const adjustments = settlement.items.filter((i) => i.adjustment !== 0);
   const remakes = settlement.items.filter((i) => !i.billable);
+
+  /*
+    ★ 브릿지는 한 줄로 묶습니다 (사용자 제안 2026-08-12).
+      15번 지르코니아 + 16번 폰틱이 이어진 브릿지는 기공소가 한 덩어리로
+      만들고 치과가 한 번에 붙입니다. 두 줄로 갈라 놓으면 따로 만든
+      두 개로 읽힙니다.
+
+      값은 유닛당 매기지만 그것은 셈하는 방법이지 물건의 단위가 아닙니다.
+      몇 본인지·폰틱이 몇인지를 이름에 적어 셈이 보이게 둡니다.
+
+      ★ 저장은 그대로 치식별입니다 (billing_lines). 묶는 것은 읽기용입니다.
+  */
+  const lines = groupInvoiceLines(settlement.items, (id) => settlement.bridgeOf[id] ?? null);
 
   return (
     <article className="mx-auto max-w-[860px] bg-white p-10 text-[#1A2130] print:max-w-none print:p-0">
@@ -162,7 +175,7 @@ export default function InvoiceSheet({
       )}
 
       {/* ---------- 보철 세부내역 ---------- */}
-      <Section title={`보철 세부내역 (${settlement.items.length}건)`}>
+      <Section title={`보철 세부내역 (${lines.length}건 · ${settlement.items.length}유닛)`}>
         <table className="w-full border-collapse text-[12px]">
           <thead>
             <tr className="border-y border-[#1A2130]">
@@ -170,39 +183,45 @@ export default function InvoiceSheet({
               <Th className="w-[80px]">배송일</Th>
               <Th>환자</Th>
               <Th>제품</Th>
-              <Th className="w-[54px] text-center">치식</Th>
-              <Th className="w-[92px] text-right">조정</Th>
+              <Th className="w-[96px]">치식</Th>
+              <Th className="w-[48px] text-right">수량</Th>
+              <Th className="w-[88px] text-right">조정</Th>
               <Th className="w-[100px] text-right">금액</Th>
             </tr>
           </thead>
           <tbody>
-            {settlement.items.length === 0 ? (
-              <Empty colSpan={7} />
+            {lines.length === 0 ? (
+              <Empty colSpan={8} />
             ) : (
-              settlement.items.map((item) => (
-                <tr
-                  key={item.itemId}
-                  className="border-b border-[#F0F2F5] print:break-inside-avoid"
-                >
-                  <Td className="tabular-nums">{day(item.receivedAt)}</Td>
-                  <Td className="tabular-nums">{day(item.shippedAt)}</Td>
+              lines.map((line) => (
+                <tr key={line.key} className="border-b border-[#F0F2F5] print:break-inside-avoid">
+                  <Td className="tabular-nums">{day(line.first.receivedAt)}</Td>
+                  <Td className="tabular-nums">{day(line.first.shippedAt)}</Td>
                   <Td>
-                    {item.patientLabel}
-                    {item.isRemake && (
-                      <span className="ml-1 font-bold text-[#C2721B]">{item.remakeSeq}차</span>
+                    {line.first.patientLabel}
+                    {line.first.isRemake && (
+                      <span className="ml-1 font-bold text-[#C2721B]">
+                        {line.first.remakeSeq}차
+                      </span>
                     )}
                   </Td>
                   <Td>
-                    {item.label}
-                    {item.hasGingival && <span className="ml-1 text-[#98A2B3]">+핑크</span>}
+                    {line.label}
+                    {line.items.some((i) => i.hasGingival) && (
+                      <span className="ml-1 text-[#98A2B3]">
+                        +핑크 {line.items.filter((i) => i.hasGingival).length}
+                      </span>
+                    )}
                   </Td>
-                  <Td className="text-center tabular-nums">{item.toothNumber}</Td>
+                  {/* 브릿지는 이어서(15-16-17), 낱개는 쉼표로(16, 26) */}
+                  <Td className="tabular-nums">{formatTeeth(line.teeth, line.isBridge)}</Td>
+                  <Td className="text-right tabular-nums">{line.count}</Td>
                   <Td className="text-right tabular-nums">
-                    {item.adjustment === 0 ? '' : won(item.adjustment)}
+                    {line.adjustment === 0 ? '' : won(line.adjustment)}
                   </Td>
                   <Td className="text-right tabular-nums">
-                    {item.billable ? (
-                      won(item.amount)
+                    {line.first.billable ? (
+                      won(line.amount)
                     ) : (
                       <span className="text-[#C2721B]">₩0 (재제작)</span>
                     )}
