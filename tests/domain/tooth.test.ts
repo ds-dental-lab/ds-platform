@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  toothGroupOf,
   isValidTooth,
   getQuadrant,
   getPosition,
@@ -142,5 +143,37 @@ describe('표시', () => {
   it('사람이 읽을 설명을 만든다', () => {
     expect(describeTooth(16)).toBe('16 (제1대구치, 오른쪽 위)');
     expect(describeTooth(31)).toBe('31 (중절치, 왼쪽 아래)');
+  });
+});
+
+// =========================================================
+// 단가표의 두 갈래 (설계서 Q-14, 사용자 확정 2026-08-11)
+//
+// ★ 전치는 1·2·3번, 나머지는 전부 구치.
+//   견치(3번)가 전치에 들어갑니다 — 앞에서 보이는 치아라 값이 다릅니다.
+// =========================================================
+
+describe('전치 · 구치', () => {
+  it('★ 1·2·3번은 전치다 — 네 사분면 모두', () => {
+    for (const tooth of [11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 42, 43]) {
+      expect(toothGroupOf(tooth)).toBe('anterior');
+    }
+  });
+
+  it('★ 4번부터는 구치다', () => {
+    for (const tooth of [14, 15, 16, 17, 18, 24, 28, 34, 38, 44, 48]) {
+      expect(toothGroupOf(tooth)).toBe('posterior');
+    }
+  });
+
+  it('★ 경계는 3번과 4번 사이 하나뿐이다', () => {
+    expect(toothGroupOf(13)).toBe('anterior');
+    expect(toothGroupOf(14)).toBe('posterior');
+  });
+
+  it('isPosterior 와 같은 경계를 쓴다 — 두 곳이 어긋나면 단가가 틀어집니다', () => {
+    for (const tooth of [11, 13, 14, 18, 31, 33, 34, 48]) {
+      expect(toothGroupOf(tooth) === 'posterior').toBe(isPosterior(tooth));
+    }
   });
 });

@@ -114,6 +114,22 @@ export function isAnterior(tooth: number): boolean {
   return !isPosterior(tooth);
 }
 
+/**
+ * 단가표가 쓰는 두 갈래. (설계서 Q-14, 사용자 확정 2026-08-11)
+ *
+ * ★ 전치는 1·2·3번, 나머지는 전부 구치입니다.
+ *   견치(3번)가 전치에 들어갑니다 — 앞에서 보이는 치아라
+ *   심미 작업이 들어가고 값이 다릅니다.
+ *
+ *   isPosterior 와 같은 경계를 씁니다. 두 곳에 따로 적으면
+ *   어긋날 때 단가가 틀어집니다.
+ */
+export type ToothGroup = 'anterior' | 'posterior';
+
+export function toothGroupOf(tooth: number): ToothGroup {
+  return isPosterior(tooth) ? 'posterior' : 'anterior';
+}
+
 // ---------- 인접 판정 ----------
 // 브릿지 자동 연결의 기준이 됩니다.
 
