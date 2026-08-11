@@ -118,8 +118,8 @@ describe('브릿지 연결 가능 여부', () => {
 
 describe('임플란트 모델 필수', () => {
   it('임플란트만 모델이 필요하다', () => {
-    expect(requiresImplantModel('implant')).toBe(true);
-    expect(requiresImplantModel('crown')).toBe(false);
-    expect(requiresImplantModel('inlay')).toBe(false);
+    expect(requiresImplantModel(CATALOG, 'implant')).toBe(true);
+    expect(requiresImplantModel(CATALOG, 'crown')).toBe(false);
+    expect(requiresImplantModel(CATALOG, 'inlay')).toBe(false);
   });
 });

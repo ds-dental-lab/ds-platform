@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation';
 import { getOrderDetail } from '@/server/repositories/order';
 import { listPickupsForOrder } from '@/server/repositories/pickup';
 import { getImplantCatalog } from '@/server/repositories/implant';
+import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { todayInKst } from '@/server/domain/week';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
@@ -30,10 +31,12 @@ export default async function LabOrderDetailPage({ params }: LabOrderDetailPageP
   const order = await getOrderDetail(orderId);
   if (!order) notFound();
 
-  const [implantCatalog, pickups, messages] = await Promise.all([
+  const [implantCatalog, pickups, messages, prosthesisCatalog] = await Promise.all([
     getImplantCatalog(),
     listPickupsForOrder(orderId),
     listOrderMessages(orderId),
+    // 꺼진 제품도 함께 — 지난 주문이 그 조합을 가리킵니다
+    getProsthesisCatalog({ includeInactive: true }),
   ]);
 
   return (
@@ -42,6 +45,7 @@ export default async function LabOrderDetailPage({ params }: LabOrderDetailPageP
       sector="lab"
       today={todayInKst()}
       implantCatalog={implantCatalog}
+      prosthesisCatalog={prosthesisCatalog}
       messages={messages}
       forwardBlockedReason={
         pickups.some((p) => p.status === 'open')

@@ -658,7 +658,7 @@ function OrderFormBody({
                 <Chip
                   key={t.code}
                   on={typeCode === t.code}
-                  color={colorOfType(t.code)}
+                  color={colorOfType(prosthesisCatalog, t.code)}
                   onClick={() => changeType(t.code)}
                 >
                   {t.name}
@@ -671,7 +671,7 @@ function OrderFormBody({
                 <Chip
                   key={m.code}
                   on={materialCode === m.code}
-                  color={colorOfType(typeCode)}
+                  color={colorOfType(prosthesisCatalog, typeCode)}
                   onClick={() => {
                     setMaterialCode(m.code);
                     setHint('');
@@ -844,6 +844,7 @@ function OrderFormBody({
 
         <div className="px-5 pb-5 pt-2">
           <ToothChart
+            catalog={prosthesisCatalog}
             placements={entries}
             severedKeys={severedKeys}
             onToothClick={handleToothClick}
@@ -874,6 +875,7 @@ function OrderFormBody({
 
           <div className="mt-4">
             <ProsthesisSummary
+              catalog={prosthesisCatalog}
               placements={entries}
               shades={shades}
               implants={implants}

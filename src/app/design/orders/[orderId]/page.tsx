@@ -9,6 +9,7 @@
 import { notFound } from 'next/navigation';
 import { getOrderDetail, listPartnerLabs } from '@/server/repositories/order';
 import { getImplantCatalog } from '@/server/repositories/implant';
+import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { todayInKst } from '@/server/domain/week';
 import { canUploadDesignFile } from '@/server/domain/order-status';
@@ -26,10 +27,12 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
   const order = await getOrderDetail(orderId);
   if (!order) notFound();
 
-  const [labs, implantCatalog, messages] = await Promise.all([
+  const [labs, implantCatalog, messages, prosthesisCatalog] = await Promise.all([
     listPartnerLabs(),
     getImplantCatalog(),
     listOrderMessages(orderId),
+    // 꺼진 제품도 함께 — 지난 주문이 그 조합을 가리킵니다
+    getProsthesisCatalog({ includeInactive: true }),
   ]);
 
   return (
@@ -38,6 +41,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       sector="design_center"
       today={todayInKst()}
       implantCatalog={implantCatalog}
+      prosthesisCatalog={prosthesisCatalog}
       messages={messages}
       labs={labs}
       showCost

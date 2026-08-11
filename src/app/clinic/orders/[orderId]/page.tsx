@@ -46,6 +46,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       sector="clinic"
       today={today}
       implantCatalog={implantCatalog}
+      prosthesisCatalog={prosthesisCatalog}
       messages={messages}
       showClinic={false}
       scanSlot={

@@ -34,7 +34,7 @@ import OrderActions from '@/components/order/OrderActions';
 import OrderFileList from '@/components/order/OrderFileList';
 import { computeDDay } from '@/server/domain/order-list';
 import { buildSummaryLines } from '@/server/domain/summary';
-import { colorOfType } from '@/server/domain/prosthesis';
+import { colorOfType, type ProsthesisCatalog } from '@/server/domain/prosthesis';
 import { formatSelection } from '@/server/domain/implant';
 import { STATUS_LABEL, type Sector } from '@/server/domain/order-status';
 import type { ChartPlacement } from '@/components/dental/ToothChart';
@@ -66,6 +66,7 @@ export interface OrderDetailScreenProps {
   sector: Sector;
   today: IsoDate;
   implantCatalog: ImplantCatalog;
+  prosthesisCatalog: ProsthesisCatalog;
   messages: OrderMessage[];
   labs?: { id: string; name: string }[];
   forwardBlockedReason?: string;
@@ -90,6 +91,7 @@ export default function OrderDetailScreen({
   sector,
   today,
   implantCatalog,
+  prosthesisCatalog,
   messages,
   labs = [],
   forwardBlockedReason,
@@ -134,7 +136,13 @@ export default function OrderDetailScreen({
   const dday = computeDDay(order.due_date, today, order.status);
   const statusColor = STATUS_COLOR[order.status] ?? '#4A5567';
 
-  const lines = buildSummaryLines({ placements, shades, implants, implantCatalog });
+  const lines = buildSummaryLines({
+    placements,
+    shades,
+    implants,
+    implantCatalog,
+    catalog: prosthesisCatalog,
+  });
   const hasPontic = placements.some((p) => p.isPontic);
 
   const scanFiles = order.files.filter((f) => f.kind !== 'design');
@@ -212,7 +220,7 @@ export default function OrderDetailScreen({
 
         {/* ---------- .dt-arch ---------- */}
         <div className="px-[18px] pb-[30px] pt-6">
-          <ToothChart placements={placements} readOnly />
+          <ToothChart placements={placements} catalog={prosthesisCatalog} readOnly />
         </div>
 
         {extraSlot && <div className="px-[18px] pb-3.5">{extraSlot}</div>}
@@ -237,7 +245,7 @@ export default function OrderDetailScreen({
             ) : (
               <div className="flex flex-col items-start gap-2">
                 {lines.map((line) => {
-                  const color = colorOfType(line.typeCode);
+                  const color = colorOfType(prosthesisCatalog, line.typeCode);
 
                   return (
                     <div

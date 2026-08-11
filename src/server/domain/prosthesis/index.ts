@@ -41,6 +41,21 @@ export interface ProsthesisType {
   code: ProsthesisTypeCode;
   name: string;
   abbr: string;
+
+  /**
+   * 종류마다 다른 성질. (제품탭에서 정합니다)
+   *
+   * ★ 코드에 박아 두면 종류를 늘릴 수 없습니다.
+   *   덴쳐·교정을 넣는 순간 '임플란트면 …' 같은 규칙이 어디에 걸릴지
+   *   알 수 없어집니다. 종류가 자기 성질을 들고 있어야 합니다.
+   */
+  needsImplantModel: boolean;
+  /** 약칭에 재료 이름만 쓰는가. 켜면 'Zir-Cr' 대신 'Abut+Zir(SCRP)' */
+  abbrMaterialOnly: boolean;
+
+  color: string;
+  colorSoft: string;
+
   materials: Material[];
 }
 
@@ -85,6 +100,10 @@ export const FALLBACK_TYPES: ProsthesisCatalog = [
     code: 'crown',
     name: '크라운',
     abbr: 'Cr',
+    needsImplantModel: false,
+    abbrMaterialOnly: false,
+    color: '#E0409A',
+    colorSoft: '#FCEAF3',
     materials: [
       mat('zirconia', '지르코니아', 'Zir',  { pontic: true, pink: true }),
       mat('pmma',     'PMMA',       'Pmma', { pontic: true, pink: true }),
@@ -94,6 +113,10 @@ export const FALLBACK_TYPES: ProsthesisCatalog = [
     code: 'inlay',
     name: '인레이',
     abbr: 'In',
+    needsImplantModel: false,
+    abbrMaterialOnly: false,
+    color: '#1B63E8',
+    colorSoft: '#EDF3FE',
     materials: [
       mat('hybrid',   '하이브리드', 'Hy'),
       mat('zirconia', '지르코니아', 'Zir'),
@@ -103,6 +126,10 @@ export const FALLBACK_TYPES: ProsthesisCatalog = [
     code: 'implant',
     name: '임플란트',
     abbr: 'Im',
+    needsImplantModel: true,
+    abbrMaterialOnly: true,
+    color: '#7C6BE8',
+    colorSoft: '#EDEBFB',
     // ★ 임플란트는 약칭을 만들지 않고 name 을 그대로 씁니다.
     //   그래서 abbr 에도 같은 값을 넣어 둡니다.
     materials: [
@@ -185,8 +212,8 @@ export function buildAbbr(
   //   목록 한 줄 때문에 화면 전체가 죽으면 안 됩니다.
   if (!type || !material) return `${typeCode}/${materialCode}`;
 
-  // 임플란트만 예외입니다
-  if (type.code === 'implant') return material.abbr;
+  // ★ 종류가 정합니다. '임플란트면' 이라고 코드에 적지 않습니다
+  if (type.abbrMaterialOnly) return material.abbr;
 
   return `${material.abbr}-${type.abbr}`;
 }
@@ -219,9 +246,12 @@ export function requiresShade(
   return getMaterial(catalog, typeCode, materialCode)?.hasShade ?? true;
 }
 
-/** 임플란트 모델(제조사·타입 등) 선택이 필수인가 (명세서 §4.2.4) */
-export function requiresImplantModel(typeCode: string): boolean {
-  return typeCode === 'implant';
+/** 모델(제조사·타입 등) 선택이 필수인 종류인가 (명세서 §4.2.4) */
+export function requiresImplantModel(
+  catalog: ProsthesisCatalog,
+  typeCode: string,
+): boolean {
+  return getType(catalog, typeCode)?.needsImplantModel ?? false;
 }
 
 // ---------- 표시 색 (시안 .proto --pc / --ps) ----------
@@ -230,14 +260,21 @@ export function requiresImplantModel(typeCode: string): boolean {
  * 보철 종류마다 고유한 색이 있습니다.
  * 칩·치식도·요약이 모두 같은 색을 씁니다 — 화면 어디서 보든 같은 것으로 읽히도록.
  */
-export const TYPE_COLOR: Record<string, { line: string; soft: string }> = {
-  crown:   { line: '#E0409A', soft: '#FCEAF3' },
-  inlay:   { line: '#1B63E8', soft: '#EDF3FE' },
-  implant: { line: '#7C6BE8', soft: '#EDEBFB' },
-};
+const NO_COLOR = { line: '#4A5567', soft: '#F4F6F9' };
 
-export function colorOfType(typeCode: string): { line: string; soft: string } {
-  return TYPE_COLOR[typeCode] ?? { line: '#4A5567', soft: '#F4F6F9' };
+/**
+ * 종류의 색. 제품탭에서 정합니다.
+ *
+ * ★ 목록에 없으면 회색입니다.
+ *   제품을 끈 뒤에도 지난 주문이 그 종류를 가리키므로, 색을 못 찾았다고
+ *   화면이 깨지면 안 됩니다.
+ */
+export function colorOfType(
+  catalog: ProsthesisCatalog,
+  typeCode: string,
+): { line: string; soft: string } {
+  const type = getType(catalog, typeCode);
+  return type ? { line: type.color, soft: type.colorSoft } : NO_COLOR;
 }
 
 // ---------- 치은포셀린 ----------

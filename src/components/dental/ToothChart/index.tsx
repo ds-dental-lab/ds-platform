@@ -17,7 +17,11 @@
 
 import { getAllTeeth, getToothType, getArch } from '@/server/domain/tooth';
 import { computeBridges, canSever, linkKey, type ToothPlacement } from '@/server/domain/bridge';
-import { colorOfType, allowsGingival } from '@/server/domain/prosthesis';
+import {
+  colorOfType,
+  FALLBACK_TYPES,
+  type ProsthesisCatalog,
+} from '@/server/domain/prosthesis';
 import { getShape } from './toothShapes';
 
 /** 치식도가 다루는 한 치아. 중복 등록된 치아는 두 줄이 됩니다 */
@@ -37,6 +41,13 @@ export interface ToothChartProps {
   onToggleGingival?: (tooth: number) => void;
   onSeverLink?: (key: string) => void;
   readOnly?: boolean;
+  /**
+   * 제품 목록. 종류의 색을 여기서 읽습니다.
+   *
+   * ★ 안 주면 최소 목록으로 봅니다. 새로 만든 종류는 회색으로 나오지만
+   *   화면이 깨지지는 않습니다.
+   */
+  catalog?: ProsthesisCatalog;
 }
 
 export default function ToothChart({
@@ -47,6 +58,7 @@ export default function ToothChart({
   onToggleGingival,
   onSeverLink,
   readOnly = false,
+  catalog = FALLBACK_TYPES,
 }: ToothChartProps) {
   const { upper, lower } = getAllTeeth();
   const bridges = computeBridges(placements, severedKeys);
@@ -64,6 +76,7 @@ export default function ToothChart({
           onToggleGingival={onToggleGingival}
           onSeverLink={onSeverLink}
           readOnly={readOnly}
+          catalog={catalog}
         />
 
         <div className="h-7" />
@@ -78,6 +91,7 @@ export default function ToothChart({
           onToggleGingival={onToggleGingival}
           onSeverLink={onSeverLink}
           readOnly={readOnly}
+          catalog={catalog}
           lower
         />
       </div>
@@ -98,6 +112,7 @@ interface RowProps {
   onSeverLink?: (key: string) => void;
   readOnly: boolean;
   lower?: boolean;
+  catalog: ProsthesisCatalog;
 }
 
 function ArchRow({
@@ -111,6 +126,7 @@ function ArchRow({
   onSeverLink,
   readOnly,
   lower = false,
+  catalog,
 }: RowProps) {
   /**
    * 이 줄을 [묶음 | 낱개] 덩어리로 나눕니다.
@@ -175,6 +191,7 @@ function ArchRow({
                 onSeverLink={onSeverLink}
                 readOnly={readOnly}
                 lower={lower}
+                catalog={catalog}
               />
             ) : (
               <Tooth
@@ -184,6 +201,7 @@ function ArchRow({
                 onTogglePontic={onTogglePontic}
                 onToggleGingival={onToggleGingival}
                 readOnly={readOnly}
+                catalog={catalog}
               />
             )}
           </div>
@@ -204,6 +222,7 @@ function BridgeBox({
   onSeverLink,
   readOnly,
   lower,
+  catalog,
 }: {
   bridge: ReturnType<typeof computeBridges>[number];
   placements: ChartPlacement[];
@@ -213,8 +232,9 @@ function BridgeBox({
   onSeverLink?: (key: string) => void;
   readOnly: boolean;
   lower: boolean;
+  catalog: ProsthesisCatalog;
 }) {
-  const color = colorOfType(bridge.typeCode);
+  const color = colorOfType(catalog, bridge.typeCode);
 
   return (
     <div
@@ -261,6 +281,7 @@ function BridgeBox({
               onTogglePontic={onTogglePontic}
               onToggleGingival={onToggleGingival}
               readOnly={readOnly}
+              catalog={catalog}
             />
           </div>
         );
@@ -288,6 +309,7 @@ function Tooth({
   onTogglePontic,
   onToggleGingival,
   readOnly,
+  catalog,
 }: {
   tooth: number;
   placements: ChartPlacement[];
@@ -295,12 +317,13 @@ function Tooth({
   onTogglePontic?: (tooth: number) => void;
   onToggleGingival?: (tooth: number) => void;
   readOnly: boolean;
+  catalog: ProsthesisCatalog;
 }) {
   const arch = getArch(tooth);
   const shape = getShape(getToothType(tooth), arch);
 
   const primary = placements[0];
-  const color = primary ? colorOfType(primary.typeCode) : null;
+  const color = primary ? colorOfType(catalog, primary.typeCode) : null;
   const isPontic = placements.some((p) => p.isPontic);
   const isDuplicate = placements.length >= 2;
   const hasGingival = placements.some((p) => p.hasGingival);
@@ -395,5 +418,4 @@ function Tooth({
   );
 }
 
-/** 치은포셀린을 붙일 수 있는 치아인지 — 화면이 안내를 띄울 때 씁니다 */
-export { allowsGingival };
+

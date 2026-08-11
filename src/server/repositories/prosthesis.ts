@@ -39,6 +39,10 @@ interface RawType {
   abbr: string;
   is_active: boolean;
   sort_order: number;
+  needs_implant_model: boolean;
+  abbr_material_only: boolean;
+  color: string;
+  color_soft: string;
   prosthesis_materials: RawMaterial[] | null;
 }
 
@@ -56,6 +60,7 @@ export async function getProsthesisCatalog(
     .from('prosthesis_types')
     .select(
       'code, name, abbr, is_active, sort_order, ' +
+        'needs_implant_model, abbr_material_only, color, color_soft, ' +
         'prosthesis_materials(code, name, abbr, is_active, sort_order, ' +
         'has_shade, has_pontic, has_pink, price, pontic_price, pink_price)',
     )
@@ -73,6 +78,10 @@ export async function getProsthesisCatalog(
       code: type.code as ProsthesisCatalog[number]['code'],
       name: type.name,
       abbr: type.abbr,
+      needsImplantModel: type.needs_implant_model,
+      abbrMaterialOnly: type.abbr_material_only,
+      color: type.color,
+      colorSoft: type.color_soft,
       materials: (type.prosthesis_materials ?? [])
         .filter((m) => options.includeInactive || m.is_active)
         .sort((a, b) => a.sort_order - b.sort_order)

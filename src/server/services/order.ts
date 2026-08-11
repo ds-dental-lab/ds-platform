@@ -113,7 +113,7 @@ export function validateOrder(
     }
 
     // 임플란트는 모델이 필요합니다
-    if (requiresImplantModel(item.typeCode) && !item.isPontic) {
+    if (requiresImplantModel(catalog, item.typeCode) && !item.isPontic) {
       if (!item.implantManufacturer || !item.implantType) {
         return `${item.tooth}번 — 임플란트 제조사와 타입을 선택해 주세요`;
       }

@@ -20,7 +20,11 @@ import {
   countTeeth,
   type SummaryLine,
 } from '@/server/domain/summary';
-import { colorOfType } from '@/server/domain/prosthesis';
+import {
+  colorOfType,
+  FALLBACK_TYPES,
+  type ProsthesisCatalog,
+} from '@/server/domain/prosthesis';
 import type { ToothPlacement } from '@/server/domain/bridge';
 import type { ToothShade } from '@/server/domain/shade';
 import type { ImplantCatalog, ImplantSelection } from '@/server/domain/implant';
@@ -34,6 +38,7 @@ export interface ProsthesisSummaryProps {
   onReset?: () => void;
   readOnly?: boolean;
   title?: string;
+  catalog?: ProsthesisCatalog;
 }
 
 export default function ProsthesisSummary({
@@ -45,6 +50,7 @@ export default function ProsthesisSummary({
   onReset,
   readOnly = false,
   title = '제작보철',
+  catalog = FALLBACK_TYPES,
 }: ProsthesisSummaryProps) {
   const [confirming, setConfirming] = useState(false);
 
@@ -117,7 +123,7 @@ export default function ProsthesisSummary({
       ) : (
         <ul className="space-y-2">
           {lines.map((line) => {
-            const color = colorOfType(line.typeCode);
+            const color = colorOfType(catalog, line.typeCode);
 
             return (
               <li
