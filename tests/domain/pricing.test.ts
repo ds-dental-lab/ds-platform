@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isPriceable,
   resolvePrice,
+  resolvePartyPrice,
   resolvePrices,
   priceSource,
   planSave,
@@ -142,5 +143,38 @@ describe('사람이 친 글자', () => {
     expect(formatAmount(null)).toBe('-');
     expect(formatAmount(0)).toBe('0');
     expect(formatAmount(130000)).toBe('130,000');
+  });
+});
+
+// =========================================================
+// 기공원가에는 제품 기본가가 없습니다 (2026-08-12 발견)
+//
+// ★ prosthesis_materials.price 는 '치과에 파는 값' 입니다.
+//   기공소에도 그 값으로 떨어지게 두면, 기공원가를 안 정한 칸이
+//   치과 판매가 그대로 잡힙니다 — 5만원에 팔고 5만원을 지급하는 셈입니다.
+// =========================================================
+
+describe('거래처 종류에 따른 기본가', () => {
+  const base = 150000;
+
+  it('치과는 기본가로 떨어진다', () => {
+    expect(resolvePartyPrice(base, null, 'clinic')).toBe(base);
+  });
+
+  // ★ 이것이 이 함수가 있는 이유입니다
+  it('★ 기공소는 안 정했으면 미정이다 — 판매가로 떨어지지 않는다', () => {
+    expect(resolvePartyPrice(base, null, 'lab')).toBeNull();
+  });
+
+  it('기공소도 정해 뒀으면 그 값이다', () => {
+    expect(resolvePartyPrice(base, 40000, 'lab')).toBe(40000);
+  });
+
+  it('기공소 0원은 0원이다 (미정이 아닙니다)', () => {
+    expect(resolvePartyPrice(base, 0, 'lab')).toBe(0);
+  });
+
+  it('치과는 덮어쓴 값이 이긴다', () => {
+    expect(resolvePartyPrice(base, 130000, 'clinic')).toBe(130000);
   });
 });

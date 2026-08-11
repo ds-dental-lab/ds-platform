@@ -21,6 +21,8 @@ import {
   canClosePeriod,
   canReopenPeriod,
   splitItemLines,
+  invoicePartiesFor,
+  checkAdjustment,
 } from '@/server/domain/billing';
 
 describe('달 셈', () => {
@@ -370,5 +372,50 @@ describe('정산줄로 펴기', () => {
     const sum = splitItemLines(full).reduce((n, l) => n + l.amount, 0);
 
     expect(sum).toBe(itemAmount(full).amount);
+  });
+});
+
+// =========================================================
+// 청구서 방향 — 기공소는 받는 쪽입니다 (사용자 확정 2026-08-12)
+// =========================================================
+
+describe('청구서 방향', () => {
+  it('치과 정산은 디자인센터가 치과에 청구한다', () => {
+    const parties = invoicePartiesFor('clinic');
+
+    expect(parties.from).toBe('design_center');
+    expect(parties.to).toBe('clinic');
+  });
+
+  // ★ 여기를 뒤집으면 주는 쪽에 돈을 달라는 문서가 나갑니다
+  it('★ 기공소 정산은 기공소가 디자인센터에 청구한다', () => {
+    const parties = invoicePartiesFor('lab');
+
+    expect(parties.from).toBe('lab');
+    expect(parties.to).toBe('design_center');
+    expect(parties.amountLabel).toBe('지급 금액');
+  });
+});
+
+describe('금액 조정', () => {
+  it('사유가 있으면 넣는다', () => {
+    expect(checkAdjustment(-20000, '마진 불량으로 감액')).toEqual({ ok: true });
+  });
+
+  // ★ 한 달 뒤에 보면 왜 깎았는지 아무도 기억하지 못합니다
+  it('★ 사유가 없으면 막는다', () => {
+    expect(checkAdjustment(-20000, '   ').ok).toBe(false);
+  });
+
+  it('0 원은 조정할 것이 없다', () => {
+    expect(checkAdjustment(0, '사유').ok).toBe(false);
+  });
+
+  it('더하는 조정도 된다', () => {
+    expect(checkAdjustment(30000, '긴급 제작 추가금').ok).toBe(true);
+  });
+
+  it('소수는 막는다', () => {
+    expect(checkAdjustment(1000.5, '사유').ok).toBe(false);
   });
 });

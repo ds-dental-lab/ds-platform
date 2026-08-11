@@ -18,7 +18,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
-import { resolvePrice } from '@/server/domain/pricing';
+import { resolvePartyPrice } from '@/server/domain/pricing';
 import { itemAmount, type ItemAmount } from '@/server/domain/billing';
 import { buildAbbr, type ProsthesisCatalog } from '@/server/domain/prosthesis';
 import type { PartnerRow } from '@/server/repositories/partner';
@@ -36,6 +36,15 @@ export interface SettlementItem {
   /** 리메이크면 'N차' 를 이름 뒤에 붙여 보여 줍니다 */
   remakeSeq: number;
   isRemake: boolean;
+  /**
+   * 돈을 받는 줄인가.
+   *
+   * ★ 리메이크·리페어는 false 이고 금액이 0 입니다.
+   *   그래도 목록에는 넣습니다 — 청구서에서 빼 버리면 치과는 그 달에
+   *   무엇을 다시 만들었는지 알 수 없습니다. 0원으로 적혀 있어야
+   *   "이건 안 받았다" 가 문서로 남습니다.
+   */
+  billable: boolean;
 
   typeCode: string;
   materialCode: string;
@@ -50,6 +59,8 @@ export interface SettlementItem {
   unpriced: boolean;
   /** 손으로 깎거나 더한 값 */
   adjustment: number;
+  /** 왜 조정했는지. 청구서에 그대로 실립니다 */
+  adjustmentReason: string;
 
   /**
    * 이 거래처에 적용된 단가 그대로.
@@ -105,6 +116,7 @@ interface RawOrder {
   patient_label: string;
   is_remake: boolean;
   remake_seq: number;
+  is_billable: boolean;
   order_items: RawItem[] | null;
 }
 
@@ -114,9 +126,10 @@ interface RawOrder {
  * ★ 배송일로 자릅니다. 접수일이 아닙니다 —
  *   물건이 나간 시점이 청구의 근거입니다.
  *
- * ★ 리메이크·리페어(is_billable=false)는 아예 안 가져옵니다.
- *   0원 줄로 끼워 넣으면 "왜 0원이지" 를 매번 설명해야 합니다.
- *   ('그 달에 뭐가 나갔나' 를 보고 싶다는 요청이 오면 그때 켭니다)
+ * ★ 리메이크·리페어도 가져오되 0원입니다 (사용자 요청 2026-08-12).
+ *   전에는 아예 뺐습니다. 그런데 청구서에서 빠지면 치과는 그 달에
+ *   무엇을 다시 만들었는지 알 수 없습니다 — 0원으로 적혀 있어야
+ *   "이건 안 받았다" 가 문서로 남고, 물어볼 일도 줄어듭니다.
  */
 export async function getSettlement(
   partner: PartnerRow,
@@ -137,10 +150,10 @@ export async function getSettlement(
       .from('orders')
       .select(
         'id, order_no, received_at, shipped_at, patient_label, is_remake, remake_seq, ' +
+          'is_billable, ' +
           'order_items(id, tooth_number, type_code, material_code, is_pontic, has_gingival)',
       )
       .eq(isClinic ? 'clinic_org_id' : 'lab_org_id', partner.id)
-      .eq('is_billable', true)
       .is('deleted_at', null)
       .not('shipped_at', 'is', null)
       .gte('shipped_at', `${from}T00:00:00`)
@@ -166,7 +179,7 @@ export async function getSettlement(
 
     supabase
       .from('billing_adjustments')
-      .select('order_item_id, amount')
+      .select('order_item_id, amount, reason')
       .eq('party_org_id', partner.id),
   ]);
 
@@ -201,22 +214,38 @@ export async function getSettlement(
   }[]) {
     const over = byId.get(raw.id);
 
-    // ★ `??` 여야 합니다. `||` 로 이으면 0원 거래처 단가가 기본가로 새어 나갑니다
+    /*
+      ★ 기공소에는 제품 기본가를 쓰지 않습니다.
+        prosthesis_materials.price 는 **치과에 파는 값**입니다 (제품탭 '판매 가격').
+        기공원가는 사용자탭에서 기공소마다 따로 넣습니다.
+
+        전에는 두 쪽 모두 기본가로 떨어지게 두었더니, 기공원가를 안 정한
+        칸이 **치과 판매가 그대로** 잡혔습니다 — 5만원에 팔고 5만원을
+        지급하는 셈입니다. 안 정했으면 0원이 아니라 '미정' 이어야 합니다.
+
+      ★ `??` 여야 합니다. `||` 로 이으면 0원 거래처 단가가 기본가로 새어 나갑니다.
+    */
     byCode.set(`${raw.prosthesis_types.code}/${raw.code}`, {
-      price: resolvePrice(raw.price, over?.price ?? null),
-      ponticPrice: resolvePrice(raw.pontic_price, over?.ponticPrice ?? null),
-      pinkPrice: resolvePrice(raw.pink_price, over?.pinkPrice ?? null),
+      price: resolvePartyPrice(raw.price, over?.price ?? null, partner.orgType),
+      ponticPrice: resolvePartyPrice(raw.pontic_price, over?.ponticPrice ?? null, partner.orgType),
+      pinkPrice: resolvePartyPrice(raw.pink_price, over?.pinkPrice ?? null, partner.orgType),
     });
   }
 
-  const adjByItem = new Map<string, number>();
+  const adjByItem = new Map<string, { amount: number; reasons: string[] }>();
 
   for (const row of ((adjustments.data ?? []) as {
     order_item_id: string | null;
     amount: number;
+    reason: string | null;
   }[])) {
     if (!row.order_item_id) continue;
-    adjByItem.set(row.order_item_id, (adjByItem.get(row.order_item_id) ?? 0) + row.amount);
+
+    const found = adjByItem.get(row.order_item_id) ?? { amount: 0, reasons: [] };
+    found.amount += row.amount;
+    if (row.reason) found.reasons.push(row.reason);
+
+    adjByItem.set(row.order_item_id, found);
   }
 
   // ---------- 줄을 폅니다 ----------
@@ -230,11 +259,10 @@ export async function getSettlement(
         pinkPrice: null,
       };
 
-      const money: ItemAmount = itemAmount({
-        isPontic: raw.is_pontic,
-        hasGingival: raw.has_gingival,
-        ...price,
-      });
+      // ★ 리메이크·리페어는 셈하지 않습니다. 0원으로 목록에만 남습니다
+      const money: ItemAmount = order.is_billable
+        ? itemAmount({ isPontic: raw.is_pontic, hasGingival: raw.has_gingival, ...price })
+        : { amount: 0, unpriced: false };
 
       const abbr = buildAbbr(catalog, raw.type_code, raw.material_code);
 
@@ -247,6 +275,7 @@ export async function getSettlement(
         patientLabel: order.patient_label,
         remakeSeq: order.remake_seq,
         isRemake: order.is_remake,
+        billable: order.is_billable,
         typeCode: raw.type_code,
         materialCode: raw.material_code,
         label: raw.is_pontic ? `${abbr} (Pontic)` : abbr,
@@ -255,7 +284,8 @@ export async function getSettlement(
         hasGingival: raw.has_gingival,
         amount: money.amount,
         unpriced: money.unpriced,
-        adjustment: adjByItem.get(raw.id) ?? 0,
+        adjustment: adjByItem.get(raw.id)?.amount ?? 0,
+        adjustmentReason: (adjByItem.get(raw.id)?.reasons ?? []).join(' · '),
         ...price,
       });
     }
@@ -265,6 +295,9 @@ export async function getSettlement(
   const grouped = new Map<string, SettlementProduct>();
 
   for (const item of items) {
+    // 리메이크는 제품별 집계에서 따로 세지 않습니다 — 세부내역에만 나옵니다
+    if (!item.billable) continue;
+
     const key = item.label;
     const found = grouped.get(key);
 
@@ -367,7 +400,7 @@ export async function getClosedSettlement(
     .from('billing_lines')
     .select(
       'id, kind, amount, reason, order_id, order_item_id, ' +
-        'order:orders!inner(order_no, received_at, shipped_at, patient_label, is_remake, remake_seq), ' +
+        'order:orders!inner(order_no, received_at, shipped_at, patient_label, is_remake, remake_seq, is_billable), ' +
         'item:order_items(tooth_number, type_code, material_code, is_pontic, has_gingival)',
     )
     .eq('period_id', periodId);
@@ -388,6 +421,7 @@ export async function getClosedSettlement(
       patient_label: string;
       is_remake: boolean;
       remake_seq: number;
+      is_billable: boolean;
     };
     item: {
       tooth_number: number;
@@ -409,8 +443,14 @@ export async function getClosedSettlement(
     const found = byItem.get(key);
 
     if (found) {
-      if (line.kind === 'adjustment') found.adjustment += line.amount;
-      else found.amount += line.amount;
+      if (line.kind === 'adjustment') {
+        found.adjustment += line.amount;
+        found.adjustmentReason = [found.adjustmentReason, line.reason]
+          .filter(Boolean)
+          .join(' · ');
+      } else {
+        found.amount += line.amount;
+      }
       continue;
     }
 
@@ -427,6 +467,7 @@ export async function getClosedSettlement(
       patientLabel: line.order.patient_label,
       remakeSeq: line.order.remake_seq,
       isRemake: line.order.is_remake,
+      billable: line.order.is_billable,
       typeCode: line.item?.type_code ?? '',
       materialCode: line.item?.material_code ?? '',
       label: line.item?.is_pontic ? `${abbr} (Pontic)` : abbr,
@@ -436,6 +477,7 @@ export async function getClosedSettlement(
       amount: line.kind === 'adjustment' ? 0 : line.amount,
       unpriced: false, // 굳은 값입니다. 지금 단가와 견주지 않습니다
       adjustment: line.kind === 'adjustment' ? line.amount : 0,
+      adjustmentReason: line.kind === 'adjustment' ? (line.reason ?? '') : '',
       price: null,
       ponticPrice: null,
       pinkPrice: null,
@@ -446,6 +488,9 @@ export async function getClosedSettlement(
   const grouped = new Map<string, SettlementProduct>();
 
   for (const item of items) {
+    // 열린 기간과 같은 규칙입니다 — 리메이크는 세부내역에만 나옵니다
+    if (!item.billable) continue;
+
     const found = grouped.get(item.label);
 
     if (found) {

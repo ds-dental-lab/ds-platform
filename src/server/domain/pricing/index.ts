@@ -60,6 +60,25 @@ export function resolvePrice(base: number | null, override: number | null): numb
   return override ?? base;
 }
 
+/**
+ * 거래처 종류까지 따진 값.
+ *
+ * ★ 기공소에는 제품 기본가로 떨어지지 않습니다.
+ *   제품의 price 는 **치과에 파는 값**입니다 (제품탭 '판매 가격').
+ *   기공원가는 사용자탭에서 기공소마다 따로 넣습니다.
+ *
+ *   둘 다 기본가로 떨어지게 두면, 기공원가를 안 정한 칸이 치과 판매가
+ *   그대로 잡힙니다 — 5만원에 팔고 5만원을 지급하는 셈입니다.
+ *   안 정했으면 0원이 아니라 '미정' 이어야 사람이 알아챕니다.
+ */
+export function resolvePartyPrice(
+  base: number | null,
+  override: number | null,
+  partyType: 'clinic' | 'lab',
+): number | null {
+  return partyType === 'clinic' ? resolvePrice(base, override) : override;
+}
+
 /** 그 값이 어디서 왔는가. 화면에서 색을 달리 찍는 데 씁니다 */
 export function priceSource(base: number | null, override: number | null): PriceSource {
   if (override !== null) return 'override';

@@ -113,13 +113,15 @@ export async function closeBillingPeriod(
   await supabase.from('billing_lines').delete().eq('period_id', openPeriodId);
 
   const rows = settlement.items.flatMap((item) =>
-    // 조회에 쓴 단가를 그대로 넘깁니다 — 합계에서 거꾸로 쪼개지 않습니다
+    // 조회에 쓴 단가를 그대로 넘깁니다 — 합계에서 거꾸로 쪼개지 않습니다.
+    // ★ 리메이크·리페어는 단가를 안 넘겨 0원 줄로 굳습니다.
+    //   목록에는 남아야 하지만 돈은 받지 않습니다.
     splitItemLines({
       isPontic: item.isPontic,
       hasGingival: item.hasGingival,
-      price: item.price,
-      ponticPrice: item.ponticPrice,
-      pinkPrice: item.pinkPrice,
+      price: item.billable ? item.price : null,
+      ponticPrice: item.billable ? item.ponticPrice : null,
+      pinkPrice: item.billable ? item.pinkPrice : null,
     }).map((line) => ({
       period_id: openPeriodId,
       order_id: item.orderId,
@@ -141,7 +143,8 @@ export async function closeBillingPeriod(
       order_item_id: item.itemId,
       kind: 'adjustment',
       amount: item.adjustment,
-      reason: '금액 조정',
+      // ★ 사람이 적은 사유를 그대로 굳힙니다. 청구서에 실릴 말입니다
+      reason: item.adjustmentReason || '금액 조정',
       created_by: session.user.id,
     });
   }

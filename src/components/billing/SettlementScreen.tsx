@@ -19,7 +19,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PartnerRow } from '@/server/repositories/partner';
+import Link from 'next/link';
 import CloseBar from '@/components/billing/CloseBar';
+import AdjustCell from '@/components/billing/AdjustCell';
 import type { Settlement } from '@/server/repositories/billing';
 
 type Tab = 'products' | 'items';
@@ -171,7 +173,7 @@ export default function SettlementScreen({
                 {partner.closingDay}일 기준 · 배송일로 가릅니다
               </span>
 
-              <span className="ml-auto">
+              <span className="ml-auto flex items-center gap-2">
                 <CloseBar
                   partyOrgId={partner.id}
                   partnerName={partner.name}
@@ -185,6 +187,15 @@ export default function SettlementScreen({
                   total={settlement?.total ?? 0}
                   unpricedCount={settlement?.unpricedCount ?? 0}
                 />
+
+                {closed && (
+                  <Link
+                    href={`/design/billing/${partner.id}/${yearMonth}`}
+                    className="h-9 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold leading-9 text-[#4A5567] hover:border-[#5546C8] hover:text-[#5546C8]"
+                  >
+                    청구서 보기
+                  </Link>
+                )}
               </span>
             </div>
           </section>
@@ -223,7 +234,12 @@ export default function SettlementScreen({
             {tab === 'products' ? (
               <ProductTable settlement={settlement} />
             ) : (
-              <ItemTable settlement={settlement} isClinic={type === 'clinic'} />
+              <ItemTable
+              settlement={settlement}
+              isClinic={type === 'clinic'}
+              partyOrgId={partner.id}
+              editable={!closed}
+            />
             )}
 
             {/* ---------- 합계 ---------- */}
@@ -287,9 +303,13 @@ function ProductTable({ settlement }: { settlement: Settlement | null }) {
 function ItemTable({
   settlement,
   isClinic,
+  partyOrgId,
+  editable,
 }: {
   settlement: Settlement | null;
   isClinic: boolean;
+  partyOrgId: string;
+  editable: boolean;
 }) {
   const rows = settlement?.items ?? [];
 
@@ -312,7 +332,12 @@ function ItemTable({
             <Empty colSpan={7} />
           ) : (
             rows.map((row) => (
-              <tr key={row.itemId} className="border-b border-[#F0F2F5] text-[13px]">
+              <tr
+                key={row.itemId}
+                className={
+                  'border-b border-[#F0F2F5] text-[13px] ' + (row.billable ? '' : 'bg-[#FFFBF4]')
+                }
+              >
                 <Td className="tabular-nums">{day(row.receivedAt)}</Td>
                 <Td className="tabular-nums">{day(row.shippedAt)}</Td>
                 <Td>
@@ -332,14 +357,22 @@ function ItemTable({
                 </Td>
                 <Td className="text-center tabular-nums">{row.toothNumber}</Td>
                 <Td className="text-right tabular-nums">
-                  {row.adjustment === 0 ? (
-                    <span className="text-[#C4CBD6]">-</span>
-                  ) : (
-                    <span className="font-semibold text-[#C2721B]">{won(row.adjustment)}</span>
-                  )}
+                  <AdjustCell
+                    itemId={row.itemId}
+                    partyOrgId={partyOrgId}
+                    label={`${row.patientLabel} · ${row.toothNumber}번 ${row.label}`}
+                    amount={row.adjustment}
+                    editable={editable && row.billable}
+                  />
                 </Td>
                 <Td className="text-right tabular-nums">
-                  {row.unpriced ? <Unpriced /> : won(row.amount)}
+                  {!row.billable ? (
+                    <span className="text-[#C2721B]">₩0</span>
+                  ) : row.unpriced ? (
+                    <Unpriced />
+                  ) : (
+                    won(row.amount)
+                  )}
                 </Td>
               </tr>
             ))

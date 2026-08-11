@@ -365,3 +365,75 @@ export function splitItemLines(item: BillableItem): FrozenLine[] {
 
   return lines;
 }
+
+// ---------- 청구서는 누가 누구에게 ----------
+//
+// ★ 방향이 반대인 두 청구서가 있습니다 (사용자 확정 2026-08-12).
+//     디자인센터 → 치과      만들어 준 값을 받습니다
+//     기공소     → 디자인센터  만들어 준 값을 받습니다
+//
+//   금액은 양쪽 다 디자인센터가 정합니다 —
+//   치과 단가도 기공원가도 사용자탭에서 디자인센터가 넣습니다.
+//   그래서 계산과 마감은 한 곳에서 하고, **문서의 머리만 방향에 맞춥니다**.
+//
+// ★ 헷갈리기 쉬운 자리입니다.
+//   기공소 정산을 '청구' 로 적으면 디자인센터가 기공소에 돈을 달라는
+//   문서가 됩니다. 실제로는 주는 쪽입니다.
+
+export type BillingDirection = 'to_clinic' | 'from_lab';
+
+export interface InvoiceParties {
+  /** 청구하는 쪽 (돈을 받는 쪽) */
+  from: 'design_center' | 'lab';
+  /** 청구받는 쪽 (돈을 내는 쪽) */
+  to: 'clinic' | 'design_center';
+  direction: BillingDirection;
+  /** 문서 이름 */
+  title: string;
+  /** 금액 칸 이름 */
+  amountLabel: string;
+}
+
+export function invoicePartiesFor(partyType: 'clinic' | 'lab'): InvoiceParties {
+  if (partyType === 'clinic') {
+    return {
+      from: 'design_center',
+      to: 'clinic',
+      direction: 'to_clinic',
+      title: '청구서',
+      amountLabel: '청구 금액',
+    };
+  }
+
+  // 기공소는 받는 쪽입니다. 디자인센터가 내는 쪽입니다
+  return {
+    from: 'lab',
+    to: 'design_center',
+    direction: 'from_lab',
+    title: '청구서 (기공료)',
+    amountLabel: '지급 금액',
+  };
+}
+
+// ---------- 조정 ----------
+
+/**
+ * 손으로 넣는 금액 조정. (몽키스패너)
+ *
+ * ★ 원금액을 덮어쓰지 않고 차액 한 줄을 덧댑니다.
+ *   42번을 50,000 → 30,000 으로 깎았을 때 원금액을 고쳐 버리면
+ *   "얼마였는데 왜 깎았나" 가 사라집니다.
+ *
+ * ★ 사유가 없으면 못 넣습니다.
+ *   한 달 뒤에 보면 왜 깎았는지 아무도 기억하지 못합니다.
+ *   청구서에 그대로 실리므로 치과가 읽을 말이어야 합니다.
+ */
+export function checkAdjustment(amount: number, reason: string): CloseVerdict {
+  if (!Number.isFinite(amount) || !Number.isInteger(amount)) {
+    return { ok: false, reason: '금액은 정수여야 합니다' };
+  }
+  if (amount === 0) return { ok: false, reason: '0 원은 조정할 것이 없습니다' };
+  if (!reason.trim()) return { ok: false, reason: '사유를 적어 주세요' };
+
+  return { ok: true };
+}
