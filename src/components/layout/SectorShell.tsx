@@ -159,7 +159,7 @@ const NAV: Record<Sector, NavItem[]> = {
     { label: '배송조회', href: '/lab/shipments', icon: NAV_ICON.delivery },
     { label: '정산', href: '/lab/billing', icon: NAV_ICON.billing },
     { label: '사용자', href: '/lab/users', icon: NAV_ICON.users, staffHidden: true },
-    { label: '제품', icon: NAV_ICON.product, soon: '기공소 단가' },
+    { label: '제품', href: '/lab/products', icon: NAV_ICON.product, staffHidden: true },
     { label: '게시판', href: '/lab/notices', icon: NAV_ICON.board },
   ],
 };
