@@ -50,6 +50,17 @@ export interface SettlementItem {
   unpriced: boolean;
   /** 손으로 깎거나 더한 값 */
   adjustment: number;
+
+  /**
+   * 이 거래처에 적용된 단가 그대로.
+   *
+   * ★ 마감할 때 합계에서 거꾸로 쪼개지 않으려고 들고 다닙니다.
+   *   금액에서 핑크 값을 빼는 식으로 되돌리면, 규칙이 하나 바뀔 때마다
+   *   그 뺄셈도 같이 고쳐야 하고 어긋나도 눈에 안 띕니다.
+   */
+  price: number | null;
+  ponticPrice: number | null;
+  pinkPrice: number | null;
 }
 
 /** 청구 내역 한 줄 — 제품별로 묶은 것 */
@@ -245,6 +256,7 @@ export async function getSettlement(
         amount: money.amount,
         unpriced: money.unpriced,
         adjustment: adjByItem.get(raw.id) ?? 0,
+        ...price,
       });
     }
   }
@@ -328,4 +340,164 @@ export async function listPeriods(partyOrgId: string): Promise<PeriodState[]> {
       paidAt: row.paid_at,
     }),
   );
+}
+
+// ---------- 마감된 기간은 굳은 줄에서 읽습니다 ----------
+
+/**
+ * 마감된 기간의 정산.
+ *
+ * ★ 주문에서 다시 세지 않습니다.
+ *   마감한 뒤에 단가를 고치거나 주문을 손대도 지난 청구서는 그대로여야
+ *   합니다. 굳은 줄만 읽으면 그 약속이 저절로 지켜집니다.
+ *
+ * ★ 환자·치식은 주문에서 함께 읽어 옵니다.
+ *   금액은 굳었지만 '누구의 몇 번 이빨' 은 바뀌지 않는 사실입니다.
+ *   굳은 줄에 복사해 두면 같은 것이 두 곳에 남습니다.
+ */
+export async function getClosedSettlement(
+  periodId: string,
+  from: string,
+  to: string,
+  catalog: ProsthesisCatalog,
+): Promise<Settlement> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('billing_lines')
+    .select(
+      'id, kind, amount, reason, order_id, order_item_id, ' +
+        'order:orders!inner(order_no, received_at, shipped_at, patient_label, is_remake, remake_seq), ' +
+        'item:order_items(tooth_number, type_code, material_code, is_pontic, has_gingival)',
+    )
+    .eq('period_id', periodId);
+
+  if (error || !data) return empty(from, to);
+
+  interface RawLine {
+    id: string;
+    kind: string;
+    amount: number;
+    reason: string | null;
+    order_id: string;
+    order_item_id: string | null;
+    order: {
+      order_no: string;
+      received_at: string | null;
+      shipped_at: string;
+      patient_label: string;
+      is_remake: boolean;
+      remake_seq: number;
+    };
+    item: {
+      tooth_number: number;
+      type_code: string;
+      material_code: string;
+      is_pontic: boolean;
+      has_gingival: boolean;
+    } | null;
+  }
+
+  // 한 보철에 base·surcharge·adjustment 가 여러 줄일 수 있어 다시 묶습니다
+  const byItem = new Map<string, SettlementItem>();
+  let adjustment = 0;
+
+  for (const line of data as unknown as RawLine[]) {
+    if (line.kind === 'adjustment') adjustment += line.amount;
+
+    const key = line.order_item_id ?? `${line.order_id}:${line.kind}`;
+    const found = byItem.get(key);
+
+    if (found) {
+      if (line.kind === 'adjustment') found.adjustment += line.amount;
+      else found.amount += line.amount;
+      continue;
+    }
+
+    const abbr = line.item
+      ? buildAbbr(catalog, line.item.type_code, line.item.material_code)
+      : '기타';
+
+    byItem.set(key, {
+      orderId: line.order_id,
+      itemId: line.order_item_id ?? line.id,
+      orderNo: line.order.order_no,
+      receivedAt: line.order.received_at,
+      shippedAt: line.order.shipped_at,
+      patientLabel: line.order.patient_label,
+      remakeSeq: line.order.remake_seq,
+      isRemake: line.order.is_remake,
+      typeCode: line.item?.type_code ?? '',
+      materialCode: line.item?.material_code ?? '',
+      label: line.item?.is_pontic ? `${abbr} (Pontic)` : abbr,
+      toothNumber: line.item?.tooth_number ?? 0,
+      isPontic: line.item?.is_pontic ?? false,
+      hasGingival: line.item?.has_gingival ?? false,
+      amount: line.kind === 'adjustment' ? 0 : line.amount,
+      unpriced: false, // 굳은 값입니다. 지금 단가와 견주지 않습니다
+      adjustment: line.kind === 'adjustment' ? line.amount : 0,
+      price: null,
+      ponticPrice: null,
+      pinkPrice: null,
+    });
+  }
+
+  const items = [...byItem.values()].sort((a, b) => (a.shippedAt < b.shippedAt ? 1 : -1));
+  const grouped = new Map<string, SettlementProduct>();
+
+  for (const item of items) {
+    const found = grouped.get(item.label);
+
+    if (found) {
+      found.count += 1;
+      found.amount += item.amount + item.adjustment;
+    } else {
+      grouped.set(item.label, {
+        key: item.label,
+        label: item.label,
+        count: 1,
+        amount: item.amount + item.adjustment,
+        unpriced: false,
+      });
+    }
+  }
+
+  const subtotal = items.reduce((sum, i) => sum + i.amount, 0);
+
+  return {
+    from,
+    to,
+    items,
+    products: [...grouped.values()].sort((a, b) => b.amount - a.amount),
+    subtotal,
+    adjustment,
+    total: subtotal + adjustment,
+    unpricedCount: 0,
+  };
+}
+
+/** 이 기간의 마감 기록 하나 */
+export async function getPeriod(
+  partyOrgId: string,
+  yearMonth: string,
+): Promise<{ id: string; closedAt: string | null; issuedAt: string | null; paidAt: string | null } | null> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from('billing_periods')
+    .select('id, closed_at, issued_at, paid_at')
+    .eq('party_org_id', partyOrgId)
+    .eq('year_month', yearMonth)
+    .maybeSingle();
+
+  const row = data as {
+    id: string;
+    closed_at: string | null;
+    issued_at: string | null;
+    paid_at: string | null;
+  } | null;
+
+  if (!row) return null;
+
+  return { id: row.id, closedAt: row.closed_at, issuedAt: row.issued_at, paidAt: row.paid_at };
 }

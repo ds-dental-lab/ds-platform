@@ -19,6 +19,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PartnerRow } from '@/server/repositories/partner';
+import CloseBar from '@/components/billing/CloseBar';
 import type { Settlement } from '@/server/repositories/billing';
 
 type Tab = 'products' | 'items';
@@ -31,6 +32,9 @@ export interface SettlementScreenProps {
   settlement: Settlement | null;
   closed: boolean;
   paid: boolean;
+  issued: boolean;
+  /** 마감할 수 없으면 그 이유 */
+  closeBlockedReason?: string;
 }
 
 export default function SettlementScreen({
@@ -40,6 +44,8 @@ export default function SettlementScreen({
   settlement,
   closed,
   paid,
+  issued,
+  closeBlockedReason,
 }: SettlementScreenProps) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('items');
@@ -164,11 +170,35 @@ export default function SettlementScreen({
               <span className="text-[12px] text-[#98A2B3]">
                 {partner.closingDay}일 기준 · 배송일로 가릅니다
               </span>
+
+              <span className="ml-auto">
+                <CloseBar
+                  partyOrgId={partner.id}
+                  partnerName={partner.name}
+                  yearMonth={yearMonth}
+                  from={settlement?.from ?? ''}
+                  to={settlement?.to ?? ''}
+                  blockedReason={closeBlockedReason}
+                  closed={closed}
+                  issued={issued}
+                  itemCount={settlement?.items.length ?? 0}
+                  total={settlement?.total ?? 0}
+                  unpricedCount={settlement?.unpricedCount ?? 0}
+                />
+              </span>
             </div>
           </section>
 
+          {/* ---------- 굳은 기간 안내 ---------- */}
+          {closed && (
+            <p className="rounded-lg border border-[#CDE6DA] bg-[#F2FAF6] px-5 py-3 text-[13px] text-[#0F6B4A]">
+              마감된 기간입니다. 아래 금액은 마감할 때 굳은 값이라, 그 뒤에 단가를 고치거나
+              주문을 손대도 달라지지 않습니다.
+            </p>
+          )}
+
           {/* ---------- 단가 미정 경고 ---------- */}
-          {settlement && settlement.unpricedCount > 0 && (
+          {!closed && settlement && settlement.unpricedCount > 0 && (
             <p className="rounded-lg border border-[#F5C6C4] bg-[#FDF2F2] px-5 py-3 text-[13px] text-[#B3312C]">
               단가를 안 정한 보철이 <b className="font-bold">{settlement.unpricedCount}줄</b>{' '}
               있습니다. 지금은 0원으로 잡혀 있어 그대로 마감하면 못 받습니다 — 사용자탭에서 이

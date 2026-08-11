@@ -273,3 +273,95 @@ export function sumItems(items: BillableItem[]): ItemAmount {
     { amount: 0, unpriced: false },
   );
 }
+
+// ---------- 마감 ----------
+//
+// ★ 마감은 '지금까지의 셈을 굳히는 일' 입니다.
+//   열린 기간의 정산 화면은 주문에서 그때그때 셉니다 — 주문이 바뀌면
+//   금액도 따라 바뀝니다. 마감을 누르는 순간의 결과를 줄로 박아 두면
+//   그 뒤에 무엇이 바뀌어도 지난 청구서의 숫자가 흔들리지 않습니다.
+
+export interface ClosableRange {
+  from: IsoDate;
+  to: IsoDate;
+}
+
+export type CloseVerdict = { ok: true } | { ok: false; reason: string };
+
+/**
+ * 이 기간을 지금 마감해도 되는가.
+ *
+ * ★ 기간이 끝나기 전에는 못 닫습니다.
+ *   8월(26일 기준)은 8월 25일까지입니다. 20일에 닫아 버리면
+ *   21~25일에 나간 물건이 조용히 9월로 밀립니다 — 치과는 이번 달
+ *   청구서에 있어야 할 건이 왜 없는지 알 수 없습니다.
+ *
+ * ★ 이미 닫힌 기간은 두 번 닫지 않습니다.
+ *   두 번 닫으면 같은 금액이 두 줄이 됩니다.
+ */
+export function canClosePeriod(
+  range: ClosableRange,
+  today: IsoDate,
+  alreadyClosed: boolean,
+): CloseVerdict {
+  if (alreadyClosed) return { ok: false, reason: '이미 마감한 기간입니다' };
+
+  if (today <= range.to) {
+    return { ok: false, reason: `${range.to} 이 지나야 마감할 수 있습니다` };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * 마감을 되돌려도 되는가.
+ *
+ * ★ 청구서를 뽑기 전까지입니다.
+ *   한 번 나간 청구서의 숫자가 나중에 달라지면 신뢰가 무너집니다.
+ *   뽑기 전이라면 아직 아무도 못 봤으니 되돌려도 됩니다 —
+ *   잘못 눌렀을 때 손쓸 길이 없으면 그게 더 위험합니다.
+ */
+export function canReopenPeriod(period: {
+  closedAt: string | null;
+  issuedAt: string | null;
+}): CloseVerdict {
+  if (!period.closedAt) return { ok: false, reason: '아직 마감하지 않은 기간입니다' };
+  if (period.issuedAt) return { ok: false, reason: '청구서를 이미 뽑아 되돌릴 수 없습니다' };
+
+  return { ok: true };
+}
+
+// ---------- 무엇을 줄로 남기는가 ----------
+
+export type LineKind = 'base' | 'surcharge' | 'remake_diff' | 'adjustment';
+
+export interface FrozenLine {
+  kind: LineKind;
+  amount: number;
+  reason?: string;
+}
+
+/**
+ * 보철 한 줄을 정산줄로 폅니다.
+ *
+ * ★ 치은포셀린을 따로 뗍니다.
+ *   합쳐 놓으면 청구서에 '지르코니아 200,000' 한 줄만 남아, 치과가
+ *   "왜 이 이는 비싼가" 를 물었을 때 답할 근거가 화면에 없습니다.
+ *   붙인 값은 붙인 값대로 보여야 합니다.
+ *
+ * ★ 단가를 안 정한 줄은 0원짜리 줄로 남깁니다.
+ *   빼 버리면 청구서에서 그 보철이 통째로 사라져 아무도 모릅니다.
+ *   0원으로 남으면 적어도 '왜 0원이지' 를 묻게 됩니다.
+ */
+export function splitItemLines(item: BillableItem): FrozenLine[] {
+  const lines: FrozenLine[] = [];
+  const base = item.isPontic ? item.ponticPrice : item.price;
+
+  lines.push({ kind: 'base', amount: base ?? 0 });
+
+  if (item.hasGingival) {
+    lines.push({ kind: 'surcharge', amount: item.pinkPrice ?? 0, reason: '핑크 포셀린' });
+  }
+
+  return lines;
+}

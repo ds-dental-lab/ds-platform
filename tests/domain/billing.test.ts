@@ -18,6 +18,9 @@ import {
   isValidClosingDay,
   itemAmount,
   sumItems,
+  canClosePeriod,
+  canReopenPeriod,
+  splitItemLines,
 } from '@/server/domain/billing';
 
 describe('달 셈', () => {
@@ -276,5 +279,96 @@ describe('줄 금액', () => {
 
     expect(out.amount).toBe(240000);
     expect(out.unpriced).toBe(true);
+  });
+});
+
+// =========================================================
+// 마감 — 지금까지의 셈을 굳힙니다 (2026-08-12)
+// =========================================================
+
+describe('마감할 수 있는가', () => {
+  const range = { from: '2026-07-26', to: '2026-08-25' };
+
+  it('기간이 끝난 뒤에는 마감한다', () => {
+    expect(canClosePeriod(range, '2026-08-26', false)).toEqual({ ok: true });
+  });
+
+  // ★ 일찍 닫으면 남은 날에 나간 물건이 조용히 다음 달로 밀립니다
+  it('★ 기간이 끝나기 전에는 못 닫는다', () => {
+    const verdict = canClosePeriod(range, '2026-08-20', false);
+
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toContain('2026-08-25');
+  });
+
+  it('★ 마지막 날에도 아직 못 닫는다', () => {
+    expect(canClosePeriod(range, '2026-08-25', false).ok).toBe(false);
+  });
+
+  it('★ 두 번 닫지 않는다', () => {
+    expect(canClosePeriod(range, '2026-08-26', true)).toEqual({
+      ok: false,
+      reason: '이미 마감한 기간입니다',
+    });
+  });
+});
+
+describe('마감을 되돌릴 수 있는가', () => {
+  it('청구서를 뽑기 전이면 되돌린다', () => {
+    expect(canReopenPeriod({ closedAt: '2026-08-26T00:00:00Z', issuedAt: null })).toEqual({
+      ok: true,
+    });
+  });
+
+  // ★ 한 번 나간 청구서의 숫자가 달라지면 신뢰가 무너집니다
+  it('★ 청구서를 뽑았으면 못 되돌린다', () => {
+    const verdict = canReopenPeriod({
+      closedAt: '2026-08-26T00:00:00Z',
+      issuedAt: '2026-08-27T00:00:00Z',
+    });
+
+    expect(verdict.ok).toBe(false);
+  });
+
+  it('안 닫은 기간은 되돌릴 것이 없다', () => {
+    expect(canReopenPeriod({ closedAt: null, issuedAt: null }).ok).toBe(false);
+  });
+});
+
+describe('정산줄로 펴기', () => {
+  const item = {
+    isPontic: false,
+    hasGingival: false,
+    price: 150000,
+    ponticPrice: 90000,
+    pinkPrice: 20000,
+  };
+
+  it('보통 줄은 기본 한 줄이다', () => {
+    expect(splitItemLines(item)).toEqual([{ kind: 'base', amount: 150000 }]);
+  });
+
+  it('폰틱은 폰틱 단가로 남는다', () => {
+    expect(splitItemLines({ ...item, isPontic: true })[0].amount).toBe(90000);
+  });
+
+  // ★ 합쳐 놓으면 "왜 이 이는 비싼가" 에 답할 근거가 화면에 없습니다
+  it('★ 치은포셀린은 따로 뗀다', () => {
+    const lines = splitItemLines({ ...item, hasGingival: true });
+
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toEqual({ kind: 'surcharge', amount: 20000, reason: '핑크 포셀린' });
+  });
+
+  // ★ 빼 버리면 청구서에서 그 보철이 통째로 사라집니다
+  it('★ 단가를 안 정했어도 0원 줄로 남긴다', () => {
+    expect(splitItemLines({ ...item, price: null })).toEqual([{ kind: 'base', amount: 0 }]);
+  });
+
+  it('펴 놓은 합계가 줄 금액과 같다', () => {
+    const full = { ...item, hasGingival: true };
+    const sum = splitItemLines(full).reduce((n, l) => n + l.amount, 0);
+
+    expect(sum).toBe(itemAmount(full).amount);
   });
 });
