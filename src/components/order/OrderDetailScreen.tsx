@@ -77,8 +77,10 @@ export interface OrderDetailScreenProps {
   labName?: string;
   /** 디자인 파일칸 위에 끼워 넣을 것 (업로더 등) */
   designSlot?: React.ReactNode;
-  /** 치식도 아래에 끼워 넣을 것 (수거 카드 · 리페어 신청 등) */
+  /** 치식도 아래에 끼워 넣을 것 (수거 카드 등) */
   extraSlot?: React.ReactNode;
+  /** 아래줄에 끼워 넣을 것 (리메이크 · 리페어 신청) — 시안 .dt-bar */
+  barSlot?: React.ReactNode;
 }
 
 export default function OrderDetailScreen({
@@ -94,6 +96,7 @@ export default function OrderDetailScreen({
   labName,
   designSlot,
   extraSlot,
+  barSlot,
 }: OrderDetailScreenProps) {
   const placements: ChartPlacement[] = order.items.map((item) => ({
     tooth: item.tooth_number,
@@ -392,6 +395,8 @@ export default function OrderDetailScreen({
             orderPath={home.href}
             editPath={sector === 'clinic' ? `/clinic/orders/${order.id}/edit` : undefined}
           />
+
+          {barSlot}
 
           <OrderStatusActions
             orderId={order.id}

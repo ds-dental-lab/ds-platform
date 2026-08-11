@@ -15,6 +15,7 @@ import { listOrderMessages } from '@/server/repositories/order-message';
 import { todayInKst } from '@/server/domain/week';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
 import RepairRequest from '@/components/order/RepairRequest';
+import RemakeRequest from '@/components/order/RemakeRequest';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,8 +41,16 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       implantCatalog={implantCatalog}
       messages={messages}
       showClinic={false}
-      extraSlot={
-        <RepairRequest orderId={order.id} status={order.status} items={order.items} />
+      barSlot={
+        <>
+          <RemakeRequest
+            orderId={order.id}
+            status={order.status}
+            items={order.items}
+            scanFiles={order.files.filter((f) => f.kind !== 'design')}
+          />
+          <RepairRequest orderId={order.id} status={order.status} items={order.items} />
+        </>
       }
     />
   );

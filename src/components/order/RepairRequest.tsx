@@ -70,13 +70,28 @@ export default function RepairRequest({ orderId, status, items }: RepairRequestP
 
   return (
     <>
+      {/* 시안 .dt-bar 의 버튼들과 같은 모양으로 섭니다 */}
       <button
+        type="button"
         onClick={() => {
           setError('');
           setOpen(true);
         }}
-        className="rounded border border-amber-600 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50"
+        className="inline-flex items-center gap-1.5 rounded-md border border-[#DDE2EA] px-4 py-2.5 text-[13.5px] font-semibold text-[#4A5567] hover:border-[#E09A1B] hover:text-[#B57A15]"
       >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12.4 2.8a4 4 0 0 0-5 5.4L2.8 12.8a1.3 1.3 0 0 0 1.8 1.8l4.6-4.6a4 4 0 0 0 5.4-5l-1.9 1.9-2.2-2.2z" />
+        </svg>
         리페어 요청
       </button>
 
