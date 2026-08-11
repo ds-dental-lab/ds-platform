@@ -7,6 +7,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
@@ -101,7 +102,10 @@ export default function LoginPage() {
         </button>
 
         <p className="auth-join">
-          DS Flow 회원이 아니신가요? <span className="link strong">회원가입</span>
+          DS Flow 회원이 아니신가요?{' '}
+          <Link href="/signup" className="link strong">
+            회원가입
+          </Link>
         </p>
       </div>
     </div>
@@ -151,6 +155,6 @@ const css = `
 .btn-primary:hover:not(:disabled){background:var(--brand-dark)}
 .btn-primary:disabled{background:#D5DAE2; color:#8E98A8; cursor:not-allowed}
 .auth-join{margin:22px 0 0; text-align:center; font-size:13px; color:var(--ink-2)}
-.link{color:var(--ink-2); cursor:pointer}
+.link{color:var(--ink-2); cursor:pointer; text-decoration:none}
 .link.strong{font-weight:600; color:var(--brand)}
 `;

@@ -125,7 +125,7 @@ const NAV: Record<Sector, NavItem[]> = {
     { label: '주문목록', href: '/clinic/orders', icon: NAV_ICON.list },
     { label: '배송조회', href: '/clinic/deliveries', icon: NAV_ICON.delivery },
     { label: '정산', href: '/clinic/billing', icon: NAV_ICON.billing },
-    { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
+    { label: '사용자', href: '/clinic/users', icon: NAV_ICON.users },
     { label: '게시판', href: '/clinic/notices', icon: NAV_ICON.board },
   ],
   // 시안 순서 그대로입니다 — HOME · 주문등록 · 주문목록 · 배송조회 ·
@@ -148,7 +148,7 @@ const NAV: Record<Sector, NavItem[]> = {
     { label: '주문목록', href: '/lab/orders', icon: NAV_ICON.list },
     { label: '배송조회', href: '/lab/shipments', icon: NAV_ICON.delivery },
     { label: '정산', href: '/lab/billing', icon: NAV_ICON.billing },
-    { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
+    { label: '사용자', href: '/lab/users', icon: NAV_ICON.users },
     { label: '제품', icon: NAV_ICON.product, soon: '기공소 단가' },
     { label: '게시판', href: '/lab/notices', icon: NAV_ICON.board },
   ],
