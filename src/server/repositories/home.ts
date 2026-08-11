@@ -34,26 +34,37 @@ export interface HomePickup {
   memo: string;
 }
 
-/** 디자인센터가 지금 손대야 하는 주문 한 줄 */
+/** 지금 디자인 중인 주문 한 줄 */
 export interface HomeWork {
   id: string;
   clinicName: string;
   patientLabel: string;
   dueDate: string;
   status: OrderStatus;
+  /** 디자인을 잡은 사람. 못 찾으면 빈 문자열 */
+  designerName: string;
+  /** 디자인을 잡은 날 (KST) */
+  startedOn: string;
+  /** 잡은 날부터 오늘까지 며칠째인가. 오늘 잡았으면 1 */
+  dayCount: number;
 }
 
 /**
- * 디자인센터의 '작업' 은 어디까지인가.
+ * 작업 리스트에 오르는 순간은 **디자인을 잡았을 때**입니다.
+ * (사용자 결정 2026-08-12 — "디자인 잡았을떄 작업리스트에 리스트업")
  *
- * ★ 제작대기부터는 기공소의 일입니다.
- *   넘긴 뒤에도 목록에 남아 있으면 "아직 할 일이 열두 건" 으로 보여,
- *   정작 손대야 할 두 건이 묻힙니다.
+ * ★ 접수는 아직 작업이 아닙니다.
+ *   들어오기만 하고 아무도 손대지 않은 건까지 세면, 이 목록이
+ *   '할 일 더미' 가 됩니다. 누가 잡았는가가 이 목록의 뜻입니다.
  *
- * ★ 재스캔이 맨 앞입니다.
- *   막혀 있는 건이고, 푸는 사람이 디자인센터입니다 (치과에 다시 받아야 함).
+ * ★ 끝나지 않은 건은 계속 남습니다 (사용자 결정).
+ *   자정에 목록이 새로 서지만 어제 잡고 못 끝낸 건은 그대로 있습니다 —
+ *   대신 **며칠째인지**를 함께 보여 줍니다. 그게 없으면 오래 걸리는 건이
+ *   새 건들 사이에 섞여 조용히 늙습니다.
+ *
+ * ★ 제작주문으로 넘기면 빠집니다. 그때부터 기공소의 일입니다.
  */
-const DESIGN_WORK: OrderStatus[] = ['rescan', 'received', 'designing'];
+const DESIGN_WORK: OrderStatus[] = ['designing'];
 
 export interface HomeSummary {
   /** 진행중 상태별 건수. 완료·취소는 세지 않습니다 */
@@ -141,19 +152,24 @@ export async function getHomeSummary(): Promise<HomeSummary> {
         patientLabel: row.patient_label,
         dueDate: row.due_date,
         status: row.status,
+        designerName: '',
+        startedOn: '',
+        dayCount: 1,
       });
     }
   }
 
+  await fillDesignStart(supabase, worklist, today);
+
   /*
-    ★ 요청시한이 이른 것부터입니다. 접수순이 아닙니다 —
-      어제 들어온 내일 마감 건이, 지난주에 들어온 다음주 건보다 급합니다.
-      같은 날이면 재스캔을 위로 올립니다 (막혀 있어 시간이 더 듭니다).
+    ★ 오래 잡고 있는 것이 맨 위입니다.
+      요청시한이 아니라 **며칠째인가**로 셉니다 — 이 목록은 '무엇이 급한가'
+      가 아니라 '무엇이 안 끝나고 있는가' 를 보는 자리입니다.
+      급한 것은 주문목록의 D-day 가 봅니다.
+      같은 날 잡은 것끼리는 요청시한이 이른 것부터.
   */
   worklist.sort(
-    (a, b) =>
-      a.dueDate.localeCompare(b.dueDate) ||
-      DESIGN_WORK.indexOf(a.status) - DESIGN_WORK.indexOf(b.status),
+    (a, b) => b.dayCount - a.dayCount || a.dueDate.localeCompare(b.dueDate),
   );
 
   return {
@@ -165,6 +181,75 @@ export async function getHomeSummary(): Promise<HomeSummary> {
     worklist,
     notices: await notices,
   };
+}
+
+/**
+ * 디자인을 언제 · 누가 잡았는지 채웁니다.
+ *
+ * ★ 담당자 칸을 따로 안 만들었습니다.
+ *   **디자인 단계로 옮긴 사람이 그 건을 잡은 사람**입니다. 이미
+ *   order_status_history 에 남아 있는 사실이라, 칸을 하나 더 두면
+ *   같은 것을 두 곳에 적게 되고 어긋납니다.
+ *   나중에 배정 기능이 생기면 그때 갈라도 늦지 않습니다.
+ *
+ * ★ 되돌렸다 다시 잡으면 **마지막에 잡은 때**입니다.
+ *   기공소가 수정을 요청해 디자인으로 되돌아온 건은, 그 시점부터 다시
+ *   세는 것이 맞습니다 — 처음 잡은 날부터 세면 며칠째가 부풀어 오릅니다.
+ */
+async function fillDesignStart(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rows: HomeWork[],
+  today: string,
+): Promise<void> {
+  if (rows.length === 0) return;
+
+  const { data } = await supabase
+    .from('order_status_history')
+    .select('order_id, created_at, actor_user_id')
+    .eq('to_status', 'designing')
+    .in('order_id', rows.map((r) => r.id))
+    .order('created_at', { ascending: false });
+
+  type Raw = { order_id: string; created_at: string; actor_user_id: string | null };
+
+  // 차례가 최근 먼저라 처음 만나는 줄이 '마지막에 잡은 때' 입니다
+  const latest = new Map<string, Raw>();
+  for (const row of (data ?? []) as Raw[]) {
+    if (!latest.has(row.order_id)) latest.set(row.order_id, row);
+  }
+
+  const userIds = [...new Set([...latest.values()].map((r) => r.actor_user_id).filter(Boolean))];
+  const names = new Map<string, string>();
+
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('id, name')
+      .in('id', userIds as string[]);
+
+    for (const p of (profiles ?? []) as { id: string; name: string | null }[]) {
+      if (p.name) names.set(p.id, p.name);
+    }
+  }
+
+  for (const row of rows) {
+    const hit = latest.get(row.id);
+    if (!hit) continue;
+
+    row.startedOn = toKstDate(hit.created_at);
+    row.designerName = hit.actor_user_id ? (names.get(hit.actor_user_id) ?? '') : '';
+    row.dayCount = daysBetween(row.startedOn, today) + 1;
+  }
+}
+
+/** UTC 시각을 한국 날짜로. 자정 경계가 여기서 갈립니다 */
+function toKstDate(iso: string): string {
+  return new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function daysBetween(from: string, to: string): number {
+  const ms = Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`);
+  return Math.max(0, Math.round(ms / 86400000));
 }
 
 /** 아직 안 가져간 수거요청 */

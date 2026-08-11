@@ -346,18 +346,18 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
 const WORKLIST_SHOWN = 6;
 
 /**
- * 디자인센터가 지금 손대야 하는 주문.
+ * 지금 디자인 중인 주문. (사용자 결정 2026-08-12)
  *
- * ★ 제작대기부터는 안 나옵니다 — 기공소의 일입니다 (repositories/home).
- *   넘긴 뒤에도 남아 있으면 "할 일이 열두 건" 으로 보여, 정작 손대야 할
- *   두 건이 묻힙니다.
+ * ★ **디자인을 잡았을 때** 올라옵니다. 접수만 된 건은 아직 작업이 아닙니다.
+ *   제작주문으로 넘기면 빠집니다 — 그때부터 기공소의 일입니다.
  *
- * ★ 요청시한이 이른 것부터입니다. 접수순이 아닙니다.
+ * ★ 끝나지 않은 건은 계속 남습니다. 대신 **며칠째인지**를 답니다.
+ *   그게 없으면 오래 걸리는 건이 새 건들 사이에 섞여 조용히 늙습니다.
+ *   그래서 차례도 요청시한이 아니라 오래 잡고 있는 것부터입니다.
  *
- * ★ 디자이너 칸은 아직 '미지정' 입니다.
- *   담당자를 붙일 자리(orders 의 칸)도, 고를 사람(직원 계정)도 아직
- *   없습니다. 주문상세도 같은 자리에 '미지정' 을 찍고 있어 둘이 어긋나지
- *   않습니다. 직원 계정이 서면 그때 채웁니다.
+ * ★ 디자이너는 **디자인 단계로 옮긴 사람**입니다.
+ *   담당자 칸을 따로 두지 않았습니다 — 이미 이력에 남아 있는 사실이라
+ *   두 곳에 적으면 어긋납니다.
  */
 function Worklist({ rows, ordersPath }: { rows: HomeWork[]; ordersPath: string }) {
   const shown = rows.slice(0, WORKLIST_SHOWN);
@@ -369,11 +369,11 @@ function Worklist({ rows, ordersPath }: { rows: HomeWork[]; ordersPath: string }
         <span className="ml-auto text-[12px] text-[#98A2B3]">{rows.length}건</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-[1fr_1.2fr_0.9fr_0.8fr] gap-2 border-b border-[#E8EBF0] pb-2 text-[12px] text-[#98A2B3]">
+      <div className="mt-3 grid grid-cols-[1fr_1.2fr_0.9fr_0.6fr] gap-2 border-b border-[#E8EBF0] pb-2 text-[12px] text-[#98A2B3]">
         <span>치과명</span>
         <span>환자정보</span>
         <span>디자이너</span>
-        <span className="text-right">상태</span>
+        <span className="text-right">경과</span>
       </div>
 
       {shown.length === 0 ? (
@@ -384,13 +384,28 @@ function Worklist({ rows, ordersPath }: { rows: HomeWork[]; ordersPath: string }
             <li key={row.id}>
               <Link
                 href={`${ordersPath}/${row.id}`}
-                className="grid grid-cols-[1fr_1.2fr_0.9fr_0.8fr] items-center gap-2 rounded px-1.5 py-[7px] text-[12.5px] hover:bg-[#F4F8FE]"
+                title={`${row.startedOn || '?'} 에 잡음 · 요청시한 ${row.dueDate}`}
+                className="grid grid-cols-[1fr_1.2fr_0.9fr_0.6fr] items-center gap-2 rounded px-1.5 py-[7px] text-[12.5px] hover:bg-[#F4F8FE]"
               >
                 <span className="truncate text-[#4A5567]">{row.clinicName}</span>
                 <span className="truncate font-semibold text-[#1A2130]">{row.patientLabel}</span>
-                <span className="truncate text-[#C4CBD6]">미지정</span>
-                <span className="truncate text-right text-[#4A5567]">
-                  {STATUS_LABEL[row.status]}
+                <span className="truncate text-[#4A5567]">
+                  {row.designerName || <span className="text-[#C4CBD6]">미상</span>}
+                </span>
+
+                {/* ★ 하루 넘긴 건은 눈에 띄어야 합니다.
+                    오늘 잡은 것과 나흘째인 것이 같아 보이면 목록이 소용없습니다 */}
+                <span
+                  className={
+                    'truncate text-right tabular-nums ' +
+                    (row.dayCount >= 3
+                      ? 'font-bold text-[#D8453F]'
+                      : row.dayCount >= 2
+                        ? 'font-semibold text-[#C77700]'
+                        : 'text-[#98A2B3]')
+                  }
+                >
+                  {row.dayCount}일째
                 </span>
               </Link>
             </li>
