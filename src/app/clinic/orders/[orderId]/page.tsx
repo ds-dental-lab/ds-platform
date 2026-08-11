@@ -12,6 +12,7 @@ import { notFound } from 'next/navigation';
 import { getOrderDetail } from '@/server/repositories/order';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { listOrderMessages } from '@/server/repositories/order-message';
+import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate } from '@/server/domain/due-date';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
@@ -32,9 +33,11 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
 
   const today = todayInKst();
 
-  const [implantCatalog, messages] = await Promise.all([
+  const [implantCatalog, messages, prosthesisCatalog] = await Promise.all([
     getImplantCatalog(),
     listOrderMessages(orderId),
+    // 지난 주문이 가리키는 조합은 꺼져도 이름을 잃지 않아야 합니다
+    getProsthesisCatalog({ includeInactive: true }),
   ]);
 
   return (
@@ -62,8 +65,14 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             scanFiles={order.files.filter((f) => f.kind !== 'design')}
             today={today}
             defaultDue={defaultDueDate(today)}
+            prosthesisCatalog={prosthesisCatalog}
           />
-          <RepairRequest orderId={order.id} status={order.status} items={order.items} />
+          <RepairRequest
+            orderId={order.id}
+            status={order.status}
+            items={order.items}
+            prosthesisCatalog={prosthesisCatalog}
+          />
         </>
       }
     />

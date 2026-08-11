@@ -5,7 +5,15 @@
 // ★ Next.js 도 Supabase 도 모르는 순수 계산입니다.
 // =========================================================
 
-export type ProsthesisTypeCode = 'crown' | 'inlay' | 'implant';
+/**
+ * ★ 세 가지로 묶어 두지 않습니다.
+ *   제품을 표에서 읽으므로 디자인센터가 새 종류를 만들 수 있습니다.
+ *   'crown' | 'inlay' | 'implant' 로 못 박으면 새 제품이 타입 오류가 됩니다.
+ *
+ *   대신 규칙이 걸린 세 가지(브릿지·임플란트 모델·치은포셀린)는
+ *   아래 함수들이 코드 문자열로 판정합니다.
+ */
+export type ProsthesisTypeCode = string;
 
 export interface Material {
   code: string;
@@ -20,10 +28,23 @@ export interface ProsthesisType {
   materials: Material[];
 }
 
-// ---------- 마스터 ----------
-// 나중에 DB 로 옮기더라도 이 모양 그대로 씁니다.
+/**
+ * 보철 제품 목록. 디자인센터가 제품탭에서 관리합니다.
+ *
+ * ★ 이제 코드가 아니라 표에서 옵니다 (prosthesis_types / _materials).
+ *   화면과 서비스가 이것을 인자로 받아 씁니다 — 임플란트 카탈로그와 같은 방식입니다.
+ *   그래야 제품을 늘렸을 때 배포 없이 치과 화면에 나타납니다.
+ */
+export type ProsthesisCatalog = ProsthesisType[];
 
-export const PROSTHESIS_TYPES: ProsthesisType[] = [
+/**
+ * 표를 못 읽었을 때 쓰는 최소 목록.
+ *
+ * ★ 이것을 정상 경로로 쓰지 않습니다.
+ *   DB 가 잠깐 안 될 때 주문등록 화면이 통째로 비는 것을 막는 그물일 뿐입니다.
+ *   여기 있는 세 종류는 마이그레이션이 표에 씨앗으로 넣은 것과 같습니다.
+ */
+export const FALLBACK_TYPES: ProsthesisCatalog = [
   {
     code: 'crown',
     name: '크라운',
@@ -59,17 +80,21 @@ export const PROSTHESIS_TYPES: ProsthesisType[] = [
 
 // ---------- 조회 ----------
 
-export function getType(typeCode: string): ProsthesisType | null {
-  return PROSTHESIS_TYPES.find((t) => t.code === typeCode) ?? null;
+export function getType(catalog: ProsthesisCatalog, typeCode: string): ProsthesisType | null {
+  return catalog.find((t) => t.code === typeCode) ?? null;
 }
 
 /** 그 종류에서 고를 수 있는 재료 목록. 없는 종류면 빈 배열 */
-export function getMaterials(typeCode: string): Material[] {
-  return getType(typeCode)?.materials ?? [];
+export function getMaterials(catalog: ProsthesisCatalog, typeCode: string): Material[] {
+  return getType(catalog, typeCode)?.materials ?? [];
 }
 
-export function getMaterial(typeCode: string, materialCode: string): Material | null {
-  return getMaterials(typeCode).find((m) => m.code === materialCode) ?? null;
+export function getMaterial(
+  catalog: ProsthesisCatalog,
+  typeCode: string,
+  materialCode: string,
+): Material | null {
+  return getMaterials(catalog, typeCode).find((m) => m.code === materialCode) ?? null;
 }
 
 // ---------- 종속 검증 ----------
@@ -78,8 +103,12 @@ export function getMaterial(typeCode: string, materialCode: string): Material | 
  * 이 종류에 이 재료를 붙일 수 있는가.
  * 재료는 종류에 종속됩니다 — 크라운에 하이브리드는 안 됩니다.
  */
-export function isValidCombination(typeCode: string, materialCode: string): boolean {
-  return getMaterial(typeCode, materialCode) !== null;
+export function isValidCombination(
+  catalog: ProsthesisCatalog,
+  typeCode: string,
+  materialCode: string,
+): boolean {
+  return getMaterial(catalog, typeCode, materialCode) !== null;
 }
 
 /**
@@ -89,8 +118,12 @@ export function isValidCombination(typeCode: string, materialCode: string): bool
  *   크라운 지르코니아 → 인레이 로 변경 → 인레이에도 지르코니아가 있으니 유지 가능
  *   크라운 PMMA       → 인레이 로 변경 → 인레이에 PMMA 없음 → 초기화
  */
-export function canKeepMaterial(nextTypeCode: string, materialCode: string): boolean {
-  return isValidCombination(nextTypeCode, materialCode);
+export function canKeepMaterial(
+  catalog: ProsthesisCatalog,
+  nextTypeCode: string,
+  materialCode: string,
+): boolean {
+  return isValidCombination(catalog, nextTypeCode, materialCode);
 }
 
 // ---------- 약칭 ----------
@@ -102,13 +135,18 @@ export function canKeepMaterial(nextTypeCode: string, materialCode: string): boo
  *   하이브리드 + 인레이  →  Hy-In
  *   임플란트             →  Abut+Zir(SCRP)   ← 재료 표기 그대로 (명세서 §4.2.2)
  */
-export function buildAbbr(typeCode: string, materialCode: string): string {
-  const type = getType(typeCode);
-  const material = getMaterial(typeCode, materialCode);
+export function buildAbbr(
+  catalog: ProsthesisCatalog,
+  typeCode: string,
+  materialCode: string,
+): string {
+  const type = getType(catalog, typeCode);
+  const material = getMaterial(catalog, typeCode, materialCode);
 
-  if (!type || !material) {
-    throw new Error(`잘못된 조합입니다: ${typeCode} / ${materialCode}`);
-  }
+  // ★ 던지지 않고 코드를 그대로 돌려줍니다.
+  //   제품탭에서 재료를 끄면 지난 주문이 그 조합을 가리킨 채 남습니다.
+  //   목록 한 줄 때문에 화면 전체가 죽으면 안 됩니다.
+  if (!type || !material) return `${typeCode}/${materialCode}`;
 
   // 임플란트만 예외입니다
   if (type.code === 'implant') return material.abbr;

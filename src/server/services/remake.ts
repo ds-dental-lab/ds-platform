@@ -32,6 +32,7 @@ import { canRequestRemake, type OrderStatus } from '@/server/domain/order-status
 import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate, checkDueDate } from '@/server/domain/due-date';
 import { isValidCombination } from '@/server/domain/prosthesis';
+import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { isValidShade } from '@/server/domain/shade';
 
 const BUCKET = 'order-files';
@@ -169,6 +170,7 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
   // ★ 화면의 셀렉트가 목록을 좁혀 주지만 그것만 믿지 않습니다.
   //   여기서 걸러야 없는 재료·없는 색조가 주문서에 박히지 않습니다.
   const changes = (input.changes ?? []).filter((c) => input.itemIds.includes(c.itemId));
+  const catalog = await getProsthesisCatalog();
 
   for (const change of changes) {
     const base = items.find((i) => i.id === change.itemId);
@@ -177,7 +179,7 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
     const typeCode = change.typeCode ?? base.type_code;
     const materialCode = change.materialCode ?? base.material_code;
 
-    if (!isValidCombination(typeCode, materialCode)) {
+    if (!isValidCombination(catalog, typeCode, materialCode)) {
       return {
         ok: false,
         error: `${base.tooth_number}번 — 바꾼 종류와 재료가 맞지 않습니다`,

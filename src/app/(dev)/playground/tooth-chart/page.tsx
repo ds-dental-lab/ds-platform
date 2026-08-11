@@ -12,7 +12,7 @@ import ToothChart from '@/components/dental/ToothChart';
 import ProsthesisSummary from '@/components/dental/ProsthesisSummary';
 import { addPlacement, type Placement } from '@/server/domain/duplicate';
 import type { ToothPlacement } from '@/server/domain/bridge';
-import { PROSTHESIS_TYPES, getMaterials } from '@/server/domain/prosthesis';
+import { FALLBACK_TYPES, getMaterials } from '@/server/domain/prosthesis';
 import { getShades, getDefaultSystem, type ToothShade } from '@/server/domain/shade';
 import type { SummaryLine } from '@/server/domain/summary';
 
@@ -26,14 +26,14 @@ export default function ToothChartPlayground() {
   const [shades, setShades] = useState<Record<number, ToothShade>>({});
   const [severedKeys, setSeveredKeys] = useState<string[]>([]);
 
-  const materials = getMaterials(typeCode);
+  const materials = getMaterials(FALLBACK_TYPES, typeCode);
   const shadeList = getShades(getDefaultSystem().code);
   const canPontic = typeCode !== 'inlay';
 
   // 종류를 바꾸면 재료를 초기화합니다 (명세서 §4.2.2)
   function changeType(next: string) {
     setTypeCode(next);
-    setMaterialCode(getMaterials(next)[0]?.code ?? '');
+    setMaterialCode(getMaterials(FALLBACK_TYPES, next)[0]?.code ?? '');
     if (next === 'inlay') setPonticMode(false);
   }
 
@@ -91,7 +91,7 @@ export default function ToothChartPlayground() {
 
       {/* ---------- 조작부 ---------- */}
       <div className="mt-6 flex flex-wrap items-center gap-2">
-        {PROSTHESIS_TYPES.map((t) => (
+        {FALLBACK_TYPES.map((t: (typeof FALLBACK_TYPES)[number]) => (
           <button
             key={t.code}
             onClick={() => changeType(t.code)}

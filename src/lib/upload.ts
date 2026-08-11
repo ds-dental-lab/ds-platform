@@ -1,5 +1,11 @@
 ﻿import { createClient } from '@/lib/supabase/client';
-import type { UploadedFile } from '@/components/order/FileUploader';
+/** 올라간 파일 한 건. 화면이 진행 상황을 그리는 데 씁니다 */
+export interface UploadedFile {
+  path: string;
+  name: string;
+  size: number;
+  type: string;
+}
 
 const BUCKET = 'order-files';
 

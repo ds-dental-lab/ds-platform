@@ -6,6 +6,13 @@
 
 import { describe, it, expect } from 'vitest';
 import { validateOrder, type CreateOrderInput } from '@/server/services/order';
+import { FALLBACK_TYPES } from '@/server/domain/prosthesis';
+
+/**
+ * 제품 목록은 이제 인자로 받습니다 — 디자인센터가 제품탭에서 늘릴 수 있어서입니다.
+ * 테스트는 씨앗과 같은 최소 목록으로 규칙만 확인합니다.
+ */
+const CATALOG = FALLBACK_TYPES;
 
 const base: CreateOrderInput = {
   patientLabel: '김철수 (10001)',
@@ -15,19 +22,19 @@ const base: CreateOrderInput = {
 
 describe('기본 입력', () => {
   it('정상 주문은 통과한다', () => {
-    expect(validateOrder(base)).toBeNull();
+    expect(validateOrder(base, CATALOG)).toBeNull();
   });
 
   it('환자가 없으면 막는다', () => {
-    expect(validateOrder({ ...base, patientLabel: '' })).toBeTruthy();
+    expect(validateOrder({ ...base, patientLabel: '' }, CATALOG)).toBeTruthy();
   });
 
   it('요청시한이 없으면 막는다', () => {
-    expect(validateOrder({ ...base, dueDate: '' })).toBeTruthy();
+    expect(validateOrder({ ...base, dueDate: '' }, CATALOG)).toBeTruthy();
   });
 
   it('보철물이 없으면 막는다', () => {
-    expect(validateOrder({ ...base, items: [] })).toBeTruthy();
+    expect(validateOrder({ ...base, items: [] }, CATALOG)).toBeTruthy();
   });
 });
 
@@ -36,7 +43,7 @@ describe('치식 번호', () => {
     const result = validateOrder({
       ...base,
       items: [{ tooth: 19, typeCode: 'crown', materialCode: 'zirconia' }],
-    });
+    }, CATALOG);
     expect(result).toContain('19');
   });
 });
@@ -46,7 +53,7 @@ describe('종류와 재료', () => {
     const result = validateOrder({
       ...base,
       items: [{ tooth: 16, typeCode: 'crown', materialCode: 'hybrid' }],
-    });
+    }, CATALOG);
     expect(result).toBeTruthy();
   });
 
@@ -54,7 +61,7 @@ describe('종류와 재료', () => {
     const result = validateOrder({
       ...base,
       items: [{ tooth: 16, typeCode: 'inlay', materialCode: 'zirconia' }],
-    });
+    }, CATALOG);
     expect(result).toBeNull();
   });
 });
@@ -64,7 +71,7 @@ describe('폰틱', () => {
     const result = validateOrder({
       ...base,
       items: [{ tooth: 16, typeCode: 'inlay', materialCode: 'hybrid', isPontic: true }],
-    });
+    }, CATALOG);
     expect(result).toContain('폰틱');
   });
 
@@ -72,7 +79,7 @@ describe('폰틱', () => {
     const result = validateOrder({
       ...base,
       items: [{ tooth: 16, typeCode: 'crown', materialCode: 'zirconia', isPontic: true }],
-    });
+    }, CATALOG);
     expect(result).toBeNull();
   });
 });
@@ -82,7 +89,7 @@ describe('임플란트', () => {
     const result = validateOrder({
       ...base,
       items: [{ tooth: 16, typeCode: 'implant', materialCode: 'abut_pmma' }],
-    });
+    }, CATALOG);
     expect(result).toContain('임플란트');
   });
 
@@ -98,7 +105,7 @@ describe('임플란트', () => {
           implantType: 'OST_TS',
         },
       ],
-    });
+    }, CATALOG);
     expect(result).toBeNull();
   });
 
@@ -108,7 +115,7 @@ describe('임플란트', () => {
       items: [
         { tooth: 16, typeCode: 'implant', materialCode: 'abut_pmma', isPontic: true },
       ],
-    });
+    }, CATALOG);
     expect(result).toBeNull();
   });
 });
@@ -126,7 +133,7 @@ describe('쉐이드', () => {
           shadeCervical: '2M2',      // 3D Master 코드
         },
       ],
-    });
+    }, CATALOG);
     expect(result).toContain('2M2');
   });
 
@@ -143,7 +150,7 @@ describe('쉐이드', () => {
           shadeIncisal: 'A2',
         },
       ],
-    });
+    }, CATALOG);
     expect(result).toBeNull();
   });
 });
@@ -156,7 +163,7 @@ describe('한 치아 중복', () => {
         { tooth: 16, typeCode: 'crown', materialCode: 'zirconia' },
         { tooth: 16, typeCode: 'crown', materialCode: 'pmma' },
       ],
-    });
+    }, CATALOG);
     expect(result).toBeNull();
   });
 
@@ -167,7 +174,7 @@ describe('한 치아 중복', () => {
         { tooth: 16, typeCode: 'crown', materialCode: 'zirconia' },
         { tooth: 16, typeCode: 'inlay', materialCode: 'hybrid' },
       ],
-    });
+    }, CATALOG);
     expect(result).toBeTruthy();
   });
 
@@ -180,7 +187,7 @@ describe('한 치아 중복', () => {
         { tooth: 16, typeCode: 'implant', materialCode: 'abut_pmma',
           implantManufacturer: 'OST', implantType: 'OST_TS' },
       ],
-    });
+    }, CATALOG);
     expect(result).toBeTruthy();
   });
 
@@ -191,7 +198,7 @@ describe('한 치아 중복', () => {
         { tooth: 16, typeCode: 'crown', materialCode: 'zirconia' },
         { tooth: 16, typeCode: 'crown', materialCode: 'zirconia' },
       ],
-    });
+    }, CATALOG);
     expect(result).toBeTruthy();
   });
 });

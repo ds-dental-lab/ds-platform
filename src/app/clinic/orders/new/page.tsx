@@ -12,6 +12,7 @@ import { requireSector } from '@/server/policies/session';
 import { getImplantCatalog, listImplantFavorites } from '@/server/repositories/implant';
 import { getProductionOptions } from '@/server/repositories/production-option';
 import { listOptionPresets } from '@/server/repositories/option-preset';
+import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate } from '@/server/domain/due-date';
 import NewOrderForm from '@/components/order/NewOrderForm';
@@ -21,11 +22,12 @@ export const dynamic = 'force-dynamic';
 export default async function NewOrderPage() {
   const session = await requireSector('clinic');
 
-  const [implantCatalog, implantFavorites, optionGroups, optionPresets] = await Promise.all([
+  const [implantCatalog, implantFavorites, optionGroups, optionPresets, prosthesisCatalog] = await Promise.all([
     getImplantCatalog(),
     listImplantFavorites(),
     getProductionOptions(),
     listOptionPresets(),
+    getProsthesisCatalog(),
   ]);
 
   const today = todayInKst();
@@ -39,6 +41,7 @@ export default async function NewOrderPage() {
       implantFavorites={implantFavorites}
       optionGroups={optionGroups}
       optionPresets={optionPresets}
+      prosthesisCatalog={prosthesisCatalog}
     />
   );
 }

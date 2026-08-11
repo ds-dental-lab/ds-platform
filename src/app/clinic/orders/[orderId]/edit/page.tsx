@@ -17,6 +17,7 @@ import { getOrderDetail } from '@/server/repositories/order';
 import { getImplantCatalog, listImplantFavorites } from '@/server/repositories/implant';
 import { getProductionOptions } from '@/server/repositories/production-option';
 import { listOptionPresets } from '@/server/repositories/option-preset';
+import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate } from '@/server/domain/due-date';
 import { canEditSpec } from '@/server/domain/order-status';
@@ -39,11 +40,12 @@ export default async function EditOrderPage({ params }: EditOrderPageProps) {
   // 사양을 못 고치는 상태면 상세로 돌려보냅니다
   if (!canEditSpec(order.status)) redirect(`/clinic/orders/${orderId}`);
 
-  const [implantCatalog, implantFavorites, optionGroups, optionPresets] = await Promise.all([
+  const [implantCatalog, implantFavorites, optionGroups, optionPresets, prosthesisCatalog] = await Promise.all([
     getImplantCatalog(),
     listImplantFavorites(),
     getProductionOptions(),
     listOptionPresets(),
+    getProsthesisCatalog(),
   ]);
 
   const today = todayInKst();
@@ -57,6 +59,7 @@ export default async function EditOrderPage({ params }: EditOrderPageProps) {
       implantFavorites={implantFavorites}
       optionGroups={optionGroups}
       optionPresets={optionPresets}
+      prosthesisCatalog={prosthesisCatalog}
       initial={toFormInitial(order, optionGroups)}
     />
   );

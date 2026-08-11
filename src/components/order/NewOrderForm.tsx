@@ -35,7 +35,7 @@ import {
 import { submitOrder, submitUpdateOrder } from '@/server/actions/order';
 import { uploadOrderFiles } from '@/lib/upload';
 import {
-  PROSTHESIS_TYPES,
+  type ProsthesisCatalog,
   getMaterials,
   colorOfType,
   allowsGingival,
@@ -88,6 +88,8 @@ export interface NewOrderFormProps {
   implantFavorites: ImplantFavorite[];
   optionGroups: ProductionOptionGroup[];
   optionPresets: OptionPreset[];
+  /** 제품탭에서 켜 둔 보철 종류·재료. 새 제품을 넣으면 여기로 따라 들어옵니다 */
+  prosthesisCatalog: ProsthesisCatalog;
   /**
    * 고칠 주문. 주면 수정 모드가 됩니다.
    * 접수 상태에서만 넘어옵니다 — 재스캔은 파일만 바꿉니다 (설계서 §2.1 C-4).
@@ -126,6 +128,7 @@ function OrderFormBody({
   implantFavorites,
   optionGroups,
   optionPresets,
+  prosthesisCatalog,
   initial,
 }: NewOrderFormProps & { onStartOver: () => void }) {
   const router = useRouter();
@@ -140,8 +143,8 @@ function OrderFormBody({
   const [orderType, setOrderType] = useState<string>(initial?.orderType ?? 'modelless');
 
   // ---------- 보철선택 ----------
-  const [typeCode, setTypeCode] = useState('crown');
-  const [materialCode, setMaterialCode] = useState(getMaterials('crown')[0]?.code ?? '');
+  const [typeCode, setTypeCode] = useState<string>(prosthesisCatalog[0]?.code ?? 'crown');
+  const [materialCode, setMaterialCode] = useState(getMaterials(prosthesisCatalog, prosthesisCatalog[0]?.code ?? 'crown')[0]?.code ?? '');
   const [shadeSystem, setShadeSystem] = useState<ShadeSystemCode>('vita_classic');
   const [shade, setShade] = useState<ToothShade>(EMPTY_SHADE);
   const [implant, setImplant] = useState<ImplantSelection>(EMPTY_SELECTION);
@@ -189,12 +192,12 @@ function OrderFormBody({
   /** 다 끝난 주문. 주문번호를 보여 주고 다음 할 일을 고르게 합니다 */
   const [done, setDone] = useState<{ orderId: string; orderNo: string } | null>(null);
 
-  const materials = getMaterials(typeCode);
+  const materials = getMaterials(prosthesisCatalog, typeCode);
   const isImplant = typeCode === 'implant';
 
   /** 지금 찍는 조건 — 'Zir-Cr · Vita classic A3 · 폰틱' */
   const brushLabel = [
-    buildAbbr(typeCode, materialCode),
+    buildAbbr(prosthesisCatalog, typeCode, materialCode),
     formatShade(shade)
       ? `${SHADE_SYSTEMS.find((s) => s.code === shadeSystem)?.name ?? ''} ${formatShade(shade)}`
       : null,
@@ -224,7 +227,7 @@ function OrderFormBody({
 
   function changeType(next: string) {
     setTypeCode(next);
-    setMaterialCode(getMaterials(next)[0]?.code ?? '');
+    setMaterialCode(getMaterials(prosthesisCatalog, next)[0]?.code ?? '');
     if (next !== 'implant') setImplant(EMPTY_SELECTION);
     if (next === 'inlay') setIsPontic(false);
     setHint('');
@@ -645,7 +648,7 @@ function OrderFormBody({
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap gap-2.5">
-              {PROSTHESIS_TYPES.map((t) => (
+              {prosthesisCatalog.map((t) => (
                 <Chip
                   key={t.code}
                   on={typeCode === t.code}

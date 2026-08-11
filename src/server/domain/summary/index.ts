@@ -8,7 +8,7 @@
 // =========================================================
 
 import { byArchOrder } from '../tooth';
-import { buildAbbr } from '../prosthesis';
+import { buildAbbr, FALLBACK_TYPES, type ProsthesisCatalog } from '../prosthesis';
 import { formatShade, EMPTY_SHADE, type ToothShade } from '../shade';
 import { formatSelection, type ImplantCatalog, type ImplantSelection } from '../implant';
 import type { ToothPlacement } from '../bridge';
@@ -33,6 +33,14 @@ export interface SummaryInput {
   implants?: Record<number, ImplantSelection>;
   /** 임플란트 코드를 이름으로 바꾸는 데 씁니다. 없으면 코드가 그대로 보입니다 */
   implantCatalog?: ImplantCatalog;
+  /**
+   * 보철 제품 목록. 약칭(Zir-Cr)을 만드는 데 씁니다.
+   *
+   * ★ 안 주면 최소 목록으로 버팁니다.
+   *   제품탭에서 재료를 끄면 지난 주문이 그 조합을 가리킨 채 남는데,
+   *   이름을 못 찾아도 코드를 그대로 찍어 화면이 죽지는 않습니다.
+   */
+  catalog?: ProsthesisCatalog;
 }
 
 /**
@@ -45,6 +53,7 @@ export function buildSummaryLines({
   shades = {},
   implants = {},
   implantCatalog = [],
+  catalog = FALLBACK_TYPES,
 }: SummaryInput): SummaryLine[] {
   const groups = new Map<string, ToothPlacement[]>();
 
@@ -60,7 +69,7 @@ export function buildSummaryLines({
     const sorted = [...list].sort((a, b) => byArchOrder(a.tooth, b.tooth));
     const [typeCode, materialCode] = key.split('|');
 
-    const abbr = buildAbbr(typeCode, materialCode);
+    const abbr = buildAbbr(catalog, typeCode, materialCode);
     const teethLabel = sorted
       .map((p) => (p.isPontic ? 'X' : String(p.tooth)))
       .join(', ');

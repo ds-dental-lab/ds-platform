@@ -13,7 +13,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitRepair } from '@/server/actions/repair';
-import { buildAbbr } from '@/server/domain/prosthesis';
+import { buildAbbr, type ProsthesisCatalog } from '@/server/domain/prosthesis';
 import { canRequestRepair, type OrderStatus } from '@/server/domain/order-status';
 import type { OrderDetailItem } from '@/server/repositories/order';
 
@@ -27,9 +27,15 @@ export interface RepairRequestProps {
   orderId: string;
   status: OrderStatus;
   items: OrderDetailItem[];
+  prosthesisCatalog: ProsthesisCatalog;
 }
 
-export default function RepairRequest({ orderId, status, items }: RepairRequestProps) {
+export default function RepairRequest({
+  orderId,
+  status,
+  items,
+  prosthesisCatalog,
+}: RepairRequestProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [saving, setSaving] = useState(false);
@@ -149,7 +155,7 @@ export default function RepairRequest({ orderId, status, items }: RepairRequestP
                           </span>
 
                           <span className="text-[13px] text-gray-600">
-                            {buildAbbr(item.type_code, item.material_code)}
+                            {buildAbbr(prosthesisCatalog, item.type_code, item.material_code)}
                           </span>
 
                           {item.slot === 2 && (

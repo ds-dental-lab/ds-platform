@@ -15,6 +15,7 @@ import {
   isValidCombination,
   requiresImplantModel,
   allowsGingival,
+  type ProsthesisCatalog,
 } from '@/server/domain/prosthesis';
 import { isAllowedPair, MAX_PER_TOOTH, type Placement } from '@/server/domain/duplicate';
 import { computeBridges, type ToothPlacement } from '@/server/domain/bridge';
@@ -23,6 +24,7 @@ import { checkDueDate } from '@/server/domain/due-date';
 import { canEditSpec, type OrderStatus } from '@/server/domain/order-status';
 import { todayInKst } from '@/server/domain/week';
 import { publishOrderCreated } from '@/server/events';
+import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 
 // ---------- 입력 모양 ----------
 
@@ -65,7 +67,18 @@ export type CreateOrderResult =
  * 저장해도 되는 주문인지 확인합니다.
  * 문제가 있으면 첫 번째 이유를 돌려줍니다.
  */
-export function validateOrder(input: CreateOrderInput, today?: string): string | null {
+export function validateOrder(
+  input: CreateOrderInput,
+  /**
+   * 제품 목록. 반드시 줍니다.
+   *
+   * ★ 없으면 건너뛰게 두지 않습니다.
+   *   빠뜨렸을 때 조용히 통과하면, 없는 재료가 주문서에 박혀도
+   *   아무도 모릅니다. 인자를 빼먹으면 타입이 먼저 막아야 합니다.
+   */
+  catalog: ProsthesisCatalog,
+  today?: string,
+): string | null {
   if (!input.patientLabel?.trim()) return '환자를 선택해 주세요';
   if (!input.dueDate) return '요청시한을 입력해 주세요';
 
@@ -85,7 +98,7 @@ export function validateOrder(input: CreateOrderInput, today?: string): string |
     }
 
     // 종류에 그 재료를 붙일 수 있는가
-    if (!isValidCombination(item.typeCode, item.materialCode)) {
+    if (!isValidCombination(catalog, item.typeCode, item.materialCode)) {
       return `${item.tooth}번 — 선택한 종류와 재료가 맞지 않습니다`;
     }
 
@@ -143,7 +156,8 @@ export function validateOrder(input: CreateOrderInput, today?: string): string |
 // ---------- 저장 ----------
 
 export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
-  const problem = validateOrder(input, todayInKst());
+  const catalog = await getProsthesisCatalog({ includeInactive: true });
+  const problem = validateOrder(input, catalog, todayInKst());
   if (problem) return { ok: false, error: problem };
 
   const supabase = await createClient();
@@ -377,7 +391,8 @@ export type UpdateOrderResult = { ok: true } | { ok: false; error: string };
  *   저장 결과가 늘 화면과 같습니다.
  */
 export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderResult> {
-  const problem = validateOrder(input, todayInKst());
+  const catalog = await getProsthesisCatalog({ includeInactive: true });
+  const problem = validateOrder(input, catalog, todayInKst());
   if (problem) return { ok: false, error: problem };
 
   const supabase = await createClient();

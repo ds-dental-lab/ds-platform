@@ -33,7 +33,7 @@ import ScanDropZone from '@/components/order/ScanDropZone';
 import ShadeDialog from '@/components/order/ShadeDialog';
 import DueDatePicker from '@/components/order/DueDatePicker';
 import ToothPickRow from '@/components/dental/ToothChart/ToothPickRow';
-import { buildAbbr, getMaterials, PROSTHESIS_TYPES } from '@/server/domain/prosthesis';
+import { buildAbbr, getMaterials, type ProsthesisCatalog } from '@/server/domain/prosthesis';
 import { formatShade, type ToothShade, type ShadeSystemCode } from '@/server/domain/shade';
 import { canRequestRemake, type OrderStatus } from '@/server/domain/order-status';
 import type { OrderDetailItem, OrderDetailFile } from '@/server/repositories/order';
@@ -54,6 +54,7 @@ export interface RemakeRequestProps {
   scanFiles: OrderDetailFile[];
   today: IsoDate;
   defaultDue: IsoDate;
+  prosthesisCatalog: ProsthesisCatalog;
 }
 
 export default function RemakeRequest({
@@ -63,6 +64,7 @@ export default function RemakeRequest({
   scanFiles,
   today,
   defaultDue,
+  prosthesisCatalog,
 }: RemakeRequestProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -241,7 +243,7 @@ export default function RemakeRequest({
                     {chosen.map((item) => {
                       const d = drafts[item.id] ?? {};
                       const typeCode = d.typeCode ?? item.type_code;
-                      const materials = getMaterials(typeCode);
+                      const materials = getMaterials(prosthesisCatalog, typeCode);
                       const changed = Boolean(d.typeCode || d.materialCode);
 
                       const shadeText = d.shade
@@ -262,7 +264,7 @@ export default function RemakeRequest({
 
                           <label className="min-w-[220px] flex-1">
                             <span className="mb-1 block text-[11.5px] font-semibold text-[#98A2B3]">
-                              보철 (현재 {buildAbbr(item.type_code, item.material_code)})
+                              보철 (현재 {buildAbbr(prosthesisCatalog, item.type_code, item.material_code)})
                             </span>
                             <select
                               value={
@@ -287,8 +289,8 @@ export default function RemakeRequest({
                               className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#1279E8]"
                             >
                               <option value="">그대로</option>
-                              {PROSTHESIS_TYPES.map((type) =>
-                                getMaterials(type.code).map((mat) => (
+                              {prosthesisCatalog.map((type) =>
+                                getMaterials(prosthesisCatalog, type.code).map((mat) => (
                                   <option
                                     key={`${type.code}|${mat.code}`}
                                     value={`${type.code}|${mat.code}`}
