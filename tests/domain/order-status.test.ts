@@ -18,6 +18,7 @@ import {
   getNewOrderStatus,
   isActionRequired,
   getAvailableActions,
+  canEditDueDate,
 } from '@/server/domain/order-status';
 
 describe('상태 목록', () => {
@@ -232,5 +233,42 @@ describe('재스캔 전진', () => {
   it('다른 상태의 전진 버튼은 그대로다', () => {
     const forward = getAvailableActions('received', 'design_center').filter((a) => !a.danger);
     expect(forward.map((a) => a.to)).toEqual(['designing']);
+  });
+});
+
+// =========================================================
+// 요청시한 변경 권한 (사용자 결정 2026-08-11)
+//
+// ★ 치과는 접수에서만. 디자인이 시작된 뒤에 시한을 당기면 상대는 이미
+//   그 일정으로 기공소를 잡아 둔 뒤입니다.
+// ★ 디자인센터는 끝나기 전까지 언제든. 일정을 실제로 쥔 쪽입니다.
+// =========================================================
+
+describe('요청시한 변경 권한', () => {
+  it('★ 치과는 접수에서만 고친다', () => {
+    expect(canEditDueDate('received', 'clinic')).toBe(true);
+
+    for (const status of ['rescan', 'designing', 'production_wait', 'production', 'shipping'] as const) {
+      expect(canEditDueDate(status, 'clinic')).toBe(false);
+    }
+  });
+
+  it('★ 디자인센터는 진행 중이면 언제든 고친다', () => {
+    for (const status of ['received', 'rescan', 'designing', 'production_wait', 'production', 'shipping'] as const) {
+      expect(canEditDueDate(status, 'design_center')).toBe(true);
+    }
+  });
+
+  it('기공소는 시한을 못 건드린다', () => {
+    for (const status of ['production_wait', 'production', 'shipping'] as const) {
+      expect(canEditDueDate(status, 'lab')).toBe(false);
+    }
+  });
+
+  it('끝난 주문은 아무도 못 고친다', () => {
+    for (const sector of ['clinic', 'design_center', 'lab'] as const) {
+      expect(canEditDueDate('completed', sector)).toBe(false);
+      expect(canEditDueDate('cancelled', sector)).toBe(false);
+    }
   });
 });

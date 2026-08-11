@@ -172,6 +172,34 @@ export function canEditSpec(status: OrderStatus): boolean {
 }
 
 /**
+ * 요청시한을 고칠 수 있는가. (사용자 결정 2026-08-11)
+ *
+ *   치과       접수에서만. 주문수정으로 함께 고칩니다
+ *   디자인센터  끝나기 전까지 언제든
+ *   기공소     없음
+ *
+ * ★ 디자인센터에 넓게 열어 두는 이유.
+ *   일정을 실제로 쥐고 있는 쪽입니다. 기공소가 밀리거나 물량이 몰리면
+ *   시한을 다시 잡아 치과에 알려야 하는데, 그때마다 주문을 취소하고
+ *   새로 넣게 할 수는 없습니다.
+ *
+ * ★ 치과를 접수로 묶는 이유.
+ *   디자인이 시작된 뒤에 치과가 시한을 당기면, 상대는 이미 그 일정으로
+ *   기공소를 잡아 둔 뒤입니다. 당길 일이 있으면 말로 하고 디자인센터가
+ *   고치는 것이 순서입니다.
+ *
+ * ★ 정산 기간은 이 값과 무관합니다.
+ *   기간 귀속은 실제 배송일(shipped_at)로 가릅니다. 시한이 움직여도
+ *   청구가 이 달 저 달로 옮겨 다니지 않습니다.
+ */
+export function canEditDueDate(status: OrderStatus, sector: Sector): boolean {
+  if (isFinal(status)) return false;
+  if (sector === 'design_center') return true;
+  if (sector === 'clinic') return status === 'received';
+  return false;
+}
+
+/**
  * 지울 수 있는가. (사용자 결정 2026-08-11)
  *
  * ★ 접수에서만입니다. 수정보다 좁습니다.

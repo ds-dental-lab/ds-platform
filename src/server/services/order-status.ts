@@ -139,7 +139,20 @@ export async function changeOrderStatus(
   }
 
   // 제작대기로 넘길 때 기공소를 지정합니다 (Q-2)
-  const patch: { status: OrderStatus; lab_org_id?: string } = { status: to };
+  const patch: { status: OrderStatus; lab_org_id?: string; shipped_at?: string } = {
+    status: to,
+  };
+
+  /**
+   * ★ 배송으로 넘어간 시각을 남깁니다. 정산 기간을 가르는 기준입니다.
+   *   요청시한은 바뀔 수 있지만 물건이 나간 날은 바뀌지 않습니다.
+   *
+   *   되돌아왔다 다시 배송되면 마지막 시각으로 덮습니다 — 실제로 나간
+   *   날이 그날이기 때문입니다.
+   */
+  if (to === 'shipping') {
+    patch.shipped_at = new Date().toISOString();
+  }
 
   if (requiresLabAssignment(from, to)) {
     if (!labOrgId) {
