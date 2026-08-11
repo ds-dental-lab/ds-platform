@@ -32,6 +32,7 @@ import { canRequestRemake, type OrderStatus , type Sector } from '@/server/domai
 import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate, checkDueDate } from '@/server/domain/due-date';
 import { isValidCombination } from '@/server/domain/prosthesis';
+import { maskFileName } from '@/server/domain/file-name';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { isValidShade } from '@/server/domain/shade';
 
@@ -314,6 +315,13 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
   // ★ order_files.storage_path 에 unique 가 걸려 있어 같은 경로를 두 번
   //   넣을 수 없습니다. 저장소에서 객체를 복사해 새 경로를 만듭니다.
   //   내려받았다 다시 올리지 않고 서버끼리 복사하므로 STL 이 커도 쌉니다.
+  //
+  // ★ 이름은 새 주문번호로 다시 짓습니다.
+  //   원주문의 `ORD-260811-013_스캔1.stl` 을 그대로 들고 오면, 리메이크
+  //   주문의 파일칸에 남의 주문번호가 적혀 있게 됩니다. 기공소가 폴더에서
+  //   그 번호로 찾다가 이미 끝난 주문을 엽니다.
+  let seq = 1;
+
   for (const file of reuse) {
     const ext = file.storage_path.includes('.') ? file.storage_path.split('.').pop() : '';
     const target = `orders/${remake.id}/${crypto.randomUUID()}_file${ext ? '.' + ext : ''}`;
@@ -330,7 +338,7 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
       order_id: remake.id,
       kind: 'scan',
       storage_path: target,
-      file_name: file.file_name,
+      file_name: maskFileName(orderNo as string, 'scan', seq++, file.file_name),
       file_size: file.file_size,
       mime_type: file.mime_type,
       uploaded_by: session.user.id,

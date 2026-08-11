@@ -1,8 +1,16 @@
 import { createClient } from '@/lib/supabase/client';
+import {
+  maskFileNames,
+  matchMissingFiles,
+  nextFileSeq,
+  maskFileName,
+  type OrderFileKind,
+} from '@/server/domain/file-name';
 
 /** 올라간 파일 한 건. 화면이 진행 상황을 그리는 데 씁니다 */
 export interface UploadedFile {
   path: string;
+  /** 저장된 이름 — 원본이 아니라 우리가 지은 이름입니다 */
   name: string;
   size: number;
   type: string;
@@ -17,7 +25,31 @@ export interface UploadResult {
 }
 
 /** 스캔은 치과가, 디자인은 디자인센터가 올립니다 (설계서 §8.3) */
-export type UploadKind = 'scan' | 'design';
+export type UploadKind = Extract<OrderFileKind, 'scan' | 'design'>;
+
+/**
+ * 이름을 지으려면 주문번호와, 이 주문에 이미 붙은 이름들이 필요합니다.
+ *
+ * ★ 실패해도 그냥 갑니다.
+ *   여기서 멈추면 파일을 아예 못 올립니다. 이름을 못 지으면 원본이
+ *   그대로 가지만, DB 트리거가 받으면서 다시 지어 줍니다 —
+ *   보기 좋은 번호 대신 임의의 숫자가 붙을 뿐, 이름은 새지 않습니다.
+ */
+async function loadNaming(
+  supabase: ReturnType<typeof createClient>,
+  orderId: string,
+  kind: UploadKind,
+): Promise<{ orderNo: string | null; existing: string[] }> {
+  const [{ data: order }, { data: rows }] = await Promise.all([
+    supabase.from('orders').select('order_no').eq('id', orderId).maybeSingle(),
+    supabase.from('order_files').select('file_name').eq('order_id', orderId).eq('kind', kind),
+  ]);
+
+  return {
+    orderNo: (order as { order_no: string } | null)?.order_no ?? null,
+    existing: ((rows ?? []) as { file_name: string }[]).map((r) => r.file_name),
+  };
+}
 
 /**
  * 지금 어디까지 갔는가. 화면이 이대로 그립니다.
@@ -81,17 +113,33 @@ export async function uploadOrderFiles(
   //
   //   대신 '표에는 있는데 저장소에는 없는' 줄이 생깁니다.
   //   그것이 pending 이고, 그 줄이 곧 "이 파일이 빠졌다" 는 증거입니다.
-  const plan = files.map((file) => ({ file, path: newPath(orderId, file), rowId: '' }));
+  //
+  // ★ 이름은 여기서 새로 짓습니다 — `ORD-260811-013_스캔1.obj`.
+  //   원본에는 환자 이름이 들어 있고, 그 이름으로 저장하면 기공소 PC 에
+  //   환자 이름이 쌓입니다. 원본은 아래 진행률 표시에만 씁니다 (올리는
+  //   사람 자신의 화면이고, 자기가 방금 고른 파일입니다).
+  const { orderNo, existing } = await loadNaming(supabase, orderId, kind);
+
+  const names = orderNo
+    ? maskFileNames(orderNo, kind, files.map((f) => f.name), existing)
+    : files.map((f) => f.name); // 트리거가 받아서 다시 지어 줍니다
+
+  const plan = files.map((file, i) => ({
+    file,
+    name: names[i],
+    path: newPath(orderId, file),
+    rowId: '',
+  }));
 
   if (plan.length > 0) {
     const { data: rows } = await supabase
       .from('order_files')
       .insert(
-        plan.map(({ file, path }) => ({
+        plan.map(({ file, name, path }) => ({
           order_id: orderId,
           kind,
           storage_path: path,
-          file_name: file.name,
+          file_name: name,
           file_size: file.size,
           mime_type: file.type || null,
           uploaded_by: user?.id ?? null,
@@ -107,7 +155,7 @@ export async function uploadOrderFiles(
   }
 
   for (let i = 0; i < plan.length; i++) {
-    const { file, path, rowId } = plan[i];
+    const { file, name, path, rowId } = plan[i];
 
     let attempt = 1;
 
@@ -153,7 +201,7 @@ export async function uploadOrderFiles(
           order_id: orderId,
           kind,
           storage_path: path,
-          file_name: file.name,
+          file_name: name,
           file_size: file.size,
           mime_type: file.type || null,
           uploaded_by: user?.id ?? null,
@@ -163,7 +211,7 @@ export async function uploadOrderFiles(
     if (rowError) {
       failed.push(file.name);
     } else {
-      uploaded.push({ path, name: file.name, size: file.size, type: file.type });
+      uploaded.push({ path, name, size: file.size, type: file.type });
     }
 
     sentBytes += file.size;
@@ -288,9 +336,16 @@ export interface MissingFile {
 /**
  * 안 올라간 줄에 파일을 다시 붙입니다.
  *
- * ★ 이름으로 짝을 맞춥니다.
- *   사람은 아까 고르려던 그 파일을 다시 고릅니다. 이름이 같으면 그 줄을
- *   채우고, 다른 이름이면 새 줄을 만듭니다 (이름을 바꿔 온 경우).
+ * ★ 크기와 확장자로 짝을 맞춥니다 (전에는 이름이었습니다).
+ *   줄에 남은 이름은 우리가 지은 `ORD-…_스캔2.obj` 이고, 사람이 다시
+ *   고르는 것은 자기 PC 의 `박나래-26.obj` 입니다 — 이름으로는 영영
+ *   안 만납니다. 끊긴 줄에는 고를 때 적어 둔 바이트 수가 그대로 남아
+ *   있고, 같은 파일이면 한 바이트도 다르지 않습니다.
+ *   규칙은 domain/file-name 의 matchMissingFiles 가 갖고 있습니다.
+ *
+ * ★ 짝을 못 찾으면 새 줄입니다.
+ *   억지로 남은 줄에 끼워 넣으면 다른 파일이 그 자리에 앉습니다.
+ *   줄이 하나 더 생기는 것은 눈에 보이지만, 바꿔치기는 안 보입니다.
  *
  * ★ 저장소 경로는 새로 뽑습니다.
  *   앞서 끊긴 자리에 덩어리가 반쯤 남아 있을 수 있습니다.
@@ -316,17 +371,23 @@ export async function retryOrderFiles(
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
   let sentBytes = 0;
 
-  // 이름이 같은 빈 줄부터 채웁니다. 한 줄에 두 파일이 붙지 않도록 지웁니다
-  const slots = new Map<string, string>();
-  for (const row of missing) {
-    if (!slots.has(row.fileName)) slots.set(row.fileName, row.id);
-  }
+  const matched = matchMissingFiles(
+    missing,
+    files.map((f) => ({ name: f.name, size: f.size })),
+  );
+
+  // 짝을 못 찾은 것은 새 줄이 됩니다 — 그 줄에 붙일 이름을 미리 지어 둡니다
+  const { orderNo, existing } = await loadNaming(supabase, orderId, kind);
+  let seq = orderNo ? nextFileSeq(orderNo, kind, existing) : 0;
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const path = newPath(orderId, file);
-    const rowId = slots.get(file.name) ?? null;
-    if (rowId) slots.delete(file.name);
+    const rowId = matched[i];
+
+    // 이미 있는 줄은 이름을 그대로 둡니다 — 화면에 보이던 이름이 바뀌면
+    // "내가 올린 그 파일이 맞나" 를 다시 못 맞춥니다
+    const name = rowId ? null : orderNo ? maskFileName(orderNo, kind, seq++, file.name) : file.name;
 
     let attempt = 1;
 
@@ -375,7 +436,7 @@ export async function retryOrderFiles(
           order_id: orderId,
           kind,
           storage_path: path,
-          file_name: file.name,
+          file_name: name ?? file.name,
           file_size: file.size,
           mime_type: file.type || null,
           uploaded_by: user?.id ?? null,
@@ -385,7 +446,7 @@ export async function retryOrderFiles(
     if (error) {
       failed.push(file.name);
     } else {
-      uploaded.push({ path, name: file.name, size: file.size, type: file.type });
+      uploaded.push({ path, name: name ?? file.name, size: file.size, type: file.type });
     }
 
     sentBytes += file.size;
