@@ -15,6 +15,10 @@ import { getHolidayMap } from '@/server/repositories/holiday';
 import { todayInKst } from '@/server/domain/week';
 import { canUploadDesignFile } from '@/server/domain/order-status';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
+import OrderAdjustPanel from '@/components/order/OrderAdjustPanel';
+import { getOrderMoney } from '@/server/repositories/order-money';
+import { getSession } from '@/server/policies/session';
+import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 import DesignFileUpload from '@/components/order/DesignFileUpload';
 import RemakeRequest from '@/components/order/RemakeRequest';
 import RepairRequest from '@/components/order/RepairRequest';
@@ -56,6 +60,17 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       ? '디자인 파일을 1개 이상 올려야 제작주문을 넣을 수 있습니다'
       : undefined;
 
+  /*
+    ★ 몽키스패너는 **관리자만** 봅니다 (사용자 결정 2026-08-12).
+      디자인센터 사용자(디자이너)에게는 금액이 아예 안 보입니다.
+      화면에서 빼는 것과 못 고치는 것은 다르므로, 저장은 서버가 또 봅니다
+      (submitAdjustItem 이 디자인센터인지 봅니다).
+  */
+  const session = await getSession();
+  const money = canSeeMoney(session?.role as MemberRole | null)
+    ? await getOrderMoney(order.id)
+    : null;
+
   return (
     <OrderDetailScreen
       order={order}
@@ -78,6 +93,9 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
           "치과에서 할 줄 모른다며 문의 전화가 오면 우리가 대신해야 한다."
           주문은 그대로 그 치과의 것이고, 넣은 사람만 created_by 에 남습니다.
       */
+      extraSlot={
+        money ? <OrderAdjustPanel money={money} patientLabel={order.patient_label} /> : null
+      }
       barSlot={
         <>
           <RemakeRequest
