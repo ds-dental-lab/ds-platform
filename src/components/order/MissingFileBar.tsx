@@ -11,10 +11,9 @@
 //     주문번호가 바뀌어 그 주문의 대화와 이력이 끊깁니다
 //   빠진 파일 하나 때문에 치를 값이 아닙니다.
 //
-// ★ 크기로 짝을 맞춥니다.
-//   사람은 아까 고르려던 그 파일을 다시 고릅니다. 이름으로는 못 맞춥니다 —
-//   줄에 남은 이름은 우리가 지은 것이고 사람이 고르는 것은 원본입니다.
-//   같은 파일이면 바이트 수가 한 톨도 다르지 않습니다.
+// ★ 이름으로 짝을 맞춥니다.
+//   사람은 아까 고르려던 그 파일을 다시 고릅니다. 이름이 같으면 빈 줄을
+//   채우고, 다르면 새 줄이 됩니다.
 // =========================================================
 
 'use client';
@@ -22,7 +21,6 @@
 import { useState, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { retryOrderFiles, type MissingFile } from '@/lib/upload';
-import { formatBytes } from '@/lib/format/order';
 import UploadToast, { type UploadState } from '@/components/order/UploadToast';
 
 export interface MissingFileBarProps {
@@ -81,19 +79,10 @@ export default function MissingFileBar({ orderId, missing, editable }: MissingFi
         것입니다.
       </p>
 
-      {/*
-        ★ 크기를 함께 보여 줍니다.
-          이름은 우리가 지은 `ORD-…_스캔2.obj` 라 자기 PC 의 파일과 눈으로는
-          못 맞춥니다. 짝은 크기로 맞추므로, 사람도 크기를 보고 고릅니다.
-          그냥 전부 다시 골라도 됩니다 — 이미 올라간 것은 새 줄이 될 뿐입니다.
-      */}
       <ul className="mt-1 space-y-0.5">
         {missing.map((file) => (
           <li key={file.id} className="truncate text-[11.5px] text-[#8C4A48]" title={file.fileName}>
             · {file.fileName}
-            {file.fileSize ? (
-              <span className="ml-1 text-[#A8706E]">({formatBytes(file.fileSize)})</span>
-            ) : null}
           </li>
         ))}
       </ul>
