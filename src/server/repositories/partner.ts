@@ -14,10 +14,13 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
+import type { InvoiceMethod } from '@/server/domain/invoice-method';
 import { EMPTY_PRICES, type PriceSet } from '@/server/domain/pricing';
 
 export type PartnerType = 'clinic' | 'lab';
-export type InvoiceMethod = 'all' | 'email' | 'fax';
+
+// 정산서를 어디로 받는가 — 규칙은 domain/invoice-method 에 있습니다
+export type { InvoiceMethod };
 
 export interface PartnerRow {
   id: string;

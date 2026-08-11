@@ -18,14 +18,18 @@
 
 'use client';
 
-import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitAccount, type AccountInput } from '@/server/actions/account';
+import {
+  INVOICE_METHODS,
+  INVOICE_METHOD_LABEL,
+  wantsEmail,
+  wantsFax,
+  type InvoiceMethod,
+} from '@/server/domain/invoice-method';
 
 export interface AccountFormProps {
-  /** 이 섹터의 뿌리 주소 — /clinic · /design · /lab */
-  basePath: string;
   org: {
     name: string;
     code: string | null;
@@ -37,6 +41,7 @@ export interface AccountFormProps {
     address: string | null;
     invoiceEmail: string | null;
     taxEmail: string | null;
+    invoiceMethod: InvoiceMethod;
     closingDay: number;
   };
   /** 고칠 수 있는 사람인가 (owner · admin) */
@@ -49,7 +54,7 @@ const TYPE_LABEL = {
   lab: '기공소',
 } as const;
 
-export default function AccountForm({ org, editable, basePath }: AccountFormProps) {
+export default function AccountForm({ org, editable }: AccountFormProps) {
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
   const [saving, setSaving] = useState(false);
@@ -65,17 +70,23 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
     address: org.address ?? '',
     invoiceEmail: org.invoiceEmail ?? '',
     taxEmail: org.taxEmail ?? '',
+    invoiceMethod: org.invoiceMethod,
   });
 
   const busy = saving || refreshing;
 
   // 청구서에 꼭 있어야 하는 칸들. 비면 문서에 '-' 로 찍힙니다
-  const forInvoice: (keyof AccountInput)[] = ['ceoName', 'bizNo', 'address'];
+  const forInvoice: Exclude<keyof AccountInput, 'invoiceMethod'>[] = ['ceoName', 'bizNo', 'address'];
   const emptyForInvoice = forInvoice.filter((k) => !form[k].trim()).length;
 
-  function set(key: keyof AccountInput, value: string) {
+  function set(key: Exclude<keyof AccountInput, 'invoiceMethod'>, value: string) {
     setSaved(false);
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setMethod(invoiceMethod: InvoiceMethod) {
+    setSaved(false);
+    setForm((prev) => ({ ...prev, invoiceMethod }));
   }
 
   async function save() {
@@ -156,17 +167,69 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
             <Text value={form.address} onChange={(v) => set('address', v)} disabled={!editable} />
           </Field>
 
+          {/* 팩스는 정산서가 가는 곳이라 아래 '받을 곳' 옆으로 옳겼습니다 */}
+          <Field label="대표 전화번호">
+            <Text
+              value={form.tel}
+              onChange={(v) => set('tel', v)}
+              placeholder="02-000-0000"
+              disabled={!editable}
+            />
+          </Field>
+
+          <hr className="border-[#E8EBF0]" />
+
+          {/*
+            ★ 정산서를 어디로 받을지 (사용자 요청 2026-08-12).
+              고른 곳은 값이 있어야 저장됩니다 — 이메일로 받겠다고 해 놓고
+              칸이 비어 있으면 정산서가 갈 데가 없습니다. 마감을 누르고 며칠
+              뒤에야 "안 왔다" 는 전화를 받습니다.
+          */}
+          <div>
+            <span className="mb-1 block text-[12px] font-semibold text-[#4A5567]">
+              정산서 받을 곳
+            </span>
+            <div className="flex gap-1.5">
+              {INVOICE_METHODS.map((method) => (
+                <button
+                  key={method}
+                  type="button"
+                  onClick={() => setMethod(method)}
+                  disabled={!editable}
+                  aria-pressed={form.invoiceMethod === method}
+                  className={
+                    'h-10 flex-1 rounded-md border text-[13px] font-semibold disabled:opacity-60 ' +
+                    (form.invoiceMethod === method
+                      ? 'border-[#12855B] bg-[#E6F4EE] text-[#12855B]'
+                      : 'border-[#DDE2EA] text-[#4A5567] hover:bg-[#F4F6F9]')
+                  }
+                >
+                  {form.invoiceMethod === method && <span className="mr-1">✓</span>}
+                  {INVOICE_METHOD_LABEL[method]}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="대표 전화번호">
+            <Field
+              label="청구서 수신 이메일"
+              want={wantsEmail(form.invoiceMethod)}
+              missing={wantsEmail(form.invoiceMethod) && !form.invoiceEmail.trim()}
+            >
               <Text
-                value={form.tel}
-                onChange={(v) => set('tel', v)}
-                placeholder="02-000-0000"
+                value={form.invoiceEmail}
+                onChange={(v) => set('invoiceEmail', v)}
+                placeholder="invoice@example.com"
                 disabled={!editable}
               />
             </Field>
 
-            <Field label="팩스 번호">
+            <Field
+              label="팩스 번호"
+              want={wantsFax(form.invoiceMethod)}
+              missing={wantsFax(form.invoiceMethod) && !form.fax.trim()}
+            >
               <Text
                 value={form.fax}
                 onChange={(v) => set('fax', v)}
@@ -176,27 +239,14 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
             </Field>
           </div>
 
-          <hr className="border-[#E8EBF0]" />
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="청구서 수신 이메일">
-              <Text
-                value={form.invoiceEmail}
-                onChange={(v) => set('invoiceEmail', v)}
-                placeholder="invoice@example.com"
-                disabled={!editable}
-              />
-            </Field>
-
-            <Field label="세금계산서 수신 이메일">
-              <Text
-                value={form.taxEmail}
-                onChange={(v) => set('taxEmail', v)}
-                placeholder="tax@example.com"
-                disabled={!editable}
-              />
-            </Field>
-          </div>
+          <Field label="세금계산서 수신 이메일">
+            <Text
+              value={form.taxEmail}
+              onChange={(v) => set('taxEmail', v)}
+              placeholder="tax@example.com"
+              disabled={!editable}
+            />
+          </Field>
 
           {/*
             ★ 정산 기준일은 여기서 못 바꿉니다.
@@ -204,7 +254,7 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
               디자인센터가 사용자탭에서 정합니다.
           */}
           {org.orgType !== 'design_center' && (
-            <Field label="정산 기준일" hint="디자인센터가 정합니다">
+            <Field label="정산 기준일">
               <span className="flex h-10 items-center rounded-md bg-[#F8F9FB] px-3 text-[13px] text-[#4A5567]">
                 매월 {org.closingDay}일
               </span>
@@ -216,15 +266,9 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
 
         {/* ---------- 아래줄 ---------- */}
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#E8EBF0] px-6 py-4">
-          {/* ★ 열람 기록은 관리자만 봅니다 — 그래서 여기서만 갈 수 있습니다 */}
-          {editable ? (
-            <Link
-              href={`${basePath}/audit`}
-              className="mr-auto h-10 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold leading-10 text-[#4A5567] hover:bg-[#F4F6F9]"
-            >
-              열람 기록 보기
-            </Link>
-          ) : (
+          {/* ★ '열람 기록 보기' 를 뻐습니다 (사용자 요청 2026-08-12).
+              화면과 기록은 그대로 있고 계정정보에서 가는 길만 없았습니다 */}
+          {!editable && (
             <span className="mr-auto text-[12px] text-[#98A2B3]">
               관리자만 고칠 수 있습니다.
             </span>
@@ -253,14 +297,18 @@ function Field({
   label,
   required,
   invoice,
-  hint,
+  want,
+  missing,
   children,
 }: {
   label: string;
   required?: boolean;
   /** 청구서에 실리는 칸 */
   invoice?: boolean;
-  hint?: string;
+  /** 정산서를 여기로 받겠다고 고른 칸 */
+  want?: boolean;
+  /** 고른 곳인데 비어 있는가 */
+  missing?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -273,7 +321,14 @@ function Field({
             청구서
           </span>
         )}
-        {hint && <span className="font-normal text-[#98A2B3]">{hint}</span>}
+        {want && (
+          <span className="font-bold text-[#12855B]" title="정산서를 여기로 받습니다">
+            ✓
+          </span>
+        )}
+        {missing && (
+          <span className="font-normal text-[#D8453F]">여기로 받겠다고 했는데 비어 있습니다</span>
+        )}
       </span>
       {children}
     </label>

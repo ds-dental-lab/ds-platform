@@ -19,6 +19,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PartnerRow } from '@/server/repositories/partner';
+import InvoiceContactBar from '@/components/billing/InvoiceContactBar';
 import Link from 'next/link';
 import CloseBar from '@/components/billing/CloseBar';
 import AdjustCell from '@/components/billing/AdjustCell';
@@ -123,13 +124,18 @@ export default function SettlementScreen({
               </Field>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-4">
-              <Field label="이메일" ok={Boolean(partner.invoiceEmail)}>
-                <ReadOnly value={partner.invoiceEmail} />
-              </Field>
-              <Field label="팩스 번호" ok={Boolean(partner.fax)}>
-                <ReadOnly value={partner.fax} />
-              </Field>
+            {/* ★ 정산서 받을 곳은 여기서 바로 고칩니다 (사용자 요청 2026-08-12).
+                초록 체크가 '이 거래처가 어디로 받겠다고 했는지' 입니다.
+                치과가 계정정보를 안 채워 둔 채 마감 날이 오면, 전화로 물어
+                그 자리에서 적는 것이 현실입니다 */}
+            <InvoiceContactBar
+              orgId={partner.id}
+              method={partner.invoiceMethod}
+              email={partner.invoiceEmail}
+              fax={partner.fax}
+            />
+
+            <div className="grid gap-4 md:grid-cols-2">
               <Field label="정산 기준일">
                 <ReadOnly value={`매월 ${partner.closingDay}일`} />
               </Field>
@@ -410,25 +416,10 @@ function Unpriced() {
   );
 }
 
-function Field({
-  label,
-  ok,
-  children,
-}: {
-  label: string;
-  ok?: boolean;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 flex items-center gap-1 text-[12px] font-semibold text-[#4A5567]">
-        {label}
-        {ok !== undefined && (
-          <span className={ok ? 'text-[#12855B]' : 'text-[#C4CBD6]'} title={ok ? '있음' : '비어 있음'}>
-            ●
-          </span>
-        )}
-      </span>
+      <span className="mb-1 block text-[12px] font-semibold text-[#4A5567]">{label}</span>
       {children}
     </label>
   );

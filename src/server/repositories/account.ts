@@ -7,6 +7,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
+import type { InvoiceMethod } from '@/server/domain/invoice-method';
 
 export interface MyOrg {
   id: string;
@@ -20,6 +21,8 @@ export interface MyOrg {
   address: string | null;
   invoiceEmail: string | null;
   taxEmail: string | null;
+  /** 정산서를 어디로 받는가 */
+  invoiceMethod: InvoiceMethod;
   closingDay: number;
   /** 고칠 수 있는 사람인가 (owner · admin) */
   editable: boolean;
@@ -35,7 +38,7 @@ export async function getMyOrg(): Promise<MyOrg | null> {
     .from('organizations')
     .select(
       'id, name, code, org_type, ceo_name, biz_no, tel, fax, address, ' +
-        'invoice_email, tax_email, closing_day',
+        'invoice_email, tax_email, invoice_method, closing_day',
     )
     .eq('id', session.orgId)
     .maybeSingle();
@@ -54,6 +57,7 @@ export async function getMyOrg(): Promise<MyOrg | null> {
     address: string | null;
     invoice_email: string | null;
     tax_email: string | null;
+    invoice_method: InvoiceMethod;
     closing_day: number;
   };
 
@@ -69,6 +73,7 @@ export async function getMyOrg(): Promise<MyOrg | null> {
     address: row.address,
     invoiceEmail: row.invoice_email,
     taxEmail: row.tax_email,
+    invoiceMethod: row.invoice_method,
     closingDay: row.closing_day,
     // ★ RLS 의 org_update 와 같은 조건입니다. 다르면 눌러 놓고 0행을 받습니다
     editable: session.role === 'owner' || session.role === 'admin',

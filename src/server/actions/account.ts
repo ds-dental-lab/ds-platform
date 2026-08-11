@@ -18,6 +18,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
+import { INVOICE_METHODS, type InvoiceMethod } from '@/server/domain/invoice-method';
 
 export type AccountResult = { ok: true } | { ok: false; error: string };
 
@@ -30,6 +31,8 @@ export interface AccountInput {
   address: string;
   invoiceEmail: string;
   taxEmail: string;
+  /** 정산서를 어디로 받을지 (사용자 요청 2026-08-12) */
+  invoiceMethod: InvoiceMethod;
 }
 
 /** 빈 칸은 null 로 넣습니다. '' 를 두면 '값이 있다' 로 보입니다 */
@@ -44,6 +47,21 @@ export async function submitAccount(input: AccountInput): Promise<AccountResult>
 
   if (!input.name.trim()) return { ok: false, error: '상호를 넣어 주세요' };
 
+  /*
+    ★ 받을 곳을 고르고 그 칸을 비워 두면, 정산서가 갈 데가 없습니다.
+      마감을 눌러 놓고 며칠 뒤에야 '안 왔다' 는 전화를 받습니다.
+      고른 곳은 값이 있어야 저장됩니다.
+  */
+  if (!INVOICE_METHODS.includes(input.invoiceMethod)) {
+    return { ok: false, error: '정산서 받을 곳을 골라 주세요' };
+  }
+  if (input.invoiceMethod !== 'fax' && !input.invoiceEmail.trim()) {
+    return { ok: false, error: '이메일로 받으려면 청구서 수신 이메일을 넣어 주세요' };
+  }
+  if (input.invoiceMethod !== 'email' && !input.fax.trim()) {
+    return { ok: false, error: '팩스로 받으려면 팩스 번호를 넣어 주세요' };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -57,6 +75,7 @@ export async function submitAccount(input: AccountInput): Promise<AccountResult>
       address: orNull(input.address),
       invoice_email: orNull(input.invoiceEmail),
       tax_email: orNull(input.taxEmail),
+      invoice_method: input.invoiceMethod,
     })
     .eq('id', session.orgId)
     .select('id');

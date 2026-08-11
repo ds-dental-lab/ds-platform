@@ -334,3 +334,61 @@ export async function submitSavePartnerPrices(
   refresh(orgId);
   return { ok: true };
 }
+
+// ---------- 정산서 받을 곳만 따로 ----------
+
+export interface PartnerContactInput {
+  orgId: string;
+  invoiceMethod: InvoiceMethod;
+  invoiceEmail: string;
+  fax: string;
+}
+
+/**
+ * 정산 화면에서 그 자리에서 고칩니다. (사용자 요청 2026-08-12)
+ *
+ * ★ 거래처 수정 전체(submitUpdatePartner)를 안 씁니다.
+ *   그쪽은 상호·사업자번호·기준일까지 다 받습니다. 정산 화면에서
+ *   이메일만 고치려고 나머지를 함께 보내면, 화면이 안 보여 준 칸이
+ *   그 화면이 알던 옛 값으로 덮여 씁니다.
+ *
+ * ★ 고른 곳은 값이 있어야 합니다.
+ *   '이메일로 받겠다' 고 해 놓고 칸이 비면 정산서가 갈 데가 없습니다.
+ */
+export async function submitPartnerContact(
+  input: PartnerContactInput,
+): Promise<PartnerResult> {
+  const session = await requireDesign();
+  if (!session) return { ok: false, error: '디자인센터만 고칠 수 있습니다' };
+
+  if (input.invoiceMethod !== 'fax' && !input.invoiceEmail.trim()) {
+    return { ok: false, error: '이메일로 받으려면 이메일을 넣어 주세요' };
+  }
+  if (input.invoiceMethod !== 'email' && !input.fax.trim()) {
+    return { ok: false, error: '팩스로 받으려면 팩스 번호를 넣어 주세요' };
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .update({
+      invoice_method: input.invoiceMethod,
+      invoice_email: orNull(input.invoiceEmail),
+      fax: orNull(input.fax),
+    })
+    .eq('id', input.orgId)
+    .select('id');
+
+  if (error) return { ok: false, error: `저장하지 못했습니다: ${error.message}` };
+
+  // RLS 는 오류가 아니라 0행으로 막습니다
+  if (!data || data.length === 0) {
+    return { ok: false, error: '이 거래처를 고칠 권한이 없습니다' };
+  }
+
+  refresh(input.orgId);
+  revalidatePath('/design/billing', 'layout');
+
+  return { ok: true };
+}
