@@ -9,12 +9,11 @@
 // =========================================================
 
 import { notFound } from 'next/navigation';
-import { getOrderDetail, listStatusHistory } from '@/server/repositories/order';
+import { getOrderDetail } from '@/server/repositories/order';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { todayInKst } from '@/server/domain/week';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
-import OrderHistory from '@/components/order/OrderHistory';
 import RepairRequest from '@/components/order/RepairRequest';
 
 export const dynamic = 'force-dynamic';
@@ -28,8 +27,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   const order = await getOrderDetail(orderId);
   if (!order) notFound();
 
-  const [history, implantCatalog, messages] = await Promise.all([
-    listStatusHistory(orderId),
+  const [implantCatalog, messages] = await Promise.all([
     getImplantCatalog(),
     listOrderMessages(orderId),
   ]);
@@ -45,7 +43,6 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       extraSlot={
         <RepairRequest orderId={order.id} status={order.status} items={order.items} />
       }
-      footerSlot={<OrderHistory rows={history} />}
     />
   );
 }

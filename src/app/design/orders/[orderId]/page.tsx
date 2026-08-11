@@ -7,13 +7,12 @@
 // =========================================================
 
 import { notFound } from 'next/navigation';
-import { getOrderDetail, listStatusHistory, listPartnerLabs } from '@/server/repositories/order';
+import { getOrderDetail, listPartnerLabs } from '@/server/repositories/order';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { todayInKst } from '@/server/domain/week';
 import { canUploadDesignFile } from '@/server/domain/order-status';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
-import OrderHistory from '@/components/order/OrderHistory';
 import DesignFileUpload from '@/components/order/DesignFileUpload';
 
 export const dynamic = 'force-dynamic';
@@ -27,8 +26,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
   const order = await getOrderDetail(orderId);
   if (!order) notFound();
 
-  const [history, labs, implantCatalog, messages] = await Promise.all([
-    listStatusHistory(orderId),
+  const [labs, implantCatalog, messages] = await Promise.all([
     listPartnerLabs(),
     getImplantCatalog(),
     listOrderMessages(orderId),
@@ -42,6 +40,8 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       implantCatalog={implantCatalog}
       messages={messages}
       labs={labs}
+      showCost
+      labName={order.in_house ? '자사 제작' : order.lab_name}
       designSlot={
         canUploadDesignFile(order.status, 'design_center') ? (
           <div className="mb-3">
@@ -49,7 +49,6 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
           </div>
         ) : null
       }
-      footerSlot={<OrderHistory rows={history} />}
     />
   );
 }

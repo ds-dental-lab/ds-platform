@@ -11,13 +11,12 @@
 // =========================================================
 
 import { notFound } from 'next/navigation';
-import { getOrderDetail, listStatusHistory } from '@/server/repositories/order';
+import { getOrderDetail } from '@/server/repositories/order';
 import { listPickupsForOrder } from '@/server/repositories/pickup';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { todayInKst } from '@/server/domain/week';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
-import OrderHistory from '@/components/order/OrderHistory';
 import PickupCard from '@/components/order/PickupCard';
 
 export const dynamic = 'force-dynamic';
@@ -31,8 +30,7 @@ export default async function LabOrderDetailPage({ params }: LabOrderDetailPageP
   const order = await getOrderDetail(orderId);
   if (!order) notFound();
 
-  const [history, implantCatalog, pickups, messages] = await Promise.all([
-    listStatusHistory(orderId),
+  const [implantCatalog, pickups, messages] = await Promise.all([
     getImplantCatalog(),
     listPickupsForOrder(orderId),
     listOrderMessages(orderId),
@@ -51,7 +49,6 @@ export default async function LabOrderDetailPage({ params }: LabOrderDetailPageP
           : undefined
       }
       extraSlot={pickups.length > 0 ? <PickupCard pickups={pickups} /> : null}
-      footerSlot={<OrderHistory rows={history} />}
     />
   );
 }

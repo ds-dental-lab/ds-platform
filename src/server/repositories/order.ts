@@ -167,6 +167,8 @@ export interface OrderDetail {
   created_at: string;
   received_at: string | null;
   clinic_name: string;
+  /** 배정된 기공소 이름. 치과에는 RLS 가 막아 빈 값으로 옵니다 (설계서 §8.5) */
+  lab_name: string;
   /** 자사 제작인가 — 디자인센터가 직접 만드는 건 (통합 조직 모델) */
   in_house: boolean;
   /** 이 주문에서 내가 맡은 자리들. 한 조직이 둘을 겸할 수 있습니다 */
@@ -272,6 +274,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
         'status, order_type, due_date, notes, created_at, received_at, ' +
         'clinic_org_id, design_org_id, lab_org_id, ' +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
+        'lab:organizations!orders_lab_org_id_fkey(name), ' +
         'order_items(id, tooth_number, slot, type_code, material_code, is_pontic, shade_system, shade_cervical, shade_incisal, implant_manufacturer, implant_type, implant_size, implant_screw, implant_option, has_gingival), ' +
         'order_files(id, kind, file_name, file_size, mime_type, created_at), ' +
         'order_options(production_option_groups(name, sort_order), production_option_values(value))',
@@ -284,12 +287,13 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
 
   type RawDetailRow = Omit<
     OrderDetail,
-    'clinic_name' | 'items' | 'files' | 'options' | 'in_house' | 'roles'
+    'clinic_name' | 'lab_name' | 'items' | 'files' | 'options' | 'in_house' | 'roles'
   > & {
     clinic_org_id: string;
     design_org_id: string | null;
     lab_org_id: string | null;
     clinic: { name: string } | null;
+    lab: { name: string } | null;
     order_items: OrderDetailItem[] | null;
     order_files: OrderDetailFile[] | null;
     order_options:
@@ -313,6 +317,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     created_at: row.created_at,
     received_at: row.received_at,
     clinic_name: row.clinic?.name ?? '',
+    lab_name: row.lab?.name ?? '',
     // 기공소 자리를 디자인센터가 겸하면 자사 제작입니다
     in_house: Boolean(row.lab_org_id && row.lab_org_id === row.design_org_id),
     roles: rolesOf(row, session?.orgId ?? null),

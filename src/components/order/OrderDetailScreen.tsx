@@ -1,31 +1,41 @@
 // =========================================================
 // 놓을 위치: src/components/order/OrderDetailScreen.tsx
 //
-// 주문상세. (기능명세서 §4.3, 사용자가 준 화면)
+// 주문상세. (시안 dental-clinic-portal.html — data-page="order-detail")
 //
-// 배치 — 위에서 아래로 네 덩어리입니다.
-//   ① 머리줄   상태 · 치과 · 환자 | 요청시한 · D-day
-//   ② 치식도   테두리 없이 폭을 다 씁니다
-//   ③ 두 칸    왼쪽 제작보철 · 제작옵션 · 요청사항 / 오른쪽 파일들
-//   ④ 아래줄   되돌아가기와 상태 전이 버튼
+// 시안의 .dt-wrap 을 그대로 옮겼습니다.
+//   .dt-main (본문) + aside.dt-memo (대화 320px) 이 나란히 섭니다.
 //
-// ★ 주문번호는 화면에 쓰지 않습니다.
-//   원장이 보는 건 '누구의 무엇' 이지 번호가 아닙니다.
-//   번호는 문의할 때만 필요해 제목(title)에만 남겨 뒀습니다.
+//   본문 안은 위에서 아래로
+//     .dt-head   상태 · 치과 · 환자 | 요청시한 · D-day
+//     .dt-arch   치식도
+//     .dt-cols   1.6fr / 1fr 그리드 — 아래 자리표대로
+//     .dt-bar    주문 삭제 · 수정 | 상태 전이 | 주문목록
 //
-// ★ 상태 전이 버튼은 맨 아래에 둡니다.
-//   위에 있으면 주문 내용을 보기도 전에 눈에 먼저 들어와 거슬립니다.
-//   내용을 다 읽고 나서 누르는 것이 순서입니다.
+//   자리표 (시안 .g-a ~ .g-g)
+//     ┌ 제작보철 (g-a) ┬ 스캔/쉐이드 (g-b) ┐
+//     ├ 제작옵션 (g-c) ┤                    │  ← 디자인 파일이 2~3행을
+//     ├ 요청사항 (g-e) ┤ 디자인 파일 (g-d)  │     덮어 바닥선을 맞춥니다
+//     └ 담당자   (g-f) ┴ 기공소     (g-g) ┘
+//
+// ★ 진행 이력은 넣지 않습니다.
+//   시안 어디에도 없습니다. 상태가 지나온 길은 order_status_history 에
+//   남아 있고, 화면에서 볼 것은 지금 어디까지 왔는가 뿐입니다.
+//
+// ★ 주문번호도 화면에 쓰지 않습니다. 시안이 그렇습니다.
+//   문의할 때만 필요해 title 속성에 남겨 뒀습니다.
 // =========================================================
 
 import Link from 'next/link';
 import ToothChart from '@/components/dental/ToothChart';
-import ProsthesisSummary from '@/components/dental/ProsthesisSummary';
 import OrderStatusActions from '@/components/order/OrderStatusActions';
 import OrderChat from '@/components/order/OrderChat';
 import OrderActions from '@/components/order/OrderActions';
 import OrderFileList from '@/components/order/OrderFileList';
 import { computeDDay } from '@/server/domain/order-list';
+import { buildSummaryLines } from '@/server/domain/summary';
+import { colorOfType } from '@/server/domain/prosthesis';
+import { formatSelection } from '@/server/domain/implant';
 import { STATUS_LABEL, type Sector } from '@/server/domain/order-status';
 import type { ChartPlacement } from '@/components/dental/ToothChart';
 import type { ToothShade } from '@/server/domain/shade';
@@ -34,7 +44,6 @@ import type { OrderDetail } from '@/server/repositories/order';
 import type { OrderMessage } from '@/server/repositories/order-message';
 import type { IsoDate } from '@/server/domain/week';
 
-/** 섹터마다 색과 돌아갈 곳이 다릅니다 */
 const SECTOR_HOME: Record<Sector, { href: string; label: string }> = {
   clinic: { href: '/clinic/orders', label: '주문목록' },
   design_center: { href: '/design/orders', label: '주문관리' },
@@ -43,12 +52,12 @@ const SECTOR_HOME: Record<Sector, { href: string; label: string }> = {
 
 const STATUS_COLOR: Record<string, string> = {
   received: '#1279E8',
+  rescan: '#D8453F',
   designing: '#5546C8',
-  design_done: '#5546C8',
   production_wait: '#E09A1B',
   production: '#E09A1B',
   shipping: '#12855B',
-  done: '#5C6779',
+  completed: '#5C6779',
   cancelled: '#D8453F',
 };
 
@@ -57,19 +66,19 @@ export interface OrderDetailScreenProps {
   sector: Sector;
   today: IsoDate;
   implantCatalog: ImplantCatalog;
-  /** 주문별 대화. 세 섹터가 함께 봅니다 */
   messages: OrderMessage[];
-  /** 디자인센터가 배정할 수 있는 기공소 */
   labs?: { id: string; name: string }[];
   forwardBlockedReason?: string;
   /** 머리줄에 치과 이름을 보일지 — 치과 자신에게는 필요 없습니다 */
   showClinic?: boolean;
-  /** 오른쪽 아래 파일칸 위에 끼워 넣을 것 (디자인 파일 업로더 등) */
+  /** 담당자·기공소 줄을 보일지. 치과에는 감춥니다 (설계서 §8.5) */
+  showCost?: boolean;
+  /** 배정된 기공소 이름. showCost 일 때만 씁니다 */
+  labName?: string;
+  /** 디자인 파일칸 위에 끼워 넣을 것 (업로더 등) */
   designSlot?: React.ReactNode;
   /** 치식도 아래에 끼워 넣을 것 (수거 카드 · 리페어 신청 등) */
   extraSlot?: React.ReactNode;
-  /** 맨 아래에 붙일 것 (진행 이력 등) */
-  footerSlot?: React.ReactNode;
 }
 
 export default function OrderDetailScreen({
@@ -81,9 +90,10 @@ export default function OrderDetailScreen({
   labs = [],
   forwardBlockedReason,
   showClinic = true,
+  showCost = false,
+  labName,
   designSlot,
   extraSlot,
-  footerSlot,
 }: OrderDetailScreenProps) {
   const placements: ChartPlacement[] = order.items.map((item) => ({
     tooth: item.tooth_number,
@@ -118,175 +128,289 @@ export default function OrderDetailScreen({
   const dday = computeDDay(order.due_date, today, order.status);
   const statusColor = STATUS_COLOR[order.status] ?? '#4A5567';
 
+  const lines = buildSummaryLines({ placements, shades, implants, implantCatalog });
+  const hasPontic = placements.some((p) => p.isPontic);
+
   const scanFiles = order.files.filter((f) => f.kind !== 'design');
   const designFiles = order.files.filter((f) => f.kind === 'design');
 
+  // 임플란트 주문이면 치아별 모델을 따로 세웁니다 (시안 #dtImplantCard)
+  const implantTeeth = order.items.filter((i) => i.type_code === 'implant');
+  const hasImplant = implantTeeth.length > 0;
+
+  const implantRows = implantTeeth
+    .filter((i) => i.implant_manufacturer)
+    .sort((a, b) => a.tooth_number - b.tooth_number)
+    .map((i) => ({
+      tooth: i.tooth_number,
+      model: formatSelection(implantCatalog, implants[i.tooth_number]),
+    }));
+
+  // 폰틱은 픽스처가 없어 셈에서 뺍니다
+  const missingModels = implantTeeth.filter(
+    (i) => !i.implant_manufacturer && !i.is_pontic,
+  ).length;
+
   return (
-    <div className="flex gap-3" title={`주문번호 ${order.order_no}`}>
-      {/* ================= 왼쪽 — 주문 내용 ================= */}
-      <div className="min-w-0 flex-1">
-      {/* ---------- ① 머리줄 ---------- */}
-      <div className="flex flex-wrap items-center gap-2.5 px-1 pb-3.5 pt-1">
-        <span className="text-[#98A2B3]" aria-hidden="true">
-          <svg
-            width="17"
-            height="17"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.6}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12.8 2.6a4.2 4.2 0 0 0-4.9 5.3L2.6 13.2a1.6 1.6 0 0 0 2.2 2.2l5.3-5.3a4.2 4.2 0 0 0 5.3-4.9l-2.4 2.4-2.1-2.1 1.9-2.7Z" />
-          </svg>
-        </span>
+    <div
+      className="-mx-3.5 -mt-3.5 flex flex-wrap items-stretch gap-3 xl:flex-nowrap"
+      title={`주문번호 ${order.order_no}`}
+    >
+      {/* ================= 본문 (.dt-main) ================= */}
+      <div className="flex min-w-0 flex-1 flex-col border-y border-r border-[#E8EBF0] bg-white">
+        {/* ---------- .dt-head ---------- */}
+        <div className="flex flex-wrap items-center gap-3 border-b border-[#E8EBF0] px-[18px] py-3">
+          <span className="grid place-items-center text-[#98A2B3]" aria-hidden="true">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12.8 2.6a4.2 4.2 0 0 0-4.9 5.3L2.6 13.2a1.6 1.6 0 0 0 2.2 2.2l5.3-5.3a4.2 4.2 0 0 0 5.3-4.9l-2.4 2.4-2.1-2.1 1.9-2.7Z" />
+            </svg>
+          </span>
 
-        <b className="text-[14px] font-bold tracking-tight" style={{ color: statusColor }}>
-          {STATUS_LABEL[order.status]}
-        </b>
+          <b className="text-[13.5px] font-bold" style={{ color: statusColor }}>
+            {STATUS_LABEL[order.status]}
+          </b>
 
-        {showClinic && order.clinic_name && (
-          <span className="text-[13.5px] text-[#4A5567]">{order.clinic_name}</span>
-        )}
+          {showClinic && order.clinic_name && (
+            <span className="text-[13px] text-[#4A5567]">{order.clinic_name}</span>
+          )}
 
-        <b className="text-[14px] font-bold tracking-tight text-[#1A2130]">
-          {order.patient_label}
-        </b>
+          <b className="text-[15.5px] font-extrabold tracking-[-0.03em] text-[#1A2130]">
+            {order.patient_label}
+          </b>
 
-        <span className="ml-auto text-[13px] text-[#4A5567]">
-          요청시한: {order.due_date}
-        </span>
+          <div className="ml-auto flex flex-wrap items-center gap-[9px]">
+            <span className="text-[12.5px] text-[#4A5567]">요청시한: {order.due_date}</span>
 
-        <span
-          className="rounded-md border px-2.5 py-1 text-[12.5px] font-bold"
-          style={{
-            borderColor: dday.urgent ? '#E9A9A6' : '#BFD5F5',
-            color: dday.urgent ? '#D8453F' : '#1279E8',
-            background: dday.urgent ? '#FDF4F4' : '#F2F7FE',
-          }}
-        >
-          {dday.label}
-        </span>
-      </div>
-
-      {/* ---------- ② 치식도 ---------- */}
-      <div className="rounded-lg border border-[#E8EBF0] bg-white px-5 py-6">
-        <ToothChart placements={placements} readOnly />
-      </div>
-
-      {extraSlot && <div className="mt-3">{extraSlot}</div>}
-
-      {/* ---------- ③ 두 칸 ---------- */}
-      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-        {/* 왼쪽 */}
-        <div className="space-y-3">
-          <ProsthesisSummary
-            placements={placements}
-            shades={shades}
-            implants={implants}
-            implantCatalog={implantCatalog}
-            readOnly
-          />
-
-          <Panel icon={ICON.option} title="제작옵션">
-            {order.options.length === 0 ? (
-              <Empty>고른 제작옵션이 없습니다.</Empty>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {order.options.map((option) => (
-                  <div
-                    key={option.groupName}
-                    className="rounded-md border border-[#DCE8F8] bg-white px-3 pb-2.5 pt-1.5"
-                  >
-                    <p className="text-[11px] text-[#98A2B3]">{option.groupName}</p>
-                    <p className="text-center text-[13.5px] text-[#1A2130]">{option.value}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Panel>
-
-          <div className="rounded-lg border border-[#E8EBF0] bg-white px-4 pb-4 pt-3">
-            <p className="text-[13px] font-bold text-[#1A2130]">기타 요청사항</p>
-            <p className="mt-2 min-h-[54px] whitespace-pre-wrap text-[13px] leading-relaxed text-[#4A5567]">
-              {order.notes || <span className="text-[#C4CBD6]">적힌 내용이 없습니다.</span>}
-            </p>
+            <span
+              className="rounded-md border px-2.5 py-1 text-[12.5px] font-bold"
+              style={{
+                borderColor: dday.urgent ? '#F3C6C6' : '#BFD5F5',
+                color: dday.urgent ? '#C4383A' : '#1279E8',
+                background: dday.urgent ? '#FDE7E7' : '#F2F7FE',
+              }}
+            >
+              {dday.label}
+            </span>
           </div>
         </div>
 
-        {/* 오른쪽 */}
-        <div className="space-y-3">
-          <Panel
+        {/* ---------- .dt-arch ---------- */}
+        <div className="px-[18px] pb-[30px] pt-6">
+          <ToothChart placements={placements} readOnly />
+        </div>
+
+        {extraSlot && <div className="px-[18px] pb-3.5">{extraSlot}</div>}
+
+        {/* ---------- .dt-cols ---------- */}
+        <div className="grid grid-cols-1 items-stretch gap-3.5 px-[18px] pb-[18px] lg:grid-cols-[1.6fr_1fr]">
+          {/* g-a — 제작보철 */}
+          <Card
+            className="lg:col-start-1 lg:row-start-1"
+            icon={ICON.cart}
+            title="제작보철"
+            right={
+              hasPontic ? (
+                <span className="ml-auto text-[12.5px] font-semibold text-[#4A5567]">
+                  <b className="mr-[3px] font-bold text-[#98A2B3]">✕</b>Pontic
+                </span>
+              ) : null
+            }
+          >
+            {lines.length === 0 ? (
+              <p className="text-[12.5px] text-[#98A2B3]">등록된 보철 정보가 없습니다.</p>
+            ) : (
+              <div className="flex flex-col items-start gap-2">
+                {lines.map((line) => {
+                  const color = colorOfType(line.typeCode);
+
+                  return (
+                    <div
+                      key={line.key}
+                      className="inline-flex max-w-full items-center gap-[34px] rounded-[20px] bg-white px-[22px] py-[9px]"
+                      style={{ border: `1.5px solid ${color.line}` }}
+                    >
+                      <span className="whitespace-nowrap text-[13px] font-semibold text-[#1A2130]">
+                        {line.abbr}
+                      </span>
+
+                      <span className="ml-auto whitespace-nowrap text-[13px] font-semibold tabular-nums text-[#4A5567]">
+                        {line.teethLabel}
+                        {line.shadeLabel && ` (${line.shadeLabel})`}
+                      </span>
+
+                      {line.teeth.length > 1 && (
+                        <span
+                          className="rounded-[9px] px-[7px] py-0.5 text-[10.5px] font-bold"
+                          style={{ background: color.soft, color: color.line }}
+                        >
+                          연결
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* g-b — 스캔/쉐이드 파일 */}
+          <Card
+            className="lg:col-start-2 lg:row-start-1"
             title="스캔/쉐이드 파일"
             right={
-              <span className="text-[12.5px] text-[#98A2B3]">
+              <span className="ml-auto text-[12.5px] font-semibold text-[#4A5567]">
                 File Count ({scanFiles.length}/{scanFiles.length})
               </span>
             }
           >
-            {scanFiles.length === 0 ? (
-              <Empty>올라온 파일이 없습니다.</Empty>
-            ) : (
-              <OrderFileList files={scanFiles} />
-            )}
-          </Panel>
+            <div className="flex min-h-[172px] flex-col">
+              {scanFiles.length === 0 ? (
+                <p className="m-auto py-6 text-[12.5px] text-[#98A2B3]">
+                  업로드된 스캔 파일이 없습니다.
+                </p>
+              ) : (
+                <OrderFileList files={scanFiles} />
+              )}
+            </div>
+          </Card>
 
-          <Panel title={`디자인 파일(${designFiles.length})`}>
+          {/* g-c — 제작옵션 (+ 임플란트 모델) */}
+          <div
+            className={
+              'grid gap-3 lg:col-start-1 lg:row-start-2 ' +
+              (hasImplant ? 'lg:grid-cols-[1.15fr_1fr]' : 'grid-cols-1')
+            }
+          >
+            <Card icon={ICON.gear} title="제작옵션">
+              {order.options.length === 0 ? (
+                <p className="text-[12.5px] text-[#98A2B3]">고른 제작옵션이 없습니다.</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  {order.options.map((option) => (
+                    <div key={option.groupName} className="relative">
+                      {/* 시안 .ffield — 라벨이 테두리 위에 걸쳐 앉습니다 */}
+                      <label className="absolute -top-[7px] left-[10px] z-10 bg-[#F5F8FE] px-[5px] text-[11px] font-semibold text-[#98A2B3]">
+                        {option.groupName}
+                      </label>
+                      <div className="grid h-11 place-items-center rounded-md border border-[#DDE2EA] bg-white text-[13px] font-medium text-[#1A2130]">
+                        {option.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {hasImplant && (
+              <Card icon={ICON.implant} title="임플란트 모델">
+                <div className="flex max-h-[190px] flex-col gap-2 overflow-y-auto">
+                  {implantRows.length === 0 ? (
+                    <p className="px-0.5 py-1.5 text-[12.5px] text-[#98A2B3]">
+                      등록된 모델 정보가 없습니다.
+                    </p>
+                  ) : (
+                    implantRows.map((row) => (
+                      <div key={row.tooth} className="flex items-center gap-2.5 text-[12.5px]">
+                        <span className="min-w-[30px] shrink-0 rounded-[5px] border border-[#DDE2EA] bg-white py-[3px] text-center font-bold tabular-nums">
+                          {row.tooth}
+                        </span>
+                        <span className="font-semibold text-[#4A5567]">{row.model}</span>
+                      </div>
+                    ))
+                  )}
+
+                  {missingModels > 0 && (
+                    <p className="mt-1 rounded-md border border-[#F3C6C6] bg-[#FDECEA] px-[11px] py-[9px] text-[11.5px] font-bold leading-relaxed text-[#C4383A]">
+                      ⚠ 모델이 지정되지 않은 치아가 {missingModels}개 있습니다. 제작을 진행할 수
+                      없습니다.
+                    </p>
+                  )}
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* g-d — 디자인 파일 (2~3행을 덮어 바닥선을 맞춥니다) */}
+          <Card
+            className="lg:col-start-2 lg:row-start-2 lg:row-end-4"
+            title={`디자인 파일(${designFiles.length})`}
+          >
             {designSlot}
 
-            {designFiles.length === 0 ? (
-              <Empty>아직 디자인 파일이 없습니다.</Empty>
-            ) : (
-              <OrderFileList files={designFiles} />
-            )}
-          </Panel>
+            <div className="flex min-h-[172px] flex-col">
+              {designFiles.length === 0 ? (
+                <p className="m-auto py-6 text-[12.5px] text-[#98A2B3]">
+                  아직 디자인 파일이 없습니다.
+                </p>
+              ) : (
+                <OrderFileList files={designFiles} />
+              )}
+            </div>
+          </Card>
 
+          {/* g-e — 기타 요청사항 */}
+          <div className="min-h-[104px] rounded-[9px] border border-[#E8EBF0] bg-white px-4 py-[13px] lg:col-start-1 lg:row-start-3">
+            <p className="mb-[7px] text-[13px] font-bold text-[#1A2130]">기타 요청사항</p>
+            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[#1279E8]">
+              {order.notes || <span className="text-[#C4CBD6]">적힌 내용이 없습니다.</span>}
+            </p>
+          </div>
+
+          {/* g-f · g-g — 담당자 · 기공소 (치과에는 감춥니다) */}
+          {showCost && (
+            <>
+              <div className="flex items-center gap-3.5 px-1 py-0.5 text-[12.5px] text-[#4A5567] lg:col-start-1 lg:row-start-4">
+                <span>
+                  담당자 <b className="font-bold text-[#1A2130]">미지정</b>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3.5 px-1 py-0.5 text-[12.5px] text-[#4A5567] lg:col-start-2 lg:row-start-4">
+                <span className="ml-auto">
+                  기공소 <b className="font-bold text-[#1A2130]">{labName || '미지정'}</b>
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ---------- .dt-bar ---------- */}
+        <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-[#E8EBF0] px-[18px] py-3">
+          <OrderActions
+            orderId={order.id}
+            status={order.status}
+            roles={order.roles}
+            orderPath={home.href}
+          />
+
+          <OrderStatusActions
+            orderId={order.id}
+            status={order.status}
+            roles={order.roles}
+            labs={labs}
+            forwardBlockedReason={forwardBlockedReason}
+          />
+
+          <Link
+            href={home.href}
+            className="ml-auto grid h-[34px] place-items-center rounded-[7px] bg-[#1279E8] px-5 text-[13px] font-bold text-white hover:bg-[#1554C8]"
+          >
+            {home.label}
+          </Link>
         </div>
       </div>
 
-      {/* 좁은 화면에서는 옆에 못 세우므로 아래에 붙입니다 */}
-      <div className="mt-3 xl:hidden">
-        <OrderChat orderId={order.id} messages={messages} />
-      </div>
-
-      {footerSlot && <div className="mt-3">{footerSlot}</div>}
-
-      {/* ---------- ④ 아래줄 ---------- */}
-      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[#E8EBF0] bg-white px-4 py-3">
-        <OrderActions
-          orderId={order.id}
-          status={order.status}
-          roles={order.roles}
-          orderPath={home.href}
-        />
-
-        <OrderStatusActions
-          orderId={order.id}
-          status={order.status}
-          roles={order.roles}
-          labs={labs}
-          forwardBlockedReason={forwardBlockedReason}
-        />
-
-        <Link
-          href={home.href}
-          className="ml-auto rounded-md bg-[#1279E8] px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-[#0F68C9]"
-        >
-          {home.label}
-        </Link>
-      </div>
-
-        <div className="pb-8" />
-      </div>
-
-      {/* ================= 오른쪽 — 대화 ================= */}
-      {/*
-        ★ 두 칸 안에 끼워 넣지 않고 옆에 세웁니다.
-          대화는 주문 내용을 보면서 주고받는 것이라, 아래로 밀려 내려가면
-          스크롤해서 찾아야 합니다. 화면 높이만큼 붙어 따라옵니다.
-      */}
-      <aside className="sticky top-3 hidden h-[calc(100vh-84px)] w-[320px] shrink-0 xl:block">
+      {/* ================= 대화 (aside.dt-memo) ================= */}
+      <aside className="flex min-h-[560px] w-full shrink-0 flex-col self-stretch border-y border-l border-[#E8EBF0] bg-white xl:w-[320px]">
         <OrderChat orderId={order.id} messages={messages} />
       </aside>
     </div>
@@ -296,52 +420,61 @@ export default function OrderDetailScreen({
 // ---------- 조각들 ----------
 
 const ICON = {
-  option: (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="10" cy="10" r="3" />
-      <path d="M10 1.6v2.2M10 16.2v2.2M3.4 3.4l1.6 1.6M15 15l1.6 1.6M1.6 10h2.2M16.2 10h2.2M3.4 16.6 5 15M15 5l1.6-1.6" />
+  cart: (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinejoin="round">
+      <path d="M2.4 3.4h2.2l2 8.6h8.4l1.6-6H5.6" />
+      <circle cx="8.4" cy="15.6" r="1.2" />
+      <circle cx="14.4" cy="15.6" r="1.2" />
+    </svg>
+  ),
+  gear: (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round">
+      <circle cx="10" cy="10" r="2.7" />
+      <path d="M10 1.8v2.4M10 15.8v2.4M18.2 10h-2.4M4.2 10H1.8M15.8 4.2l-1.7 1.7M5.9 14.1l-1.7 1.7M15.8 15.8l-1.7-1.7M5.9 5.9 4.2 4.2" />
+    </svg>
+  ),
+  implant: (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round">
+      <rect x="2.6" y="5.4" width="14.8" height="11" rx="1.8" />
+      <path d="M7.2 5.4V4a1.2 1.2 0 0 1 1.2-1.2h3.2A1.2 1.2 0 0 1 12.8 4v1.4" />
+      <path d="M10 9v4M8 11h4" />
     </svg>
   ),
 };
 
-function Panel({
+/** 시안 .dt-card — 옅은 파란 바탕에 머리줄 하나 */
+function Card({
   icon,
   title,
   right,
+  className = '',
   children,
 }: {
   icon?: React.ReactNode;
   title: string;
   right?: React.ReactNode;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-[#DCE8F8] bg-[#F2F7FE] px-4 pb-4 pt-3.5">
-      <div className="mb-3 flex items-center gap-2">
-        {icon && (
-          <span className="text-[#1279E8]" aria-hidden="true">
-            {icon}
-          </span>
-        )}
-        <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">{title}</h2>
-        {right && <span className="ml-auto">{right}</span>}
+    <div
+      className={
+        'flex flex-col rounded-[9px] border border-[#E2EAF7] bg-[#F5F8FE] ' + className
+      }
+    >
+      <div className="flex items-center gap-2.5 px-4 pt-[13px]">
+        <span className="flex items-center gap-1.5 text-[14px] font-bold tracking-[-0.03em] text-[#1A2130]">
+          {icon && (
+            <span className="text-[#1279E8]" aria-hidden="true">
+              {icon}
+            </span>
+          )}
+          {title}
+        </span>
+        {right}
       </div>
 
-      {children}
+      <div className="min-h-[112px] flex-1 px-4 pb-4 pt-3">{children}</div>
     </div>
   );
 }
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="py-8 text-center text-[13px] text-[#98A2B3]">{children}</p>;
-}
-
