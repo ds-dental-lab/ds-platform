@@ -137,10 +137,21 @@ export async function getSettlement(
   to: string,
   catalog: ProsthesisCatalog,
 ): Promise<Settlement> {
+  /*
+    ★ 자기 정산은 당사자도 봅니다 (사용자 결정 2026-08-12).
+      기공소는 자기가 받을 값의 세부내역을 확인해야 하고,
+      디자인센터는 그것을 검수·기록용으로 봅니다.
+
+      값은 어차피 RLS 가 가릅니다 —
+        기공소  자기 lab_product_costs 만, 자기에게 배정된 주문만
+        치과    자기 clinic_product_prices 만, 자기 주문만
+      그래서 여기서는 '남의 거래처를 열지 않는' 것만 봅니다.
+  */
   const session = await getSession();
-  if (session?.orgType !== 'design_center' || !session.orgId) {
-    return empty(from, to);
-  }
+  const isOwner = session?.orgType === 'design_center';
+  const isSelf = session?.orgId === partner.id;
+
+  if (!session?.orgId || (!isOwner && !isSelf)) return empty(from, to);
 
   const supabase = await createClient();
   const isClinic = partner.orgType === 'clinic';
@@ -160,12 +171,18 @@ export async function getSettlement(
       .lte('shipped_at', `${to}T23:59:59`)
       .order('shipped_at', { ascending: false }),
 
-    // 제품 기본가 — 코드로 찾을 수 있게 종류·재료를 함께 가져옵니다
-    supabase
-      .from('prosthesis_materials')
-      .select(
-        'id, code, price, pontic_price, pink_price, prosthesis_types!inner(code)',
-      ),
+    /*
+      제품 기본가 — 코드로 찾을 수 있게 종류·재료를 함께 가져옵니다.
+
+      ★ 기공소에는 원본 표가 닫혀 있습니다 (판매가가 들어 있어서).
+        값이 빠진 보기에서 id 와 코드만 읽습니다 — 기공소의 금액은
+        어차피 lab_product_costs 에서만 나옵니다.
+    */
+    session.orgType === 'lab'
+      ? supabase.from('prosthesis_products_public').select('id, code, type_code')
+      : supabase
+          .from('prosthesis_materials')
+          .select('id, code, price, pontic_price, pink_price, prosthesis_types!inner(code)'),
 
     isClinic
       ? supabase
@@ -207,11 +224,13 @@ export async function getSettlement(
   for (const raw of (prices.data ?? []) as unknown as {
     id: string;
     code: string;
-    price: number | null;
-    pontic_price: number | null;
-    pink_price: number | null;
-    prosthesis_types: { code: string };
+    price?: number | null;
+    pontic_price?: number | null;
+    pink_price?: number | null;
+    prosthesis_types?: { code: string };
+    type_code?: string;
   }[]) {
+    const typeCode = raw.prosthesis_types?.code ?? raw.type_code ?? '';
     const over = byId.get(raw.id);
 
     /*
@@ -225,10 +244,18 @@ export async function getSettlement(
 
       ★ `??` 여야 합니다. `||` 로 이으면 0원 거래처 단가가 기본가로 새어 나갑니다.
     */
-    byCode.set(`${raw.prosthesis_types.code}/${raw.code}`, {
-      price: resolvePartyPrice(raw.price, over?.price ?? null, partner.orgType),
-      ponticPrice: resolvePartyPrice(raw.pontic_price, over?.ponticPrice ?? null, partner.orgType),
-      pinkPrice: resolvePartyPrice(raw.pink_price, over?.pinkPrice ?? null, partner.orgType),
+    byCode.set(`${typeCode}/${raw.code}`, {
+      price: resolvePartyPrice(raw.price ?? null, over?.price ?? null, partner.orgType),
+      ponticPrice: resolvePartyPrice(
+        raw.pontic_price ?? null,
+        over?.ponticPrice ?? null,
+        partner.orgType,
+      ),
+      pinkPrice: resolvePartyPrice(
+        raw.pink_price ?? null,
+        over?.pinkPrice ?? null,
+        partner.orgType,
+      ),
     });
   }
 

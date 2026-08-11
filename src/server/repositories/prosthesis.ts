@@ -18,6 +18,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { FALLBACK_TYPES, type ProsthesisCatalog } from '@/server/domain/prosthesis';
+import { getSession } from '@/server/policies/session';
 
 interface RawMaterial {
   code: string;
@@ -54,6 +55,18 @@ export interface CatalogOptions {
 export async function getProsthesisCatalog(
   options: CatalogOptions = {},
 ): Promise<ProsthesisCatalog> {
+  const session = await getSession();
+
+  /*
+    ★ 기공소에는 값이 빠진 목록을 줍니다 (설계서 §8.5).
+      기공소는 디자인센터가 치과에 얼마에 파는지 알 이유가 없습니다.
+      자기가 받는 기공원가만 알면 됩니다.
+
+      원본 표는 정책으로 닫아 두었고, 여기서는 이름만 담은 보기를 읽습니다.
+      값 칸은 null 로 옵니다 — 기공소 화면은 값을 쓰지 않습니다.
+  */
+  if (session?.orgType === 'lab') return getPublicCatalog(options);
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -225,4 +238,84 @@ export async function listProducts(): Promise<{
       isActive: t.is_active,
     })),
   };
+}
+
+// ---------- 값이 빠진 목록 (기공소) ----------
+
+interface RawPublicRow {
+  type_code: string;
+  type_name: string;
+  type_abbr: string;
+  color: string;
+  color_soft: string;
+  needs_implant_model: boolean;
+  abbr_material_only: boolean;
+  type_sort_order: number;
+  type_is_active: boolean;
+
+  code: string;
+  name: string;
+  abbr: string;
+  has_shade: boolean;
+  has_pontic: boolean;
+  has_pink: boolean;
+  sort_order: number;
+  is_active: boolean;
+}
+
+/**
+ * 기공소가 읽는 제품 목록. 값 칸이 전부 null 입니다.
+ *
+ * ★ 이름은 알아야 합니다.
+ *   주문서에 'Zir-Cr' 이 찍혀야 무엇을 만드는지 압니다.
+ *   값만 빼고 나머지는 같습니다.
+ */
+async function getPublicCatalog(options: CatalogOptions = {}): Promise<ProsthesisCatalog> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('prosthesis_products_public')
+    .select('*')
+    .order('type_sort_order')
+    .order('sort_order');
+
+  if (error || !data || data.length === 0) return FALLBACK_TYPES;
+
+  const rows = data as unknown as RawPublicRow[];
+  const byType = new Map<string, ProsthesisCatalog[number]>();
+
+  for (const row of rows) {
+    if (!options.includeInactive && (!row.type_is_active || !row.is_active)) continue;
+
+    let type = byType.get(row.type_code);
+
+    if (!type) {
+      type = {
+        code: row.type_code,
+        name: row.type_name,
+        abbr: row.type_abbr,
+        needsImplantModel: row.needs_implant_model,
+        abbrMaterialOnly: row.abbr_material_only,
+        color: row.color,
+        colorSoft: row.color_soft,
+        materials: [],
+      };
+      byType.set(row.type_code, type);
+    }
+
+    type.materials.push({
+      code: row.code,
+      name: row.name,
+      abbr: row.abbr,
+      hasShade: row.has_shade,
+      hasPontic: row.has_pontic,
+      hasPink: row.has_pink,
+      // ★ 값은 기공소에 주지 않습니다
+      price: null,
+      ponticPrice: null,
+      pinkPrice: null,
+    });
+  }
+
+  return [...byType.values()];
 }
