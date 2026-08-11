@@ -31,7 +31,7 @@ export interface PatientPickerProps {
   /** 적힌 글자가 실제 환자와 맞아떨어졌을 때만 값이 있습니다 */
   patient: Patient | null;
   /**
-   * 이 치과의 환자만 찾습니다. (대리등록)
+   * 이 치과의 환자만 찾습니다. (디자인센터 주문등록)
    *
    * ★ 없으면 RLS 가 잡아 주는 범위 전부입니다.
    *   치과 계정은 자기 환자뿐이라 문제가 없지만, 디자인센터 계정은
@@ -89,7 +89,7 @@ export default function PatientPicker({
         .is('deleted_at', null)
         .or(`chart_no.ilike.%${trimmed}%,name.ilike.%${trimmed}%`);
 
-      // 대리등록이면 그 치과 안에서만 찾습니다
+      // 치과가 정해져 있으면 그 안에서만 찾습니다
       if (clinicOrgId) query = query.eq('clinic_org_id', clinicOrgId);
 
       const { data } = await query.order('chart_no').limit(8);

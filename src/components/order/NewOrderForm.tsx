@@ -19,6 +19,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PatientPicker, { type Patient } from '@/components/order/PatientPicker';
+import ClinicSelect, { type ClinicOption } from '@/components/order/ClinicSelect';
 import OrderSection, { SECTION_ICON } from '@/components/order/OrderSection';
 import ProductionOptionPanel from '@/components/order/ProductionOptionPanel';
 import LeaveGuard from '@/components/order/LeaveGuard';
@@ -87,18 +88,23 @@ const ORDER_TYPES = ['modelless', 'analog'] as const;
 export interface NewOrderFormProps {
   clinicName: string;
   /**
-   * 대리등록 — 디자인센터가 이 치과를 대신해 넣습니다.
+   * 어느 치과의 주문인가. 디자인센터 주문등록에서 고릅니다.
    *
    * ★ 주면 환자 찾기가 이 치과 안으로 좁혀집니다.
    *   디자인센터 계정은 거래처 치과 **전부**의 환자를 읽을 수 있어,
    *   안 좁히면 남의 치과 환자가 후보로 뜹니다.
    */
   clinicOrgId?: string;
-  /** 돌아갈 곳. 대리등록은 디자인센터 주문목록으로 갑니다 */
+  /**
+   * 고를 수 있는 치과. 디자인센터 화면에서만 옵니다.
+   * 치과 계정에는 자기 이름이 글자로 박혀 있어 고를 것이 없습니다.
+   */
+  clinics?: ClinicOption[];
+  /** 돌아갈 곳. 디자인센터는 자기 주문목록으로 갑니다 */
   basePath?: string;
   /**
    * 요청시한을 어디까지 고를 수 있는가.
-   * 대리등록('free')은 오늘부터입니다 — 전화로 들어온 건에는 이미
+   * 디자인센터('free')는 오늘부터입니다 — 전화로 들어온 건에는 이미
    * 약속된 날짜가 있어, 4영업일을 강요하면 실제와 다른 날을 적게 됩니다.
    */
   dueDatePolicy?: DueDatePolicy;
@@ -143,6 +149,7 @@ function OrderFormBody({
   onStartOver,
   clinicName,
   clinicOrgId,
+  clinics,
   basePath = '/clinic/orders',
   dueDatePolicy = 'standard',
   today,
@@ -562,6 +569,8 @@ function OrderFormBody({
    */
   const missingFields: Array<{ label: string; anchor: string }> = [];
 
+  // ★ 디자인센터 화면에서는 치과부터 고릅니다. 그래야 어느 치과의 주문인지 정해집니다
+  if (clinics && !clinicOrgId) missingFields.push({ label: '치과', anchor: 'sec-patient' });
   if (!patientText.trim()) missingFields.push({ label: '환자 이름', anchor: 'sec-patient' });
   if (!dueDate) missingFields.push({ label: '요청시한', anchor: 'sec-patient' });
   if (entries.length === 0) {
@@ -675,10 +684,19 @@ function OrderFormBody({
             </select>
           </Field>
 
-          <Field label="치과">
-            <div className="flex h-11 items-center rounded border border-[#E8EBF0] bg-[#F8F9FB] px-3 text-[13px] text-[#4A5567]">
-              {clinicName}
-            </div>
+          <Field label="치과" problem={showProblems && Boolean(clinics) && !clinicOrgId}>
+            {clinics ? (
+              <ClinicSelect
+                clinics={clinics}
+                value={clinicOrgId ?? ''}
+                dirty={dirty}
+                problem={showProblems && !clinicOrgId}
+              />
+            ) : (
+              <div className="flex h-11 items-center rounded border border-[#E8EBF0] bg-[#F8F9FB] px-3 text-[13px] text-[#4A5567]">
+                {clinicName}
+              </div>
+            )}
           </Field>
         </div>
         </OrderSection>

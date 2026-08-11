@@ -63,6 +63,9 @@ export default function OrderFileList({ files, deletable = false }: OrderFileLis
     }
 
     save(result.url, result.fileName);
+
+    // 기공소가 디자인 파일을 받으면 '제작' 으로 넘어갑니다 — 화면도 따라갑니다
+    if (result.advanced) startTransition(() => router.refresh());
   }
 
   async function remove(file: OrderFileRow) {
@@ -198,6 +201,8 @@ export interface DownloadAllButtonProps {
  *   한꺼번에 쏘면 브라우저가 "여러 파일 내려받기" 를 막습니다.
  */
 export function DownloadAllButton({ files }: DownloadAllButtonProps) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(0);
 
@@ -207,10 +212,14 @@ export function DownloadAllButton({ files }: DownloadAllButtonProps) {
   async function downloadAll() {
     setBusy(true);
     setDone(0);
+    let advanced = false;
 
     for (let i = 0; i < ready.length; i++) {
       const result = await getOrderFileUrl(ready[i].id);
-      if (result.ok) save(result.url, result.fileName);
+      if (result.ok) {
+        save(result.url, result.fileName);
+        if (result.advanced) advanced = true;
+      }
 
       setDone(i + 1);
       if (i < ready.length - 1) await new Promise((r) => setTimeout(r, 400));
@@ -218,6 +227,8 @@ export function DownloadAllButton({ files }: DownloadAllButtonProps) {
 
     setBusy(false);
     setDone(0);
+
+    if (advanced) startTransition(() => router.refresh());
   }
 
   return (

@@ -17,6 +17,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
+import { changeOrderStatus } from '@/server/services/order-status';
 import {
   canDeleteFile,
   type OrderStatus,
@@ -29,7 +30,7 @@ const BUCKET = 'order-files';
 const TTL_SECONDS = 60;
 
 export type FileUrlResult =
-  | { ok: true; url: string; fileName: string }
+  | { ok: true; url: string; fileName: string; /** 상태가 함께 넘어갔으면 true */ advanced?: boolean }
   | { ok: false; error: string };
 
 export async function getOrderFileUrl(fileId: string): Promise<FileUrlResult> {
@@ -37,22 +38,68 @@ export async function getOrderFileUrl(fileId: string): Promise<FileUrlResult> {
 
   const { data: file } = await supabase
     .from('order_files')
-    .select('storage_path, file_name')
+    .select('kind, storage_path, file_name, order:orders!inner(id, status, lab_org_id)')
     .eq('id', fileId)
     .is('deleted_at', null)
     .maybeSingle();
 
-  if (!file) return { ok: false, error: '파일을 찾을 수 없습니다' };
+  const found = file as unknown as {
+    kind: string;
+    storage_path: string;
+    file_name: string;
+    order: { id: string; status: OrderStatus; lab_org_id: string | null };
+  } | null;
+
+  if (!found) return { ok: false, error: '파일을 찾을 수 없습니다' };
 
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(file.storage_path, TTL_SECONDS, { download: file.file_name });
+    .createSignedUrl(found.storage_path, TTL_SECONDS, { download: found.file_name });
 
   if (error || !data) {
     return { ok: false, error: `내려받지 못했습니다: ${error?.message ?? '알 수 없는 오류'}` };
   }
 
-  return { ok: true, url: data.signedUrl, fileName: file.file_name };
+  const advanced = await startProductionOnDownload(found);
+
+  return { ok: true, url: data.signedUrl, fileName: found.file_name, advanced };
+}
+
+/**
+ * 기공소가 디자인 파일을 받으면 그대로 '제작' 으로 넘어갑니다. (사용자 결정 2026-08-12)
+ *
+ * ★ 받았다는 사실이 곧 시작했다는 신호입니다.
+ *   기공소에 '제작 시작' 버튼을 따로 두면 아무도 안 누릅니다 —
+ *   파일을 받아 일을 시작하고는 화면을 닫습니다. 그러면 디자인센터와
+ *   치과는 물건이 만들어지고 있는지 알 수 없습니다.
+ *
+ * ★ 스캔 파일은 해당 없습니다.
+ *   기공소가 참고로 열어 보는 것뿐입니다. 만드는 근거는 디자인 파일입니다.
+ *
+ * ★ 못 넘어가도 내려받기는 성공입니다.
+ *   수거가 안 끝난 리페어처럼 막히는 사정이 있습니다. 그때 파일까지
+ *   못 받게 하면 일이 멈춥니다. 상태만 그대로 두고 조용히 지나갑니다.
+ */
+async function startProductionOnDownload(file: {
+  kind: string;
+  order: { id: string; status: OrderStatus; lab_org_id: string | null };
+}): Promise<boolean> {
+  if (file.kind !== 'design') return false;
+  if (file.order.status !== 'production_wait') return false;
+
+  const session = await getSession();
+  // 내려받는 사람이 그 주문을 맡은 기공소일 때만입니다
+  if (!session?.orgId || session.orgId !== file.order.lab_org_id) return false;
+
+  const result = await changeOrderStatus(file.order.id, 'production');
+  if (!result.ok) return false;
+
+  revalidatePath(`/lab/orders/${file.order.id}`);
+  revalidatePath('/lab/orders', 'layout');
+  revalidatePath('/design/orders', 'layout');
+  revalidatePath('/clinic/orders', 'layout');
+
+  return true;
 }
 
 // ---------- 지우기 ----------

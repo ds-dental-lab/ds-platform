@@ -52,7 +52,21 @@ function rolesOf(
 }
 
 /** 사유를 반드시 받아야 하는 전이 */
-const REASON_REQUIRED: OrderStatus[] = ['rescan', 'cancelled'];
+/**
+ * 사유를 받아야 하는 전이인가.
+ *
+ * ★ 뒤로 가는 길에만 붙습니다.
+ *   되돌리면 상대의 일이 헛수고가 됩니다. 왜 그랬는지가 없으면
+ *   같은 일이 반복돼도 아무도 원인을 모릅니다.
+ *
+ * ★ 접수 → 디자인은 묻지 않습니다.
+ *   같은 'designing' 이지만 이쪽은 앞으로 가는 길입니다.
+ */
+function needsReason(from: OrderStatus, to: OrderStatus): boolean {
+  if (to === 'rescan' || to === 'cancelled') return true;
+
+  return to === 'designing' && from !== 'received';
+}
 
 export async function changeOrderStatus(
   orderId: string,
@@ -102,7 +116,7 @@ export async function changeOrderStatus(
     return { ok: false, error: verdicts[0].reason ?? '진행할 수 없습니다' };
   }
 
-  if (REASON_REQUIRED.includes(to) && !reason?.trim()) {
+  if (needsReason(from, to) && !reason?.trim()) {
     return { ok: false, error: '사유를 입력해 주세요' };
   }
 

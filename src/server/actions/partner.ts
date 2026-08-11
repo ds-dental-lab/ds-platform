@@ -46,7 +46,7 @@ export interface CreatePartnerInput extends PartnerInput {
 function refresh(orgId?: string) {
   revalidatePath('/design/users');
   if (orgId) revalidatePath(`/design/users/${orgId}`);
-  // 주문등록(대리)·배정 목록이 거래처에서 나옵니다
+  // 주문등록·배정 목록이 거래처에서 나옵니다
   revalidatePath('/design/orders', 'layout');
 }
 

@@ -61,6 +61,27 @@ export function canRequestRescan(status: OrderStatus, sector: Sector): boolean {
   return sector === 'design_center' && REVERSIBLE_FROM.includes(status);
 }
 
+/**
+ * 디자인으로 되돌릴 수 있는가. (사용자 결정 2026-08-12)
+ *
+ * ★ 기공소가 "이 디자인으로는 못 만든다" 고 할 때가 있습니다.
+ *   마진이 안 맞거나 두께가 모자라면 고쳐서 다시 올려야 합니다.
+ *   그때 주문을 새로 넣게 하면 치식·쉐이드·파일이 통째로 다시 갑니다.
+ *
+ * ★ 제작까지도 되돌립니다.
+ *   기공소가 파일을 열어 본 뒤에야 아는 문제가 대부분입니다 —
+ *   그때는 이미 '제작' 으로 넘어가 있습니다.
+ *
+ * ★ 되돌리는 것은 디자인센터입니다.
+ *   기공소는 대화로 알리고, 실제로 손대는 쪽이 상태를 옮깁니다.
+ *   양쪽이 다 옮길 수 있으면 지금 누구 손에 있는지 알 수 없어집니다.
+ */
+const RETURNABLE_FROM: OrderStatus[] = ['production_wait', 'production'];
+
+export function canReturnToDesign(status: OrderStatus, sector: Sector): boolean {
+  return sector === 'design_center' && RETURNABLE_FROM.includes(status);
+}
+
 const CANCELLABLE_FROM: OrderStatus[] = ['received', 'rescan'];
 
 export function canCancel(status: OrderStatus, sector: Sector): boolean {
@@ -95,6 +116,14 @@ export function canTransition(
   if (to === 'rescan') {
     if (!canRequestRescan(from, sector)) {
       return { allowed: false, reason: '재스캔 요청은 디자인센터가 접수·디자인 상태에서만 할 수 있습니다' };
+    }
+    return { allowed: true };
+  }
+
+  // 뒤로 한 칸 — 기공소가 디자인 수정을 요청한 경우
+  if (to === 'designing' && RETURNABLE_FROM.includes(from)) {
+    if (!canReturnToDesign(from, sector)) {
+      return { allowed: false, reason: '디자인으로 되돌리는 것은 디자인센터만 할 수 있습니다' };
     }
     return { allowed: true };
   }
@@ -310,6 +339,17 @@ export function getAvailableActions(status: OrderStatus, sector: Sector): Status
       requiresReason: false,
       requiresLab: requiresLabAssignment(status, next),
       danger: false,
+    });
+  }
+
+  // 디자인으로 되돌리기 — 기공소가 수정을 요청했을 때
+  if (canReturnToDesign(status, sector)) {
+    actions.push({
+      to: 'designing',
+      label: '디자인 수정',
+      requiresReason: true,
+      requiresLab: false,
+      danger: true,
     });
   }
 

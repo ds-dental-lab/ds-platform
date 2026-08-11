@@ -30,7 +30,7 @@ export interface DueDatePickerProps {
   /**
    * 무엇까지 고를 수 있는가.
    *   standard  치과 — 4번째 영업일부터
-   *   free      디자인센터 대리등록 — 오늘부터
+   *   free      디자인센터 주문등록 — 오늘부터
    */
   policy?: DueDatePolicy;
   onChange: (date: IsoDate) => void;

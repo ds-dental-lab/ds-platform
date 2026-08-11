@@ -47,7 +47,7 @@ export interface OrderItemInput {
 
 export interface CreateOrderInput {
   /**
-   * 대리등록 — 디자인센터가 이 치과를 대신해 넣습니다.
+   * 어느 치과의 주문인가. 디자인센터 주문등록에서 고릅니다.
    *
    * ★ 치과 계정이 보낸 값은 **무시합니다**.
    *   치과가 이 칸에 남의 치과 id 를 넣어 주문을 떠넘기지 못하게,
@@ -87,7 +87,7 @@ export function validateOrder(
   catalog: ProsthesisCatalog,
   today?: string,
   /**
-   * 요청시한 규칙. 대리등록(디자인센터)은 오늘부터입니다.
+   * 요청시한 규칙. 디자인센터는 오늘부터입니다.
    * ★ 화면이 보낸 값이 아니라 **누가 로그인했는지**로 정합니다 —
    *   치과가 'free' 를 보내 최소 납기를 건너뛸 수 없어야 합니다.
    */
@@ -192,7 +192,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
 
   // ★ 검증을 로그인 확인 뒤로 옮겼습니다.
   //   요청시한 규칙이 '누가 넣는가' 에 따라 다릅니다 —
-  //   디자인센터 대리등록은 오늘부터 고를 수 있습니다.
+  //   디자인센터는 오늘부터 고를 수 있습니다.
   //   화면이 보낸 값이 아니라 세션으로 정해야 치과가 우회하지 못합니다.
   const catalog = await getProsthesisCatalog({ includeInactive: true });
   const problem = validateOrder(
@@ -389,7 +389,7 @@ async function buildPatientLabels(
 
   // ★ 그 치과의 환자여야 합니다.
   //   디자인센터는 모든 거래처 치과의 환자를 읽을 수 있어(patient_select),
-  //   대리등록에서 남의 치과 환자가 붙을 수 있습니다.
+  //   그대로 두면 남의 치과 환자가 붙을 수 있습니다.
   const { data: patient } = await supabase
     .from('patients')
     .select('name, name_masked, chart_no')
