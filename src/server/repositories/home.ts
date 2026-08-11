@@ -33,6 +33,27 @@ export interface HomePickup {
   memo: string;
 }
 
+/** 디자인센터가 지금 손대야 하는 주문 한 줄 */
+export interface HomeWork {
+  id: string;
+  clinicName: string;
+  patientLabel: string;
+  dueDate: string;
+  status: OrderStatus;
+}
+
+/**
+ * 디자인센터의 '작업' 은 어디까지인가.
+ *
+ * ★ 제작대기부터는 기공소의 일입니다.
+ *   넘긴 뒤에도 목록에 남아 있으면 "아직 할 일이 열두 건" 으로 보여,
+ *   정작 손대야 할 두 건이 묻힙니다.
+ *
+ * ★ 재스캔이 맨 앞입니다.
+ *   막혀 있는 건이고, 푸는 사람이 디자인센터입니다 (치과에 다시 받아야 함).
+ */
+const DESIGN_WORK: OrderStatus[] = ['rescan', 'received', 'designing'];
+
 export interface HomeSummary {
   /** 진행중 상태별 건수. 완료·취소는 세지 않습니다 */
   statusCounts: Record<string, number>;
@@ -44,6 +65,8 @@ export interface HomeSummary {
   pickups: HomePickup[];
   /** 왼쪽 위 금액 카드. 세는 기준이 섹터마다 다릅니다 (home-money) */
   money: HomeMoney;
+  /** 디자인센터 작업 리스트. 급한 것부터 */
+  worklist: HomeWork[];
 }
 
 interface RawRow {
@@ -79,6 +102,7 @@ export async function getHomeSummary(): Promise<HomeSummary> {
   const statusCounts: Record<string, number> = {};
   const issueCounts: Record<string, number> = {};
   const todayDeliveries: HomeDelivery[] = [];
+  const worklist: HomeWork[] = [];
 
   for (const row of rows) {
     if (DONE.includes(row.status)) continue;
@@ -100,7 +124,29 @@ export async function getHomeSummary(): Promise<HomeSummary> {
         status: row.status,
       });
     }
+
+    // ★ 조회를 더 하지 않습니다 — 위에서 이미 다 읽어 온 줄들입니다
+    if (DESIGN_WORK.includes(row.status)) {
+      worklist.push({
+        id: row.id,
+        clinicName: row.clinic?.name ?? '',
+        patientLabel: row.patient_label,
+        dueDate: row.due_date,
+        status: row.status,
+      });
+    }
   }
+
+  /*
+    ★ 요청시한이 이른 것부터입니다. 접수순이 아닙니다 —
+      어제 들어온 내일 마감 건이, 지난주에 들어온 다음주 건보다 급합니다.
+      같은 날이면 재스캔을 위로 올립니다 (막혀 있어 시간이 더 듭니다).
+  */
+  worklist.sort(
+    (a, b) =>
+      a.dueDate.localeCompare(b.dueDate) ||
+      DESIGN_WORK.indexOf(a.status) - DESIGN_WORK.indexOf(b.status),
+  );
 
   return {
     statusCounts,
@@ -108,6 +154,7 @@ export async function getHomeSummary(): Promise<HomeSummary> {
     todayDeliveries,
     pickups: await listOpenPickups(supabase),
     money: await money,
+    worklist,
   };
 }
 

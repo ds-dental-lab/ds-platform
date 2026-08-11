@@ -22,7 +22,7 @@ import Link from 'next/link';
 import { STATUS_LABEL, type OrderStatus, type Sector } from '@/server/domain/order-status';
 import { ISSUE_META, type IssueType } from '@/server/domain/order-list';
 import MoneyTrend from '@/components/home/MoneyTrend';
-import type { HomeSummary } from '@/server/repositories/home';
+import type { HomeSummary, HomeWork } from '@/server/repositories/home';
 
 /** 섹터마다 세는 상태가 다릅니다 */
 const STATUS_ROWS: Record<Sector, OrderStatus[]> = {
@@ -207,23 +207,7 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
         </div>
 
         {/* 디자인센터만 작업 리스트가 하나 더 붙습니다 */}
-        {showWorklist && (
-          <Card className="min-h-[220px]">
-            <div className="flex items-center">
-              <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">작업 리스트</h2>
-              <span className="ml-auto text-[12px] text-[#98A2B3]">0건</span>
-            </div>
-
-            <div className="mt-3 grid grid-cols-4 border-b border-[#E8EBF0] pb-2 text-[12px] text-[#98A2B3]">
-              <span>치과명</span>
-              <span>환자정보</span>
-              <span>디자이너</span>
-              <span>상태</span>
-            </div>
-
-            <Empty className="py-14">진행 중인 작업이 없습니다.</Empty>
-          </Card>
-        )}
+        {showWorklist && <Worklist rows={summary.worklist} ordersPath={path.orders} />}
 
         {/* ★ 금액 추이는 세 섹터 모두 봅니다.
             전에는 디자인센터 자리에 작업 리스트만 두어, 정작 이 화면을 매일
@@ -305,6 +289,76 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
         </Card>
       </div>
     </div>
+  );
+}
+
+// ---------- 작업 리스트 (디자인센터) ----------
+
+/** 카드에 보여 줄 줄 수. 넘치면 '외 N건' 으로 접습니다 */
+const WORKLIST_SHOWN = 6;
+
+/**
+ * 디자인센터가 지금 손대야 하는 주문.
+ *
+ * ★ 제작대기부터는 안 나옵니다 — 기공소의 일입니다 (repositories/home).
+ *   넘긴 뒤에도 남아 있으면 "할 일이 열두 건" 으로 보여, 정작 손대야 할
+ *   두 건이 묻힙니다.
+ *
+ * ★ 요청시한이 이른 것부터입니다. 접수순이 아닙니다.
+ *
+ * ★ 디자이너 칸은 아직 '미지정' 입니다.
+ *   담당자를 붙일 자리(orders 의 칸)도, 고를 사람(직원 계정)도 아직
+ *   없습니다. 주문상세도 같은 자리에 '미지정' 을 찍고 있어 둘이 어긋나지
+ *   않습니다. 직원 계정이 서면 그때 채웁니다.
+ */
+function Worklist({ rows, ordersPath }: { rows: HomeWork[]; ordersPath: string }) {
+  const shown = rows.slice(0, WORKLIST_SHOWN);
+
+  return (
+    <Card className="min-h-[220px]">
+      <div className="flex items-center">
+        <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">작업 리스트</h2>
+        <span className="ml-auto text-[12px] text-[#98A2B3]">{rows.length}건</span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-[1fr_1.2fr_0.9fr_0.8fr] gap-2 border-b border-[#E8EBF0] pb-2 text-[12px] text-[#98A2B3]">
+        <span>치과명</span>
+        <span>환자정보</span>
+        <span>디자이너</span>
+        <span className="text-right">상태</span>
+      </div>
+
+      {shown.length === 0 ? (
+        <Empty className="py-14">진행 중인 작업이 없습니다.</Empty>
+      ) : (
+        <ul className="-mx-1.5">
+          {shown.map((row) => (
+            <li key={row.id}>
+              <Link
+                href={`${ordersPath}/${row.id}`}
+                className="grid grid-cols-[1fr_1.2fr_0.9fr_0.8fr] items-center gap-2 rounded px-1.5 py-[7px] text-[12.5px] hover:bg-[#F4F8FE]"
+              >
+                <span className="truncate text-[#4A5567]">{row.clinicName}</span>
+                <span className="truncate font-semibold text-[#1A2130]">{row.patientLabel}</span>
+                <span className="truncate text-[#C4CBD6]">미지정</span>
+                <span className="truncate text-right text-[#4A5567]">
+                  {STATUS_LABEL[row.status]}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {rows.length > shown.length && (
+        <Link
+          href={ordersPath}
+          className="mt-1.5 block text-[12px] text-[#4A5567] hover:text-[#1279E8]"
+        >
+          외 {rows.length - shown.length}건 더 보기 ›
+        </Link>
+      )}
+    </Card>
   );
 }
 
