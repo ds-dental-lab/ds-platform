@@ -36,7 +36,11 @@ import DueDatePicker from '@/components/order/DueDatePicker';
 import ToothPickRow from '@/components/dental/ToothChart/ToothPickRow';
 import { buildAbbr, getMaterials, type ProsthesisCatalog } from '@/server/domain/prosthesis';
 import { formatShade, type ToothShade, type ShadeSystemCode } from '@/server/domain/shade';
-import { canRequestRemake, type OrderStatus } from '@/server/domain/order-status';
+import {
+  canRequestRemakeAsAny,
+  type OrderStatus,
+  type Sector,
+} from '@/server/domain/order-status';
 import type { OrderDetailItem, OrderDetailFile } from '@/server/repositories/order';
 import type { IsoDate } from '@/server/domain/week';
 
@@ -56,6 +60,10 @@ export interface RemakeRequestProps {
   today: IsoDate;
   defaultDue: IsoDate;
   prosthesisCatalog: ProsthesisCatalog;
+  /** 이 주문에서 내가 맡은 자리들. 치과와 디자인센터가 넣습니다 */
+  roles: Sector[];
+  /** 만든 뒤 어디로 갈지 */
+  basePath?: string;
 }
 
 export default function RemakeRequest({
@@ -66,6 +74,8 @@ export default function RemakeRequest({
   today,
   defaultDue,
   prosthesisCatalog,
+  roles,
+  basePath = '/clinic/orders',
 }: RemakeRequestProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -84,7 +94,7 @@ export default function RemakeRequest({
   const [upload, setUpload] = useState<UploadState | null>(null);
   const [error, setError] = useState('');
 
-  if (!canRequestRemake(status, 'clinic')) return null;
+  if (!canRequestRemakeAsAny(status, roles)) return null;
 
   const busy = saving || pending;
 
@@ -187,7 +197,7 @@ export default function RemakeRequest({
     setOpen(false);
 
     startTransition(() => {
-      router.push(`/clinic/orders/${result.orderId}`);
+      router.push(`${basePath}/${result.orderId}`);
       router.refresh();
     });
   }

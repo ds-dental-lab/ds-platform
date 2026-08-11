@@ -265,12 +265,31 @@ export function canManageOrder(roles: Sector[]): boolean {
 
 const REMAKE_ALLOWED_FROM: OrderStatus[] = ['shipping', 'completed'];
 
+/**
+ * 리메이크·리페어를 넣을 수 있는가.
+ *
+ * ★ 디자인센터도 넣습니다 (사용자 결정 2026-08-12).
+ *   "치과에서 할 줄 모른다며 문의 전화가 오면 우리가 대신 넣어야 한다."
+ *   주문은 그대로 그 치과의 것이고, 넣은 사람만 created_by 에 남습니다.
+ *
+ * ★ 기공소는 못 넣습니다.
+ *   만드는 쪽이 "다시 만들겠다" 를 스스로 걸면 아무도 검수하지 않습니다.
+ *   문제를 발견하면 대화로 알리고, 요청은 의뢰한 쪽이 넣습니다.
+ */
 export function canRequestRemake(status: OrderStatus, sector: Sector): boolean {
-  return sector === 'clinic' && REMAKE_ALLOWED_FROM.includes(status);
+  return (
+    (sector === 'clinic' || sector === 'design_center') &&
+    REMAKE_ALLOWED_FROM.includes(status)
+  );
 }
 
 export function canRequestRepair(status: OrderStatus, sector: Sector): boolean {
   return canRequestRemake(status, sector);
+}
+
+/** 여러 자리를 겸할 때 — 하나라도 되면 됩니다 (자사 제작) */
+export function canRequestRemakeAsAny(status: OrderStatus, roles: Sector[]): boolean {
+  return roles.some((role) => canRequestRemake(status, role));
 }
 
 export function getNewOrderStatus(kind: 'remake' | 'repair'): OrderStatus {
@@ -440,4 +459,64 @@ const FILE_EDITABLE_STATUSES: OrderStatus[] = ['received', 'rescan', 'designing'
 
 export function canEditFiles(status: OrderStatus): boolean {
   return FILE_EDITABLE_STATUSES.includes(status);
+}
+
+// ---------- 리페어 사유 ----------
+//
+// ★ 다섯 가지가 거의 전부입니다 (사용자 경험 2026-08-12).
+//   자유 입력만 두면 같은 문제를 사람마다 다르게 적습니다 —
+//   '컨택 타이트', '인접면 조정', '옆 이랑 껴요' 가 다 같은 말입니다.
+//   버튼으로 두면 기공소가 바로 알아보고, 나중에 세어 볼 수도 있습니다.
+//
+// ★ '기타' 는 남깁니다. 다섯 가지로 다 담기지 않습니다.
+//   그때는 손으로 적게 하되, 적어야 넘어가게 막습니다.
+
+export interface RepairReason {
+  code: string;
+  label: string;
+  /** 고르면 손으로 적어야 하는가 */
+  freeText?: boolean;
+}
+
+export const REPAIR_REASONS: RepairReason[] = [
+  { code: 'contact_mesial', label: '근심(Mesial) 컨텍 에딩' },
+  { code: 'contact_distal', label: '원심(Distal) 컨텍 에딩' },
+  { code: 'occlusion_high', label: '교합 높음' },
+  { code: 'occlusion_low', label: '교합 낮음' },
+  { code: 'etc', label: '기타', freeText: true },
+];
+
+export function repairReasonLabel(code: string): string {
+  return REPAIR_REASONS.find((r) => r.code === code)?.label ?? code;
+}
+
+/**
+ * 고른 사유를 기공소가 읽을 한 줄로 만듭니다.
+ *
+ * ★ 코드가 아니라 사람 말로 저장합니다.
+ *   기공작업지시서와 대화창에 그대로 실립니다. 코드로 두면 읽는 쪽이
+ *   목록을 따로 봐야 하고, 목록이 바뀌면 지난 주문의 뜻이 흔들립니다.
+ */
+export function buildRepairNote(codes: string[], freeText: string): string {
+  const picked = REPAIR_REASONS.filter((r) => codes.includes(r.code) && !r.freeText).map(
+    (r) => r.label,
+  );
+
+  const extra = codes.includes('etc') ? freeText.trim() : '';
+
+  return [...picked, extra].filter(Boolean).join(' · ');
+}
+
+/** 넣어도 되는 사유인가 */
+export function checkRepairReasons(
+  codes: string[],
+  freeText: string,
+): { ok: true } | { ok: false; reason: string } {
+  if (codes.length === 0) return { ok: false, reason: '증상을 하나 이상 골라 주세요' };
+
+  if (codes.includes('etc') && !freeText.trim()) {
+    return { ok: false, reason: '기타를 고르셨으면 내용을 적어 주세요' };
+  }
+
+  return { ok: true };
 }

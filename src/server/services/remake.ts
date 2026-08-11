@@ -28,7 +28,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
-import { canRequestRemake, type OrderStatus } from '@/server/domain/order-status';
+import { canRequestRemake, type OrderStatus , type Sector } from '@/server/domain/order-status';
 import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate, checkDueDate } from '@/server/domain/due-date';
 import { isValidCombination } from '@/server/domain/prosthesis';
@@ -94,8 +94,8 @@ interface CopyableItem {
 
 export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
   const session = await getSession();
-  if (!session?.orgId || session.orgType !== 'clinic') {
-    return { ok: false, error: '치과 계정만 리메이크를 신청할 수 있습니다' };
+  if (!session?.orgId || (session.orgType !== 'clinic' && session.orgType !== 'design_center')) {
+    return { ok: false, error: '치과 또는 디자인센터만 리메이크를 신청할 수 있습니다' };
   }
 
   if (input.itemIds.length === 0) {
@@ -143,8 +143,20 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
     remake_count: number;
   };
 
-  // ★ 화면에서 버튼을 숨기는 것은 UX 일 뿐입니다. 여기서 다시 봅니다.
-  if (!canRequestRemake(parent.status, 'clinic')) {
+  /*
+    ★ 화면에서 버튼을 숨기는 것은 UX 일 뿐입니다. 여기서 다시 봅니다.
+
+    ★ 넣는 사람이 그 주문의 치과이거나 디자인센터여야 합니다.
+      기공소는 배정받은 주문을 볼 수 있으므로 RLS 만으로는 부족합니다.
+  */
+  const sector: Sector =
+    parent.clinic_org_id === session.orgId
+      ? 'clinic'
+      : parent.design_org_id === session.orgId
+        ? 'design_center'
+        : 'lab';
+
+  if (!canRequestRemake(parent.status, sector)) {
     return { ok: false, error: '리메이크는 배송·완료 상태에서만 신청할 수 있습니다' };
   }
 

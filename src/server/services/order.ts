@@ -14,6 +14,7 @@ import { isValidTooth } from '@/server/domain/tooth';
 import {
   isValidCombination,
   requiresImplantModel,
+  requiresShade,
   allowsGingival,
   type ProsthesisCatalog,
 } from '@/server/domain/prosthesis';
@@ -131,6 +132,27 @@ export function validateOrder(
       if (!item.implantManufacturer || !item.implantType) {
         return `${item.tooth}번 — 임플란트 제조사와 타입을 선택해 주세요`;
       }
+    }
+
+    /*
+      ★ 쉐이드는 필수입니다. 화면만 믿고 있었습니다 (2026-08-12 발견).
+
+        치아를 얹을 때는 화면이 막고 있었지만, 저장 단계에는 아무 검사가
+        없었습니다. 실제로 8/7~8/10 주문 다섯 건에 쉐이드가 비어 있습니다 —
+        그 관문이 서기 전에 들어온 것들입니다.
+
+        기공소는 색을 모르면 만들 수 없습니다. 색이 빈 채로 넘어가면
+        전화가 오거나, 짐작으로 만들어 리메이크가 됩니다.
+
+      ★ 색을 안 내는 제품은 묻지 않습니다 (커스텀 어버트먼트 등).
+        폰틱도 묻지 않습니다 — 옆 이의 색을 따라갑니다.
+    */
+    if (
+      requiresShade(catalog, item.typeCode, item.materialCode) &&
+      !item.isPontic &&
+      !item.shadeCervical
+    ) {
+      return `${item.tooth}번 — 쉐이드를 선택해 주세요`;
     }
 
     // 쉐이드가 그 체계에 있는 값인가

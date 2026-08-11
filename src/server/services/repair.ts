@@ -22,7 +22,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
-import { canRequestRepair, type OrderStatus } from '@/server/domain/order-status';
+import { canRequestRepair, type OrderStatus, type Sector } from '@/server/domain/order-status';
 import { publishRepairRequested } from '@/server/events';
 
 export interface RepairInput {
@@ -31,6 +31,15 @@ export interface RepairInput {
   itemIds: string[];
   /** 무엇이 문제인지. 기공소가 그대로 봅니다 */
   notes: string;
+  /**
+   * 언제까지 고쳐 달라는가. (사용자 요청 2026-08-12)
+   *
+   * ★ 리페어에도 시한이 필요합니다.
+   *   전에는 기본값(5영업일)을 조용히 박았습니다. 그런데 리페어는
+   *   대개 급합니다 — 환자가 다시 오는 날이 정해져 있습니다.
+   *   그 날짜를 못 적으면 기공소가 우선순위를 알 수 없습니다.
+   */
+  dueDate?: string;
 }
 
 export type RepairResult =
@@ -57,8 +66,8 @@ interface CopyableItem {
 
 export async function requestRepair(input: RepairInput): Promise<RepairResult> {
   const session = await getSession();
-  if (!session?.orgId || session.orgType !== 'clinic') {
-    return { ok: false, error: '치과 계정만 리페어를 신청할 수 있습니다' };
+  if (!session?.orgId || (session.orgType !== 'clinic' && session.orgType !== 'design_center')) {
+    return { ok: false, error: '치과 또는 디자인센터만 리페어를 신청할 수 있습니다' };
   }
 
   if (input.itemIds.length === 0) {
@@ -96,8 +105,21 @@ export async function requestRepair(input: RepairInput): Promise<RepairResult> {
     order_type: string;
   };
 
-  // ★ 화면에서 버튼을 숨기는 것은 UX 일 뿐입니다. 여기서 다시 봅니다.
-  if (!canRequestRepair(parent.status, 'clinic')) {
+  /*
+    ★ 화면에서 버튼을 숨기는 것은 UX 일 뿐입니다. 여기서 다시 봅니다.
+
+    ★ 넣는 사람이 그 주문의 치과이거나 디자인센터여야 합니다.
+      RLS 가 남의 주문을 이미 걸렀지만, 기공소는 배정받은 주문을
+      볼 수 있으므로 여기서 한 번 더 가릅니다.
+  */
+  const sector: Sector =
+    parent.clinic_org_id === session.orgId
+      ? 'clinic'
+      : parent.design_org_id === session.orgId
+        ? 'design_center'
+        : 'lab';
+
+  if (!canRequestRepair(parent.status, sector)) {
     return {
       ok: false,
       error: '리페어는 배송·완료 상태에서만 신청할 수 있습니다',
@@ -145,7 +167,8 @@ export async function requestRepair(input: RepairInput): Promise<RepairResult> {
       patient_label_masked: parent.patient_label_masked,
       order_type: 'repair',
       status: 'production_wait',
-      due_date: defaultDueDate(),
+      // 안 주면 기본값으로 버팁니다 — 시한 없는 주문은 만들지 않습니다
+      due_date: input.dueDate || defaultDueDate(),
       notes: input.notes.trim(),
       is_repair: true,
       is_billable: false,                 // 청구 제외 (§4.5)

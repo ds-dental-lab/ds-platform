@@ -15,6 +15,9 @@ import { todayInKst } from '@/server/domain/week';
 import { canUploadDesignFile } from '@/server/domain/order-status';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
 import DesignFileUpload from '@/components/order/DesignFileUpload';
+import RemakeRequest from '@/components/order/RemakeRequest';
+import RepairRequest from '@/components/order/RepairRequest';
+import { defaultDueDate } from '@/server/domain/due-date';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +38,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
     getProsthesisCatalog({ includeInactive: true }),
   ]);
 
+  const today = todayInKst();
   const designFiles = order.files.filter((f) => f.kind === 'design');
 
   /*
@@ -53,7 +57,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
     <OrderDetailScreen
       order={order}
       sector="design_center"
-      today={todayInKst()}
+      today={today}
       implantCatalog={implantCatalog}
       prosthesisCatalog={prosthesisCatalog}
       messages={messages}
@@ -65,6 +69,36 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
         canUploadDesignFile(order.status, 'design_center') ? (
           <DesignFileUpload orderId={order.id} />
         ) : null
+      }
+      /*
+        ★ 디자인센터도 리메이크·리페어를 대신 넣습니다 (사용자 결정 2026-08-12).
+          "치과에서 할 줄 모른다며 문의 전화가 오면 우리가 대신해야 한다."
+          주문은 그대로 그 치과의 것이고, 넣은 사람만 created_by 에 남습니다.
+      */
+      barSlot={
+        <>
+          <RemakeRequest
+            orderId={order.id}
+            status={order.status}
+            items={order.items}
+            scanFiles={order.files.filter((f) => f.kind !== 'design')}
+            today={today}
+            defaultDue={defaultDueDate(today)}
+            prosthesisCatalog={prosthesisCatalog}
+            roles={order.roles}
+            basePath="/design/orders"
+          />
+          <RepairRequest
+            orderId={order.id}
+            status={order.status}
+            items={order.items}
+            prosthesisCatalog={prosthesisCatalog}
+            roles={order.roles}
+            today={today}
+            defaultDue={defaultDueDate(today)}
+            basePath="/design/orders"
+          />
+        </>
       }
     />
   );

@@ -584,6 +584,27 @@ function OrderFormBody({
     missingFields.push({ label: '스캔 파일', anchor: 'sec-files' });
   }
 
+  /*
+    ★ 쉐이드가 빈 치아. 치아를 얹을 때 막고 있지만 여기서도 셉니다.
+      수정 모드로 들어온 옛 주문에는 빈 것이 있을 수 있고,
+      그때 조용히 저장되면 기공소가 색을 모른 채 받습니다.
+  */
+  const shadeGaps = entries
+    .filter(
+      (e) =>
+        !e.isPontic &&
+        requiresShade(prosthesisCatalog, e.typeCode, e.materialCode) &&
+        !e.shade.cervical,
+    )
+    .map((e) => e.tooth);
+
+  if (shadeGaps.length > 0) {
+    missingFields.push({
+      label: `쉐이드 (${[...new Set(shadeGaps)].join(', ')}번)`,
+      anchor: 'sec-prosthesis',
+    });
+  }
+
   // 임플란트인데 모델이 덜 채워진 치아
   const implantGaps = entries
     .filter(

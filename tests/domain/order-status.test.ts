@@ -20,6 +20,11 @@ import {
   getAvailableActions,
   canEditDueDate,
   canDeleteFile,
+  canRequestRemakeAsAny,
+  REPAIR_REASONS,
+  buildRepairNote,
+  checkRepairReasons,
+  repairReasonLabel,
   canEditFiles,
 } from '@/server/domain/order-status';
 
@@ -160,8 +165,25 @@ describe('수정과 리메이크', () => {
     expect(canRequestRemake('shipping', 'clinic')).toBe(true);
     expect(canRequestRemake('completed', 'clinic')).toBe(true);
     expect(canRequestRemake('designing', 'clinic')).toBe(false);
-    expect(canRequestRemake('completed', 'design_center')).toBe(false);
+  });
+
+  // ★ 2026-08-12 에 열었습니다 — "치과가 할 줄 모른다며 전화가 오면
+  //   우리가 대신 넣어야 한다"
+  it('★ 디자인센터도 대신 신청한다', () => {
+    expect(canRequestRemake('completed', 'design_center')).toBe(true);
+    expect(canRequestRepair('shipping', 'design_center')).toBe(true);
+    expect(canRequestRemake('designing', 'design_center')).toBe(false);
+  });
+
+  // ★ 만드는 쪽이 스스로 걸면 아무도 검수하지 않습니다
+  it('★ 기공소는 못 신청한다', () => {
     expect(canRequestRepair('completed', 'lab')).toBe(false);
+    expect(canRequestRemake('shipping', 'lab')).toBe(false);
+  });
+
+  it('자사 제작이면 디자인센터 자리로 신청된다', () => {
+    expect(canRequestRemakeAsAny('completed', ['design_center', 'lab'])).toBe(true);
+    expect(canRequestRemakeAsAny('completed', ['lab'])).toBe(false);
   });
 
   it('리메이크는 접수부터, 리페어는 제작대기부터', () => {
@@ -325,5 +347,53 @@ describe('파일 지우기', () => {
     expect(canEditFiles('rescan')).toBe(true);
     expect(canEditFiles('designing')).toBe(true);
     expect(canEditFiles('production_wait')).toBe(false);
+  });
+});
+
+// =========================================================
+// 리페어 사유 — 다섯 가지가 거의 전부입니다 (사용자 경험 2026-08-12)
+// =========================================================
+
+describe('리페어 사유', () => {
+  it('다섯 가지가 있고 기타만 손으로 적는다', () => {
+    expect(REPAIR_REASONS).toHaveLength(5);
+    expect(REPAIR_REASONS.filter((r) => r.freeText)).toHaveLength(1);
+    expect(REPAIR_REASONS[0].label).toBe('근심(Mesial) 컨텍 에딩');
+  });
+
+  // ★ 코드가 아니라 사람 말로 저장합니다 — 기공작업지시서에 그대로 실립니다
+  it('★ 고른 것을 기공소가 읽을 한 줄로 만든다', () => {
+    expect(buildRepairNote(['contact_mesial', 'occlusion_high'], '')).toBe(
+      '근심(Mesial) 컨텍 에딩 · 교합 높음',
+    );
+  });
+
+  it('기타를 고르면 적은 내용이 뒤에 붙는다', () => {
+    expect(buildRepairNote(['occlusion_low', 'etc'], '변연부 들뜸')).toBe(
+      '교합 낮음 · 변연부 들뜸',
+    );
+  });
+
+  it('기타만 골랐으면 적은 내용만 남는다', () => {
+    expect(buildRepairNote(['etc'], '색이 다릅니다')).toBe('색이 다릅니다');
+  });
+
+  it('아무것도 안 고르면 막는다', () => {
+    expect(checkRepairReasons([], '').ok).toBe(false);
+  });
+
+  // ★ 기공소가 물어보러 전화하게 두면 안 됩니다
+  it('★ 기타를 골랐는데 안 적으면 막는다', () => {
+    expect(checkRepairReasons(['etc'], '   ').ok).toBe(false);
+    expect(checkRepairReasons(['etc'], '변연부 들뜸').ok).toBe(true);
+  });
+
+  it('버튼만 골랐으면 적지 않아도 된다', () => {
+    expect(checkRepairReasons(['contact_distal'], '').ok).toBe(true);
+  });
+
+  it('이름을 코드로 되찾는다', () => {
+    expect(repairReasonLabel('occlusion_high')).toBe('교합 높음');
+    expect(repairReasonLabel('없는코드')).toBe('없는코드');
   });
 });

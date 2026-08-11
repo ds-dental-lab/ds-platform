@@ -17,7 +17,7 @@ const CATALOG = FALLBACK_TYPES;
 const base: CreateOrderInput = {
   patientLabel: '김철수 (10001)',
   dueDate: '2026-08-20',
-  items: [{ tooth: 16, typeCode: 'crown', materialCode: 'zirconia' }],
+  items: [{ tooth: 16, typeCode: 'crown', materialCode: 'zirconia', shadeSystem: 'vita_classic', shadeCervical: 'A2' }],
 };
 
 describe('기본 입력', () => {
@@ -42,7 +42,7 @@ describe('치식 번호', () => {
   it('★ 없는 번호를 막는다', () => {
     const result = validateOrder({
       ...base,
-      items: [{ tooth: 19, typeCode: 'crown', materialCode: 'zirconia' }],
+      items: [{ tooth: 19, typeCode: 'crown', materialCode: 'zirconia', shadeSystem: 'vita_classic', shadeCervical: 'A2' }],
     }, CATALOG);
     expect(result).toContain('19');
   });
@@ -52,7 +52,7 @@ describe('종류와 재료', () => {
   it('★ 크라운에 하이브리드는 막는다', () => {
     const result = validateOrder({
       ...base,
-      items: [{ tooth: 16, typeCode: 'crown', materialCode: 'hybrid' }],
+      items: [{ tooth: 16, typeCode: 'crown', materialCode: 'hybrid', shadeSystem: 'vita_classic', shadeCervical: 'A2' }],
     }, CATALOG);
     expect(result).toBeTruthy();
   });
@@ -60,7 +60,7 @@ describe('종류와 재료', () => {
   it('인레이 지르코니아는 통과한다', () => {
     const result = validateOrder({
       ...base,
-      items: [{ tooth: 16, typeCode: 'inlay', materialCode: 'zirconia' }],
+      items: [{ tooth: 16, typeCode: 'inlay', materialCode: 'zirconia', shadeSystem: 'vita_classic', shadeCervical: 'A2' }],
     }, CATALOG);
     expect(result).toBeNull();
   });
@@ -103,6 +103,8 @@ describe('임플란트', () => {
           materialCode: 'abut_pmma',
           implantManufacturer: 'OST',
           implantType: 'OST_TS',
+          shadeSystem: 'vita_classic',
+          shadeCervical: 'A2',
         },
       ],
     }, CATALOG);
@@ -160,8 +162,8 @@ describe('한 치아 중복', () => {
     const result = validateOrder({
       ...base,
       items: [
-        { tooth: 16, typeCode: 'crown', materialCode: 'zirconia' },
-        { tooth: 16, typeCode: 'crown', materialCode: 'pmma' },
+        { tooth: 16, typeCode: 'crown', materialCode: 'zirconia', shadeSystem: 'vita_classic', shadeCervical: 'A2' },
+        { tooth: 16, typeCode: 'crown', materialCode: 'pmma', shadeSystem: 'vita_classic', shadeCervical: 'A2' },
       ],
     }, CATALOG);
     expect(result).toBeNull();
@@ -171,8 +173,8 @@ describe('한 치아 중복', () => {
     const result = validateOrder({
       ...base,
       items: [
-        { tooth: 16, typeCode: 'crown', materialCode: 'zirconia' },
-        { tooth: 16, typeCode: 'inlay', materialCode: 'hybrid' },
+        { tooth: 16, typeCode: 'crown', materialCode: 'zirconia', shadeSystem: 'vita_classic', shadeCervical: 'A2' },
+        { tooth: 16, typeCode: 'inlay', materialCode: 'hybrid', shadeSystem: 'vita_classic', shadeCervical: 'A2' },
       ],
     }, CATALOG);
     expect(result).toBeTruthy();
@@ -182,8 +184,8 @@ describe('한 치아 중복', () => {
     const result = validateOrder({
       ...base,
       items: [
-        { tooth: 16, typeCode: 'crown', materialCode: 'zirconia' },
-        { tooth: 16, typeCode: 'crown', materialCode: 'pmma' },
+        { tooth: 16, typeCode: 'crown', materialCode: 'zirconia', shadeSystem: 'vita_classic', shadeCervical: 'A2' },
+        { tooth: 16, typeCode: 'crown', materialCode: 'pmma', shadeSystem: 'vita_classic', shadeCervical: 'A2' },
         { tooth: 16, typeCode: 'implant', materialCode: 'abut_pmma',
           implantManufacturer: 'OST', implantType: 'OST_TS' },
       ],
@@ -195,10 +197,51 @@ describe('한 치아 중복', () => {
     const result = validateOrder({
       ...base,
       items: [
-        { tooth: 16, typeCode: 'crown', materialCode: 'zirconia' },
-        { tooth: 16, typeCode: 'crown', materialCode: 'zirconia' },
+        { tooth: 16, typeCode: 'crown', materialCode: 'zirconia', shadeSystem: 'vita_classic', shadeCervical: 'A2' },
+        { tooth: 16, typeCode: 'crown', materialCode: 'zirconia', shadeSystem: 'vita_classic', shadeCervical: 'A2' },
       ],
     }, CATALOG);
     expect(result).toBeTruthy();
+  });
+});
+
+// =========================================================
+// 쉐이드는 필수입니다 (2026-08-12 — 서버가 안 막고 있었습니다)
+// =========================================================
+
+describe('쉐이드 필수', () => {
+  const base = {
+    patientLabel: '홍길동',
+    dueDate: '2026-08-20',
+  };
+
+  function item(over: Record<string, unknown> = {}) {
+    return { tooth: 16, typeCode: 'crown', materialCode: 'zirconia', ...over };
+  }
+
+  // ★ 기공소는 색을 모르면 만들 수 없습니다
+  it('★ 쉐이드 없이 저장할 수 없다', () => {
+    const problem = validateOrder({ ...base, items: [item()] }, CATALOG);
+
+    expect(problem).toContain('쉐이드');
+  });
+
+  it('쉐이드가 있으면 통과한다', () => {
+    const problem = validateOrder(
+      { ...base, items: [item({ shadeSystem: 'vita_classic', shadeCervical: 'A2' })] },
+      CATALOG,
+    );
+
+    expect(problem).toBeNull();
+  });
+
+  // 폰틱은 옆 이의 색을 따라갑니다
+  it('폰틱은 쉐이드를 묻지 않는다', () => {
+    const problem = validateOrder(
+      { ...base, items: [item({ isPontic: true })] },
+      CATALOG,
+    );
+
+    expect(problem).toBeNull();
   });
 });

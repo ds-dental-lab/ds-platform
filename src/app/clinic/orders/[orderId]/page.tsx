@@ -67,12 +67,16 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             today={today}
             defaultDue={defaultDueDate(today)}
             prosthesisCatalog={prosthesisCatalog}
+            roles={order.roles}
           />
           <RepairRequest
             orderId={order.id}
             status={order.status}
             items={order.items}
             prosthesisCatalog={prosthesisCatalog}
+            roles={order.roles}
+            today={today}
+            defaultDue={defaultDueDate(today)}
           />
         </>
       }
