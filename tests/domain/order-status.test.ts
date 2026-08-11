@@ -17,6 +17,7 @@ import {
   canRequestRepair,
   getNewOrderStatus,
   isActionRequired,
+  getAvailableActions,
 } from '@/server/domain/order-status';
 
 describe('상태 목록', () => {
@@ -192,5 +193,33 @@ describe('수정 범위', () => {
     // 재스캔에서 사양을 막아도 막다른 길이 아니어야 합니다
     expect(canCancel('rescan', 'clinic')).toBe(true);
     expect(canCancel('received', 'clinic')).toBe(true);
+  });
+});
+
+// =========================================================
+// 재스캔의 전진은 버튼이 아니라 스캔 재등록 화면이 맡습니다
+//
+// ★ 버튼을 두면 파일 없이 '재업로드 완료' 만 눌러 넘길 수 있습니다.
+//   디자인센터는 다시 열어 보고 또 재스캔을 겁니다.
+// =========================================================
+
+describe('재스캔 전진', () => {
+  it('★ 재스캔에는 앞으로 가는 버튼이 없다', () => {
+    const forward = getAvailableActions('rescan', 'clinic').filter((a) => !a.danger);
+    expect(forward).toHaveLength(0);
+  });
+
+  it('취소는 그대로 남는다 — 막다른 길이 아니어야 합니다', () => {
+    const actions = getAvailableActions('rescan', 'clinic');
+    expect(actions.some((a) => a.to === 'cancelled')).toBe(true);
+  });
+
+  it('전이 규칙 자체는 열려 있다 — 막는 게 아니라 어느 화면이 맡는가의 문제', () => {
+    expect(canTransition('rescan', 'received', 'clinic').allowed).toBe(true);
+  });
+
+  it('다른 상태의 전진 버튼은 그대로다', () => {
+    const forward = getAvailableActions('received', 'design_center').filter((a) => !a.danger);
+    expect(forward.map((a) => a.to)).toEqual(['designing']);
   });
 });

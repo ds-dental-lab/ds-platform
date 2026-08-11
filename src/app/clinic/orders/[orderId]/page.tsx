@@ -16,6 +16,7 @@ import { todayInKst } from '@/server/domain/week';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
 import RepairRequest from '@/components/order/RepairRequest';
 import RemakeRequest from '@/components/order/RemakeRequest';
+import RescanBar from '@/components/order/RescanBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,14 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       implantCatalog={implantCatalog}
       messages={messages}
       showClinic={false}
+      scanSlot={
+        order.status === 'rescan' ? (
+          <RescanBar
+            orderId={order.id}
+            scanFiles={order.files.filter((f) => f.kind !== 'design')}
+          />
+        ) : null
+      }
       barSlot={
         <>
           <RemakeRequest

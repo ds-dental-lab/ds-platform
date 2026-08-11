@@ -247,7 +247,14 @@ export function getAvailableActions(status: OrderStatus, sector: Sector): Status
   const actions: StatusAction[] = [];
 
   // 앞으로 한 칸
-  const next = getNextStatus(status);
+  //
+  // ★ 재스캔에서 앞으로 가는 길은 버튼으로 두지 않습니다.
+  //   스캔 재등록 화면(RescanBar)이 파일과 상태를 함께 처리합니다.
+  //   버튼을 따로 두면 파일 없이 '재업로드 완료' 만 눌러 넘길 수 있고,
+  //   그러면 디자인센터가 다시 열어 보고 또 재스캔을 겁니다.
+  //   전이 규칙(canTransition)은 그대로 열어 둡니다 — 막는 게 아니라
+  //   '어느 화면이 맡는가' 의 문제입니다.
+  const next = status === 'rescan' ? null : getNextStatus(status);
   if (next && canTransition(status, next, sector).allowed) {
     actions.push({
       to: next,

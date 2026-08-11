@@ -77,6 +77,8 @@ export interface OrderDetailScreenProps {
   labName?: string;
   /** 디자인 파일칸 위에 끼워 넣을 것 (업로더 등) */
   designSlot?: React.ReactNode;
+  /** 스캔 파일칸 위에 끼워 넣을 것 (재스캔 띠) — 시안 .rescan-bar */
+  scanSlot?: React.ReactNode;
   /** 치식도 아래에 끼워 넣을 것 (수거 카드 등) */
   extraSlot?: React.ReactNode;
   /** 아래줄에 끼워 넣을 것 (리메이크 · 리페어 신청) — 시안 .dt-bar */
@@ -95,6 +97,7 @@ export default function OrderDetailScreen({
   showCost = false,
   labName,
   designSlot,
+  scanSlot,
   extraSlot,
   barSlot,
 }: OrderDetailScreenProps) {
@@ -275,6 +278,8 @@ export default function OrderDetailScreen({
               </span>
             }
           >
+            {scanSlot}
+
             <div className="flex min-h-[172px] flex-col">
               {scanFiles.length === 0 ? (
                 <p className="m-auto py-6 text-[12.5px] text-[#98A2B3]">
