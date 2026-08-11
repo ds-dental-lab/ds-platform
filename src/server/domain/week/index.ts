@@ -58,9 +58,22 @@ export function getWeekStart(date: IsoDate): IsoDate {
   return addDays(date, -backToMonday);
 }
 
-/** 월요일부터 일요일까지 7일 */
+/**
+ * 배송조회에 세우는 요일. **월~토 여섯 칸**입니다. (사용자 요청)
+ *
+ * ★ 일요일은 뺍니다.
+ *   일요일에는 물건이 안 나갑니다. 요청시한으로 고를 수도 없습니다
+ *   (domain/due-date 가 막습니다). 늘 비어 있는 칸이 하나 서 있으면
+ *   나머지 여섯 칸이 그만큼 좁아집니다.
+ *
+ * ★ 주의 시작은 그대로 월요일입니다.
+ *   getWeekStart 는 일요일도 지난 월요일로 당깁니다 — 일요일에 열어도
+ *   '지난 한 주' 가 보입니다.
+ */
+export const DELIVERY_DAYS = 6;
+
 export function getWeekDays(weekStart: IsoDate): IsoDate[] {
-  return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  return Array.from({ length: DELIVERY_DAYS }, (_, i) => addDays(weekStart, i));
 }
 
 export function shiftWeek(weekStart: IsoDate, weeks: number): IsoDate {

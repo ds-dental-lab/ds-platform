@@ -27,7 +27,7 @@ export default async function DesignDeliveriesPage({ searchParams }: PageProps) 
   const weekStart = getWeekStart(week && isValidIsoDate(week) ? week : today);
   const days = getWeekDays(weekStart);
 
-  const orders = await listOrdersByDueDate(days[0], days[6]);
+  const orders = await listOrdersByDueDate(days[0], days[days.length - 1]);
 
   return (
     <div>

@@ -44,7 +44,10 @@ export default function PartySettlement({
   const [tab, setTab] = useState<Tab>('items');
 
   const isLab = me.orgType === 'lab';
-  const amountLabel = isLab ? '받을 금액' : '내실 금액';
+  const amountLabel = isLab ? '받을 금액' : '결제하실 금액';
+
+  // 섹터 색을 그대로 씁니다 — 기공소는 초록, 치과는 파랑
+  const accent = isLab ? '#12855B' : '#1B63E8';
 
   return (
     <div className="space-y-3">
@@ -109,11 +112,11 @@ export default function PartySettlement({
       {/* ---------- 내역 ---------- */}
       <section className="rounded-lg border border-[#E8EBF0] bg-white">
         <div className="flex gap-1 border-b border-[#E8EBF0] px-4">
-          <TabButton on={tab === 'items'} onClick={() => setTab('items')}>
+          <TabButton accent={accent} on={tab === 'items'} onClick={() => setTab('items')}>
             보철 세부내역
             <span className="ml-1.5 text-[11.5px] text-[#98A2B3]">{settlement.items.length}</span>
           </TabButton>
-          <TabButton on={tab === 'products'} onClick={() => setTab('products')}>
+          <TabButton accent={accent} on={tab === 'products'} onClick={() => setTab('products')}>
             제품별
           </TabButton>
         </div>
@@ -155,7 +158,7 @@ export default function PartySettlement({
                         )}
                       </Td>
                       <Td>
-                        <span className="text-[#12855B]">{row.label}</span>
+                        <span style={{ color: accent }}>{row.label}</span>
                         {row.hasGingival && (
                           <span className="ml-1.5 text-[11px] text-[#98A2B3]">+핑크</span>
                         )}
@@ -219,7 +222,7 @@ export default function PartySettlement({
           {closed && (
             <Link
               href={`${basePath}/${yearMonth}`}
-              className="mr-auto h-9 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold leading-9 text-[#4A5567] hover:border-[#12855B] hover:text-[#12855B]"
+              className="mr-auto h-9 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold leading-9 text-[#4A5567] hover:opacity-80"
             >
               청구서 보기
             </Link>
@@ -228,7 +231,10 @@ export default function PartySettlement({
           <dl className="w-[280px] space-y-1.5 text-[13px]">
             <Row label="보철 금액">{won(settlement.subtotal)}</Row>
             <Row label="조정 금액">{won(settlement.adjustment)}</Row>
-            <div className="flex items-center justify-between border-t border-[#E8EBF0] pt-2 text-[15px] font-bold text-[#12855B]">
+            <div
+              className="flex items-center justify-between border-t border-[#E8EBF0] pt-2 text-[15px] font-bold"
+              style={{ color: accent }}
+            >
               <dt>{amountLabel}</dt>
               <dd className="tabular-nums">{won(settlement.total)}</dd>
             </div>
@@ -271,10 +277,12 @@ function Arrow({ href, label, children }: { href: string; label: string; childre
 
 function TabButton({
   on,
+  accent,
   onClick,
   children,
 }: {
   on: boolean;
+  accent: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -282,9 +290,10 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
+      style={on ? { borderColor: accent, color: accent } : undefined}
       className={
         'border-b-2 px-4 py-3 text-[13.5px] font-semibold ' +
-        (on ? 'border-[#12855B] text-[#12855B]' : 'border-transparent text-[#98A2B3]')
+        (on ? '' : 'border-transparent text-[#98A2B3]')
       }
     >
       {children}

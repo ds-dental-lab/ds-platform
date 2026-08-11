@@ -124,7 +124,7 @@ const NAV: Record<Sector, NavItem[]> = {
     { label: '주문등록', href: '/clinic/orders/new', icon: NAV_ICON.new },
     { label: '주문목록', href: '/clinic/orders', icon: NAV_ICON.list },
     { label: '배송조회', href: '/clinic/deliveries', icon: NAV_ICON.delivery },
-    { label: '정산', icon: NAV_ICON.billing, soon: 'Sprint 8' },
+    { label: '정산', href: '/clinic/billing', icon: NAV_ICON.billing },
     { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
     { label: '게시판', icon: NAV_ICON.board, soon: 'Sprint 9' },
   ],

@@ -18,11 +18,14 @@ import {
   getSettlement,
   getClosedSettlement,
   getPeriod,
+  listClosedParties,
 } from '@/server/repositories/billing';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { periodRange, isValidYearMonth, canClosePeriod } from '@/server/domain/billing';
 import { todayInKst } from '@/server/domain/week';
 import SettlementScreen from '@/components/billing/SettlementScreen';
+import BulkClosePanel, { type ClosingGroup } from '@/components/billing/BulkClosePanel';
+import type { PartnerRow } from '@/server/repositories/partner';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,8 +48,17 @@ export default async function DesignBillingPage({
   const yearMonth = isValidYearMonth(query.ym ?? '') ? query.ym! : today.slice(0, 7);
 
   if (!partner) {
+    /*
+      거래처를 안 골랐을 때가 '마감하러 온 자리' 입니다.
+      기준일별로 묶어, 이번 달에 무엇이 남았는지 먼저 보여 줍니다.
+    */
+    const closedByParty = await listClosedParties(yearMonth);
+    const groups = buildClosingGroups(parties, closedByParty, yearMonth, today);
+
     return (
-      <div className="mx-auto max-w-[1400px]">
+      <div className="mx-auto max-w-[1400px] space-y-3">
+        <BulkClosePanel yearMonth={yearMonth} groups={groups} />
+
         <SettlementScreen
           parties={parties}
           partner={null}
@@ -93,4 +105,44 @@ export default async function DesignBillingPage({
       <div className="pb-10" />
     </div>
   );
+}
+
+/**
+ * 기준일이 같은 거래처를 묶습니다.
+ *
+ * ★ 자기 자신(자사 기공)은 빼고 셉니다 — listPartners 가 이미 뺐습니다.
+ * ★ 거래중지된 곳도 셉니다. 끊기 전에 나간 물건은 청구해야 합니다.
+ */
+function buildClosingGroups(
+  parties: PartnerRow[],
+  closed: Set<string>,
+  yearMonth: string,
+  today: string,
+): ClosingGroup[] {
+  const byDay = new Map<number, ClosingGroup>();
+
+  for (const party of parties) {
+    const day = party.closingDay;
+    let group = byDay.get(day);
+
+    if (!group) {
+      const range = periodRange(yearMonth, day);
+      const verdict = canClosePeriod(range, today, false);
+
+      group = {
+        closingDay: day,
+        total: 0,
+        closed: 0,
+        from: range.from,
+        to: range.to,
+        blockedReason: verdict.ok ? undefined : verdict.reason,
+      };
+      byDay.set(day, group);
+    }
+
+    group.total += 1;
+    if (closed.has(party.id)) group.closed += 1;
+  }
+
+  return [...byDay.values()].sort((a, b) => a.closingDay - b.closingDay);
 }

@@ -82,7 +82,7 @@ export default function DeliveryBoard({
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {days.map((day) => {
           const dayOrders = byDay.get(day) ?? [];
           const isToday = day === today;

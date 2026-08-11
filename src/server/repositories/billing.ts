@@ -573,3 +573,16 @@ export async function getPeriod(
 
   return { id: row.id, closedAt: row.closed_at, issuedAt: row.issued_at, paidAt: row.paid_at };
 }
+
+/** 이 달에 이미 마감한 거래처 id 들 */
+export async function listClosedParties(yearMonth: string): Promise<Set<string>> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from('billing_periods')
+    .select('party_org_id')
+    .eq('year_month', yearMonth)
+    .not('closed_at', 'is', null);
+
+  return new Set(((data ?? []) as { party_org_id: string }[]).map((r) => r.party_org_id));
+}

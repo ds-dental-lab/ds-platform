@@ -63,14 +63,17 @@ describe('주의 시작', () => {
     expect(getWeekStart('2026-08-16')).toBe('2026-08-10');
   });
 
-  it('주는 항상 7일이고 월요일로 시작해 일요일로 끝난다', () => {
+  // ★ 2026-08-12 에 일곱 칸에서 여섯 칸으로 줄였습니다.
+  //   일요일에는 물건이 안 나가고 요청시한으로 고를 수도 없어,
+  //   늘 비어 있는 칸이 나머지를 좁히고 있었습니다.
+  it('주는 월요일로 시작해 토요일로 끝난다 (여섯 칸)', () => {
     const days = getWeekDays(getWeekStart('2026-08-13'));
 
-    expect(days).toHaveLength(7);
+    expect(days).toHaveLength(6);
     expect(getWeekday(days[0])).toBe(1); // 월
-    expect(getWeekday(days[6])).toBe(0); // 일
+    expect(getWeekday(days[5])).toBe(6); // 토
     expect(days[0]).toBe('2026-08-10');
-    expect(days[6]).toBe('2026-08-16');
+    expect(days[5]).toBe('2026-08-15');
   });
 
   it('주 이동은 7일 단위다', () => {
@@ -123,5 +126,27 @@ describe('오늘 (KST)', () => {
 
   it('돌려주는 값은 그대로 다시 쓸 수 있는 모양이다', () => {
     expect(isValidIsoDate(todayInKst())).toBe(true);
+  });
+});
+
+// =========================================================
+// 배송조회는 월~토 여섯 칸입니다 (사용자 요청 2026-08-12)
+// =========================================================
+
+describe('배송조회 요일', () => {
+  it('★ 월요일부터 여섯 칸이다 — 일요일은 없다', () => {
+    const days = getWeekDays('2026-08-10'); // 월요일
+
+    expect(days).toHaveLength(6);
+    expect(days[0]).toBe('2026-08-10');
+    expect(days[5]).toBe('2026-08-15'); // 토요일
+    expect(days).not.toContain('2026-08-16'); // 일요일
+  });
+
+  it('일요일에 열어도 지난 월요일부터 본다', () => {
+    const start = getWeekStart('2026-08-16'); // 일요일
+
+    expect(start).toBe('2026-08-10');
+    expect(getWeekDays(start)).toHaveLength(6);
   });
 });
