@@ -136,7 +136,7 @@ const NAV: Record<Sector, NavItem[]> = {
     { label: '주문목록', href: '/design/orders', icon: NAV_ICON.list },
     { label: '배송조회', href: '/design/deliveries', icon: NAV_ICON.delivery },
     { label: '정산관리', icon: NAV_ICON.billing, soon: 'Sprint 8' },
-    { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
+    { label: '사용자', href: '/design/users', icon: NAV_ICON.users },
     { label: '제품', href: '/design/products', icon: NAV_ICON.product },
     { label: '휴일', icon: NAV_ICON.holiday, soon: '휴일 관리' },
     { label: '임플란트', href: '/design/implants', icon: NAV_ICON.implant },
