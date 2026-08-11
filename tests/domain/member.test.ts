@@ -1,6 +1,7 @@
 // =========================================================
 // 놓을 위치: tests/domain/member.test.ts
-// 기준: 사용자 요청 2026-08-12 — 직원 계정
+// 기준: 사용자 결정 2026-08-12 — 자리는 관리자·사용자 둘.
+//       차이는 금액이 보이느냐 하나.
 // =========================================================
 
 import { describe, it, expect } from 'vitest';
@@ -8,11 +9,13 @@ import {
   ROLE_OPTIONS,
   ROLE_LABEL,
   canManageMembers,
-  checkInvite,
+  canSeeMoney,
+  checkNewMember,
   activeOwners,
   canChangeRole,
   canDeactivate,
-  inviteState,
+  makeTempPassword,
+  normalizeRole,
   type MemberSeat,
 } from '@/server/domain/member';
 
@@ -24,68 +27,86 @@ const seat = (over: Partial<MemberSeat>): MemberSeat => ({
 });
 
 describe('자리', () => {
-  it('다섯 자리 모두 이름이 있습니다', () => {
-    for (const role of ['owner', 'admin', 'designer', 'technician', 'staff'] as const) {
-      expect(ROLE_LABEL[role]).toBeTruthy();
-    }
+  // ★ 쓰이지 않는 구분은 고를 때마다 망설이게만 합니다
+  it('★ 고를 수 있는 자리는 둘뿐입니다 — 세 섹터 모두 같습니다', () => {
+    expect(ROLE_OPTIONS).toEqual(['owner', 'staff']);
+    expect(ROLE_LABEL.owner).toBe('관리자');
+    expect(ROLE_LABEL.staff).toBe('사용자');
   });
 
-  // ★ 치과에 디자이너가 한 명 있는 표는 아무 말도 안 합니다
-  it('★ 섹터에 없는 자리는 못 고릅니다', () => {
-    expect(ROLE_OPTIONS.clinic).not.toContain('designer');
-    expect(ROLE_OPTIONS.clinic).not.toContain('technician');
-    expect(ROLE_OPTIONS.design_center).toContain('designer');
-    expect(ROLE_OPTIONS.lab).toContain('technician');
+  // 지난 계정이 옛 값을 들고 있을 수 있습니다
+  it('옛 자리도 둘 중 하나로 읽습니다', () => {
+    expect(normalizeRole('admin')).toBe('owner');
+    expect(normalizeRole('designer')).toBe('staff');
+    expect(normalizeRole('technician')).toBe('staff');
+    expect(ROLE_LABEL.designer).toBe('사용자');
   });
 
-  it('대표와 관리자만 사람을 늘립니다', () => {
+  // ★ 이 한 줄이 사용자와 관리자를 가릅니다
+  it('★ 차이는 금액이 보이느냐 하나입니다', () => {
+    expect(canSeeMoney('owner')).toBe(true);
+    expect(canSeeMoney('admin')).toBe(true);
+    expect(canSeeMoney('staff')).toBe(false);
+    expect(canSeeMoney('designer')).toBe(false);
+    expect(canSeeMoney(null)).toBe(false);
+  });
+
+  it('사람을 늘리는 것도 관리자만입니다', () => {
     expect(canManageMembers('owner')).toBe(true);
-    expect(canManageMembers('admin')).toBe(true);
-    expect(canManageMembers('designer')).toBe(false);
     expect(canManageMembers('staff')).toBe(false);
     expect(canManageMembers(null)).toBe(false);
   });
 });
 
-describe('초대장 검사', () => {
-  it('이메일 모양을 봅니다', () => {
-    expect(checkInvite('kim@example.com', 'staff', 'clinic')).toEqual({ ok: true });
-    expect(checkInvite('kim', 'staff', 'clinic').ok).toBe(false);
-    expect(checkInvite('  ', 'staff', 'clinic').ok).toBe(false);
+describe('새 사용자 검사', () => {
+  it('이름과 이메일이 있으면 통과', () => {
+    expect(checkNewMember('김디자', 'kim@example.com', 'staff')).toEqual({ ok: true });
   });
 
-  it('그 조직에 없는 자리는 막습니다', () => {
-    expect(checkInvite('kim@example.com', 'designer', 'clinic').ok).toBe(false);
-    expect(checkInvite('kim@example.com', 'designer', 'design_center').ok).toBe(true);
+  it('이름을 꼭 받습니다', () => {
+    expect(checkNewMember('  ', 'kim@example.com', 'staff').ok).toBe(false);
+  });
+
+  it('이메일 모양을 봅니다', () => {
+    expect(checkNewMember('김디자', 'kim', 'staff').ok).toBe(false);
+    expect(checkNewMember('김디자', '', 'staff').ok).toBe(false);
+  });
+
+  it('없는 자리는 막습니다', () => {
+    expect(checkNewMember('김디자', 'kim@example.com', 'designer').ok).toBe(false);
   });
 });
 
-describe('마지막 대표', () => {
+describe('마지막 관리자', () => {
   const one = [seat({ userId: 'a', role: 'owner' }), seat({ userId: 'b', role: 'staff' })];
   const two = [seat({ userId: 'a', role: 'owner' }), seat({ userId: 'b', role: 'owner' })];
 
-  it('살아 있는 대표만 셉니다', () => {
+  it('살아 있는 관리자만 셉니다', () => {
     expect(activeOwners(two)).toBe(2);
     expect(activeOwners([seat({ role: 'owner', isActive: false })])).toBe(0);
   });
 
-  // ★ 대표가 없어지면 아무도 사람을 못 늘립니다. 되돌릴 길이 화면에 없습니다
-  it('★ 하나뿐인 대표는 못 내립니다', () => {
+  it('옛 admin 도 관리자로 셉니다', () => {
+    expect(activeOwners([seat({ role: 'admin' })])).toBe(1);
+  });
+
+  // ★ 관리자가 없어지면 아무도 사람을 못 늘립니다. 되돌릴 길이 화면에 없습니다
+  it('★ 하나뿐인 관리자는 못 내립니다', () => {
     expect(canChangeRole(one, 'a', 'staff').ok).toBe(false);
     expect(canDeactivate(one, 'a').ok).toBe(false);
   });
 
-  it('대표가 둘이면 하나는 내릴 수 있습니다', () => {
+  it('관리자가 둘이면 하나는 내릴 수 있습니다', () => {
     expect(canChangeRole(two, 'a', 'staff')).toEqual({ ok: true });
     expect(canDeactivate(two, 'a')).toEqual({ ok: true });
   });
 
-  it('대표를 대표로 두는 것은 언제나 됩니다', () => {
+  it('관리자를 관리자로 두는 것은 언제나 됩니다', () => {
     expect(canChangeRole(one, 'a', 'owner')).toEqual({ ok: true });
   });
 
-  it('대표가 아닌 사람은 자유롭습니다', () => {
-    expect(canChangeRole(one, 'b', 'admin')).toEqual({ ok: true });
+  it('사용자는 자유롭습니다', () => {
+    expect(canChangeRole(one, 'b', 'owner')).toEqual({ ok: true });
     expect(canDeactivate(one, 'b')).toEqual({ ok: true });
   });
 
@@ -94,41 +115,24 @@ describe('마지막 대표', () => {
   });
 
   it('없는 사람은 못 건드립니다', () => {
-    expect(canChangeRole(one, 'zzz', 'admin').ok).toBe(false);
+    expect(canChangeRole(one, 'zzz', 'owner').ok).toBe(false);
   });
 });
 
-describe('초대장 상태', () => {
-  const NOW = '2026-08-12T00:00:00Z';
-
-  it('기한 안이면 기다리는 중', () => {
-    expect(
-      inviteState({ acceptedAt: null, revokedAt: null, expiresAt: '2026-08-26T00:00:00Z' }, NOW),
-    ).toBe('pending');
+describe('임시 비밀번호', () => {
+  it('규칙을 넘길 만큼 깁니다', () => {
+    expect(makeTempPassword().length).toBeGreaterThanOrEqual(8);
   });
 
-  it('기한이 지나면 기한 지남', () => {
-    expect(
-      inviteState({ acceptedAt: null, revokedAt: null, expiresAt: '2026-08-01T00:00:00Z' }, NOW),
-    ).toBe('expired');
+  // ★ 전화로 불러 주는 값입니다. 한 글자가 안 읽히면 되돌아옵니다
+  it('★ 헷갈리는 글자를 안 씁니다 (0 O 1 l I)', () => {
+    for (let i = 0; i < 200; i++) {
+      expect(makeTempPassword().slice(0, -2)).not.toMatch(/[0O1lI]/);
+    }
   });
 
-  it('물린 것은 물림', () => {
-    expect(
-      inviteState(
-        { acceptedAt: null, revokedAt: '2026-08-05T00:00:00Z', expiresAt: '2026-08-26T00:00:00Z' },
-        NOW,
-      ),
-    ).toBe('revoked');
-  });
-
-  // ★ 이미 앉은 사람이 '기한 지남' 으로 보이면 지워야 하나 싶어집니다
-  it('★ 들어온 초대장은 기한이 지나도 들어옴입니다', () => {
-    expect(
-      inviteState(
-        { acceptedAt: '2026-07-20T00:00:00Z', revokedAt: null, expiresAt: '2026-08-01T00:00:00Z' },
-        NOW,
-      ),
-    ).toBe('accepted');
+  it('매번 다릅니다', () => {
+    const made = new Set(Array.from({ length: 50 }, () => makeTempPassword()));
+    expect(made.size).toBe(50);
   });
 });

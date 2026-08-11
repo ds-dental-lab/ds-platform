@@ -116,9 +116,22 @@ export interface HomeScreenProps {
   summary: HomeSummary;
   /** 디자인센터는 진행 중 작업 목록을 왼쪽 아래에 세웁니다 */
   showWorklist?: boolean;
+  /**
+   * 금액을 볼 수 있는 사람인가 (관리자).
+   *
+   * ★ 사용자에게는 금액 카드와 추이가 **아예 없습니다**
+   *   (사용자 결정 2026-08-12 — "금액나오는 곳만 안보이면 된다").
+   *   가려 두거나 '-' 로 두면 "왜 안 보이냐" 를 묻습니다. 없는 것이 낫습니다.
+   */
+  canSeeMoney?: boolean;
 }
 
-export default function HomeScreen({ sector, summary, showWorklist }: HomeScreenProps) {
+export default function HomeScreen({
+  sector,
+  summary,
+  showWorklist,
+  canSeeMoney = true,
+}: HomeScreenProps) {
   const money = MONEY_LABEL[sector];
   const path = HOME_PATH[sector];
 
@@ -126,6 +139,7 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
     <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
       {/* ================= 왼쪽 ================= */}
       <div className="space-y-3.5">
+        {canSeeMoney && (
         <Card>
           <div className="flex items-center gap-1.5">
             <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">{money.title}</h2>
@@ -165,6 +179,7 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
             </p>
           )}
         </Card>
+        )}
 
         <div className="grid grid-cols-2 gap-3.5">
           <Card>
@@ -226,12 +241,14 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
         {/* ★ 금액 추이는 세 섹터 모두 봅니다.
             전에는 디자인센터 자리에 작업 리스트만 두어, 정작 이 화면을 매일
             보는 사람이 자기 매출 흐름을 못 봤습니다. 둘 다 세웁니다 */}
-        <MoneyTrend
-          title={money.trend}
-          empty={money.empty}
-          buckets={summary.money.trend}
-          countLabel={money.countLabel}
-        />
+        {canSeeMoney && (
+          <MoneyTrend
+            title={money.trend}
+            empty={money.empty}
+            buckets={summary.money.trend}
+            countLabel={money.countLabel}
+          />
+        )}
       </div>
 
       {/* ================= 가운데 — 오늘 배송 예정 ================= */}

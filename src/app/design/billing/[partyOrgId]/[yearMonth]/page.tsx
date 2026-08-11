@@ -14,7 +14,7 @@
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { getPartner } from '@/server/repositories/partner';
 import { getClosedSettlement, getPeriod } from '@/server/repositories/billing';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
@@ -33,7 +33,7 @@ export default async function InvoicePage({
   params: Promise<{ partyOrgId: string; yearMonth: string }>;
   searchParams: Promise<{ print?: string }>;
 }) {
-  const session = await requireSector('design_center');
+  const session = await requireManagerSector('design_center');
   const { partyOrgId, yearMonth } = await params;
   // 청구 내역의 ⬇ 가 이 주소로 엽니다 — 뜨자마자 인쇄창을 띄웁니다
   const { print } = await searchParams;

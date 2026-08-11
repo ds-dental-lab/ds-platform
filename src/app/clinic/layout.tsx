@@ -1,5 +1,6 @@
 ﻿import { requireSector } from "@/server/policies/session";
 import SectorShell from "@/components/layout/SectorShell";
+import { canSeeMoney, type MemberRole } from "@/server/domain/member";
 import NotificationBell from "@/components/layout/NotificationBell";
 import {
   listNotifications,
@@ -13,7 +14,7 @@ export default async function ClinicLayout({ children }: { children: React.React
     countUnreadNotifications(),
   ]);
   return (
-    <SectorShell sector="clinic" orgName={s.orgName ?? ""} userName={s.userName}
+    <SectorShell sector="clinic" canSeeMoney={canSeeMoney(s.role as MemberRole | null)} orgName={s.orgName ?? ""} userName={s.userName}
       bell={<NotificationBell notifications={notifications} unreadCount={unreadCount} />}
     >
       {children}

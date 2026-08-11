@@ -8,14 +8,14 @@
 // =========================================================
 
 import { notFound } from 'next/navigation';
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { getMemberBoard } from '@/server/repositories/member';
 import MemberBoard from '@/components/member/MemberBoard';
 
 export const dynamic = 'force-dynamic';
 
 export default async function MembersPage() {
-  await requireSector('clinic');
+  await requireManagerSector('clinic');
 
   const board = await getMemberBoard();
   if (!board) notFound();

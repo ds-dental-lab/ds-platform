@@ -11,7 +11,7 @@
 //   다른 잣대라, 화면에 그렇게 적어 뒀습니다.
 // =========================================================
 
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { getDesignStats } from '@/server/repositories/stats';
 import { todayInKst } from '@/server/domain/week';
 import { periodRange, isValidYearMonth, prevYearMonth, yearMonthOf } from '@/server/domain/billing';
@@ -27,7 +27,7 @@ export default async function DesignStatsPage({
 }: {
   searchParams: Promise<{ month?: string }>;
 }) {
-  await requireSector('design_center');
+  await requireManagerSector('design_center');
 
   const thisMonth = yearMonthOf(todayInKst());
   const { month: raw } = await searchParams;

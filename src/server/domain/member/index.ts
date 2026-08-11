@@ -1,75 +1,88 @@
 // =========================================================
 // 놓을 위치: src/server/domain/member/index.ts
 //
-// 조직 안의 사람. (사용자 요청 2026-08-12)
+// 조직 안의 사람. (사용자 결정 2026-08-12 — 자리를 둘로 줄였습니다)
 //
-// ★ 자리 이름이 섹터마다 다릅니다.
-//   디자인센터에는 '디자이너', 기공소에는 '기공사' 가 있고 치과에는
-//   둘 다 없습니다. 없는 자리를 고르게 두면 통계가 뜻 없는 칸으로
-//   갈라집니다 — 치과에 디자이너가 한 명 있는 표는 아무 말도 안 합니다.
+// ★ 세 섹터 모두 **관리자 · 사용자** 둘뿐입니다.
+//   전에는 디자이너·기공사·직원까지 다섯이었는데, 자리를 늘려 봐야
+//   화면이 갈리는 곳은 한 군데뿐이었습니다 — **금액**.
+//   쓰이지 않는 구분은 고를 때마다 망설이게만 하고, 나중에 "이 사람은
+//   디자이너인가 직원인가" 를 아무도 답하지 못합니다.
 //
-// ★ 마지막 대표는 못 내리고 못 끕니다.
-//   대표가 없어지면 그 조직은 사람을 늘릴 수도, 권한을 고칠 수도
-//   없습니다. 되돌릴 방법이 화면에 없는 상태를 만들면 안 됩니다.
+// ★ 사용자와 관리자의 차이는 **금액이 보이느냐** 하나입니다.
+//   *"금액나오는 곳만 안보이면 된다"*.
+//   주문을 넣고 받고 파일을 올리는 일은 둘 다 똑같이 합니다.
+//
+// ★ 디자인센터 사용자는 작업 리스트에서 **자기가 잡은 것만** 봅니다.
+//   남의 일까지 보이면 무엇이 내 몫인지가 흐려집니다.
+//   관리자는 전부 봅니다 — 누가 얼마나 잡고 있는지가 관리의 일입니다.
 // =========================================================
 
-import type { Sector } from '../order-status';
-
+/**
+ * 자리.
+ *
+ * ★ DB 의 member_role 에는 admin·designer·technician 도 남아 있습니다.
+ *   지난 계정이 그 값을 들고 있을 수 있어 타입에서 지우지 않았습니다.
+ *   화면은 셋을 전부 '사용자' 로 읽고, 새로 고를 때는 둘만 줍니다.
+ */
 export type MemberRole = 'owner' | 'admin' | 'designer' | 'technician' | 'staff';
 
+/** 새로 고를 수 있는 자리 — 세 섹터 모두 같습니다 */
+export const ROLE_OPTIONS: MemberRole[] = ['owner', 'staff'];
+
 export const ROLE_LABEL: Record<MemberRole, string> = {
-  owner: '대표',
+  owner: '관리자',
+  // 지난 값들 — 전부 사용자로 읽습니다
   admin: '관리자',
-  designer: '디자이너',
-  technician: '기공사',
-  staff: '직원',
+  designer: '사용자',
+  technician: '사용자',
+  staff: '사용자',
 };
 
-/** 그 자리가 무엇을 할 수 있는지 한 줄로 */
-export const ROLE_HINT: Record<MemberRole, string> = {
-  owner: '모든 것. 조직에 하나는 있어야 합니다',
-  admin: '사람과 조직 정보를 고칩니다',
-  designer: '주문과 디자인 작업',
-  technician: '배정받은 제작 작업',
-  staff: '주문과 조회',
+export const ROLE_HINT: Record<'owner' | 'staff', string> = {
+  owner: '금액과 정산까지 모두 봅니다. 사람도 늘립니다',
+  staff: '주문·배송·파일. 금액은 안 보입니다',
 };
 
-/** 섹터마다 고를 수 있는 자리 */
-export const ROLE_OPTIONS: Record<Sector, MemberRole[]> = {
-  clinic: ['owner', 'admin', 'staff'],
-  design_center: ['owner', 'admin', 'designer', 'staff'],
-  lab: ['owner', 'admin', 'technician', 'staff'],
-};
-
-/** 사람을 늘리고 권한을 고칠 수 있는 자리 */
+/** 사람을 늘리고 자리를 고칠 수 있는가 */
 export function canManageMembers(role: MemberRole | null): boolean {
   return role === 'owner' || role === 'admin';
+}
+
+/**
+ * 금액을 볼 수 있는가.
+ *
+ * ★ 이 한 줄이 사용자와 관리자를 가릅니다.
+ *   HOME 금액·금액추이, 정산, 제품 단가, 거래처 단가가 전부 여기에 겁니다.
+ *   화면마다 role 을 다시 따지면 언젠가 한 곳을 빠뜨립니다.
+ */
+export function canSeeMoney(role: MemberRole | null): boolean {
+  return canManageMembers(role);
 }
 
 export type MemberVerdict = { ok: true } | { ok: false; reason: string };
 
 /**
- * 이메일 모양만 봅니다.
+ * 새 사용자를 만들 수 있는 값인가.
  *
- * ★ 촘촘한 규칙을 쓰지 않습니다.
- *   실제로 쓰이는 주소 중에 규칙에 안 맞는 것이 늘 있고, 막으면
- *   그 사람은 영영 못 들어옵니다. 진짜 확인은 가입할 때 메일이 합니다.
+ * ★ 이메일 규칙을 촘촘하게 쓰지 않습니다.
+ *   실제로 쓰이는 주소 중에 규칙에 안 맞는 것이 늘 있고, 막으면 그
+ *   사람은 영영 못 들어옵니다.
  */
-export function checkInvite(email: string, role: MemberRole, sector: Sector): MemberVerdict {
-  const trimmed = email.trim();
+export function checkNewMember(name: string, email: string, role: MemberRole): MemberVerdict {
+  if (!name.trim()) return { ok: false, reason: '이름을 넣어 주세요' };
 
+  const trimmed = email.trim();
   if (!trimmed) return { ok: false, reason: '이메일을 넣어 주세요' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
     return { ok: false, reason: '이메일 모양이 아닙니다' };
   }
-  if (!ROLE_OPTIONS[sector].includes(role)) {
-    return { ok: false, reason: '이 조직에 없는 자리입니다' };
-  }
+  if (!ROLE_OPTIONS.includes(role)) return { ok: false, reason: '없는 자리입니다' };
 
   return { ok: true };
 }
 
-// ---------- 마지막 대표 ----------
+// ---------- 마지막 관리자 ----------
 
 export interface MemberSeat {
   userId: string;
@@ -77,15 +90,15 @@ export interface MemberSeat {
   isActive: boolean;
 }
 
-/** 지금 살아 있는 대표 수 */
+/** 지금 살아 있는 관리자 수 */
 export function activeOwners(members: MemberSeat[]): number {
-  return members.filter((m) => m.isActive && m.role === 'owner').length;
+  return members.filter((m) => m.isActive && canManageMembers(m.role)).length;
 }
 
 /**
  * 이 사람의 자리를 바꿔도 되는가.
  *
- * ★ 대표가 하나뿐일 때 그 사람을 내리면 조직에 주인이 없어집니다.
+ * ★ 관리자가 하나뿐일 때 그 사람을 내리면 조직에 주인이 없어집니다.
  *   그러면 아무도 사람을 늘리지 못하고, 되돌릴 방법이 화면에 없습니다.
  */
 export function canChangeRole(
@@ -96,8 +109,8 @@ export function canChangeRole(
   const me = members.find((m) => m.userId === userId);
   if (!me) return { ok: false, reason: '이 조직 사람이 아닙니다' };
 
-  if (me.role === 'owner' && next !== 'owner' && activeOwners(members) <= 1) {
-    return { ok: false, reason: '대표가 한 명뿐입니다. 다른 사람을 먼저 대표로 올려 주세요' };
+  if (canManageMembers(me.role) && !canManageMembers(next) && activeOwners(members) <= 1) {
+    return { ok: false, reason: '관리자가 한 명뿐입니다. 다른 사람을 먼저 관리자로 올려 주세요' };
   }
 
   return { ok: true };
@@ -109,40 +122,37 @@ export function canDeactivate(members: MemberSeat[], userId: string): MemberVerd
   if (!me) return { ok: false, reason: '이 조직 사람이 아닙니다' };
   if (!me.isActive) return { ok: false, reason: '이미 꺼져 있습니다' };
 
-  if (me.role === 'owner' && activeOwners(members) <= 1) {
-    return { ok: false, reason: '대표가 한 명뿐입니다. 다른 사람을 먼저 대표로 올려 주세요' };
+  if (canManageMembers(me.role) && activeOwners(members) <= 1) {
+    return { ok: false, reason: '관리자가 한 명뿐입니다. 다른 사람을 먼저 관리자로 올려 주세요' };
   }
 
   return { ok: true };
 }
 
-// ---------- 초대장 ----------
-
-export type InviteState = 'pending' | 'accepted' | 'expired' | 'revoked';
-
-export const INVITE_LABEL: Record<InviteState, string> = {
-  pending: '기다리는 중',
-  accepted: '들어옴',
-  expired: '기한 지남',
-  revoked: '물림',
-};
-
-export interface InviteTimes {
-  acceptedAt: string | null;
-  revokedAt: string | null;
-  expiresAt: string;
-}
+// ---------- 임시 비밀번호 ----------
 
 /**
- * 초대장이 지금 어떤 상태인가.
+ * 관리자가 계정을 만들 때 함께 나오는 임시 비밀번호.
  *
- * ★ 차례가 중요합니다. 들어온 초대장은 기한이 지나도 '들어옴' 입니다 —
- *   이미 자리에 앉은 사람이 목록에서 '기한 지남' 으로 보이면
- *   그 사람을 지워야 하나 싶어집니다.
+ * ★ 관리자가 직접 짓게 하지 않습니다.
+ *   직접 짓게 두면 전 직원이 같은 비밀번호를 받습니다 — 늘 그렇습니다.
+ *
+ * ★ 헷갈리는 글자를 뺍니다 (0·O·1·l·I).
+ *   전화로 불러 주는 값이라, 한 글자가 안 읽히면 되돌아옵니다.
  */
-export function inviteState(times: InviteTimes, now: string): InviteState {
-  if (times.acceptedAt) return 'accepted';
-  if (times.revokedAt) return 'revoked';
+const SAFE = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
 
-  return times.expiresAt <= now ? 'expired' : 'pending';
+export function makeTempPassword(random: () => number = Math.random, length = 10): string {
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    out += SAFE[Math.floor(random() * SAFE.length)];
+  }
+
+  // 규칙(길이 8 이상)을 늘 넘기도록 뒤에 붙입니다
+  return `${out}!7`;
+}
+
+/** 자리를 화면에 쓰는 두 가지 중 하나로 좁힙니다 */
+export function normalizeRole(role: MemberRole): 'owner' | 'staff' {
+  return canManageMembers(role) ? 'owner' : 'staff';
 }

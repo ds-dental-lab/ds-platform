@@ -15,7 +15,7 @@
 //   치과 자기 판매가뿐입니다.
 // =========================================================
 
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { getPartner } from '@/server/repositories/partner';
 import {
   getSettlement,
@@ -34,7 +34,7 @@ export default async function ClinicBillingPage({
 }: {
   searchParams: Promise<{ ym?: string }>;
 }) {
-  const session = await requireSector('clinic');
+  const session = await requireManagerSector('clinic');
   const query = await searchParams;
   const today = todayInKst();
 

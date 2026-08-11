@@ -9,14 +9,14 @@
 // ★ 단가는 줄이 길어 거래처마다 따로 화면을 둡니다 ([orgId]).
 // =========================================================
 
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { listPartners } from '@/server/repositories/partner';
 import PartnerTable from '@/components/partner/PartnerTable';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DesignUsersPage() {
-  await requireSector('design_center');
+  await requireManagerSector('design_center');
 
   const rows = await listPartners();
 

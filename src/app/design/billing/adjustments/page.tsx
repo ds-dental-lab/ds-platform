@@ -8,7 +8,7 @@
 //   것" 이 목록에서 안 보이는 일이 생깁니다.
 // =========================================================
 
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { listAdjustments } from '@/server/repositories/invoice';
 import { todayInKst } from '@/server/domain/week';
 import { prevYearMonth, yearMonthOf } from '@/server/domain/billing';
@@ -23,7 +23,7 @@ export default async function AdjustmentsPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string; name?: string }>;
 }) {
-  await requireSector('design_center');
+  await requireManagerSector('design_center');
 
   const q = await searchParams;
   const thisMonth = yearMonthOf(todayInKst());

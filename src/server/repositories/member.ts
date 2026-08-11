@@ -11,7 +11,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
-import { inviteState, type MemberRole, type InviteState } from '@/server/domain/member';
+import type { MemberRole } from '@/server/domain/member';
 
 export interface MemberRow {
   userId: string;
@@ -24,20 +24,8 @@ export interface MemberRow {
   isMe: boolean;
 }
 
-export interface InviteRow {
-  id: string;
-  email: string;
-  name: string;
-  role: MemberRole;
-  state: InviteState;
-  createdAt: string;
-  expiresAt: string;
-  inviterName: string;
-}
-
 export interface MemberBoard {
   members: MemberRow[];
-  invites: InviteRow[];
   /** 지금 보고 있는 사람이 사람을 늘릴 수 있는가 */
   canManage: boolean;
   sector: 'clinic' | 'design_center' | 'lab';
@@ -49,20 +37,12 @@ export async function getMemberBoard(): Promise<MemberBoard | null> {
 
   const supabase = await createClient();
 
-  const [memberRes, inviteRes] = await Promise.all([
-    supabase
-      .from('memberships')
-      .select('user_id, role, is_active, created_at')
-      .eq('org_id', session.orgId)
-      .is('deleted_at', null)
-      .order('created_at'),
-
-    supabase
-      .from('org_invites')
-      .select('id, email, name, role, created_at, expires_at, accepted_at, revoked_at, invited_by')
-      .eq('org_id', session.orgId)
-      .order('created_at', { ascending: false }),
-  ]);
+  const memberRes = await supabase
+    .from('memberships')
+    .select('user_id, role, is_active, created_at')
+    .eq('org_id', session.orgId)
+    .is('deleted_at', null)
+    .order('created_at');
 
   interface RawMember {
     user_id: string;
@@ -85,22 +65,6 @@ export async function getMemberBoard(): Promise<MemberBoard | null> {
     }
   }
 
-  const now = new Date().toISOString();
-
-  interface RawInvite {
-    id: string;
-    email: string;
-    name: string | null;
-    role: MemberRole;
-    created_at: string;
-    expires_at: string;
-    accepted_at: string | null;
-    revoked_at: string | null;
-    invited_by: string | null;
-  }
-
-  const rawInvites = (inviteRes.data ?? []) as unknown as RawInvite[];
-
   return {
     sector: session.orgType,
     canManage: session.role === 'owner' || session.role === 'admin',
@@ -113,20 +77,6 @@ export async function getMemberBoard(): Promise<MemberBoard | null> {
       isActive: m.is_active,
       joinedAt: m.created_at,
       isMe: m.user_id === session.user.id,
-    })),
-
-    invites: rawInvites.map((i) => ({
-      id: i.id,
-      email: i.email,
-      name: i.name ?? '',
-      role: i.role,
-      state: inviteState(
-        { acceptedAt: i.accepted_at, revokedAt: i.revoked_at, expiresAt: i.expires_at },
-        now,
-      ),
-      createdAt: i.created_at,
-      expiresAt: i.expires_at,
-      inviterName: i.invited_by ? (profiles.get(i.invited_by)?.name ?? '') : '',
     })),
   };
 }

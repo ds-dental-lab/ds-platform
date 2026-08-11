@@ -12,7 +12,7 @@
 //   합니다. 읽는 곳을 갈라 두면 그 약속이 저절로 지켜집니다.
 // =========================================================
 
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { listPartners } from '@/server/repositories/partner';
 import {
   getSettlement,
@@ -35,7 +35,7 @@ export default async function DesignBillingPage({
 }: {
   searchParams: Promise<{ type?: string; party?: string; ym?: string }>;
 }) {
-  await requireSector('design_center');
+  await requireManagerSector('design_center');
 
   const query = await searchParams;
   const parties = await listPartners();

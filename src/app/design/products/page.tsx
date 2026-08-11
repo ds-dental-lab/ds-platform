@@ -12,14 +12,14 @@
 //   같은 값을 두 곳에서 고치면 어느 쪽이 맞는지 알 수 없습니다.
 // =========================================================
 
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { listProducts } from '@/server/repositories/prosthesis';
 import ProductTable from '@/components/product/ProductTable';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DesignProductsPage() {
-  await requireSector('design_center');
+  await requireManagerSector('design_center');
 
   const { rows, types } = await listProducts();
 

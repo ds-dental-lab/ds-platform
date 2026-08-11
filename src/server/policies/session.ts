@@ -8,6 +8,7 @@
 
 import { redirect, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 
 export type Sector = 'clinic' | 'design_center' | 'lab';
 
@@ -55,6 +56,22 @@ export async function getSession() {
 export async function requireSession() {
   const session = await getSession();
   if (!session) redirect('/login');
+  return session;
+}
+
+/**
+ * 그 섹터의 **관리자만** 들어오는 화면 — 금액과 사용자 관리.
+ * (사용자 결정 2026-08-12 — "금액나오는 곳만 안보이면 된다")
+ *
+ * ★ 메뉴를 숨기는 것만으로는 부족합니다.
+ *   주소를 바로 치면 열립니다. 숨기는 것과 못 들어가는 것은 다릅니다.
+ *
+ * ★ 403 이 아니라 404 입니다 (설계서 §8.6과 같은 이유).
+ *   "권한이 없다" 고 알려 주면 그 화면이 있다는 사실이 새어 나갑니다.
+ */
+export async function requireManagerSector(sector: Sector) {
+  const session = await requireSector(sector);
+  if (!canSeeMoney(session.role as MemberRole | null)) notFound();
   return session;
 }
 

@@ -4,7 +4,7 @@
 // 정산 내역 — 들어온 돈.
 // =========================================================
 
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { listPayments } from '@/server/repositories/invoice';
 import { todayInKst } from '@/server/domain/week';
 import { prevYearMonth, yearMonthOf } from '@/server/domain/billing';
@@ -19,7 +19,7 @@ export default async function PaymentsPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
-  await requireSector('design_center');
+  await requireManagerSector('design_center');
 
   const q = await searchParams;
   const thisMonth = yearMonthOf(todayInKst());

@@ -8,7 +8,7 @@
 //   사실이 흐려집니다 — 그건 정산 탭이 봅니다.
 // =========================================================
 
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { listInvoices } from '@/server/repositories/invoice';
 import { todayInKst } from '@/server/domain/week';
 import { prevYearMonth, yearMonthOf } from '@/server/domain/billing';
@@ -23,7 +23,7 @@ export default async function InvoicesPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string; name?: string }>;
 }) {
-  await requireSector('design_center');
+  await requireManagerSector('design_center');
 
   const q = await searchParams;
   const thisMonth = yearMonthOf(todayInKst());

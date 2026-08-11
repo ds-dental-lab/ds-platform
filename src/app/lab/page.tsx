@@ -6,17 +6,21 @@
 // =========================================================
 
 import { getHomeSummary } from '@/server/repositories/home';
+import { getSession } from '@/server/policies/session';
+import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 import HomeScreen from '@/components/home/HomeScreen';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const summary = await getHomeSummary();
+  const session = await getSession();
 
   return (
     <HomeScreen
       sector="lab"
       summary={summary}
+      canSeeMoney={canSeeMoney(session?.role as MemberRole | null)}
     />
   );
 }

@@ -8,7 +8,7 @@
 // =========================================================
 
 import { notFound } from 'next/navigation';
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { getPartner, getPartnerPrices } from '@/server/repositories/partner';
 import PartnerPriceTable from '@/components/partner/PartnerPriceTable';
 
@@ -19,7 +19,7 @@ export default async function PartnerPricePage({
 }: {
   params: Promise<{ orgId: string }>;
 }) {
-  await requireSector('design_center');
+  await requireManagerSector('design_center');
 
   const { orgId } = await params;
 
