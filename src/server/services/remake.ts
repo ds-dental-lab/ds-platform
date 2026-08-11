@@ -30,14 +30,37 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { canRequestRemake, type OrderStatus } from '@/server/domain/order-status';
 import { todayInKst } from '@/server/domain/week';
-import { defaultDueDate } from '@/server/domain/due-date';
+import { defaultDueDate, checkDueDate } from '@/server/domain/due-date';
+import { isValidCombination } from '@/server/domain/prosthesis';
+import { isValidShade } from '@/server/domain/shade';
 
 const BUCKET = 'order-files';
+
+/**
+ * 치아 하나에 대한 변경. 안 바꾸면 필드를 비워 둡니다.
+ *
+ * ★ 바꾼 것만 담습니다. '그대로' 를 값으로 채워 보내면
+ *   원주문이 나중에 고쳐졌을 때 옛 값이 박혀 버립니다.
+ */
+export interface RemakeChange {
+  itemId: string;
+  /** 보철 종류·재료를 바꿀 때만 */
+  typeCode?: string;
+  materialCode?: string;
+  /** 쉐이드를 바꿀 때만 */
+  shadeSystem?: string;
+  shadeCervical?: string | null;
+  shadeIncisal?: string | null;
+}
 
 export interface RemakeInput {
   orderId: string;
   /** 다시 만들 보철물. 원주문 order_items 의 id 들입니다 (부분 리메이크) */
   itemIds: string[];
+  /** 치아별 사양 변경. 안 바꾼 치아는 여기 없습니다 */
+  changes?: RemakeChange[];
+  /** 요청시한. 리메이크도 그날 기준으로 다시 잡습니다 */
+  dueDate?: string;
   /** 왜 다시 만드는지. 디자인센터가 그대로 봅니다 */
   notes: string;
   /** 그대로 쓸 원주문 스캔 파일. order_files 의 id 들입니다 */
@@ -141,6 +164,39 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
 
   const items = itemRows as unknown as CopyableItem[];
 
+  // ---------- 바꾼 사양이 실제로 있는 조합인지 ----------
+  //
+  // ★ 화면의 셀렉트가 목록을 좁혀 주지만 그것만 믿지 않습니다.
+  //   여기서 걸러야 없는 재료·없는 색조가 주문서에 박히지 않습니다.
+  const changes = (input.changes ?? []).filter((c) => input.itemIds.includes(c.itemId));
+
+  for (const change of changes) {
+    const base = items.find((i) => i.id === change.itemId);
+    if (!base) return { ok: false, error: '바꾸려는 보철물이 이 주문의 것이 아닙니다' };
+
+    const typeCode = change.typeCode ?? base.type_code;
+    const materialCode = change.materialCode ?? base.material_code;
+
+    if (!isValidCombination(typeCode, materialCode)) {
+      return {
+        ok: false,
+        error: `${base.tooth_number}번 — 바꾼 종류와 재료가 맞지 않습니다`,
+      };
+    }
+
+    const system = change.shadeSystem ?? base.shade_system;
+    if (system) {
+      for (const shade of [change.shadeCervical, change.shadeIncisal]) {
+        if (shade && !isValidShade(system, shade)) {
+          return {
+            ok: false,
+            error: `${base.tooth_number}번 — ${shade} 는 선택한 쉐이드 체계에 없습니다`,
+          };
+        }
+      }
+    }
+  }
+
   // 재사용할 파일도 같은 방식으로 확인합니다
   const reuse: { id: string; storage_path: string; file_name: string; file_size: number | null; mime_type: string | null }[] = [];
 
@@ -165,6 +221,14 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
 
   const today = todayInKst();
 
+  // ★ 요청시한은 리메이크 신청일 기준으로 다시 잡습니다.
+  //   원주문 시한은 이미 지났습니다. 일반 주문과 같은 규칙을 씁니다.
+  const dueDate = input.dueDate ?? defaultDueDate(today);
+  const verdict = checkDueDate(dueDate, today);
+  if (!verdict.selectable) {
+    return { ok: false, error: verdict.reason ?? '고를 수 없는 요청시한입니다' };
+  }
+
   const { data: remake, error: remakeError } = await supabase
     .from('orders')
     .insert({
@@ -178,7 +242,7 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
       patient_label_masked: parent.patient_label_masked,
       order_type: parent.order_type,
       status: 'received',
-      due_date: defaultDueDate(today),
+      due_date: dueDate,
       notes: input.notes.trim(),
       is_remake: true,
       is_billable: false,                              // 청구 제외 (§2.1 C-3)
@@ -196,23 +260,33 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
   }
 
   // 고른 보철물만 옮깁니다 — 부분 리메이크가 됩니다 (§3.2)
-  const rows = items.map((item) => ({
+  //
+  // ★ 바꾼 치아는 새 값으로 갈아 넣습니다.
+  //   원주문 항목은 그대로 두므로, 나중에 정산이 부모와 견주어
+  //   차액을 뽑을 수 있습니다 (parent_order_id + tooth_number).
+  const changeOf = new Map(changes.map((c) => [c.itemId, c]));
+
+  const rows = items.map((item) => {
+    const c = changeOf.get(item.id);
+
+    return {
     order_id: remake.id,
     tooth_number: item.tooth_number,
     slot: item.slot,
-    type_code: item.type_code,
-    material_code: item.material_code,
+    type_code: c?.typeCode ?? item.type_code,
+    material_code: c?.materialCode ?? item.material_code,
     is_pontic: item.is_pontic,
-    shade_system: item.shade_system,
-    shade_cervical: item.shade_cervical,
-    shade_incisal: item.shade_incisal,
+    shade_system: c?.shadeSystem ?? item.shade_system,
+    shade_cervical: c && 'shadeCervical' in c ? c.shadeCervical ?? null : item.shade_cervical,
+    shade_incisal: c && 'shadeIncisal' in c ? c.shadeIncisal ?? null : item.shade_incisal,
     implant_manufacturer: item.implant_manufacturer,
     implant_type: item.implant_type,
     implant_size: item.implant_size,
     implant_screw: item.implant_screw,
     implant_option: item.implant_option,
     has_gingival: item.has_gingival,
-  }));
+    };
+  });
 
   const { error: itemError } = await supabase.from('order_items').insert(rows);
 

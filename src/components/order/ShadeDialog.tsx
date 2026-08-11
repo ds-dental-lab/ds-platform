@@ -53,9 +53,20 @@ export interface ShadeDialogProps {
   shade: ToothShade;
   onApply: (system: ShadeSystemCode, shade: ToothShade) => void;
   onClose: () => void;
+  /** 창 제목. 리메이크에서는 '45번 쉐이드 변경' 처럼 씁니다 */
+  title?: string;
+  /** 왼쪽 버튼 문구. 리메이크에서는 '그대로 두기' 입니다 */
+  keepLabel?: string;
 }
 
-export default function ShadeDialog({ system, shade, onApply, onClose }: ShadeDialogProps) {
+export default function ShadeDialog({
+  system,
+  shade,
+  onApply,
+  onClose,
+  title = '쉐이드',
+  keepLabel = '선택 해제',
+}: ShadeDialogProps) {
   const [draftSystem, setDraftSystem] = useState<ShadeSystemCode>(system);
   const [draft, setDraft] = useState<ToothShade>(shade);
 
@@ -94,7 +105,7 @@ export default function ShadeDialog({ system, shade, onApply, onClose }: ShadeDi
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-6">
       <div className="flex max-h-[92vh] w-full max-w-[1040px] flex-col overflow-auto rounded-xl bg-white shadow-xl">
         <div className="flex items-center justify-between px-7 pb-1 pt-5">
-          <h3 className="text-[17px] font-bold tracking-tight text-[#1A2130]">쉐이드</h3>
+          <h3 className="text-[17px] font-bold tracking-tight text-[#1A2130]">{title}</h3>
           <button
             type="button"
             onClick={onClose}
@@ -271,13 +282,19 @@ export default function ShadeDialog({ system, shade, onApply, onClose }: ShadeDi
           <button
             type="button"
             onClick={() => {
+              // ★ 이름이 '그대로 두기' 면 손대지 않고 닫습니다.
+              //   리메이크에서는 색을 지우는 것이 아니라 원주문 값을 두는 뜻입니다.
+              if (keepLabel !== '선택 해제') {
+                onClose();
+                return;
+              }
               setDraft(EMPTY_SHADE);
               setArmed(null);
               setMessage('');
             }}
             className="h-9 shrink-0 rounded-md border border-[#DDE2EA] px-4 text-[12.5px] text-[#4A5567] hover:bg-[#F4F6F9]"
           >
-            선택 해제
+            {keepLabel}
           </button>
 
           <button

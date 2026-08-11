@@ -13,6 +13,7 @@ import { getOrderDetail } from '@/server/repositories/order';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { todayInKst } from '@/server/domain/week';
+import { defaultDueDate } from '@/server/domain/due-date';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
 import RepairRequest from '@/components/order/RepairRequest';
 import RemakeRequest from '@/components/order/RemakeRequest';
@@ -29,6 +30,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   const order = await getOrderDetail(orderId);
   if (!order) notFound();
 
+  const today = todayInKst();
+
   const [implantCatalog, messages] = await Promise.all([
     getImplantCatalog(),
     listOrderMessages(orderId),
@@ -38,7 +41,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
     <OrderDetailScreen
       order={order}
       sector="clinic"
-      today={todayInKst()}
+      today={today}
       implantCatalog={implantCatalog}
       messages={messages}
       showClinic={false}
@@ -57,6 +60,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             status={order.status}
             items={order.items}
             scanFiles={order.files.filter((f) => f.kind !== 'design')}
+            today={today}
+            defaultDue={defaultDueDate(today)}
           />
           <RepairRequest orderId={order.id} status={order.status} items={order.items} />
         </>

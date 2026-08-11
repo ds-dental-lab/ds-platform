@@ -126,9 +126,20 @@ describe('수정과 리메이크', () => {
     expect(canEditOrder('cancelled')).toBe(false);
   });
 
-  it('삭제도 같은 규칙', () => {
+  it('★ 삭제는 접수에서만 — 수정보다 좁습니다', () => {
     expect(canDeleteOrder('received')).toBe(true);
+
+    // 재스캔은 디자인센터가 기다리는 상태라 소리 없이 없애면 안 됩니다
+    expect(canDeleteOrder('rescan')).toBe(false);
+    expect(canEditOrder('rescan')).toBe(true);   // 파일 수정은 됩니다
+
+    // 작업이 돌아가는 중에는 말할 것도 없습니다
     expect(canDeleteOrder('designing')).toBe(false);
+    expect(canDeleteOrder('production')).toBe(false);
+  });
+
+  it('재스캔에서 그만두려면 취소를 씁니다 — 사유가 남습니다', () => {
+    expect(canCancel('rescan', 'clinic')).toBe(true);
   });
 
   it('디자인에서 제작대기로 갈 때만 파일이 필요하다', () => {

@@ -171,8 +171,20 @@ export function canEditSpec(status: OrderStatus): boolean {
   return editScopeOf(status) === 'full';
 }
 
+/**
+ * 지울 수 있는가. (사용자 결정 2026-08-11)
+ *
+ * ★ 접수에서만입니다. 수정보다 좁습니다.
+ *   재스캔은 디자인센터가 이미 열어 보고 "다시 올려 달라" 고 부른 상태입니다.
+ *   상대가 기다리고 있는 건을 소리 없이 없애면 영문을 모릅니다.
+ *   디자인 단계는 말할 것도 없습니다 — 그때는 작업이 돌아가고 있습니다.
+ *
+ *   재스캔에서 그만두고 싶으면 취소를 씁니다. 사유가 남아 상대가 압니다.
+ */
+const DELETABLE_STATUSES: OrderStatus[] = ['received'];
+
 export function canDeleteOrder(status: OrderStatus): boolean {
-  return canEditOrder(status);
+  return DELETABLE_STATUSES.includes(status);
 }
 
 /**
