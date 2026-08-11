@@ -127,21 +127,26 @@ describe('수정과 리메이크', () => {
     expect(canEditOrder('cancelled')).toBe(false);
   });
 
-  it('★ 삭제는 접수에서만 — 수정보다 좁습니다', () => {
+  it('★ 삭제는 접수와 재스캔까지 — 작업 시작 전이면 지웁니다', () => {
     expect(canDeleteOrder('received')).toBe(true);
-
-    // 재스캔은 디자인센터가 기다리는 상태라 소리 없이 없애면 안 됩니다
-    expect(canDeleteOrder('rescan')).toBe(false);
-    expect(canEditOrder('rescan')).toBe(true);   // 파일 수정은 됩니다
-
-    // 작업이 돌아가는 중에는 말할 것도 없습니다
-    expect(canDeleteOrder('designing')).toBe(false);
-    expect(canDeleteOrder('production')).toBe(false);
+    expect(canDeleteOrder('rescan')).toBe(true);
   });
 
-  it('재스캔에서는 못 지웁니다 — 스캔을 다시 올려 접수로 돌아간 뒤에 지웁니다', () => {
-    expect(canDeleteOrder('rescan')).toBe(false);
-    expect(canTransition('rescan', 'received', 'clinic').allowed).toBe(true);
+  it('★ 디자인부터는 못 지웁니다 — 사람이 붙어 있습니다', () => {
+    for (const status of ['designing', 'production_wait', 'production', 'shipping'] as const) {
+      expect(canDeleteOrder(status)).toBe(false);
+    }
+  });
+
+  it('★ 취소 버튼이 없으므로 이 길이 유일한 출구입니다', () => {
+    // 접수·재스캔에서 막으면 그만둘 방법이 사라집니다
+    for (const status of ['received', 'rescan'] as const) {
+      const hasCancelButton = getAvailableActions(status, 'clinic').some(
+        (a) => a.to === 'cancelled',
+      );
+      expect(hasCancelButton).toBe(false);
+      expect(canDeleteOrder(status)).toBe(true);
+    }
   });
 
   it('디자인에서 제작대기로 갈 때만 파일이 필요하다', () => {
@@ -202,10 +207,8 @@ describe('수정 범위', () => {
     expect(editScopeOf('cancelled')).toBe('none');
   });
 
-  it('★ 사양을 바꾸려면 접수로 되돌린 뒤 지우고 새로 넣습니다', () => {
-    // 재스캔에서 스캔을 다시 올리면 접수로 돌아가고, 거기서 지울 수 있습니다
-    expect(canTransition('rescan', 'received', 'clinic').allowed).toBe(true);
-    expect(canDeleteOrder('received')).toBe(true);
+  it('★ 사양을 바꾸려면 지우고 새로 넣습니다 — 재스캔에서 바로 됩니다', () => {
+    expect(canDeleteOrder('rescan')).toBe(true);
   });
 });
 

@@ -183,3 +183,25 @@ export const SORTABLE_COLUMNS: SortColumn[] = [
 export function isSortable(column: string): column is SortColumn {
   return (SORTABLE_COLUMNS as string[]).includes(column);
 }
+
+// ---------- 리메이크 표기 (사용자 확정 2026-08-11, 다 안) ----------
+
+/**
+ * 목록의 '리메이크 횟수' 칸에 무엇을 찍을지.
+ *
+ * ★ 원주문과 리메이크는 궁금한 것이 다릅니다.
+ *     원주문   몇 번 다시 만들었나        → '2회'
+ *     리메이크 내가 몇 차인가             → '2차'
+ *
+ *   한 열에 둘을 같이 찍습니다. 서로 다른 수인데 같은 숫자로 보이면
+ *   2차 리메이크가 0 으로 나옵니다 — 아직 자기가 다시 만들어진 적이
+ *   없다는 뜻이지만, 보는 사람은 리메이크가 아닌 줄 압니다.
+ */
+export function formatRemakeLabel(row: {
+  isRemake: boolean;
+  remakeSeq: number;
+  remakeCount: number;
+}): string {
+  if (row.isRemake) return `${row.remakeSeq}차`;
+  return row.remakeCount > 0 ? `${row.remakeCount}회` : '0';
+}

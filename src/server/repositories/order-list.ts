@@ -34,6 +34,7 @@ export interface OrderRow {
   teeth: ToothCell[];
   issue: IssueType | null;
   remake_count: number;
+  remake_seq: number;
   is_remake: boolean;
   is_repair: boolean;
 }
@@ -85,6 +86,7 @@ interface RawRow {
   created_at: string;
   patient_label: string;
   remake_count: number;
+  remake_seq: number;
   is_remake: boolean;
   is_repair: boolean;
   clinic: { name: string } | null;
@@ -110,7 +112,7 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
     .from('orders')
     .select(
       `id, order_no, status, due_date, received_at, created_at, ` +
-        `patient_label:${patientColumn}, remake_count, is_remake, is_repair, ` +
+        `patient_label:${patientColumn}, remake_count, remake_seq, is_remake, is_repair, ` +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
         labSelect +
         'order_items(tooth_number, is_pontic), ' +
@@ -152,6 +154,7 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
     })),
     issue: pickIssue(row.order_issues),
     remake_count: row.remake_count ?? 0,
+    remake_seq: row.remake_seq ?? 0,
     is_remake: row.is_remake ?? false,
     is_repair: row.is_repair ?? false,
   }));

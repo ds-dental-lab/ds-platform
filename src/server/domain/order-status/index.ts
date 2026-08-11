@@ -199,17 +199,21 @@ export function canEditDueDate(status: OrderStatus, sector: Sector): boolean {
 }
 
 /**
- * 지울 수 있는가. (사용자 결정 2026-08-11)
+ * 지울 수 있는가. (사용자 결정 2026-08-11, A 안)
  *
- * ★ 접수에서만입니다. 수정보다 좁습니다.
- *   재스캔은 디자인센터가 이미 열어 보고 "다시 올려 달라" 고 부른 상태입니다.
- *   상대가 기다리고 있는 건을 소리 없이 없애면 영문을 모릅니다.
- *   디자인 단계는 말할 것도 없습니다 — 그때는 작업이 돌아가고 있습니다.
+ * ★ 접수와 재스캔까지입니다.
+ *   둘 다 아직 디자인센터가 '작업을 시작하지 않은' 자리입니다.
+ *   재스캔은 열어 보고 "다시 올려 달라" 며 기다리는 상태이지,
+ *   무언가를 만들고 있는 상태가 아닙니다.
  *
- *   재스캔에서 그만두려면 스캔을 다시 올려 접수로 돌아간 뒤 지웁니다.
- *   ⚠ 돌아가는 길입니다 — 재스캔에서 바로 지우게 할지는 확인이 필요합니다.
+ * ★ 디자인부터는 안 됩니다.
+ *   그때는 사람이 붙어 작업이 돌아갑니다. 소리 없이 사라지면
+ *   그 시간이 통째로 날아갑니다.
+ *
+ * ★ 주문 취소 버튼을 없앴으므로 이 길이 유일한 출구입니다.
+ *   접수·재스캔에서 막으면 그만둘 방법이 사라집니다.
  */
-const DELETABLE_STATUSES: OrderStatus[] = ['received'];
+const DELETABLE_STATUSES: OrderStatus[] = ['received', 'rescan'];
 
 export function canDeleteOrder(status: OrderStatus): boolean {
   return DELETABLE_STATUSES.includes(status);

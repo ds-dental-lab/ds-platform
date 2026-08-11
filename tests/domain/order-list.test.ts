@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   statusesForSector,
+  formatRemakeLabel,
   computeDDay,
   formatToothList,
   sectorOfStatus,
@@ -195,5 +196,39 @@ describe('섹터별 상태 목록', () => {
 
     expect(statusesForSector('clinic').map((s) => s.status)).toEqual(all);
     expect(statusesForSector('design_center').map((s) => s.status)).toEqual(all);
+  });
+});
+
+// =========================================================
+// 리메이크 표기 (사용자 확정 2026-08-11, 다 안)
+//
+// ★ 원주문은 '몇 번 다시 만들었나', 리메이크는 '내가 몇 차인가'.
+//   서로 다른 수라 같은 숫자로 찍으면 2차 리메이크가 0 으로 보입니다.
+// =========================================================
+
+describe('리메이크 표기', () => {
+  it('★ 원주문은 다시 만든 횟수를 회 로 찍는다', () => {
+    expect(formatRemakeLabel({ isRemake: false, remakeSeq: 0, remakeCount: 2 })).toBe('2회');
+  });
+
+  it('★ 리메이크는 몇 차인지를 차 로 찍는다', () => {
+    expect(formatRemakeLabel({ isRemake: true, remakeSeq: 1, remakeCount: 0 })).toBe('1차');
+    expect(formatRemakeLabel({ isRemake: true, remakeSeq: 2, remakeCount: 0 })).toBe('2차');
+  });
+
+  it('★ 2차 리메이크가 0 으로 보이지 않는다', () => {
+    // remakeCount 만 쓰면 0 이 되어 리메이크가 아닌 것처럼 보였습니다
+    const label = formatRemakeLabel({ isRemake: true, remakeSeq: 2, remakeCount: 0 });
+    expect(label).not.toBe('0');
+    expect(label).toBe('2차');
+  });
+
+  it('한 번도 안 만든 원주문은 0', () => {
+    expect(formatRemakeLabel({ isRemake: false, remakeSeq: 0, remakeCount: 0 })).toBe('0');
+  });
+
+  it('리메이크가 또 다시 만들어져도 차수를 유지한다', () => {
+    // 1차 리메이크가 한 번 더 리메이크돼도 '1차' 입니다
+    expect(formatRemakeLabel({ isRemake: true, remakeSeq: 1, remakeCount: 1 })).toBe('1차');
   });
 });

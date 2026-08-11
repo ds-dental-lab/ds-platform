@@ -16,6 +16,7 @@ import {
   colorOfStatus,
   ISSUE_META,
   isSortable,
+  formatRemakeLabel,
   type SortColumn,
 } from '@/server/domain/order-list';
 import { STATUS_LABEL } from '@/server/domain/order-status';
@@ -202,7 +203,11 @@ export default function OrderTable({
                   </td>
 
                   <td className="px-3 py-3 text-center text-[13px] tabular-nums text-[#4A5567]">
-                    {row.remake_count}
+                    {formatRemakeLabel({
+                      isRemake: row.is_remake,
+                      remakeSeq: row.remake_seq,
+                      remakeCount: row.remake_count,
+                    })}
                   </td>
                 </OrderTableRow>
               );

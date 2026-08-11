@@ -34,7 +34,7 @@ export async function submitDeleteOrder(orderId: string): Promise<DeleteOrderRes
   // RLS 가 이미 관련 조직만 읽게 해 줍니다 — 여기서는 상태만 다시 봅니다
   const { data: order } = await supabase
     .from('orders')
-    .select('status')
+    .select('status, is_remake, parent_order_id')
     .eq('id', orderId)
     .is('deleted_at', null)
     .maybeSingle();
@@ -61,9 +61,52 @@ export async function submitDeleteOrder(orderId: string): Promise<DeleteOrderRes
     return { ok: false, error: '지울 수 있는 주문이 아닙니다' };
   }
 
+  // 리메이크였다면 원주문에 남긴 흔적을 되돌립니다
+  if (order.is_remake && order.parent_order_id) {
+    await rollbackParent(supabase, order.parent_order_id as string);
+  }
+
+  revalidatePath('/clinic', 'layout');
   revalidatePath('/clinic/orders', 'layout');
+  revalidatePath('/design', 'layout');
   revalidatePath('/design/orders', 'layout');
   revalidatePath('/lab/orders', 'layout');
 
   return { ok: true };
+}
+
+/**
+ * 리메이크를 지운 뒤 원주문 되돌리기.
+ *
+ * ★ 빼지 않고 다시 셉니다.
+ *   remake_count 를 1 씩 깎으면 어딘가에서 한 번 어긋났을 때 영영 틀립니다.
+ *   살아 있는 리메이크를 세어 그 값으로 덮으면 셀 때마다 제자리를 찾습니다.
+ *
+ * ★ 리메이크가 하나도 안 남으면 이슈도 내립니다.
+ *   원주문이 '리메이크' 로 계속 걸려 있으면 HOME 의 진행중 이슈와
+ *   목록 필터에 계속 잡힙니다 — 실제로는 다시 만든 적이 없는데도.
+ */
+async function rollbackParent(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  parentId: string,
+): Promise<void> {
+  const { count } = await supabase
+    .from('orders')
+    .select('id', { count: 'exact', head: true })
+    .eq('parent_order_id', parentId)
+    .eq('is_remake', true)
+    .is('deleted_at', null);
+
+  const live = count ?? 0;
+
+  await supabase.from('orders').update({ remake_count: live }).eq('id', parentId);
+
+  if (live === 0) {
+    await supabase
+      .from('order_issues')
+      .update({ resolved_at: new Date().toISOString() })
+      .eq('order_id', parentId)
+      .eq('issue_type', 'remake')
+      .is('resolved_at', null);
+  }
 }
