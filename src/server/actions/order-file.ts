@@ -17,6 +17,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
+import { recordAccess } from '@/server/audit';
 import { changeOrderStatus } from '@/server/services/order-status';
 import {
   canDeleteFile,
@@ -59,6 +60,13 @@ export async function getOrderFileUrl(fileId: string): Promise<FileUrlResult> {
   if (error || !data) {
     return { ok: false, error: `내려받지 못했습니다: ${error?.message ?? '알 수 없는 오류'}` };
   }
+
+  /*
+    ★ 파일 이름에 환자 이름이 들어 있는 일이 흔합니다
+      ('2026-08-11-박나래-26.obj'). 내려받기는 개인정보가 조직 밖으로
+      나가는 순간이라 반드시 남깁니다.
+  */
+  await recordAccess({ action: 'file.download', targetId: fileId });
 
   const advanced = await startProductionOnDownload(found);
 

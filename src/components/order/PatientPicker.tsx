@@ -17,7 +17,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useId } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { searchPatients } from '@/server/actions/patient';
 
 export interface Patient {
   id: string;
@@ -80,21 +80,14 @@ export default function PatientPicker({
       return;
     }
 
+    /*
+      ★ 브라우저가 Supabase 에 바로 묻지 않고 서버를 거칩니다 (2026-08-12).
+        환자 검색은 이 시스템에서 가장 민감한 조회입니다 — 이름 몇 글자로
+        명단을 훑을 수 있습니다. 브라우저에서 바로 물으면 그 조회가
+        열람 기록에 안 남습니다 (설계서 §3.5).
+    */
     timer.current = setTimeout(async () => {
-      const supabase = createClient();
-
-      let query = supabase
-        .from('patients')
-        .select('id, chart_no, name')
-        .is('deleted_at', null)
-        .or(`chart_no.ilike.%${trimmed}%,name.ilike.%${trimmed}%`);
-
-      // 치과가 정해져 있으면 그 안에서만 찾습니다
-      if (clinicOrgId) query = query.eq('clinic_org_id', clinicOrgId);
-
-      const { data } = await query.order('chart_no').limit(8);
-
-      setResults(data ?? []);
+      setResults(await searchPatients(trimmed, clinicOrgId));
     }, 250);
   }
 

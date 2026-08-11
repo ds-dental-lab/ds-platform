@@ -18,11 +18,14 @@
 
 'use client';
 
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitAccount, type AccountInput } from '@/server/actions/account';
 
 export interface AccountFormProps {
+  /** 이 섹터의 뿌리 주소 — /clinic · /design · /lab */
+  basePath: string;
   org: {
     name: string;
     code: string | null;
@@ -46,7 +49,7 @@ const TYPE_LABEL = {
   lab: '기공소',
 } as const;
 
-export default function AccountForm({ org, editable }: AccountFormProps) {
+export default function AccountForm({ org, editable, basePath }: AccountFormProps) {
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
   const [saving, setSaving] = useState(false);
@@ -212,8 +215,16 @@ export default function AccountForm({ org, editable }: AccountFormProps) {
         {error && <p className="px-6 pb-2 text-[12.5px] text-[#D8453F]">{error}</p>}
 
         {/* ---------- 아래줄 ---------- */}
-        <div className="flex items-center justify-end gap-2 border-t border-[#E8EBF0] px-6 py-4">
-          {!editable && (
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#E8EBF0] px-6 py-4">
+          {/* ★ 열람 기록은 관리자만 봅니다 — 그래서 여기서만 갈 수 있습니다 */}
+          {editable ? (
+            <Link
+              href={`${basePath}/audit`}
+              className="mr-auto h-10 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold leading-10 text-[#4A5567] hover:bg-[#F4F6F9]"
+            >
+              열람 기록 보기
+            </Link>
+          ) : (
             <span className="mr-auto text-[12px] text-[#98A2B3]">
               관리자만 고칠 수 있습니다.
             </span>

@@ -8,6 +8,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
+import { recordAccess } from '@/server/audit';
 import type { OrderStatus, Sector } from '@/server/domain/order-status';
 
 /**
@@ -294,6 +295,9 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
 
   if (error || !data) return null;
 
+  // 상세는 환자 한 명의 이름·치식·보철이 통째로 나갑니다
+  await recordAccess({ action: 'order.view', targetId: orderId });
+
   type RawDetailRow = Omit<
     OrderDetail,
     'clinic_name' | 'lab_name' | 'items' | 'files' | 'options' | 'in_house' | 'roles'
@@ -432,6 +436,16 @@ export async function listOrdersByDueDate(
     .order('due_date');
 
   if (error || !data) return [];
+
+  /*
+    ★ 배송조회 달력에도 환자 이름이 실립니다.
+      한 주치가 한 번에 나가므로 목록 조회와 같게 남깁니다.
+  */
+  await recordAccess({
+    action: 'order.list',
+    subjectCount: data.length,
+    detail: '배송조회',
+  });
 
   return (data as unknown as RawListRow[]).map((row) => ({
     id: row.id,

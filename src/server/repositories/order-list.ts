@@ -13,6 +13,7 @@
 
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
+import { recordAccess } from '@/server/audit';
 import { getSession } from '@/server/policies/session';
 import type { OrderStatus } from '@/server/domain/order-status';
 import {
@@ -191,8 +192,21 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
   const pages = Math.max(1, Math.ceil(total / perPage));
   const page = Math.min(Math.max(1, query.page ?? 1), pages);
 
+  const shown = rows.slice((page - 1) * perPage, page * perPage);
+
+  /*
+    ★ 목록에도 환자 실명이 실립니다 — 한 쪽에 수십 명입니다.
+      상세만 남기면 "목록만 훑었다" 는 대량 열람이 기록에서 빠집니다.
+      실제로 화면에 나간 쪽(shown)만 셉니다.
+  */
+  await recordAccess({
+    action: 'order.list',
+    subjectCount: shown.length,
+    detail: query.patient?.trim() || query.clinic?.trim() ? '검색' : null,
+  });
+
   return {
-    rows: rows.slice((page - 1) * perPage, page * perPage),
+    rows: shown,
     total,
     page,
     pages,
