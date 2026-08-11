@@ -5,6 +5,15 @@
 //
 // 파일은 서버를 거치지 않고 브라우저에서 Storage 로 바로 갑니다.
 // STL 은 10~50MB 라 서버가 중계하면 낭비입니다. (설계서 §5.3 결정 3)
+//
+// ★ 아이콘 하나로 바꿨습니다 (사용자 요청 2026-08-12).
+//   전에는 카드 안에 파일 고르기 칸과 목록과 올리기 버튼이 늘어서서
+//   디자인 파일 칸의 절반을 먹었습니다. 파일이 없을 때가 대부분인데
+//   빈 칸을 도구가 채우고 있었습니다.
+//   이제 카드 머리줄의 ⬆ 를 누르면 파일 창이 뜨고, 고르는 즉시 올라갑니다.
+//
+// ★ 고르면 바로 올립니다. '올리기' 를 한 번 더 누르지 않습니다.
+//   진행 상황은 오른쪽 위 알림이 맡습니다.
 // =========================================================
 
 'use client';
@@ -12,6 +21,7 @@
 import { useState, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadOrderFiles } from '@/lib/upload';
+import UploadToast, { type UploadState } from '@/components/order/UploadToast';
 
 const MAX_SIZE = 100 * 1024 * 1024;
 
@@ -20,59 +30,58 @@ export default function DesignFileUpload({ orderId }: { orderId: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [refreshing, startTransition] = useTransition();
 
-  const [picked, setPicked] = useState<File[]>([]);
-  const [progress, setProgress] = useState('');
+  const [upload, setUpload] = useState<UploadState | null>(null);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
 
   const busy = uploading || refreshing;
 
-  function handlePick(list: FileList | null) {
-    if (!list) return;
+  async function handlePick(list: FileList | null) {
+    if (!list || list.length === 0) return;
     setError('');
 
-    const next: File[] = [];
+    const picked: File[] = [];
+    const tooBig: string[] = [];
+
     for (const file of Array.from(list)) {
-      if (file.size > MAX_SIZE) {
-        setError(file.name + ' 은 100MB 를 넘어 올릴 수 없습니다');
-        continue;
-      }
-      next.push(file);
+      if (file.size > MAX_SIZE) tooBig.push(file.name);
+      else picked.push(file);
     }
 
-    setPicked((prev) => [...prev, ...next]);
+    // 입력칸을 비웁니다 — 같은 파일을 다시 골라도 change 가 뜨도록
     if (inputRef.current) inputRef.current.value = '';
-  }
 
-  async function handleUpload() {
+    if (tooBig.length > 0) {
+      setError(`${tooBig.join(', ')} 은 100MB 를 넘어 올릴 수 없습니다`);
+    }
     if (picked.length === 0) return;
 
-    setError('');
     setUploading(true);
 
     const result = await uploadOrderFiles(
       orderId,
       picked,
-      (done, total) => setProgress(`올리는 중 ${done} / ${total}`),
+      (progress) => setUpload({ phase: 'uploading', progress }),
       'design',
     );
 
     setUploading(false);
-    setProgress('');
+    setUpload(
+      result.ok
+        ? { phase: 'done', total: picked.length }
+        : { phase: 'failed', total: picked.length, failed: result.failed },
+    );
 
     if (!result.ok) {
       setError(`파일 ${result.failed.length}개를 올리지 못했습니다. 다시 시도해 주세요.`);
-      setPicked((prev) => prev.filter((f) => result.failed.includes(f.name)));
-      return;
     }
 
-    setPicked([]);
     startTransition(() => router.refresh());
   }
 
   return (
-    <div className="border-t border-gray-100 px-5 py-4">
-      <p className="mb-2 text-[13px] font-semibold text-gray-500">디자인 파일 올리기</p>
+    <>
+      <UploadToast state={upload} onClose={() => setUpload(null)} />
 
       <input
         ref={inputRef}
@@ -80,41 +89,53 @@ export default function DesignFileUpload({ orderId }: { orderId: string }) {
         multiple
         disabled={busy}
         onChange={(e) => handlePick(e.target.files)}
-        className="block w-full text-sm text-gray-600 file:mr-3 file:rounded file:border-0 file:bg-purple-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-purple-700 hover:file:bg-purple-100"
+        className="hidden"
       />
 
-      {picked.length > 0 && (
-        <>
-          <ul className="mt-3 space-y-1">
-            {picked.map((file, i) => (
-              <li
-                key={i}
-                className="flex items-center gap-2 rounded bg-gray-50 px-3 py-2 text-[13px]"
-              >
-                <span className="flex-1 truncate">{file.name}</span>
-                <button
-                  onClick={() => setPicked((prev) => prev.filter((_, n) => n !== i))}
-                  disabled={busy}
-                  className="text-gray-400 hover:text-red-500"
-                >
-                  x
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <button
-            onClick={handleUpload}
-            disabled={busy}
-            className="mt-3 rounded bg-purple-600 px-5 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-          >
-            {busy ? '올리는 중…' : `${picked.length}개 올리기`}
-          </button>
-        </>
+      {error && (
+        <span className="text-[11px] font-semibold text-[#D8453F]" role="alert">
+          {error}
+        </span>
       )}
 
-      {progress && <p className="mt-2 text-[13px] text-blue-600">{progress}</p>}
-      {error && <p className="mt-2 text-[13px] text-red-600">{error}</p>}
-    </div>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        title="디자인 파일 올리기"
+        aria-label="디자인 파일 올리기"
+        className="grid h-7 w-7 place-items-center rounded-md text-[#5546C8] hover:bg-[#EFEDFB] disabled:cursor-not-allowed disabled:text-[#C4CBD6]"
+      >
+        {busy ? <Spinner /> : <UploadIcon />}
+      </button>
+    </>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M10 13.5V3.5M6.5 7 10 3.5 13.5 7" />
+      <path d="M3.5 12.5v2.8a1.2 1.2 0 0 0 1.2 1.2h10.6a1.2 1.2 0 0 0 1.2-1.2v-2.8" />
+    </svg>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="animate-spin" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.4" stroke="#DDD8F5" strokeWidth={2} />
+      <path d="M14.4 8A6.4 6.4 0 0 0 8 1.6" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+    </svg>
   );
 }

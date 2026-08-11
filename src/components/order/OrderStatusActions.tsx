@@ -29,6 +29,14 @@ export interface OrderStatusActionsProps {
   /** 디자인센터가 배정할 수 있는 기공소. 다른 섹터에서는 비어 있습니다 */
   labs?: { id: string; name: string }[];
   /**
+   * 이미 정해 둔 기공소.
+   *
+   * ★ 주문상세 아래 칸에서 미리 고릅니다. 여기 값이 있으면 버튼을 눌러도
+   *   다시 묻지 않습니다 — 화면에 보이는 것과 실제로 넘어가는 것이
+   *   같아야 합니다. 없을 때만 물어봅니다.
+   */
+  assignedLabId?: string | null;
+  /**
    * 앞으로 넘기지 못하는 사정이 있으면 그 이유.
    * 지금은 수거가 안 끝난 리페어에 씁니다 — 물건을 받기 전에는
    * 제작을 시작할 수 없습니다. 실제 차단은 서비스 계층이 합니다.
@@ -41,6 +49,7 @@ export default function OrderStatusActions({
   status,
   roles,
   labs = [],
+  assignedLabId,
   forwardBlockedReason,
 }: OrderStatusActionsProps) {
   const router = useRouter();
@@ -70,7 +79,8 @@ export default function OrderStatusActions({
 
     const result = await submitStatusChange(orderId, action.to, {
       reason: action.requiresReason ? reason : undefined,
-      labOrgId: action.requiresLab ? labOrgId : undefined,
+      // 미리 정해 둔 것이 있으면 그것을 씁니다
+      labOrgId: action.requiresLab ? labOrgId || assignedLabId || undefined : undefined,
     });
 
     setSaving(false);
@@ -89,10 +99,13 @@ export default function OrderStatusActions({
   function handleClick(action: StatusAction) {
     setError('');
 
-    if (action.requiresReason || action.requiresLab) {
+    // 기공소가 이미 정해져 있으면 다시 묻지 않습니다
+    const needsLab = action.requiresLab && !assignedLabId;
+
+    if (action.requiresReason || needsLab) {
       setReason('');
       // 거래 기공소가 하나뿐이면 미리 골라 둡니다
-      setLabOrgId(action.requiresLab && labs.length === 1 ? labs[0].id : '');
+      setLabOrgId(needsLab && labs.length === 1 ? labs[0].id : '');
       setAsking(action);
       return;
     }
@@ -103,7 +116,7 @@ export default function OrderStatusActions({
   /** 물어본 것을 다 채웠는가 */
   function isReady(action: StatusAction): boolean {
     if (action.requiresReason && !reason.trim()) return false;
-    if (action.requiresLab && !labOrgId) return false;
+    if (action.requiresLab && !labOrgId && !assignedLabId) return false;
     return true;
   }
 

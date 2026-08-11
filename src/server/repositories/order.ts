@@ -171,6 +171,13 @@ export interface OrderDetail {
   lab_name: string;
   /** 자사 제작인가 — 디자인센터가 직접 만드는 건 (통합 조직 모델) */
   in_house: boolean;
+  /** 배정된 기공소 id. 셀렉박스의 현재 값입니다 */
+  lab_org_id: string | null;
+  /**
+   * 치과가 보내려고 한 스캔 파일 수.
+   * 실제 올라온 수와 다르면 올리다 끊긴 것입니다 — 화면이 (1/3) 로 알립니다.
+   */
+  scan_file_expected: number;
   /** 이 주문에서 내가 맡은 자리들. 한 조직이 둘을 겸할 수 있습니다 */
   roles: Sector[];
   items: OrderDetailItem[];
@@ -272,6 +279,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     .select(
       `id, order_no, patient_label:${patientLabelColumn()}, ` +
         'status, order_type, due_date, notes, created_at, received_at, ' +
+        'scan_file_expected, ' +
         'clinic_org_id, design_org_id, lab_org_id, ' +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
         'lab:organizations!orders_lab_org_id_fkey(name), ' +
@@ -318,6 +326,8 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     received_at: row.received_at,
     clinic_name: row.clinic?.name ?? '',
     lab_name: row.lab?.name ?? '',
+    lab_org_id: row.lab_org_id,
+    scan_file_expected: row.scan_file_expected ?? 0,
     // 기공소 자리를 디자인센터가 겸하면 자사 제작입니다
     in_house: Boolean(row.lab_org_id && row.lab_org_id === row.design_org_id),
     roles: rolesOf(row, session?.orgId ?? null),

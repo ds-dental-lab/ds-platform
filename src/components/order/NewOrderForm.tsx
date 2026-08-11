@@ -34,6 +34,7 @@ import {
 } from '@/server/actions/implant';
 import { submitOrder, submitUpdateOrder } from '@/server/actions/order';
 import { uploadOrderFiles } from '@/lib/upload';
+import UploadToast, { type UploadState } from '@/components/order/UploadToast';
 import {
   type ProsthesisCatalog,
   getMaterials,
@@ -194,6 +195,8 @@ function OrderFormBody({
 
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState('');
+  /** 오른쪽 위 업로드 알림. 큰 스캔 파일이 되고 있는지 보여 줍니다 */
+  const [upload, setUpload] = useState<UploadState | null>(null);
   const [error, setError] = useState('');
   const [hint, setHint] = useState('');
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
@@ -505,15 +508,24 @@ function OrderFormBody({
     }
 
     if (pendingFiles.length > 0) {
-      setProgress('파일 올리는 중…');
+      const total = pendingFiles.length;
 
-      const upload = await uploadOrderFiles(orderId, pendingFiles, (done, total) => {
-        setProgress(`파일 올리는 중 ${done} / ${total}`);
-      });
+      // ★ 진행률은 오른쪽 위 알림이 맡습니다.
+      //   스캔 데이터는 한 개가 수백 MB 라, 아무 표시가 없으면
+      //   멈춘 줄 알고 창을 닫습니다 — 그러면 파일 없는 주문이 남습니다.
+      const upload = await uploadOrderFiles(orderId, pendingFiles, (progress) =>
+        setUpload({ phase: 'uploading', progress }),
+      );
 
       setPendingFiles((prev) => prev.filter((f) => upload.failed.includes(f.name)));
       setSaving(false);
       setProgress('');
+
+      setUpload(
+        upload.ok
+          ? { phase: 'done', total }
+          : { phase: 'failed', total, failed: upload.failed },
+      );
 
       if (!upload.ok) {
         setError(
@@ -600,6 +612,8 @@ function OrderFormBody({
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
+      <UploadToast state={upload} onClose={() => setUpload(null)} />
+
       <LeaveGuard
         dirty={dirty}
         onStartOver={editing ? undefined : onStartOver}
@@ -1010,11 +1024,17 @@ function OrderFormBody({
               주문이 등록되었습니다
             </h3>
 
-            <p className="mt-3 rounded-md bg-[#F4F6F9] py-2.5 text-[15px] font-bold tracking-tight text-[#1279E8]">
-              {done.orderNo}
+            {/*
+              ★ 주문번호를 화면에 찍지 않습니다.
+                치과가 쓰는 것은 환자 이름이지 번호가 아닙니다. 안 쓰는 번호를
+                크게 띄우면 외워야 할 것처럼 보입니다. (주문상세도 같은 규칙입니다)
+                필요할 때 찾을 수 있게 title 로만 남깁니다.
+            */}
+            <p className="mt-3 rounded-md bg-[#F4F6F9] py-2.5 text-[14px] font-semibold tracking-tight text-[#4A5567]">
+              {patientText.trim() || '환자'} · {entries.length}개 보철
             </p>
 
-            <p className="mt-2.5 text-[12.5px] text-[#98A2B3]">
+            <p className="mt-2.5 text-[12.5px] text-[#98A2B3]" title={done.orderNo}>
               디자인센터에 접수 알림이 갔습니다.
             </p>
 

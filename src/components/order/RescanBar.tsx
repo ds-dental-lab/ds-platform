@@ -17,6 +17,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitResubmitScan } from '@/server/actions/rescan';
 import { uploadOrderFiles } from '@/lib/upload';
+import UploadToast, { type UploadState } from '@/components/order/UploadToast';
 import ScanDropZone from '@/components/order/ScanDropZone';
 import type { OrderDetailFile } from '@/server/repositories/order';
 
@@ -35,6 +36,8 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
   const [open, setOpen] = useState(false);
   const [reuse, setReuse] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  /** 오른쪽 위 업로드 알림 */
+  const [upload, setUpload] = useState<UploadState | null>(null);
   const [error, setError] = useState('');
 
   const busy = saving || pending;
@@ -55,11 +58,16 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
     if (files.length > 0) {
       setProgress('파일 올리는 중…');
 
-      const upload = await uploadOrderFiles(orderId, files, (done, total) => {
-        setProgress(`파일 올리는 중 ${done} / ${total}`);
-      });
+      const upload = await uploadOrderFiles(orderId, files, (progress) =>
+        setUpload({ phase: 'uploading', progress }),
+      );
 
       setProgress('');
+      setUpload(
+        upload.ok
+          ? { phase: 'done', total: files.length }
+          : { phase: 'failed', total: files.length, failed: upload.failed },
+      );
 
       if (!upload.ok) {
         setSaving(false);
@@ -89,6 +97,8 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
 
   return (
     <>
+      <UploadToast state={upload} onClose={() => setUpload(null)} />
+
       {/* 시안 .rescan-bar */}
       <button
         type="button"

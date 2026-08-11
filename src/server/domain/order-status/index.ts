@@ -259,10 +259,14 @@ export function isActionRequired(status: OrderStatus, sector: Sector): boolean {
  * "다음 상태 이름"을 그대로 쓰면 어색해집니다 — 재스캔 상태에서
  * 누르는 버튼은 '접수'가 아니라 '재업로드 완료'입니다.
  */
+// ★ 버튼 이름은 '지금 무엇을 하는가' 로 씁니다.
+//   디자인 단계의 버튼은 '디자인 완료' 가 아니라 **제작주문** 입니다 —
+//   누르는 순간 기공소에 일이 넘어가기 때문입니다. 무엇이 끝났는지가
+//   아니라 무엇이 시작되는지를 알아야 손이 멈춥니다.
 const FORWARD_LABEL: Record<OrderStatus, string> = {
   received: '디자인 시작',
   rescan: '재업로드 완료',
-  designing: '디자인 완료',
+  designing: '제작주문',
   production_wait: '제작 시작',
   production: '출고',
   shipping: '수령 완료',
@@ -334,7 +338,7 @@ export function getAvailableActions(status: OrderStatus, sector: Sector): Status
  * 여러 자리를 맡았을 때 누를 수 있는 것 전부.
  *
  * ★ 자사 제작이면 디자인센터가 기공소 자리도 함께 맡습니다.
- *   그때는 '디자인 완료'와 '제작 시작'이 상태에 따라 번갈아 나옵니다.
+ *   그때는 '제작주문'과 '제작 시작'이 상태에 따라 번갈아 나옵니다.
  */
 export function getActionsForRoles(status: OrderStatus, roles: Sector[]): StatusAction[] {
   const seen = new Set<OrderStatus>();

@@ -32,6 +32,7 @@ import OrderStatusActions from '@/components/order/OrderStatusActions';
 import OrderChat from '@/components/order/OrderChat';
 import OrderActions from '@/components/order/OrderActions';
 import OrderFileList from '@/components/order/OrderFileList';
+import LabAssignSelect from '@/components/order/LabAssignSelect';
 import { computeDDay } from '@/server/domain/order-list';
 import { buildSummaryLines } from '@/server/domain/summary';
 import { colorOfType, type ProsthesisCatalog } from '@/server/domain/prosthesis';
@@ -44,10 +45,13 @@ import type { OrderDetail } from '@/server/repositories/order';
 import type { OrderMessage } from '@/server/repositories/order-message';
 import type { IsoDate } from '@/server/domain/week';
 
+// ★ 세 섹터가 같은 말을 씁니다.
+//   사이드바 메뉴 이름이 '주문목록' 인데 상세 화면의 버튼만 '주문관리'·'작업목록'
+//   이었습니다. 같은 곳으로 가는 두 이름은 사람을 헷갈리게 합니다.
 const SECTOR_HOME: Record<Sector, { href: string; label: string }> = {
   clinic: { href: '/clinic/orders', label: '주문목록' },
-  design_center: { href: '/design/orders', label: '주문관리' },
-  lab: { href: '/lab/orders', label: '작업목록' },
+  design_center: { href: '/design/orders', label: '주문목록' },
+  lab: { href: '/lab/orders', label: '주문목록' },
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -68,7 +72,7 @@ export interface OrderDetailScreenProps {
   implantCatalog: ImplantCatalog;
   prosthesisCatalog: ProsthesisCatalog;
   messages: OrderMessage[];
-  labs?: { id: string; name: string }[];
+  labs?: { id: string; name: string; inHouse?: boolean }[];
   forwardBlockedReason?: string;
   /** 머리줄에 치과 이름을 보일지 — 치과 자신에게는 필요 없습니다 */
   showClinic?: boolean;
@@ -147,6 +151,14 @@ export default function OrderDetailScreen({
 
   const scanFiles = order.files.filter((f) => f.kind !== 'design');
   const designFiles = order.files.filter((f) => f.kind === 'design');
+
+  // 보내려던 수가 올라온 수보다 적게 기록된 옛 주문도 있으므로 큰 쪽을 씁니다
+  const scanExpected = Math.max(order.scan_file_expected, scanFiles.length);
+  const scanMissing = scanExpected - scanFiles.length;
+
+  // ★ 기공소는 넘기기 전까지만 바꿉니다.
+  //   제작대기로 가면 그 기공소가 이미 일을 받았습니다.
+  const canAssignLab = ['received', 'rescan', 'designing'].includes(order.status);
 
   // 임플란트 주문이면 치아별 모델을 따로 세웁니다 (시안 #dtImplantCard)
   const implantTeeth = order.items.filter((i) => i.type_code === 'implant');
@@ -282,12 +294,34 @@ export default function OrderDetailScreen({
             className="lg:col-start-2 lg:row-start-1"
             title="스캔/쉐이드 파일"
             right={
-              <span className="ml-auto text-[12.5px] font-semibold text-[#4A5567]">
-                File Count ({scanFiles.length}/{scanFiles.length})
+              /*
+                ★ 왼쪽은 실제로 올라온 수, 오른쪽은 치과가 보내려던 수입니다.
+                  스캔 데이터는 한 개가 수백 MB 라 올리다 끊기면 주문만 들어오고
+                  파일이 빠집니다. 두 수가 같아야 다 왔다는 뜻입니다.
+              */
+              <span
+                className={
+                  'ml-auto text-[12.5px] font-semibold ' +
+                  (scanMissing > 0 ? 'text-[#B3312C]' : 'text-[#4A5567]')
+                }
+                title={
+                  scanMissing > 0
+                    ? `${scanMissing}개가 올라오지 못했습니다`
+                    : '보낸 파일이 모두 올라왔습니다'
+                }
+              >
+                File Count ({scanFiles.length}/{scanExpected})
               </span>
             }
           >
             {scanSlot}
+
+            {scanMissing > 0 && (
+              <p className="mb-2 rounded-md border border-[#F3C6C6] bg-[#FDECEA] px-[11px] py-[9px] text-[11.5px] font-bold leading-relaxed text-[#C4383A]">
+                ⚠ 치과가 보낸 {scanExpected}개 중 {scanMissing}개가 올라오지 못했습니다.
+                치과에 다시 올려 달라고 해 주세요.
+              </p>
+            )}
 
             <div className="flex min-h-[172px] flex-col">
               {scanFiles.length === 0 ? (
@@ -360,9 +394,9 @@ export default function OrderDetailScreen({
           <Card
             className="lg:col-start-2 lg:row-start-2 lg:row-end-4"
             title={`디자인 파일(${designFiles.length})`}
+            /* ★ 올리기는 머리줄의 아이콘 하나입니다 — 본문은 목록만 씁니다 */
+            right={designSlot ? <span className="ml-auto flex items-center gap-2">{designSlot}</span> : undefined}
           >
-            {designSlot}
-
             <div className="flex min-h-[172px] flex-col">
               {designFiles.length === 0 ? (
                 <p className="m-auto py-6 text-[12.5px] text-[#98A2B3]">
@@ -392,9 +426,13 @@ export default function OrderDetailScreen({
               </div>
 
               <div className="flex items-center gap-3.5 px-1 py-0.5 text-[12.5px] text-[#4A5567] lg:col-start-2 lg:row-start-4">
-                <span className="ml-auto">
-                  기공소 <b className="font-bold text-[#1A2130]">{labName || '미지정'}</b>
-                </span>
+                <LabAssignSelect
+                  orderId={order.id}
+                  labs={labs.map((l) => ({ id: l.id, name: l.name, inHouse: Boolean(l.inHouse) }))}
+                  current={order.lab_org_id}
+                  editable={sector === 'design_center' && labs.length > 0 && canAssignLab}
+                  labName={labName}
+                />
               </div>
             </>
           )}
@@ -417,6 +455,12 @@ export default function OrderDetailScreen({
             status={order.status}
             roles={order.roles}
             labs={labs}
+            /*
+              ★ 아래 칸에서 고른 기공소를 그대로 씁니다.
+                아직 안 골랐으면 자사 기공입니다 — 셀렉박스에 그렇게
+                보이므로, 눌렀을 때도 그대로 넘어가야 말이 맞습니다.
+            */
+            assignedLabId={order.lab_org_id ?? labs.find((l) => l.inHouse)?.id ?? null}
             forwardBlockedReason={forwardBlockedReason}
           />
 

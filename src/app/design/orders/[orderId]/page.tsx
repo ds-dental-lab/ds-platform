@@ -35,6 +35,20 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
     getProsthesisCatalog({ includeInactive: true }),
   ]);
 
+  const designFiles = order.files.filter((f) => f.kind === 'design');
+
+  /*
+    ★ 디자인 파일 없이는 제작주문을 넘길 수 없습니다.
+      기공소는 그 파일로 물건을 만듭니다. 빈손으로 넘기면 기공소가
+      주문을 받아 놓고 아무것도 못 하는 상태로 멈춥니다.
+      서비스 계층(requiresDesignFile)이 실제로 막고, 여기서는
+      **누르기 전에** 이유를 보여 줍니다.
+  */
+  const forwardBlockedReason =
+    order.status === 'designing' && designFiles.length === 0
+      ? '디자인 파일을 1개 이상 올려야 제작주문을 넣을 수 있습니다'
+      : undefined;
+
   return (
     <OrderDetailScreen
       order={order}
@@ -46,11 +60,10 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       labs={labs}
       showCost
       labName={order.in_house ? '자사 제작' : order.lab_name}
+      forwardBlockedReason={forwardBlockedReason}
       designSlot={
         canUploadDesignFile(order.status, 'design_center') ? (
-          <div className="mb-3">
-            <DesignFileUpload orderId={order.id} />
-          </div>
+          <DesignFileUpload orderId={order.id} />
         ) : null
       }
     />

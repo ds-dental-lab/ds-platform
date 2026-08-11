@@ -29,6 +29,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitRemake } from '@/server/actions/remake';
 import { uploadOrderFiles } from '@/lib/upload';
+import UploadToast, { type UploadState } from '@/components/order/UploadToast';
 import ScanDropZone from '@/components/order/ScanDropZone';
 import ShadeDialog from '@/components/order/ShadeDialog';
 import DueDatePicker from '@/components/order/DueDatePicker';
@@ -79,6 +80,8 @@ export default function RemakeRequest({
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [notes, setNotes] = useState('');
   const [shadeFor, setShadeFor] = useState<OrderDetailItem | null>(null);
+  /** 오른쪽 위 업로드 알림 */
+  const [upload, setUpload] = useState<UploadState | null>(null);
   const [error, setError] = useState('');
 
   if (!canRequestRemake(status, 'clinic')) return null;
@@ -160,11 +163,16 @@ export default function RemakeRequest({
     if (scanMode === 'new' && newFiles.length > 0) {
       setProgress('파일 올리는 중…');
 
-      const upload = await uploadOrderFiles(result.orderId, newFiles, (done, total) => {
-        setProgress(`파일 올리는 중 ${done} / ${total}`);
-      });
+      const upload = await uploadOrderFiles(result.orderId, newFiles, (progress) =>
+        setUpload({ phase: 'uploading', progress }),
+      );
 
       setProgress('');
+      setUpload(
+        upload.ok
+          ? { phase: 'done', total: newFiles.length }
+          : { phase: 'failed', total: newFiles.length, failed: upload.failed },
+      );
 
       if (!upload.ok) {
         setSaving(false);
@@ -186,6 +194,8 @@ export default function RemakeRequest({
 
   return (
     <>
+      <UploadToast state={upload} onClose={() => setUpload(null)} />
+
       <button
         type="button"
         onClick={openDialog}

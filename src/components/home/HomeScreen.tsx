@@ -101,19 +101,21 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
               진행중 상태
             </h2>
 
-            <ul className="space-y-2.5">
+            {/* ★ 글자만이 아니라 줄 전체가 눌립니다.
+                숫자를 보고 누르려는 사람이 많은데 글자만 링크면 헛손질합니다 */}
+            <ul className="-mx-1.5 space-y-0.5">
               {STATUS_ROWS[sector].map((status) => (
-                <li key={status} className="flex items-center text-[13px]">
+                <li key={status}>
                   <Link
                     href={`${path.orders}?status=${status}`}
-                    className="text-[#98A2B3] hover:text-[#1279E8]"
+                    className="flex items-center rounded-md px-1.5 py-1.5 text-[13px] hover:bg-[#F4F6F9]"
                   >
                     {/* 기공소의 제작대기는 '수거대기' 가 앞에 오지만 지금은 같은 이름을 씁니다 */}
-                    {STATUS_LABEL[status]}
+                    <span className="text-[#4A5567]">{STATUS_LABEL[status]}</span>
+                    <b className="ml-auto font-bold tabular-nums text-[#1A2130]">
+                      {summary.statusCounts[status] ?? 0}
+                    </b>
                   </Link>
-                  <b className="ml-auto font-bold tabular-nums text-[#1A2130]">
-                    {summary.statusCounts[status] ?? 0}
-                  </b>
                 </li>
               ))}
             </ul>
@@ -124,19 +126,23 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
               진행중 이슈
             </h2>
 
-            <ul className="space-y-2.5">
+            <ul className="-mx-1.5 space-y-0.5">
               {ISSUE_ROWS[sector].map((issue) => (
-                <li key={issue} className="flex items-center text-[13px]">
+                <li key={issue}>
                   <Link
                     href={`${path.orders}?issue=${issue}`}
-                    className="rounded-full px-2.5 py-1 text-[12px] font-semibold"
-                    style={{ background: ISSUE_META[issue].bg, color: ISSUE_META[issue].fg }}
+                    className="flex items-center rounded-md px-1.5 py-1 text-[13px] hover:bg-[#F4F6F9]"
                   >
-                    {ISSUE_META[issue].label}
+                    <span
+                      className="rounded-full px-2.5 py-1 text-[12px] font-semibold"
+                      style={{ background: ISSUE_META[issue].bg, color: ISSUE_META[issue].fg }}
+                    >
+                      {ISSUE_META[issue].label}
+                    </span>
+                    <b className="ml-auto font-bold tabular-nums text-[#1A2130]">
+                      {summary.issueCounts[issue] ?? 0}
+                    </b>
                   </Link>
-                  <b className="ml-auto font-bold tabular-nums text-[#1A2130]">
-                    {summary.issueCounts[issue] ?? 0}
-                  </b>
                 </li>
               ))}
             </ul>
