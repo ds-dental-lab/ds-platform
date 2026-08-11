@@ -150,8 +150,7 @@ export function canUploadDesignFile(status: OrderStatus, sector: Sector): boolea
  *     치과: 스캔 다시 올리면서 17번 추가, 재료도 PMMA 로 변경
  *     디자인센터: 자기가 요청한 것(파일)만 바뀐 줄 알고 그대로 제작
  *
- *   사양을 바꾸려면 취소하고 새로 넣습니다. 취소는 접수·재스캔 둘 다
- *   되므로 길이 막히지도 않습니다.
+ *   사양을 바꾸려면 스캔을 다시 올려 접수로 돌아간 뒤, 지우고 새로 넣습니다.
  */
 export type EditScope = 'full' | 'files' | 'none';
 
@@ -207,7 +206,8 @@ export function canEditDueDate(status: OrderStatus, sector: Sector): boolean {
  *   상대가 기다리고 있는 건을 소리 없이 없애면 영문을 모릅니다.
  *   디자인 단계는 말할 것도 없습니다 — 그때는 작업이 돌아가고 있습니다.
  *
- *   재스캔에서 그만두고 싶으면 취소를 씁니다. 사유가 남아 상대가 압니다.
+ *   재스캔에서 그만두려면 스캔을 다시 올려 접수로 돌아간 뒤 지웁니다.
+ *   ⚠ 돌아가는 길입니다 — 재스캔에서 바로 지우게 할지는 확인이 필요합니다.
  */
 const DELETABLE_STATUSES: OrderStatus[] = ['received'];
 
@@ -316,16 +316,12 @@ export function getAvailableActions(status: OrderStatus, sector: Sector): Status
     });
   }
 
-  // 취소 — 치과가 접수·재스캔에서만
-  if (canCancel(status, sector)) {
-    actions.push({
-      to: 'cancelled',
-      label: '주문 취소',
-      requiresReason: true,
-      requiresLab: false,
-      danger: true,
-    });
-  }
+  // ★ 주문 취소 버튼은 두지 않습니다 (사용자 결정 2026-08-11).
+  //   치과가 그만두는 길은 '주문 삭제' 하나로 모읍니다. 같은 자리에서
+  //   같은 사람이 누르는 버튼이 둘이면 무엇이 다른지 알 수 없습니다.
+  //
+  //   canCancel 과 cancelled 상태는 그대로 둡니다 — 규칙을 지우는 게
+  //   아니라 화면에서 내리는 것입니다. 지난 주문에도 남아 있습니다.
 
   return actions;
 }

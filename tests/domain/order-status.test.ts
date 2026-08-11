@@ -139,8 +139,9 @@ describe('수정과 리메이크', () => {
     expect(canDeleteOrder('production')).toBe(false);
   });
 
-  it('재스캔에서 그만두려면 취소를 씁니다 — 사유가 남습니다', () => {
-    expect(canCancel('rescan', 'clinic')).toBe(true);
+  it('재스캔에서는 못 지웁니다 — 스캔을 다시 올려 접수로 돌아간 뒤에 지웁니다', () => {
+    expect(canDeleteOrder('rescan')).toBe(false);
+    expect(canTransition('rescan', 'received', 'clinic').allowed).toBe(true);
   });
 
   it('디자인에서 제작대기로 갈 때만 파일이 필요하다', () => {
@@ -201,10 +202,10 @@ describe('수정 범위', () => {
     expect(editScopeOf('cancelled')).toBe('none');
   });
 
-  it('★ 사양을 바꾸려면 취소하고 새로 넣는 길이 열려 있다', () => {
-    // 재스캔에서 사양을 막아도 막다른 길이 아니어야 합니다
-    expect(canCancel('rescan', 'clinic')).toBe(true);
-    expect(canCancel('received', 'clinic')).toBe(true);
+  it('★ 사양을 바꾸려면 접수로 되돌린 뒤 지우고 새로 넣습니다', () => {
+    // 재스캔에서 스캔을 다시 올리면 접수로 돌아가고, 거기서 지울 수 있습니다
+    expect(canTransition('rescan', 'received', 'clinic').allowed).toBe(true);
+    expect(canDeleteOrder('received')).toBe(true);
   });
 });
 
@@ -221,9 +222,16 @@ describe('재스캔 전진', () => {
     expect(forward).toHaveLength(0);
   });
 
-  it('취소는 그대로 남는다 — 막다른 길이 아니어야 합니다', () => {
-    const actions = getAvailableActions('rescan', 'clinic');
-    expect(actions.some((a) => a.to === 'cancelled')).toBe(true);
+  it('★ 주문 취소 버튼은 어디에도 없다 — 삭제 하나로 모았습니다', () => {
+    for (const status of ['received', 'rescan'] as const) {
+      const actions = getAvailableActions(status, 'clinic');
+      expect(actions.some((a) => a.to === 'cancelled')).toBe(false);
+    }
+  });
+
+  it('규칙 자체는 남겨 둡니다 — 화면에서 내린 것뿐입니다', () => {
+    expect(canCancel('received', 'clinic')).toBe(true);
+    expect(canTransition('received', 'cancelled', 'clinic').allowed).toBe(true);
   });
 
   it('전이 규칙 자체는 열려 있다 — 막는 게 아니라 어느 화면이 맡는가의 문제', () => {

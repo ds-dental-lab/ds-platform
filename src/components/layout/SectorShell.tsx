@@ -89,6 +89,18 @@ const NAV_ICON = {
       <path d="M13.4 10.6a3.4 3.4 0 1 0-6.8 0c0 1.6 1.2 2.4 1.2 4h4.4c0-1.6 1.2-2.4 1.2-4Z" />
     </>,
   ),
+  product: icon(
+    <>
+      <path d="M2.6 9.4V3.6a1 1 0 0 1 1-1h5.8l7.4 7.4a1.4 1.4 0 0 1 0 2l-4.8 4.8a1.4 1.4 0 0 1-2 0L2.6 9.4Z" />
+      <circle cx="6.3" cy="6.3" r="1.1" />
+    </>,
+  ),
+  holiday: icon(
+    <>
+      <rect x="2.6" y="4.2" width="14.8" height="13.2" rx="1.6" />
+      <path d="M2.6 8.2h14.8M6.6 2.6v3.2M13.4 2.6v3.2" />
+    </>,
+  ),
   implant: icon(
     <>
       <rect x="2.6" y="5.4" width="14.8" height="11" rx="1.8" />
@@ -116,22 +128,28 @@ const NAV: Record<Sector, NavItem[]> = {
     { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
     { label: '게시판', icon: NAV_ICON.board, soon: 'Sprint 9' },
   ],
+  // 시안 순서 그대로입니다 — HOME · 주문등록 · 주문목록 · 배송조회 ·
+  // 정산관리 · 사용자 · 제품 · 휴일 · 임플란트 · 게시판
   design_center: [
     { label: 'HOME', href: '/design', icon: NAV_ICON.home },
-    { label: '주문관리', href: '/design/orders', icon: NAV_ICON.list },
-    { label: '임플란트', href: '/design/implants', icon: NAV_ICON.implant },
-    { label: '제품', href: '/design/products', icon: NAV_ICON.billing },
-    { label: '배송관리', href: '/design/deliveries', icon: NAV_ICON.delivery },
-    { label: '정산', icon: NAV_ICON.billing, soon: 'Sprint 8' },
+    { label: '주문등록', icon: NAV_ICON.new, soon: '디자인 대리등록' },
+    { label: '주문목록', href: '/design/orders', icon: NAV_ICON.list },
+    { label: '배송조회', href: '/design/deliveries', icon: NAV_ICON.delivery },
+    { label: '정산관리', icon: NAV_ICON.billing, soon: 'Sprint 8' },
     { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
+    { label: '제품', href: '/design/products', icon: NAV_ICON.product },
+    { label: '휴일', icon: NAV_ICON.holiday, soon: '휴일 관리' },
+    { label: '임플란트', href: '/design/implants', icon: NAV_ICON.implant },
     { label: '게시판', icon: NAV_ICON.board, soon: 'Sprint 9' },
   ],
   lab: [
     { label: 'HOME', href: '/lab', icon: NAV_ICON.home },
-    { label: '작업목록', href: '/lab/orders', icon: NAV_ICON.list },
-    { label: '출고', href: '/lab/shipments', icon: NAV_ICON.delivery },
+    { label: '주문목록', href: '/lab/orders', icon: NAV_ICON.list },
+    { label: '배송조회', href: '/lab/shipments', icon: NAV_ICON.delivery },
     { label: '정산', icon: NAV_ICON.billing, soon: 'Sprint 8' },
     { label: '사용자', icon: NAV_ICON.users, soon: 'Sprint 9' },
+    { label: '제품', icon: NAV_ICON.product, soon: '기공소 단가' },
+    { label: '게시판', icon: NAV_ICON.board, soon: 'Sprint 9' },
   ],
 };
 
