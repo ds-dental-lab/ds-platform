@@ -30,6 +30,15 @@ export interface PatientPickerProps {
   text: string;
   /** 적힌 글자가 실제 환자와 맞아떨어졌을 때만 값이 있습니다 */
   patient: Patient | null;
+  /**
+   * 이 치과의 환자만 찾습니다. (대리등록)
+   *
+   * ★ 없으면 RLS 가 잡아 주는 범위 전부입니다.
+   *   치과 계정은 자기 환자뿐이라 문제가 없지만, 디자인센터 계정은
+   *   거래처 치과 **전부**가 열려 있어 남의 치과 환자가 후보로 뜹니다.
+   *   서버도 저장할 때 한 번 더 봅니다 — 여기는 화면을 맞추는 것입니다.
+   */
+  clinicOrgId?: string;
   onChange: (text: string, patient: Patient | null) => void;
 }
 
@@ -38,7 +47,12 @@ function labelOf(patient: Patient): string {
   return `${patient.name} (${patient.chart_no})`;
 }
 
-export default function PatientPicker({ text, patient, onChange }: PatientPickerProps) {
+export default function PatientPicker({
+  text,
+  patient,
+  clinicOrgId,
+  onChange,
+}: PatientPickerProps) {
   const listId = useId();
   const [results, setResults] = useState<Patient[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -69,13 +83,16 @@ export default function PatientPicker({ text, patient, onChange }: PatientPicker
     timer.current = setTimeout(async () => {
       const supabase = createClient();
 
-      const { data } = await supabase
+      let query = supabase
         .from('patients')
         .select('id, chart_no, name')
         .is('deleted_at', null)
-        .or(`chart_no.ilike.%${trimmed}%,name.ilike.%${trimmed}%`)
-        .order('chart_no')
-        .limit(8);
+        .or(`chart_no.ilike.%${trimmed}%,name.ilike.%${trimmed}%`);
+
+      // 대리등록이면 그 치과 안에서만 찾습니다
+      if (clinicOrgId) query = query.eq('clinic_org_id', clinicOrgId);
+
+      const { data } = await query.order('chart_no').limit(8);
 
       setResults(data ?? []);
     }, 250);

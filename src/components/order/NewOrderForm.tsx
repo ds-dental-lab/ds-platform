@@ -84,6 +84,16 @@ const ORDER_TYPES = ['modelless', 'analog'] as const;
 
 export interface NewOrderFormProps {
   clinicName: string;
+  /**
+   * 대리등록 — 디자인센터가 이 치과를 대신해 넣습니다.
+   *
+   * ★ 주면 환자 찾기가 이 치과 안으로 좁혀집니다.
+   *   디자인센터 계정은 거래처 치과 **전부**의 환자를 읽을 수 있어,
+   *   안 좁히면 남의 치과 환자가 후보로 뜹니다.
+   */
+  clinicOrgId?: string;
+  /** 돌아갈 곳. 대리등록은 디자인센터 주문목록으로 갑니다 */
+  basePath?: string;
   today: IsoDate;
   defaultDue: IsoDate;
   implantCatalog: ImplantCatalog;
@@ -124,6 +134,8 @@ export default function NewOrderForm(props: NewOrderFormProps) {
 function OrderFormBody({
   onStartOver,
   clinicName,
+  clinicOrgId,
+  basePath = '/clinic/orders',
   today,
   defaultDue,
   implantCatalog,
@@ -433,6 +445,7 @@ function OrderFormBody({
 
     /** 주문 하나로 묶어 보낼 항목들 — 등록과 수정이 같은 모양을 씁니다 */
     const payload = {
+      clinicOrgId: clinicOrgId ?? null,
       patientId: patient?.id ?? null,
       patientLabel: patientText.trim(),
       orderType: orderType as 'modelless' | 'analog',
@@ -467,7 +480,7 @@ function OrderFormBody({
         return;
       }
 
-      router.push(`/clinic/orders/${initial.orderId}`);
+      router.push(`${basePath}/${initial.orderId}`);
       router.refresh();
       return;
     }
@@ -602,6 +615,7 @@ function OrderFormBody({
             <PatientPicker
               text={patientText}
               patient={patient}
+              clinicOrgId={clinicOrgId}
               onChange={(text, matched) => {
                 setPatientText(text);
                 setPatient(matched);
@@ -1020,7 +1034,7 @@ function OrderFormBody({
 
               <button
                 type="button"
-                onClick={() => router.push(`/clinic/orders/${done.orderId}`)}
+                onClick={() => router.push(`${basePath}/${done.orderId}`)}
                 className="h-11 flex-1 rounded-md bg-[#1279E8] text-[13.5px] font-bold text-white hover:bg-[#0F68C9]"
               >
                 주문서 보기
@@ -1077,7 +1091,7 @@ function OrderFormBody({
         <button
           type="button"
           onClick={() =>
-            router.push(editing ? `/clinic/orders/${initial!.orderId}` : '/clinic/orders')
+            router.push(editing ? `${basePath}/${initial!.orderId}` : basePath)
           }
           className="h-12 rounded border border-[#DDE2EA] px-6 text-[14px] text-[#4A5567] hover:bg-[#F4F6F9]"
         >

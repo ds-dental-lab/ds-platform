@@ -132,7 +132,7 @@ const NAV: Record<Sector, NavItem[]> = {
   // 정산관리 · 사용자 · 제품 · 휴일 · 임플란트 · 게시판
   design_center: [
     { label: 'HOME', href: '/design', icon: NAV_ICON.home },
-    { label: '주문등록', icon: NAV_ICON.new, soon: '디자인 대리등록' },
+    { label: '주문등록', href: '/design/orders/new', icon: NAV_ICON.new },
     { label: '주문목록', href: '/design/orders', icon: NAV_ICON.list },
     { label: '배송조회', href: '/design/deliveries', icon: NAV_ICON.delivery },
     { label: '정산관리', href: '/design/billing', icon: NAV_ICON.billing },
@@ -176,6 +176,20 @@ export default function SectorShell({
   const [collapsed, setCollapsed] = useState(false);
 
   const sidebarWidth = collapsed ? 56 : 200;
+
+  /**
+   * 지금 켜져 있어야 할 메뉴 하나.
+   *
+   * ★ HOME 은 정확히 같을 때만입니다 — 그것을 뺀 모든 주소가 HOME 으로 시작합니다.
+   *   나머지는 '앞이 같은 것 중 가장 긴 것' 이 이깁니다.
+   */
+  const root = `/${sector === 'design_center' ? 'design' : sector}`;
+
+  const activeHref = items
+    .map((item) => item.href)
+    .filter((href): href is string => Boolean(href))
+    .filter((href) => (href === root ? pathname === href : pathname.startsWith(href)))
+    .sort((a, b) => b.length - a.length)[0];
 
   async function handleLogout() {
     const supabase = createClient();
@@ -271,11 +285,10 @@ export default function SectorShell({
       >
         <div className="flex flex-col gap-0.5">
           {items.map((item) => {
-            const active = item.href
-              ? item.href === '/clinic' || item.href === '/design' || item.href === '/lab'
-                ? pathname === item.href
-                : pathname.startsWith(item.href)
-              : false;
+            // ★ 가장 긴 주소 하나만 켭니다.
+            //   /design/orders/new 은 '주문목록'(/design/orders)에도 걸려
+            //   둘이 함께 켜져 있었습니다. 더 깊은 쪽이 이깁니다.
+            const active = item.href === activeHref;
 
             const inner = (
               <>

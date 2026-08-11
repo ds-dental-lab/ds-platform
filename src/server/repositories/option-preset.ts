@@ -21,14 +21,23 @@ interface RawPreset {
   selections: Record<string, string> | null;
 }
 
-export async function listOptionPresets(): Promise<OptionPreset[]> {
+/**
+ * 제작옵션 즐겨찾기.
+ *
+ * ★ 대리등록이면 그 치과의 것을 줍니다 (clinicOrgId).
+ *   디자인센터는 거래처 치과 전부의 즐겨찾기를 읽을 수 있어,
+ *   안 좁히면 여러 치과의 'A원장' 이 뒤섞여 나옵니다.
+ */
+export async function listOptionPresets(clinicOrgId?: string): Promise<OptionPreset[]> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let q = supabase
     .from('clinic_option_presets')
-    .select('id, name, selections')
-    .order('sort_order')
-    .order('created_at');
+    .select('id, name, selections');
+
+  if (clinicOrgId) q = q.eq('clinic_org_id', clinicOrgId);
+
+  const { data, error } = await q.order('sort_order').order('created_at');
 
   if (error || !data) return [];
 

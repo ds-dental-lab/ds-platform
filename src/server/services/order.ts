@@ -46,6 +46,14 @@ export interface OrderItemInput {
 }
 
 export interface CreateOrderInput {
+  /**
+   * 대리등록 — 디자인센터가 이 치과를 대신해 넣습니다.
+   *
+   * ★ 치과 계정이 보낸 값은 **무시합니다**.
+   *   치과가 이 칸에 남의 치과 id 를 넣어 주문을 떠넘기지 못하게,
+   *   치과일 때는 언제나 자기 소속으로 덮어씁니다.
+   */
+  clinicOrgId?: string | null;
   patientId?: string | null;
   patientLabel: string;
   orderType?: 'modelless' | 'analog' | 'with_model' | 'model_only' | 'repair';
@@ -176,22 +184,12 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     .maybeSingle();
 
   const org = membership?.organizations as { org_type: string } | undefined;
-  if (!membership || org?.org_type !== 'clinic') {
-    return { ok: false, error: '치과 계정만 주문을 등록할 수 있습니다' };
+  if (!membership || (org?.org_type !== 'clinic' && org?.org_type !== 'design_center')) {
+    return { ok: false, error: '치과 또는 디자인센터만 주문을 등록할 수 있습니다' };
   }
 
-  // 전속 디자인센터 찾기
-  const { data: partnership } = await supabase
-    .from('partnerships')
-    .select('to_org_id')
-    .eq('from_org_id', membership.org_id)
-    .eq('relation', 'clinic_design')
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (!partnership) {
-    return { ok: false, error: '연결된 디자인센터가 없습니다' };
-  }
+  const owners = await resolveOwners(supabase, membership.org_id, org.org_type, input);
+  if ('error' in owners) return { ok: false, error: owners.error };
 
   // 주문번호 발급
   const { data: orderNo, error: noError } = await supabase.rpc('next_order_no');
@@ -201,7 +199,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
 
   // ★ 환자 표시값은 화면이 보낸 문자열을 쓰지 않고 DB 에서 다시 만듭니다.
   //   실명과 마스킹 값이 어긋나면 기공소에 실명이 새기 때문입니다. (설계서 §8.5)
-  const labels = await buildPatientLabels(supabase, input);
+  const labels = await buildPatientLabels(supabase, input, owners.clinicOrgId);
   if (!labels) return { ok: false, error: '환자를 찾을 수 없습니다' };
 
   // 주문 만들기
@@ -209,8 +207,8 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     .from('orders')
     .insert({
       order_no: orderNo,
-      clinic_org_id: membership.org_id,
-      design_org_id: partnership.to_org_id,
+      clinic_org_id: owners.clinicOrgId,
+      design_org_id: owners.designOrgId,
       patient_id: input.patientId ?? null,
       patient_label: labels.plain,
       patient_label_masked: labels.masked,
@@ -296,18 +294,92 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
  *
  * 환자를 고르지 않은 주문은 기공소에 알려줄 것이 없으므로 비공개로 둡니다.
  */
+/**
+ * 이 주문이 어느 치과의 것이고 어느 디자인센터가 맡는가.
+ *
+ * ★ 치과가 보낸 clinicOrgId 는 버립니다.
+ *   그대로 믿으면 치과 A 가 치과 B 이름으로 주문을 넣어
+ *   남의 정산에 금액을 얹을 수 있습니다.
+ *
+ * ★ 디자인센터는 자기 거래처만, 그것도 거래중인 곳만 됩니다.
+ *   RLS 가 한 번 더 막지만(order_insert), 거기서 걸리면 사용자에게
+ *   "저장 실패" 만 보입니다. 여기서 걸러야 이유를 말해 줄 수 있습니다.
+ */
+async function resolveOwners(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  myOrgId: string,
+  myOrgType: string,
+  input: CreateOrderInput,
+): Promise<{ clinicOrgId: string; designOrgId: string } | { error: string }> {
+  if (myOrgType === 'design_center') {
+    const target = input.clinicOrgId;
+    if (!target) return { error: '어느 치과의 주문인지 골라 주세요' };
+
+    const { data: clinic } = await supabase
+      .from('organizations')
+      .select('id, status, org_type')
+      .eq('id', target)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    const found = clinic as { status: string; org_type: string } | null;
+
+    // RLS 는 남의 치과를 0행으로 막습니다 — 오류가 아니라 '없음' 으로 옵니다
+    if (!found || found.org_type !== 'clinic') {
+      return { error: '거래처 치과가 아닙니다' };
+    }
+    if (found.status !== 'active') {
+      return { error: '거래중지된 치과에는 새 주문을 넣을 수 없습니다' };
+    }
+
+    const { data: partnership } = await supabase
+      .from('partnerships')
+      .select('id')
+      .eq('from_org_id', target)
+      .eq('to_org_id', myOrgId)
+      .eq('relation', 'clinic_design')
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (!partnership) return { error: '이 치과와 거래 관계가 없습니다' };
+
+    return { clinicOrgId: target, designOrgId: myOrgId };
+  }
+
+  // 치과 계정 — 언제나 자기 소속입니다
+  const { data: partnership } = await supabase
+    .from('partnerships')
+    .select('to_org_id')
+    .eq('from_org_id', myOrgId)
+    .eq('relation', 'clinic_design')
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (!partnership) return { error: '연결된 디자인센터가 없습니다' };
+
+  return {
+    clinicOrgId: myOrgId,
+    designOrgId: (partnership as { to_org_id: string }).to_org_id,
+  };
+}
+
 async function buildPatientLabels(
   supabase: Awaited<ReturnType<typeof createClient>>,
   input: CreateOrderInput,
+  clinicOrgId: string,
 ): Promise<{ plain: string; masked: string } | null> {
   if (!input.patientId) {
     return { plain: input.patientLabel.trim(), masked: '(비공개)' };
   }
 
+  // ★ 그 치과의 환자여야 합니다.
+  //   디자인센터는 모든 거래처 치과의 환자를 읽을 수 있어(patient_select),
+  //   대리등록에서 남의 치과 환자가 붙을 수 있습니다.
   const { data: patient } = await supabase
     .from('patients')
     .select('name, name_masked, chart_no')
     .eq('id', input.patientId)
+    .eq('clinic_org_id', clinicOrgId)
     .is('deleted_at', null)
     .maybeSingle();
 
@@ -405,7 +477,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
   // RLS 가 관련 조직만 읽게 해 줍니다 — 여기서는 상태만 다시 봅니다
   const { data: current } = await supabase
     .from('orders')
-    .select('status, patient_id')
+    .select('status, patient_id, clinic_org_id')
     .eq('id', input.orderId)
     .is('deleted_at', null)
     .maybeSingle();
@@ -423,8 +495,9 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
     };
   }
 
-  // 환자 표시값은 화면 문자열을 믿지 않고 DB 에서 다시 만듭니다
-  const labels = await buildPatientLabels(supabase, input);
+  // 환자 표시값은 화면 문자열을 믿지 않고 DB 에서 다시 만듭니다.
+  // 치과는 옮길 수 없으므로 원래 주문의 치과로 환자를 좁힙니다
+  const labels = await buildPatientLabels(supabase, input, current.clinic_org_id as string);
   if (!labels) return { ok: false, error: '환자를 찾을 수 없습니다' };
 
   const { error: headError } = await supabase
