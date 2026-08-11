@@ -34,6 +34,8 @@ export interface OrderListScreenProps {
   showLab: boolean;
   /** 치과는 false — 자기 치과뿐이라 검색할 게 없습니다 */
   showClinicSearch: boolean;
+  /** 어느 섹터의 목록인가. 상태 아이콘을 고르는 데 씁니다 */
+  sector: 'clinic' | 'design_center' | 'lab';
   searchParams: Record<string, string | string[] | undefined>;
 }
 
@@ -43,6 +45,7 @@ export default async function OrderListScreen({
   orderPath,
   showLab,
   showClinicSearch,
+  sector,
   searchParams,
 }: OrderListScreenProps) {
   const today = todayInKst();
@@ -85,6 +88,7 @@ export default async function OrderListScreen({
               issue={q.issue}
               statusCounts={result.statusCounts}
               issueCounts={result.issueCounts}
+              sector={sector}
             />
           </div>
         </OrderSearchBar>

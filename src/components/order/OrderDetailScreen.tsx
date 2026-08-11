@@ -23,6 +23,7 @@ import ToothChart from '@/components/dental/ToothChart';
 import ProsthesisSummary from '@/components/dental/ProsthesisSummary';
 import OrderStatusActions from '@/components/order/OrderStatusActions';
 import OrderChat from '@/components/order/OrderChat';
+import OrderActions from '@/components/order/OrderActions';
 import OrderFileList from '@/components/order/OrderFileList';
 import { computeDDay } from '@/server/domain/order-list';
 import { STATUS_LABEL, type Sector } from '@/server/domain/order-status';
@@ -121,7 +122,9 @@ export default function OrderDetailScreen({
   const designFiles = order.files.filter((f) => f.kind === 'design');
 
   return (
-    <div className="mx-auto max-w-[1180px]" title={`주문번호 ${order.order_no}`}>
+    <div className="flex gap-3" title={`주문번호 ${order.order_no}`}>
+      {/* ================= 왼쪽 — 주문 내용 ================= */}
+      <div className="min-w-0 flex-1">
       {/* ---------- ① 머리줄 ---------- */}
       <div className="flex flex-wrap items-center gap-2.5 px-1 pb-3.5 pt-1">
         <span className="text-[#98A2B3]" aria-hidden="true">
@@ -239,15 +242,25 @@ export default function OrderDetailScreen({
             )}
           </Panel>
 
-          {/* 대화 — 세 섹터가 한 주문을 두고 주고받습니다 */}
-          <OrderChat orderId={order.id} messages={messages} />
         </div>
+      </div>
+
+      {/* 좁은 화면에서는 옆에 못 세우므로 아래에 붙입니다 */}
+      <div className="mt-3 xl:hidden">
+        <OrderChat orderId={order.id} messages={messages} />
       </div>
 
       {footerSlot && <div className="mt-3">{footerSlot}</div>}
 
       {/* ---------- ④ 아래줄 ---------- */}
       <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[#E8EBF0] bg-white px-4 py-3">
+        <OrderActions
+          orderId={order.id}
+          status={order.status}
+          roles={order.roles}
+          orderPath={home.href}
+        />
+
         <OrderStatusActions
           orderId={order.id}
           status={order.status}
@@ -264,7 +277,18 @@ export default function OrderDetailScreen({
         </Link>
       </div>
 
-      <div className="pb-8" />
+        <div className="pb-8" />
+      </div>
+
+      {/* ================= 오른쪽 — 대화 ================= */}
+      {/*
+        ★ 두 칸 안에 끼워 넣지 않고 옆에 세웁니다.
+          대화는 주문 내용을 보면서 주고받는 것이라, 아래로 밀려 내려가면
+          스크롤해서 찾아야 합니다. 화면 높이만큼 붙어 따라옵니다.
+      */}
+      <aside className="sticky top-3 hidden h-[calc(100vh-84px)] w-[320px] shrink-0 xl:block">
+        <OrderChat orderId={order.id} messages={messages} />
+      </aside>
     </div>
   );
 }

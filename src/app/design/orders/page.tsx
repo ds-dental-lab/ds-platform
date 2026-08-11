@@ -16,6 +16,7 @@ interface PageProps {
 export default async function DesignOrderListPage({ searchParams }: PageProps) {
   return (
     <OrderListScreen
+      sector="design_center"
       title="주문관리"
       basePath="/design/orders"
       orderPath="/design/orders"

@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  statusesForSector,
   computeDDay,
   formatToothList,
   sectorOfStatus,
@@ -163,5 +164,36 @@ describe('정렬 가능 열', () => {
 
   it('없는 열 이름은 거른다', () => {
     expect(isSortable('drop table')).toBe(false);
+  });
+});
+
+// =========================================================
+// 섹터별 상태 목록
+//
+// ★ 기공소는 배정받은 파일을 실물로 만들어 치과로 보내는 일만 합니다.
+//   접수·재스캔·디자인은 배정 전 단계라 목록에 뜨지도 않습니다 —
+//   늘 0 인 아이콘을 세워 두면 자리만 차지합니다.
+// =========================================================
+
+describe('섹터별 상태 목록', () => {
+  it('★ 기공소는 접수·재스캔·디자인을 세우지 않는다', () => {
+    const shown = statusesForSector('lab').map((s) => s.status);
+
+    expect(shown).not.toContain('received');
+    expect(shown).not.toContain('rescan');
+    expect(shown).not.toContain('designing');
+  });
+
+  it('★ 기공소는 제작대기·제작·배송·완료만 본다', () => {
+    const shown = statusesForSector('lab').map((s) => s.status);
+
+    expect(shown).toEqual(['production_wait', 'production', 'shipping', 'completed']);
+  });
+
+  it('치과와 디자인센터는 전 구간을 본다', () => {
+    const all = LIST_STATUSES.map((s) => s.status);
+
+    expect(statusesForSector('clinic').map((s) => s.status)).toEqual(all);
+    expect(statusesForSector('design_center').map((s) => s.status)).toEqual(all);
   });
 });

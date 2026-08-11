@@ -143,6 +143,21 @@ export function canDeleteOrder(status: OrderStatus): boolean {
   return canEditOrder(status);
 }
 
+/**
+ * 주문 자체를 고치거나 지울 수 있는 자리인가.
+ *
+ * ★ 기공소는 못 합니다.
+ *   기공소가 하는 일은 배정받은 파일을 실물로 만들어 치과로 보내는 것뿐입니다.
+ *   내용이 틀렸으면 대화로 알리고, 고치는 것은 치과나 디자인센터가 합니다.
+ *   남의 주문서를 만드는 쪽에서 지울 수 있으면 사고가 됩니다.
+ *
+ * ★ 상태 조건(canEditOrder)과 따로 봅니다.
+ *   '누가' 와 '언제' 는 다른 질문이라 섞으면 나중에 못 풉니다.
+ */
+export function canManageOrder(roles: Sector[]): boolean {
+  return roles.some((role) => role === 'clinic' || role === 'design_center');
+}
+
 const REMAKE_ALLOWED_FROM: OrderStatus[] = ['shipping', 'completed'];
 
 export function canRequestRemake(status: OrderStatus, sector: Sector): boolean {

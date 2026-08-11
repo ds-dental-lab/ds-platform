@@ -16,6 +16,7 @@ interface PageProps {
 export default async function LabOrderListPage({ searchParams }: PageProps) {
   return (
     <OrderListScreen
+      sector="lab"
       title="작업목록"
       basePath="/lab/orders"
       orderPath="/lab/orders"

@@ -39,6 +39,22 @@ export function sectorOfStatus(status: OrderStatus): StatusSector {
   return LIST_STATUSES.find((s) => s.status === status)?.sector ?? 'done';
 }
 
+/**
+ * 그 섹터의 목록에 세울 상태들.
+ *
+ * ★ 기공소는 접수 · 재스캔 · 디자인을 걸러 봐야 할 이유가 없습니다.
+ *   기공소가 하는 일은 '배정받은 파일을 실물로 만들어 치과로 보내기' 뿐이라,
+ *   그 앞 단계는 애초에 배정 전이어서 목록에 뜨지도 않습니다.
+ *   숫자가 늘 0인 아이콘은 자리만 차지하고 눈을 흐립니다.
+ *
+ *   치과와 디자인센터는 전 구간을 봅니다 — 자기 주문이 어디까지 갔는지
+ *   알아야 하고, 디자인센터는 흐름 전체를 조율합니다.
+ */
+export function statusesForSector(sector: 'clinic' | 'design_center' | 'lab') {
+  if (sector !== 'lab') return LIST_STATUSES;
+  return LIST_STATUSES.filter((s) => s.sector === 'lab' || s.sector === 'done');
+}
+
 export function colorOfStatus(status: OrderStatus): string {
   return SECTOR_COLOR[sectorOfStatus(status)].color;
 }

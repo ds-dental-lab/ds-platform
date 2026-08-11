@@ -18,7 +18,7 @@
 import Link from 'next/link';
 import { STATUS_LABEL, type OrderStatus } from '@/server/domain/order-status';
 import {
-  LIST_STATUSES,
+  statusesForSector,
   SECTOR_COLOR,
   ISSUE_META,
   ISSUE_ORDER,
@@ -94,6 +94,8 @@ export interface OrderQuickFiltersProps {
   issue: IssueType | null;
   statusCounts: Record<string, number>;
   issueCounts: Record<string, number>;
+  /** 어느 섹터의 목록인가. 기공소는 앞 단계 상태를 세우지 않습니다 */
+  sector: 'clinic' | 'design_center' | 'lab';
 }
 
 export default function OrderQuickFilters({
@@ -103,6 +105,7 @@ export default function OrderQuickFilters({
   issue,
   statusCounts,
   issueCounts,
+  sector,
 }: OrderQuickFiltersProps) {
   /** 아이콘을 눌렀을 때 갈 주소. 이미 켜져 있으면 끕니다 */
   function hrefFor(key: 'status' | 'issue', value: string, active: boolean): string {
@@ -120,7 +123,7 @@ export default function OrderQuickFilters({
     <div className="flex flex-wrap items-start gap-y-2 border-t border-gray-200 pt-3.5">
       {/* 상태 — 왼쪽 */}
       <div className="flex flex-wrap gap-0.5">
-        {LIST_STATUSES.map(({ status: s }) => (
+        {statusesForSector(sector).map(({ status: s }) => (
           <IconButton
             key={s}
             href={hrefFor('status', s, status === s)}
