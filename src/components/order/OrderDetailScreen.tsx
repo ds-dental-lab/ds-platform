@@ -144,8 +144,9 @@ export default function OrderDetailScreen({
   const implantTeeth = order.items.filter((i) => i.type_code === 'implant');
   const hasImplant = implantTeeth.length > 0;
 
+  // ★ 폰틱은 픽스처가 없습니다. 모델 칸에 세울 것이 없어 뺍니다
   const implantRows = implantTeeth
-    .filter((i) => i.implant_manufacturer)
+    .filter((i) => !i.is_pontic && i.implant_manufacturer)
     .sort((a, b) => a.tooth_number - b.tooth_number)
     .map((i) => ({
       tooth: i.tooth_number,

@@ -28,7 +28,10 @@ import ScanDropZone from '@/components/order/ScanDropZone';
 import ToothChart from '@/components/dental/ToothChart';
 import ProsthesisSummary from '@/components/dental/ProsthesisSummary';
 import ImplantModelDialog from '@/components/dental/ImplantPicker/ImplantModelDialog';
-import { submitAddImplantFavorite } from '@/server/actions/implant';
+import {
+  submitAddImplantFavorite,
+  submitRemoveImplantFavorite,
+} from '@/server/actions/implant';
 import { submitOrder, submitUpdateOrder } from '@/server/actions/order';
 import { uploadOrderFiles } from '@/lib/upload';
 import {
@@ -92,7 +95,30 @@ export interface NewOrderFormProps {
   initial?: OrderFormInitial;
 }
 
-export default function NewOrderForm({
+/**
+ * 주문등록 껍데기.
+ *
+ * ★ 같은 주소로 이동하면 리액트가 컴포넌트를 죽이지 않습니다.
+ *   '새 주문 등록' 도, 사이드바에서 주문등록을 다시 누르는 것도
+ *   같은 주소라 지난 주문이 그대로 남아 있었습니다.
+ *
+ *   키를 갈아 끼워 통째로 새로 태어나게 합니다. 칸이 늘어나도
+ *   초기화를 빠뜨릴 일이 없습니다 — 하나하나 지우지 않으니까요.
+ */
+export default function NewOrderForm(props: NewOrderFormProps) {
+  const [generation, setGeneration] = useState(0);
+
+  return (
+    <OrderFormBody
+      key={generation}
+      {...props}
+      onStartOver={() => setGeneration((g) => g + 1)}
+    />
+  );
+}
+
+function OrderFormBody({
+  onStartOver,
   clinicName,
   today,
   defaultDue,
@@ -101,7 +127,7 @@ export default function NewOrderForm({
   optionGroups,
   optionPresets,
   initial,
-}: NewOrderFormProps) {
+}: NewOrderFormProps & { onStartOver: () => void }) {
   const router = useRouter();
   const editing = Boolean(initial);
 
@@ -500,6 +526,13 @@ export default function NewOrderForm({
     missingFields.push({ label: '제작보철 (치식 선택)', anchor: 'sec-prosthesis' });
   }
 
+  // ★ 스캔 파일이 없으면 디자인센터가 열어 볼 것이 없습니다.
+  //   이름·치식과 같은 자리의 필수 항목입니다.
+  //   수정 모드에서는 이미 올라간 파일이 있으므로 묻지 않습니다.
+  if (!editing && pendingFiles.length === 0) {
+    missingFields.push({ label: '스캔 파일', anchor: 'sec-files' });
+  }
+
   // 임플란트인데 모델이 덜 채워진 치아
   const implantGaps = entries
     .filter(
@@ -547,6 +580,7 @@ export default function NewOrderForm({
     <div className="mx-auto max-w-5xl space-y-3">
       <LeaveGuard
         dirty={dirty}
+        onStartOver={editing ? undefined : onStartOver}
         title={
           editing ? '수정 중인 내용이 있습니다. 이동할까요?' : '작성 중인 주문이 있습니다. 이동할까요?'
         }
@@ -696,31 +730,55 @@ export default function NewOrderForm({
                     implant.screwCode === fav.screwCode;
 
                   return (
-                    <button
+                    <span
                       key={fav.id}
-                      type="button"
-                      onClick={() => {
-                        setImplant({
-                          manufacturerCode: fav.makerCode,
-                          typeCode: fav.typeCode,
-                          sizeCode: fav.sizeCode,
-                          screwCode: fav.screwCode,
-                          option: implant.option,
-                        });
-                        setHint('');
-                      }}
                       className={
-                        'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ' +
+                        'inline-flex items-center rounded-full border transition-colors ' +
                         (on
-                          ? 'border-[#1B63E8] bg-[#EDF3FE] text-[#1B63E8]'
-                          : 'border-[#E8EBF0] bg-white text-[#4A5567] hover:border-[#98A2B3]')
+                          ? 'border-[#1B63E8] bg-[#EDF3FE]'
+                          : 'border-[#E8EBF0] bg-white hover:border-[#98A2B3]')
                       }
                     >
-                      {fav.pushed && (
-                        <span className="text-[10px] font-bold text-[#7C6BE8]">배포</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImplant({
+                            manufacturerCode: fav.makerCode,
+                            typeCode: fav.typeCode,
+                            sizeCode: fav.sizeCode,
+                            screwCode: fav.screwCode,
+                            option: implant.option,
+                          });
+                          setHint('');
+                        }}
+                        className={
+                          'inline-flex items-center gap-1.5 py-1.5 pl-3.5 pr-2 text-[12.5px] font-semibold ' +
+                          (on ? 'text-[#1B63E8]' : 'text-[#4A5567]')
+                        }
+                      >
+                        {fav.pushed && (
+                          <span className="text-[10px] font-bold text-[#7C6BE8]">배포</span>
+                        )}
+                        {fav.label}
+                      </button>
+
+                      {/* ★ 디자인센터가 배포한 것은 치과가 뺄 수 없습니다 (RLS 도 막습니다) */}
+                      {!fav.pushed && (
+                        <button
+                          type="button"
+                          aria-label={`${fav.label} 삭제`}
+                          title="이 모델을 즐겨찾기에서 뺍니다"
+                          onClick={async () => {
+                            const result = await submitRemoveImplantFavorite(fav.id);
+                            if (!result.ok) setError(result.error);
+                            else router.refresh();
+                          }}
+                          className="py-1.5 pl-1 pr-3 text-[12px] text-[#C4CBD6] hover:text-[#D8453F]"
+                        >
+                          ✕
+                        </button>
                       )}
-                      {fav.label}
-                    </button>
+                    </span>
                   );
                 })}
               </div>
@@ -840,9 +898,16 @@ export default function NewOrderForm({
       </div>
 
       {/* ---------- ④ 스캔/쉐이드 파일 ---------- */}
-      <OrderSection icon={SECTION_ICON.file} title="스캔/쉐이드 파일">
-        <ScanDropZone files={pendingFiles} onChange={setPendingFiles} disabled={saving} />
-      </OrderSection>
+      <div id="sec-files" className="scroll-mt-16">
+        <OrderSection icon={SECTION_ICON.file} title="스캔/쉐이드 파일">
+          <ScanDropZone files={pendingFiles} onChange={setPendingFiles} disabled={saving} />
+          {showProblems && pendingFiles.length === 0 && !editing && (
+            <p className="mt-2 text-[12px] text-[#D8453F]">
+              스캔 파일이 있어야 주문을 넣을 수 있습니다.
+            </p>
+          )}
+        </OrderSection>
+      </div>
 
       {progress && (
         <p className="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-[13px] text-blue-700">
@@ -932,8 +997,9 @@ export default function NewOrderForm({
               <button
                 type="button"
                 onClick={() => {
+                  // 같은 주소로 push 하면 이 컴포넌트가 살아남아 지난 값이 남습니다
                   setDone(null);
-                  router.push('/clinic/orders/new');
+                  onStartOver();
                   router.refresh();
                 }}
                 className="h-11 flex-1 rounded-md border border-[#DDE2EA] text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
@@ -1067,8 +1133,10 @@ function Field({
 /**
  * 고른 임플란트 모델 표시.
  *
- * ★ 한 줄 문자열로 붙여 놓으면 어디가 제조사이고 어디가 스크류인지 안 보입니다.
- *   제조사를 굵게 세우고 나머지를 옅은 칩으로 나눠, 눈으로 끊어 읽히게 합니다.
+ * ★ 제조사·타입·사이즈·스크류를 네 칸으로 갈라 놓지 않습니다.
+ *   고르고 나면 하나의 모델 이름으로 읽습니다 — 'Osstem TS Regular Hex'.
+ *   칸을 나누면 어디가 어디인지 따지게 되는데, 그건 고를 때 할 일이지
+ *   고른 뒤에 할 일이 아닙니다.
  */
 function ImplantModelLabel({
   catalog,
@@ -1077,31 +1145,18 @@ function ImplantModelLabel({
   catalog: ImplantCatalog;
   selection: ImplantSelection;
 }) {
-  const parts = formatSelection(catalog, selection).split(' ').filter(Boolean);
+  const label = formatSelection(catalog, selection);
 
-  if (parts.length === 0) {
+  if (!label) {
     return (
       <span className="text-[13px] font-semibold text-[#D8453F]">모델을 선택해 주세요</span>
     );
   }
 
-  const [maker, ...rest] = parts;
-  const done = implantComplete(catalog, selection);
-
   return (
-    <span className="inline-flex flex-wrap items-center gap-1.5">
-      <span className="text-[14px] font-extrabold tracking-tight text-[#1A2130]">{maker}</span>
-
-      {rest.map((part, i) => (
-        <span
-          key={`${part}-${i}`}
-          className="rounded-md bg-[#EDF3FE] px-2 py-0.5 text-[12.5px] font-semibold text-[#1B63E8]"
-        >
-          {part}
-        </span>
-      ))}
-
-      {!done && (
+    <span className="inline-flex items-center gap-1.5">
+      <b className="text-[13.5px] font-bold tracking-tight text-[#1A2130]">{label}</b>
+      {!implantComplete(catalog, selection) && (
         <span className="text-[12px] font-semibold text-[#E09A1B]">· 미완성</span>
       )}
     </span>

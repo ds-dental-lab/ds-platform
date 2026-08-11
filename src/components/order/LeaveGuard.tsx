@@ -23,17 +23,34 @@ export interface LeaveGuardProps {
   dirty: boolean;
   title?: string;
   description?: string;
+  /**
+   * 지금 있는 주소를 다시 눌렀을 때. (사이드바에서 주문등록 재클릭)
+   *
+   * ★ 같은 주소는 리액트가 컴포넌트를 죽이지 않아 지난 입력이 남습니다.
+   *   주면 '새로 작성' 을 묻고, 안 주면 그냥 무시합니다.
+   */
+  onStartOver?: () => void;
 }
+
+/** 나가려는 것인가, 이 자리에서 새로 시작하려는 것인가 */
+type Ask = { kind: 'leave'; href: string } | { kind: 'restart' };
 
 export default function LeaveGuard({
   dirty,
   title = '작성 중인 주문이 있습니다. 이동할까요?',
   description = '입력한 내용은 저장되지 않고 사라집니다.',
+  onStartOver,
 }: LeaveGuardProps) {
   const router = useRouter();
 
-  /** 물어보는 중인 목적지 */
-  const [target, setTarget] = useState<string | null>(null);
+  /**
+   * 지금 묻고 있는 것.
+   *
+   * ★ 빈 문자열 같은 값으로 뜻을 나누지 않습니다.
+   *   'leave' 를 '' 로 표시했다가 `if (!target)` 에 걸려 창이 안 떴습니다.
+   *   종류를 이름으로 적으면 그런 일이 안 생깁니다.
+   */
+  const [ask, setAsk] = useState<Ask | null>(null);
 
   useEffect(() => {
     if (!dirty) return;
@@ -54,11 +71,19 @@ export default function LeaveGuard({
 
       const url = new URL(link.href, window.location.href);
       if (url.origin !== window.location.origin) return;
-      if (url.pathname === window.location.pathname) return;
+
+      // 같은 자리를 다시 누른 경우 — 이동이 아니라 '새로 작성' 을 묻습니다
+      if (url.pathname === window.location.pathname) {
+        if (!onStartOver) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setAsk({ kind: 'restart' });
+        return;
+      }
 
       event.preventDefault();
       event.stopPropagation();
-      setTarget(url.pathname + url.search);
+      setAsk({ kind: 'leave', href: url.pathname + url.search });
     }
 
     function onBeforeUnload(event: BeforeUnloadEvent) {
@@ -73,9 +98,9 @@ export default function LeaveGuard({
       document.removeEventListener('click', onClick, true);
       window.removeEventListener('beforeunload', onBeforeUnload);
     };
-  }, [dirty]);
+  }, [dirty, onStartOver]);
 
-  if (!target) return null;
+  if (!ask) return null;
 
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-6">
@@ -85,14 +110,16 @@ export default function LeaveGuard({
             <b className="text-[22px] font-extrabold leading-none text-[#E09A1B]">!</b>
           </span>
 
-          <h3 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A2130]">{title}</h3>
+          <h3 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A2130]">
+            {ask.kind === 'restart' ? '작성 중인 주문이 있습니다. 새로 시작할까요?' : title}
+          </h3>
           <p className="mt-2 text-[12.5px] text-[#98A2B3]">{description}</p>
         </div>
 
         <div className="flex gap-2 px-4 pb-4">
           <button
             type="button"
-            onClick={() => setTarget(null)}
+            onClick={() => setAsk(null)}
             className="h-11 flex-1 rounded-md border border-[#DDE2EA] text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
           >
             취소
@@ -101,15 +128,22 @@ export default function LeaveGuard({
           <button
             type="button"
             onClick={() => {
-              const to = target;
-              setTarget(null);
+              const current = ask;
+              setAsk(null);
+
+              // 같은 자리면 이동하지 않고 폼만 새로 태웁니다
+              if (current.kind === 'restart') {
+                onStartOver?.();
+                return;
+              }
+
               // ★ dirty 를 끄고 나가는 것이 아니라 그냥 나갑니다.
               //   이 컴포넌트는 사라지고, beforeunload 도 함께 떨어집니다.
-              router.push(to);
+              router.push(current.href);
             }}
             className="h-11 flex-1 rounded-md bg-[#D8453F] text-[13.5px] font-bold text-white hover:bg-[#C13B36]"
           >
-            이동
+            {ask.kind === 'restart' ? '새로 작성' : '이동'}
           </button>
         </div>
       </div>
