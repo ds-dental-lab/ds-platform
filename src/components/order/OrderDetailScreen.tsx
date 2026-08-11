@@ -33,6 +33,7 @@ import OrderChat from '@/components/order/OrderChat';
 import OrderActions from '@/components/order/OrderActions';
 import OrderFileList from '@/components/order/OrderFileList';
 import LabAssignSelect from '@/components/order/LabAssignSelect';
+import MissingFileBar from '@/components/order/MissingFileBar';
 import { computeDDay } from '@/server/domain/order-list';
 import { buildSummaryLines } from '@/server/domain/summary';
 import { colorOfType, type ProsthesisCatalog } from '@/server/domain/prosthesis';
@@ -152,9 +153,19 @@ export default function OrderDetailScreen({
   const scanFiles = order.files.filter((f) => f.kind !== 'design');
   const designFiles = order.files.filter((f) => f.kind === 'design');
 
-  // 보내려던 수가 올라온 수보다 적게 기록된 옛 주문도 있으므로 큰 쪽을 씁니다
-  const scanExpected = Math.max(order.scan_file_expected, scanFiles.length);
-  const scanMissing = scanExpected - scanFiles.length;
+  /*
+    ★ (올라온 수 / 보낸 수) 를 줄에서 셉니다.
+      줄은 올리기 **전에** 만들어집니다 — 그래서 끊긴 파일도 이름이 남고,
+      전체 줄 수가 곧 '치과가 보내려던 수' 입니다.
+      따로 숫자를 세어 두면 언젠가 줄과 어긋납니다.
+  */
+  const scanArrived = scanFiles.filter((f) => f.upload_status === 'uploaded');
+  const scanMissingFiles = scanFiles.filter((f) => f.upload_status !== 'uploaded');
+  const scanExpected = scanFiles.length;
+  const scanMissing = scanMissingFiles.length;
+
+  // 파일을 더 올릴 수 있는 자리인가 — 디자인센터가 손대기 전까지입니다
+  const canEditFiles = ['received', 'rescan', 'designing'].includes(order.status);
 
   // ★ 기공소는 넘기기 전까지만 바꿉니다.
   //   제작대기로 가면 그 기공소가 이미 일을 받았습니다.
@@ -310,18 +321,22 @@ export default function OrderDetailScreen({
                     : '보낸 파일이 모두 올라왔습니다'
                 }
               >
-                File Count ({scanFiles.length}/{scanExpected})
+                File Count ({scanArrived.length}/{scanExpected})
               </span>
             }
           >
             {scanSlot}
 
-            {scanMissing > 0 && (
-              <p className="mb-2 rounded-md border border-[#F3C6C6] bg-[#FDECEA] px-[11px] py-[9px] text-[11.5px] font-bold leading-relaxed text-[#C4383A]">
-                ⚠ 치과가 보낸 {scanExpected}개 중 {scanMissing}개가 올라오지 못했습니다.
-                치과에 다시 올려 달라고 해 주세요.
-              </p>
-            )}
+            <MissingFileBar
+              orderId={order.id}
+              missing={scanMissingFiles.map((f) => ({
+                id: f.id,
+                fileName: f.file_name,
+                fileSize: f.file_size,
+              }))}
+              /* 스캔은 치과가 올립니다. 디자인센터는 무엇이 빠졌는지 보기만 합니다 */
+              editable={sector === 'clinic' && canEditFiles}
+            />
 
             <div className="flex min-h-[172px] flex-col">
               {scanFiles.length === 0 ? (

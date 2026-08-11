@@ -71,29 +71,50 @@ export async function uploadOrderFiles(
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
   let sentBytes = 0;
 
-  // ★ 올리기 **전에** 몇 개를 보낼 참인지 남깁니다.
-  //   끝난 뒤에 적으면, 올리다 끊겼을 때 아무 흔적도 안 남습니다 —
-  //   그러면 디자인센터는 "원래 파일이 없는 주문" 으로 봅니다.
-  //   실패해도 이 숫자는 남아 (1/3) 처럼 어긋남이 보입니다.
-  if (kind === 'scan' && files.length > 0) {
-    await supabase.rpc('note_planned_scan_files', {
-      p_order_id: orderId,
-      p_count: files.length,
-    });
+  // 진행률은 files 로 세지만 아래 반복은 plan 을 돕니다 — 길이가 같습니다
+  const count = files.length;
+
+  // ★ 올리기 **전에** 줄을 만듭니다 (pending).
+  //   끝난 뒤에 만들면, 올리다 끊긴 파일은 아무 흔적이 없습니다 —
+  //   디자인센터는 "원래 없는 파일" 로 보고, 무엇이 빠졌는지 아무도 모릅니다.
+  //   미리 만들어 두면 이름·크기가 남아 그 파일만 다시 올릴 수 있습니다.
+  //
+  //   대신 '표에는 있는데 저장소에는 없는' 줄이 생깁니다.
+  //   그것이 pending 이고, 그 줄이 곧 "이 파일이 빠졌다" 는 증거입니다.
+  const plan = files.map((file) => ({ file, path: newPath(orderId, file), rowId: '' }));
+
+  if (plan.length > 0) {
+    const { data: rows } = await supabase
+      .from('order_files')
+      .insert(
+        plan.map(({ file, path }) => ({
+          order_id: orderId,
+          kind,
+          storage_path: path,
+          file_name: file.name,
+          file_size: file.size,
+          mime_type: file.type || null,
+          uploaded_by: user?.id ?? null,
+          upload_status: 'pending',
+        })),
+      )
+      .select('id, storage_path');
+
+    for (const row of (rows ?? []) as { id: string; storage_path: string }[]) {
+      const found = plan.find((p) => p.path === row.storage_path);
+      if (found) found.rowId = row.id;
+    }
   }
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const ext = file.name.includes('.') ? file.name.split('.').pop() : '';
-    const safeName = ext ? 'file.' + ext.replace(/[^a-zA-Z0-9]/g, '') : 'file';
-    const path = 'orders/' + orderId + '/' + crypto.randomUUID() + '_' + safeName;
+  for (let i = 0; i < plan.length; i++) {
+    const { file, path, rowId } = plan[i];
 
     let attempt = 1;
 
     const report = (percent: number) => {
       onProgress?.({
         index: i + 1,
-        total: files.length,
+        total: count,
         fileName: file.name,
         percent,
         overallPercent: Math.min(
@@ -116,23 +137,28 @@ export async function uploadOrderFiles(
         !(await supabase.storage.from(BUCKET).upload(path, file)).error;
 
     if (!ok) {
+      // 줄은 그대로 둡니다 — 무엇이 빠졌는지 알려 주는 유일한 흔적입니다
+      if (rowId) {
+        await supabase.from('order_files').update({ upload_status: 'failed' }).eq('id', rowId);
+      }
       failed.push(file.name);
       report(0);
       continue;
     }
 
-    // ★ 저장소에 올린 뒤에야 줄을 남깁니다.
-    //   먼저 남기면 '표에는 있는데 파일은 없는' 줄이 생겨,
-    //   화면의 (올라간 수 / 보낸 수) 가 거짓말을 합니다.
-    const { error: rowError } = await supabase.from('order_files').insert({
-      order_id: orderId,
-      kind,
-      storage_path: path,
-      file_name: file.name,
-      file_size: file.size,
-      mime_type: file.type || null,
-      uploaded_by: user?.id ?? null,
-    });
+    const { error: rowError } = rowId
+      ? await supabase.from('order_files').update({ upload_status: 'uploaded' }).eq('id', rowId)
+      : // 줄을 못 만들었던 드문 경우 — 지금이라도 남깁니다
+        await supabase.from('order_files').insert({
+          order_id: orderId,
+          kind,
+          storage_path: path,
+          file_name: file.name,
+          file_size: file.size,
+          mime_type: file.type || null,
+          uploaded_by: user?.id ?? null,
+          upload_status: 'uploaded',
+        });
 
     if (rowError) {
       failed.push(file.name);
@@ -145,6 +171,19 @@ export async function uploadOrderFiles(
   }
 
   return { ok: failed.length === 0, uploaded, failed };
+}
+
+/**
+ * 저장소에 쓸 경로. 이름은 버리고 확장자만 남깁니다.
+ *
+ * ★ 환자 이름이 파일명에 들어 있는 일이 흔합니다.
+ *   경로에 그대로 쓰면 주소만 봐도 이름이 새어 나갑니다.
+ */
+function newPath(orderId: string, file: File): string {
+  const ext = file.name.includes('.') ? file.name.split('.').pop() : '';
+  const safeName = ext ? 'file.' + ext.replace(/[^a-zA-Z0-9]/g, '') : 'file';
+
+  return 'orders/' + orderId + '/' + crypto.randomUUID() + '_' + safeName;
 }
 
 /** 몇 번까지 다시 해 보는가. 처음 1번 + 다시 2번 */
@@ -235,4 +274,123 @@ function putWithProgress(
 
     xhr.send(file);
   });
+}
+
+// ---------- 빠진 파일만 다시 올리기 ----------
+
+/** 아직 저장소에 없는 파일 한 줄 */
+export interface MissingFile {
+  id: string;
+  fileName: string;
+  fileSize: number | null;
+}
+
+/**
+ * 안 올라간 줄에 파일을 다시 붙입니다.
+ *
+ * ★ 이름으로 짝을 맞춥니다.
+ *   사람은 아까 고르려던 그 파일을 다시 고릅니다. 이름이 같으면 그 줄을
+ *   채우고, 다른 이름이면 새 줄을 만듭니다 (이름을 바꿔 온 경우).
+ *
+ * ★ 저장소 경로는 새로 뽑습니다.
+ *   앞서 끊긴 자리에 덩어리가 반쯤 남아 있을 수 있습니다.
+ *   같은 경로로 다시 쓰면 부딪칩니다.
+ */
+export async function retryOrderFiles(
+  orderId: string,
+  missing: MissingFile[],
+  files: File[],
+  onProgress?: UploadProgressHandler,
+  kind: UploadKind = 'scan',
+): Promise<UploadResult> {
+  const supabase = createClient();
+  const uploaded: UploadedFile[] = [];
+  const failed: string[] = [];
+
+  const [{ data: { user } }, { data: { session } }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.auth.getSession(),
+  ]);
+
+  const token = session?.access_token;
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
+  let sentBytes = 0;
+
+  // 이름이 같은 빈 줄부터 채웁니다. 한 줄에 두 파일이 붙지 않도록 지웁니다
+  const slots = new Map<string, string>();
+  for (const row of missing) {
+    if (!slots.has(row.fileName)) slots.set(row.fileName, row.id);
+  }
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const path = newPath(orderId, file);
+    const rowId = slots.get(file.name) ?? null;
+    if (rowId) slots.delete(file.name);
+
+    let attempt = 1;
+
+    const report = (percent: number) => {
+      onProgress?.({
+        index: i + 1,
+        total: files.length,
+        fileName: file.name,
+        percent,
+        overallPercent: Math.min(
+          100,
+          Math.round(((sentBytes + (file.size * percent) / 100) / totalBytes) * 100),
+        ),
+        done: uploaded.length,
+        failed: failed.length,
+        attempt,
+      });
+    };
+
+    report(0);
+
+    const ok = token
+      ? await putWithRetry(path, file, token, report, (n) => {
+          attempt = n;
+        })
+      : !(await supabase.storage.from(BUCKET).upload(path, file)).error;
+
+    if (!ok) {
+      failed.push(file.name);
+      report(0);
+      continue;
+    }
+
+    const { error } = rowId
+      ? await supabase
+          .from('order_files')
+          .update({
+            storage_path: path,
+            file_size: file.size,
+            mime_type: file.type || null,
+            uploaded_by: user?.id ?? null,
+            upload_status: 'uploaded',
+          })
+          .eq('id', rowId)
+      : await supabase.from('order_files').insert({
+          order_id: orderId,
+          kind,
+          storage_path: path,
+          file_name: file.name,
+          file_size: file.size,
+          mime_type: file.type || null,
+          uploaded_by: user?.id ?? null,
+          upload_status: 'uploaded',
+        });
+
+    if (error) {
+      failed.push(file.name);
+    } else {
+      uploaded.push({ path, name: file.name, size: file.size, type: file.type });
+    }
+
+    sentBytes += file.size;
+    report(100);
+  }
+
+  return { ok: failed.length === 0, uploaded, failed };
 }

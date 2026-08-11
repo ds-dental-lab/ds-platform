@@ -148,6 +148,13 @@ export interface OrderDetailFile {
   file_size: number | null;
   mime_type: string | null;
   created_at: string;
+  /**
+   * 저장소까지 갔는가.
+   *
+   * ★ 줄은 올리기 **전에** 만들어집니다. pending 으로 남아 있으면
+   *   올리다 끊긴 것입니다 — 이름은 알지만 파일은 없습니다.
+   */
+  upload_status: 'pending' | 'uploaded' | 'failed';
 }
 
 /** 주문에 딸린 제작옵션 한 줄 — '훅 · 미사용' */
@@ -173,11 +180,6 @@ export interface OrderDetail {
   in_house: boolean;
   /** 배정된 기공소 id. 셀렉박스의 현재 값입니다 */
   lab_org_id: string | null;
-  /**
-   * 치과가 보내려고 한 스캔 파일 수.
-   * 실제 올라온 수와 다르면 올리다 끊긴 것입니다 — 화면이 (1/3) 로 알립니다.
-   */
-  scan_file_expected: number;
   /** 이 주문에서 내가 맡은 자리들. 한 조직이 둘을 겸할 수 있습니다 */
   roles: Sector[];
   items: OrderDetailItem[];
@@ -279,12 +281,11 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     .select(
       `id, order_no, patient_label:${patientLabelColumn()}, ` +
         'status, order_type, due_date, notes, created_at, received_at, ' +
-        'scan_file_expected, ' +
         'clinic_org_id, design_org_id, lab_org_id, ' +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
         'lab:organizations!orders_lab_org_id_fkey(name), ' +
         'order_items(id, tooth_number, slot, type_code, material_code, is_pontic, shade_system, shade_cervical, shade_incisal, implant_manufacturer, implant_type, implant_size, implant_screw, implant_option, has_gingival), ' +
-        'order_files(id, kind, file_name, file_size, mime_type, created_at), ' +
+        'order_files(id, kind, file_name, file_size, mime_type, created_at, upload_status), ' +
         'order_options(production_option_groups(name, sort_order), production_option_values(value))',
     )
     .eq('id', orderId)
@@ -327,7 +328,6 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     clinic_name: row.clinic?.name ?? '',
     lab_name: row.lab?.name ?? '',
     lab_org_id: row.lab_org_id,
-    scan_file_expected: row.scan_file_expected ?? 0,
     // 기공소 자리를 디자인센터가 겸하면 자사 제작입니다
     in_house: Boolean(row.lab_org_id && row.lab_org_id === row.design_org_id),
     roles: rolesOf(row, session?.orgId ?? null),
