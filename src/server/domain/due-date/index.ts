@@ -16,35 +16,45 @@
 //   일요일 — 고를 수 없습니다
 //   토요일 — 고를 수 있지만 배송만 됩니다 (제작은 하지 않습니다)
 //
-// ★ 영업일은 토·일을 뺀 날입니다. 공휴일은 아직 다루지 않습니다.
-//   한국 공휴일은 대체공휴일 때문에 해마다 달라져서 목록을 따로 관리해야 합니다.
-//   지금은 일요일만 막고, 공휴일 표가 생기면 isBlocked 에 조건만 더합니다.
+// ★ 영업일은 토·일과 **공휴일**을 뺀 날입니다 (2026-08-12).
+//   공휴일 목록은 셈으로 안 나옵니다 — 설·추석이 음력이고 임시공휴일은
+//   그때 정해집니다. 그래서 표를 **받아서** 씁니다 (domain/holiday 가 만들고
+//   디자인센터가 고칩니다). 이 파일은 여전히 아무것도 안 읽습니다.
+//
+// ★ 공휴일을 안 넘기면 예전 그대로 굴러갑니다 (기본값 {}).
+//   표를 못 읽는 자리(옛 호출부)가 있어도 화면이 죽지 않습니다 —
+//   대신 그 자리는 공휴일을 모릅니다.
 //
 // ★ 이 파일은 Next.js 도 Supabase 도 모릅니다. 문자열 날짜만 다룹니다.
 // =========================================================
 
 import { addDays, getWeekday, type IsoDate } from '../week';
+import type { HolidayMap } from '../holiday';
 
 /**
  * N번째 영업일. 토·일은 세지 않습니다.
  *
  * ★ 주문한 날이 1일차입니다. 주말에 주문했다면 다음 영업일이 1일차가 됩니다.
  */
-export function nthBusinessDay(from: IsoDate, n: number): IsoDate {
+export function nthBusinessDay(from: IsoDate, n: number, holidays: HolidayMap = {}): IsoDate {
   let date = from;
-  let count = isWeekend(date) ? 0 : 1;
+  let count = isOffDay(date, holidays) ? 0 : 1;
+  let guard = 0;
 
-  while (count < n) {
+  // 표가 잘못 채워져 한 해가 통째로 휴일이어도 멈추지 않게 합니다
+  while (count < n && guard < 400) {
     date = addDays(date, 1);
-    if (!isWeekend(date)) count++;
+    guard++;
+    if (!isOffDay(date, holidays)) count++;
   }
 
   return date;
 }
 
-function isWeekend(date: IsoDate): boolean {
+/** 일 못 하는 날 — 토·일과 공휴일 */
+function isOffDay(date: IsoDate, holidays: HolidayMap): boolean {
   const day = getWeekday(date);
-  return day === 0 || day === 6;
+  return day === 0 || day === 6 || date in holidays;
 }
 
 export function isSunday(date: IsoDate): boolean {
@@ -74,13 +84,31 @@ export function isSaturday(date: IsoDate): boolean {
 export type DueDatePolicy = 'standard' | 'free';
 
 /** 고를 수 있는 가장 이른 날 */
-export function minimumDueDate(today: IsoDate, policy: DueDatePolicy = 'standard'): IsoDate {
-  return policy === 'free' ? today : nthBusinessDay(today, 4);
+export function minimumDueDate(
+  today: IsoDate,
+  policy: DueDatePolicy = 'standard',
+  holidays: HolidayMap = {},
+): IsoDate {
+  return policy === 'free' ? today : nthBusinessDay(today, 4, holidays);
 }
 
-/** 주문등록을 열었을 때 미리 맞춰져 있는 날 — 5번째 영업일 */
-export function defaultDueDate(today: IsoDate): IsoDate {
-  return nthBusinessDay(today, 5);
+/**
+ * 주문등록을 열었을 때 미리 맞춰져 있는 날 — 5번째 영업일.
+ *
+ * ★ 그날이 공휴일이면 다음 고를 수 있는 날로 넘깁니다.
+ *   5영업일째가 임시공휴일일 수 있습니다 — 영업일 셈에서는 빠졌는데
+ *   결과가 그 날이 되는 일은 없지만, 표가 나중에 바뀌면 생깁니다.
+ */
+export function defaultDueDate(today: IsoDate, holidays: HolidayMap = {}): IsoDate {
+  let date = nthBusinessDay(today, 5, holidays);
+  let guard = 0;
+
+  while ((isSunday(date) || date in holidays) && guard < 30) {
+    date = addDays(date, 1);
+    guard++;
+  }
+
+  return date;
 }
 
 export interface DueDateVerdict {
@@ -101,12 +129,23 @@ export function checkDueDate(
   date: IsoDate,
   today: IsoDate,
   policy: DueDatePolicy = 'standard',
+  holidays: HolidayMap = {},
 ): DueDateVerdict {
   if (isSunday(date)) {
     return { selectable: false, reason: '일요일은 고를 수 없습니다' };
   }
 
-  const minimum = minimumDueDate(today, policy);
+  /*
+    ★ 공휴일도 못 고릅니다. 일요일과 같은 이유입니다 — 물건이 안 나갑니다.
+      이름을 함께 돌려줍니다: '고를 수 없습니다' 보다 '추석' 이 훨씬
+      알아듣기 쉽습니다.
+  */
+  const holiday = holidays[date];
+  if (holiday) {
+    return { selectable: false, reason: `${holiday} — 쉬는 날입니다` };
+  }
+
+  const minimum = minimumDueDate(today, policy, holidays);
   if (date < minimum) {
     return {
       selectable: false,
@@ -132,6 +171,8 @@ export interface CalendarCell {
   selectable: boolean;
   reason?: string;
   note?: string;
+  /** 공휴일이면 그 이름. 달력 칸에 작게 찍습니다 */
+  holiday?: string;
 }
 
 /**
@@ -143,13 +184,14 @@ export function buildCalendar(
   month: number,
   today: IsoDate,
   policy: DueDatePolicy = 'standard',
+  holidays: HolidayMap = {},
 ): CalendarCell[] {
   const first = `${year}-${String(month).padStart(2, '0')}-01`;
   const start = addDays(first, -getWeekday(first)); // 그 주 일요일까지 되돌립니다
 
   return Array.from({ length: 42 }, (_, i) => {
     const date = addDays(start, i);
-    const verdict = checkDueDate(date, today, policy);
+    const verdict = checkDueDate(date, today, policy, holidays);
 
     return {
       date,
@@ -158,6 +200,7 @@ export function buildCalendar(
       selectable: verdict.selectable,
       reason: verdict.reason,
       note: verdict.note,
+      holiday: holidays[date],
     };
   });
 }

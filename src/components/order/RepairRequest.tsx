@@ -23,6 +23,7 @@ import {
   type Sector,
 } from '@/server/domain/order-status';
 import DueDatePicker from '@/components/order/DueDatePicker';
+import type { HolidayMap } from '@/server/domain/holiday';
 import type { IsoDate } from '@/server/domain/week';
 import type { OrderDetailItem } from '@/server/repositories/order';
 
@@ -43,6 +44,8 @@ export interface RepairRequestProps {
   today: IsoDate;
   /** 기본 요청시한 */
   defaultDue: IsoDate;
+  /** 쉬는 날. 요청시한 달력이 이걸로 막습니다 */
+  holidays?: HolidayMap;
   /** 만든 뒤 어디로 갈지 */
   basePath?: string;
 }
@@ -55,6 +58,7 @@ export default function RepairRequest({
   roles,
   today,
   defaultDue,
+  holidays = {},
   basePath = '/clinic/orders',
 }: RepairRequestProps) {
   const router = useRouter();
@@ -277,7 +281,13 @@ export default function RepairRequest({
               <label className="mb-1.5 block text-[13px] font-semibold text-gray-600">
                 요청시한
               </label>
-              <DueDatePicker value={dueDate} today={today} policy="free" onChange={setDueDate} />
+              <DueDatePicker
+                value={dueDate}
+                today={today}
+                policy="free"
+                holidays={holidays}
+                onChange={setDueDate}
+              />
             </div>
 
             {/* ★ 기공소가 알림을 받고 택배사에 수동 접수하는 구조라,

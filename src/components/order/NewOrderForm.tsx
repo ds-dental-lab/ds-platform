@@ -24,6 +24,7 @@ import OrderSection, { SECTION_ICON } from '@/components/order/OrderSection';
 import ProductionOptionPanel from '@/components/order/ProductionOptionPanel';
 import LeaveGuard from '@/components/order/LeaveGuard';
 import DueDatePicker from '@/components/order/DueDatePicker';
+import type { HolidayMap } from '@/server/domain/holiday';
 import ShadeButton from '@/components/order/ShadeButton';
 import ScanDropZone from '@/components/order/ScanDropZone';
 import ToothChart from '@/components/dental/ToothChart';
@@ -110,6 +111,8 @@ export interface NewOrderFormProps {
   dueDatePolicy?: DueDatePolicy;
   today: IsoDate;
   defaultDue: IsoDate;
+  /** 쉬는 날. 요청시한 달력이 이걸로 막습니다 (디자인센터 휴일 화면) */
+  holidays?: HolidayMap;
   implantCatalog: ImplantCatalog;
   implantFavorites: ImplantFavorite[];
   optionGroups: ProductionOptionGroup[];
@@ -154,6 +157,7 @@ function OrderFormBody({
   dueDatePolicy = 'standard',
   today,
   defaultDue,
+  holidays = {},
   implantCatalog,
   implantFavorites,
   optionGroups,
@@ -687,6 +691,7 @@ function OrderFormBody({
               value={dueDate}
               today={today}
               policy={dueDatePolicy}
+              holidays={holidays}
               onChange={setDueDate}
             />
           </Field>

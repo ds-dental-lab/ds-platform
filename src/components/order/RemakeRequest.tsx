@@ -33,6 +33,7 @@ import UploadToast, { type UploadState } from '@/components/order/UploadToast';
 import ScanDropZone from '@/components/order/ScanDropZone';
 import ShadeDialog from '@/components/order/ShadeDialog';
 import DueDatePicker from '@/components/order/DueDatePicker';
+import type { HolidayMap } from '@/server/domain/holiday';
 import ToothPickRow from '@/components/dental/ToothChart/ToothPickRow';
 import { buildAbbr, getMaterials, type ProsthesisCatalog } from '@/server/domain/prosthesis';
 import { formatShade, type ToothShade, type ShadeSystemCode } from '@/server/domain/shade';
@@ -59,6 +60,8 @@ export interface RemakeRequestProps {
   scanFiles: OrderDetailFile[];
   today: IsoDate;
   defaultDue: IsoDate;
+  /** 쉬는 날. 요청시한 달력이 이걸로 막습니다 */
+  holidays?: HolidayMap;
   prosthesisCatalog: ProsthesisCatalog;
   /** 이 주문에서 내가 맡은 자리들. 치과와 디자인센터가 넣습니다 */
   roles: Sector[];
@@ -73,6 +76,7 @@ export default function RemakeRequest({
   scanFiles,
   today,
   defaultDue,
+  holidays = {},
   prosthesisCatalog,
   roles,
   basePath = '/clinic/orders',
@@ -356,7 +360,7 @@ export default function RemakeRequest({
               {/* ---------- ② 요청시한 ---------- */}
               <section>
                 <SectionTitle no="②">요청시한</SectionTitle>
-                <DueDatePicker value={dueDate} today={today} onChange={setDueDate} />
+                <DueDatePicker value={dueDate} today={today} holidays={holidays} onChange={setDueDate} />
                 <p className="mt-2 text-[12.5px] text-[#98A2B3]">
                   일반 주문과 같은 기준입니다. 기본값은 주문일 포함 워킹데이 5일째입니다.
                 </p>

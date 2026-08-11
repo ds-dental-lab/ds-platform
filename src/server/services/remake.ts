@@ -33,6 +33,7 @@ import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate, checkDueDate } from '@/server/domain/due-date';
 import { isValidCombination } from '@/server/domain/prosthesis';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
+import { getHolidayMap } from '@/server/repositories/holiday';
 import { isValidShade } from '@/server/domain/shade';
 
 const BUCKET = 'order-files';
@@ -237,8 +238,9 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
 
   // ★ 요청시한은 리메이크 신청일 기준으로 다시 잡습니다.
   //   원주문 시한은 이미 지났습니다. 일반 주문과 같은 규칙을 씁니다.
-  const dueDate = input.dueDate ?? defaultDueDate(today);
-  const verdict = checkDueDate(dueDate, today);
+  const holidays = await getHolidayMap();
+  const dueDate = input.dueDate ?? defaultDueDate(today, holidays);
+  const verdict = checkDueDate(dueDate, today, 'standard', holidays);
   if (!verdict.selectable) {
     return { ok: false, error: verdict.reason ?? '고를 수 없는 요청시한입니다' };
   }

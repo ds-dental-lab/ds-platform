@@ -192,3 +192,57 @@ describe('요청시한 정책', () => {
     expect(checkDueDate('2026-08-15', today, 'free').note).toBe('토요일은 배송만 가능합니다');
   });
 });
+
+// =========================================================
+// 공휴일 (2026-08-12) — 표는 domain/holiday 가 만들고 여기서 받아 씁니다
+// =========================================================
+describe('공휴일', () => {
+  // 2026 추석 09-24(목) · 09-25(금) · 09-26(토)
+  const chuseok = {
+    '2026-09-24': '추석',
+    '2026-09-25': '추석',
+    '2026-09-26': '추석',
+  };
+
+  it('공휴일은 못 고릅니다 — 이름을 알려 줍니다', () => {
+    expect(checkDueDate('2026-09-25', '2026-09-01', 'standard', chuseok)).toEqual({
+      selectable: false,
+      reason: '추석 — 쉬는 날입니다',
+    });
+  });
+
+  // ★ 이걸 안 하면 연휴 낀 주에 실제로 못 만드는 날짜가 잡힙니다
+  it('★ 영업일 셈에서 빠집니다', () => {
+    // 09-21(월)부터 4영업일 — 22, 23 세고 24·25 는 추석이라 건너뜁니다
+    expect(nthBusinessDay('2026-09-21', 4)).toBe('2026-09-24');
+    expect(nthBusinessDay('2026-09-21', 4, chuseok)).toBe('2026-09-28');
+  });
+
+  it('최소 납기가 연휴만큼 밀립니다', () => {
+    expect(minimumDueDate('2026-09-21', 'standard', chuseok)).toBe('2026-09-28');
+  });
+
+  // 디자인센터는 오늘부터 자유롭게 고르지만 쉬는 날은 그대로 막힙니다
+  it('자유 선택에서도 공휴일은 막힙니다', () => {
+    expect(checkDueDate('2026-09-25', '2026-09-20', 'free', chuseok).selectable).toBe(false);
+  });
+
+  it('공휴일을 안 넘기면 예전 그대로입니다', () => {
+    expect(checkDueDate('2026-09-25', '2026-09-01').selectable).toBe(true);
+  });
+
+  it('달력 칸에 이름이 실립니다', () => {
+    const cells = buildCalendar(2026, 9, '2026-09-01', 'standard', chuseok);
+    const cell = cells.find((c) => c.date === '2026-09-25');
+
+    expect(cell?.selectable).toBe(false);
+    expect(cell?.holiday).toBe('추석');
+  });
+
+  it('기본값이 쉬는 날에 걸리지 않습니다', () => {
+    const due = defaultDueDate('2026-09-21', chuseok);
+
+    expect(due in chuseok).toBe(false);
+    expect(isSunday(due)).toBe(false);
+  });
+});

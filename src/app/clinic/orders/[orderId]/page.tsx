@@ -13,6 +13,7 @@ import { getOrderDetail } from '@/server/repositories/order';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
+import { getHolidayMap } from '@/server/repositories/holiday';
 import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate } from '@/server/domain/due-date';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
@@ -32,6 +33,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   if (!order) notFound();
 
   const today = todayInKst();
+  // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
+  const holidays = await getHolidayMap();
 
   const [implantCatalog, messages, prosthesisCatalog] = await Promise.all([
     getImplantCatalog(),
@@ -65,7 +68,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             items={order.items}
             scanFiles={order.files.filter((f) => f.kind !== 'design')}
             today={today}
-            defaultDue={defaultDueDate(today)}
+            defaultDue={defaultDueDate(today, holidays)}
+            holidays={holidays}
             prosthesisCatalog={prosthesisCatalog}
             roles={order.roles}
           />
@@ -76,7 +80,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             prosthesisCatalog={prosthesisCatalog}
             roles={order.roles}
             today={today}
-            defaultDue={defaultDueDate(today)}
+            defaultDue={defaultDueDate(today, holidays)}
+            holidays={holidays}
           />
         </>
       }

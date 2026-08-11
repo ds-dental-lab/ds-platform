@@ -22,10 +22,12 @@ import { isAllowedPair, MAX_PER_TOOTH, type Placement } from '@/server/domain/du
 import { computeBridges, type ToothPlacement } from '@/server/domain/bridge';
 import { isValidShade } from '@/server/domain/shade';
 import { checkDueDate, type DueDatePolicy } from '@/server/domain/due-date';
+import type { HolidayMap } from '@/server/domain/holiday';
 import { canEditSpec, type OrderStatus } from '@/server/domain/order-status';
 import { todayInKst } from '@/server/domain/week';
 import { publishOrderCreated } from '@/server/events';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
+import { getHolidayMap } from '@/server/repositories/holiday';
 
 // ---------- 입력 모양 ----------
 
@@ -93,13 +95,14 @@ export function validateOrder(
    *   치과가 'free' 를 보내 최소 납기를 건너뛸 수 없어야 합니다.
    */
   dueDatePolicy: DueDatePolicy = 'standard',
+  holidays: HolidayMap = {},
 ): string | null {
   if (!input.patientLabel?.trim()) return '환자를 선택해 주세요';
   if (!input.dueDate) return '요청시한을 입력해 주세요';
 
   // ★ 화면에서 달력을 막아 둔 것만으로는 부족합니다 (설계서 §5.3 결정 2)
   if (today) {
-    const verdict = checkDueDate(input.dueDate, today, dueDatePolicy);
+    const verdict = checkDueDate(input.dueDate, today, dueDatePolicy, holidays);
     if (!verdict.selectable) return verdict.reason ?? '고를 수 없는 요청시한입니다';
   }
   if (input.items.length === 0) return '보철물을 하나 이상 선택해 주세요';
@@ -222,6 +225,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     catalog,
     todayInKst(),
     org.org_type === 'design_center' ? 'free' : 'standard',
+    await getHolidayMap(),
   );
   if (problem) return { ok: false, error: problem };
 
@@ -501,7 +505,7 @@ export type UpdateOrderResult = { ok: true } | { ok: false; error: string };
  */
 export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderResult> {
   const catalog = await getProsthesisCatalog({ includeInactive: true });
-  const problem = validateOrder(input, catalog, todayInKst());
+  const problem = validateOrder(input, catalog, todayInKst(), 'standard', await getHolidayMap());
   if (problem) return { ok: false, error: problem };
 
   const supabase = await createClient();

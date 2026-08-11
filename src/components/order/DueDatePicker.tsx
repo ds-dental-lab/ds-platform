@@ -7,6 +7,10 @@
 //   일요일과 최소 납기 이전을 막아야 하는데, <input type=date> 로는
 //   "이 날은 왜 안 되는지"를 알려 줄 수가 없습니다.
 //
+// ★ 공휴일은 표를 받아서 씁니다 (holidays).
+//   설·추석은 음력이고 임시공휴일은 그때 정해집니다 — 셈으로 안 나옵니다.
+//   디자인센터가 휴일 화면에서 쥐고, 여기서는 받은 대로 막고 이름을 찍습니다.
+//
 // 막는 규칙은 domain/due-date 에 있습니다. 여기서는 그리기만 합니다.
 // =========================================================
 
@@ -21,6 +25,7 @@ import {
   type DueDatePolicy,
 } from '@/server/domain/due-date';
 import type { IsoDate } from '@/server/domain/week';
+import type { HolidayMap } from '@/server/domain/holiday';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -33,6 +38,8 @@ export interface DueDatePickerProps {
    *   free      디자인센터 주문등록 — 오늘부터
    */
   policy?: DueDatePolicy;
+  /** 쉬는 날. 날짜 → 이름. 없으면 토·일만 막습니다 */
+  holidays?: HolidayMap;
   onChange: (date: IsoDate) => void;
 }
 
@@ -40,6 +47,7 @@ export default function DueDatePicker({
   value,
   today,
   policy = 'standard',
+  holidays = {},
   onChange,
 }: DueDatePickerProps) {
   const [open, setOpen] = useState(false);
@@ -48,8 +56,8 @@ export default function DueDatePicker({
     month: Number(value.slice(5, 7)),
   }));
 
-  const cells = buildCalendar(cursor.year, cursor.month, today, policy);
-  const selectedNote = checkDueDate(value, today, policy).note;
+  const cells = buildCalendar(cursor.year, cursor.month, today, policy, holidays);
+  const selectedNote = checkDueDate(value, today, policy, holidays).note;
 
   function shiftMonth(delta: number) {
     setCursor((c) => {
@@ -134,17 +142,24 @@ export default function DueDatePicker({
                       setOpen(false);
                     }}
                     className={
-                      'grid h-8 place-items-center rounded text-[12.5px] tabular-nums transition-colors ' +
+                      'relative grid h-8 place-items-center rounded text-[12.5px] tabular-nums transition-colors ' +
                       (selected
                         ? 'bg-[#1279E8] font-bold text-white'
-                        : !cell.selectable
-                          ? 'cursor-not-allowed text-[#D5DAE2]'
-                          : cell.outside
-                            ? 'text-[#C4CBD6] hover:bg-[#F4F6F9]'
-                            : 'text-[#1A2130] hover:bg-[#EDF3FE]')
+                        : cell.holiday
+                          ? 'cursor-not-allowed bg-[#FDF2F2] text-[#E2A3A0]'
+                          : !cell.selectable
+                            ? 'cursor-not-allowed text-[#D5DAE2]'
+                            : cell.outside
+                              ? 'text-[#C4CBD6] hover:bg-[#F4F6F9]'
+                              : 'text-[#1A2130] hover:bg-[#EDF3FE]')
                     }
                   >
                     {cell.day}
+                    {/* ★ 공휴일은 흐린 것만으로는 '지난 날' 과 구별이 안 됩니다.
+                        점을 찍고, 손을 얹으면 이름이 뜹니다 */}
+                    {cell.holiday && !selected && (
+                      <span className="absolute bottom-[3px] h-1 w-1 rounded-full bg-[#D8453F]" />
+                    )}
                   </button>
                 );
               })}

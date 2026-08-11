@@ -18,6 +18,7 @@ import { getImplantCatalog, listImplantFavorites } from '@/server/repositories/i
 import { getProductionOptions } from '@/server/repositories/production-option';
 import { listOptionPresets } from '@/server/repositories/option-preset';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
+import { getHolidayMap } from '@/server/repositories/holiday';
 import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate } from '@/server/domain/due-date';
 import { canEditSpec } from '@/server/domain/order-status';
@@ -49,12 +50,15 @@ export default async function EditOrderPage({ params }: EditOrderPageProps) {
   ]);
 
   const today = todayInKst();
+  // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
+  const holidays = await getHolidayMap();
 
   return (
     <NewOrderForm
       clinicName={session.orgName ?? ''}
       today={today}
-      defaultDue={defaultDueDate(today)}
+      defaultDue={defaultDueDate(today, holidays)}
+            holidays={holidays}
       implantCatalog={implantCatalog}
       implantFavorites={implantFavorites}
       optionGroups={optionGroups}
