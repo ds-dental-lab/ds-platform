@@ -174,15 +174,48 @@ export function moneyRange(
   orgType: 'clinic' | 'design_center' | 'lab',
   closingDay: number,
 ): MoneyRange {
-  if (orgType === 'design_center') {
-    return { ...periodRange(yearMonthOf(today), 1), basis: 'calendar', countBy: 'shipped' };
+  return moneyRanges(today, orgType, closingDay, 1)[0];
+}
+
+/**
+ * 금액 추이 그래프가 쓸 구간들. **오래된 것부터**, 마지막이 이번 구간입니다.
+ *
+ * ★ 달력 월이 아니라 정산 구간으로 자릅니다 (치과·기공소).
+ *   26일 기준 치과에게 '7월' 은 06-26~07-25 입니다. 그래프만 달력 월로
+ *   그리면 막대 하나하나가 정산서와 다른 것을 말하게 됩니다.
+ *
+ * ★ 구간은 서로 겹치지도, 사이가 비지도 않습니다.
+ *   periodRange 와 periodOfDate 가 서로의 역이라 (테스트가 잠급니다)
+ *   어떤 날짜든 정확히 한 구간에만 듭니다. 그래서 어느 건도 두 번
+ *   세어지거나 통째로 빠지지 않습니다.
+ *
+ * ★ 마지막 구간은 **아직 안 끝났습니다.**
+ *   다 지난 달들과 나란히 두면 "이번 달은 왜 이렇게 적나" 로 읽힙니다.
+ *   화면이 그 막대를 달리 그려야 합니다.
+ */
+export function moneyRanges(
+  today: IsoDate,
+  orgType: 'clinic' | 'design_center' | 'lab',
+  closingDay: number,
+  count = 6,
+): MoneyRange[] {
+  // 디자인센터는 거래처 기준일이 제각각이라 달력 월(=기준일 1일)로 갑니다
+  const day = orgType === 'design_center' ? 1 : closingDay;
+
+  const shape = {
+    basis: (orgType === 'design_center' ? 'calendar' : 'period') as MoneyBasis,
+    countBy: (orgType === 'clinic' ? 'received' : 'shipped') as MoneyCountBy,
+  };
+
+  const out: MoneyRange[] = [];
+  let ym = periodOfDate(today, day);
+
+  for (let i = 0; i < Math.max(1, count); i++) {
+    out.unshift({ ...periodRange(ym, day), ...shape });
+    ym = prevYearMonth(ym);
   }
 
-  return {
-    ...periodRange(periodOfDate(today, closingDay), closingDay),
-    basis: 'period',
-    countBy: orgType === 'clinic' ? 'received' : 'shipped',
-  };
+  return out;
 }
 
 // ---------- 무엇을 청구하는가 ----------

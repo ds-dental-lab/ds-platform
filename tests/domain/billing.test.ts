@@ -26,6 +26,7 @@ import {
   groupInvoiceLines,
   formatTeeth,
   moneyRange,
+  moneyRanges,
   type GroupableItem,
 } from '@/server/domain/billing';
 
@@ -597,5 +598,53 @@ describe('HOME 금액 구간', () => {
   // 화면이 죽으면 안 됩니다 — 기준일이 비어 있는 거래처가 있을 수 있습니다
   it('잘못된 기준일이 와도 구간이 나온다', () => {
     expect(moneyRange('2026-08-11', 'lab', 0).from).toBe('2026-08-01');
+  });
+});
+
+describe('금액 추이 구간', () => {
+  it('오래된 것부터 여섯 개, 마지막이 이번 구간이다', () => {
+    const ranges = moneyRanges('2026-08-11', 'clinic', 26, 6);
+
+    expect(ranges).toHaveLength(6);
+    expect(ranges[0]).toMatchObject({ from: '2026-02-26', to: '2026-03-25' });
+    expect(ranges[5]).toMatchObject({ from: '2026-07-26', to: '2026-08-25' });
+  });
+
+  it('마지막은 moneyRange 와 같다', () => {
+    const ranges = moneyRanges('2026-08-11', 'lab', 26, 6);
+
+    expect(ranges[5]).toEqual(moneyRange('2026-08-11', 'lab', 26));
+  });
+
+  // ★ 겹치면 두 번 세어지고, 비면 통째로 빠집니다
+  it('★ 구간끼리 겹치지도 비지도 않는다', () => {
+    for (const day of [1, 15, 26, 28]) {
+      const ranges = moneyRanges('2026-08-11', 'clinic', day, 6);
+
+      for (let i = 1; i < ranges.length; i++) {
+        const prevTo = new Date(`${ranges[i - 1].to}T00:00:00Z`).getTime();
+        const from = new Date(`${ranges[i].from}T00:00:00Z`).getTime();
+
+        expect(from - prevTo).toBe(86400000); // 딱 하루 뒤
+      }
+    }
+  });
+
+  it('해를 넘어간다', () => {
+    expect(moneyRanges('2026-02-11', 'clinic', 1, 6)[0]).toMatchObject({
+      from: '2025-09-01',
+      to: '2025-09-30',
+    });
+  });
+
+  it('디자인센터는 여섯 달 모두 달력 월이다', () => {
+    const ranges = moneyRanges('2026-08-11', 'design_center', 26, 6);
+
+    expect(ranges[0]).toMatchObject({ from: '2026-03-01', to: '2026-03-31' });
+    expect(ranges[5]).toMatchObject({ from: '2026-08-01', to: '2026-08-31' });
+  });
+
+  it('0개를 달라고 해도 한 개는 준다', () => {
+    expect(moneyRanges('2026-08-11', 'clinic', 26, 0)).toHaveLength(1);
   });
 });

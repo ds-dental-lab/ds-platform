@@ -21,6 +21,7 @@
 import Link from 'next/link';
 import { STATUS_LABEL, type OrderStatus, type Sector } from '@/server/domain/order-status';
 import { ISSUE_META, type IssueType } from '@/server/domain/order-list';
+import MoneyTrend from '@/components/home/MoneyTrend';
 import type { HomeSummary } from '@/server/repositories/home';
 
 /** 섹터마다 세는 상태가 다릅니다 */
@@ -125,18 +126,18 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
           </div>
 
           <p className="mt-2.5 text-[26px] font-extrabold tracking-[-0.04em] tabular-nums text-[#1A2130]">
-            ₩{summary.money.amount.toLocaleString('ko-KR')}
+            ₩{summary.money.current.amount.toLocaleString('ko-KR')}
           </p>
 
           {/* ★ 구간과 건수를 같이 적습니다.
               금액만 있으면 '무엇을 센 건지' 를 물어보러 전화가 옵니다.
               구간이 07.26~08.25 로 보이면 정산일이 26일이라는 것도 같이 압니다 */}
           <p className="mt-1 text-[12px] text-[#98A2B3]">
-            {summary.money.from ? (
+            {summary.money.current.from ? (
               <>
-                {shortDate(summary.money.from)} ~ {shortDate(summary.money.to)}
+                {shortDate(summary.money.current.from)} ~ {shortDate(summary.money.current.to)}
                 <span className="mx-1.5 text-[#DDE2EA]">·</span>
-                {money.countLabel} {summary.money.orderCount}건
+                {money.countLabel} {summary.money.current.orderCount}건
               </>
             ) : (
               '아직 셀 것이 없습니다.'
@@ -144,9 +145,9 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
           </p>
 
           {/* 단가를 안 정한 제품은 0원이 아니라 '미정' 입니다 — 조용히 빠지면 안 됩니다 */}
-          {summary.money.unpricedCount > 0 && (
+          {summary.money.current.unpricedCount > 0 && (
             <p className="mt-1.5 text-[11.5px] font-semibold text-[#B3312C]">
-              단가를 안 정한 {summary.money.unpricedCount}건은 이 금액에 안 들어 있습니다.
+              단가를 안 정한 {summary.money.current.unpricedCount}건은 이 금액에 안 들어 있습니다.
             </p>
           )}
         </Card>
@@ -205,8 +206,8 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
           </Card>
         </div>
 
-        {/* 디자인센터는 작업 리스트, 나머지는 금액 추이 */}
-        {showWorklist ? (
+        {/* 디자인센터만 작업 리스트가 하나 더 붙습니다 */}
+        {showWorklist && (
           <Card className="min-h-[220px]">
             <div className="flex items-center">
               <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">작업 리스트</h2>
@@ -222,12 +223,17 @@ export default function HomeScreen({ sector, summary, showWorklist }: HomeScreen
 
             <Empty className="py-14">진행 중인 작업이 없습니다.</Empty>
           </Card>
-        ) : (
-          <Card className="min-h-[300px]">
-            <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">{money.trend}</h2>
-            <Empty className="py-24">{money.empty}</Empty>
-          </Card>
         )}
+
+        {/* ★ 금액 추이는 세 섹터 모두 봅니다.
+            전에는 디자인센터 자리에 작업 리스트만 두어, 정작 이 화면을 매일
+            보는 사람이 자기 매출 흐름을 못 봤습니다. 둘 다 세웁니다 */}
+        <MoneyTrend
+          title={money.trend}
+          empty={money.empty}
+          buckets={summary.money.trend}
+          countLabel={money.countLabel}
+        />
       </div>
 
       {/* ================= 가운데 — 오늘 배송 예정 ================= */}

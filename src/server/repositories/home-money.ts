@@ -34,12 +34,13 @@ import { todayInKst } from '@/server/domain/week';
 import { resolvePartyPrice } from '@/server/domain/pricing';
 import {
   itemAmount,
-  moneyRange,
+  moneyRanges,
   type MoneyBasis,
   type MoneyCountBy,
 } from '@/server/domain/billing';
 
-export interface HomeMoney {
+/** 구간 하나 — 금액 카드의 이번 구간이자, 추이 그래프의 막대 하나 */
+export interface MoneyBucket {
   amount: number;
   /** 구간 (양끝 포함) */
   from: string;
@@ -48,9 +49,24 @@ export interface HomeMoney {
   orderCount: number;
   /** 단가를 안 정해 금액에 못 잡힌 줄 수. 0 이 아니면 화면이 알립니다 */
   unpricedCount: number;
+}
+
+export interface HomeMoney {
+  /** 이번 구간. 왼쪽 위 금액 카드가 씁니다 */
+  current: MoneyBucket;
+  /**
+   * 최근 여섯 구간. **오래된 것부터**, 마지막이 current 와 같습니다.
+   *
+   * ★ 마지막 막대는 아직 안 끝난 구간입니다. 화면이 달리 그려야 합니다 —
+   *   다 지난 달과 나란히 두면 "이번 달은 왜 이렇게 적나" 로 읽힙니다.
+   */
+  trend: MoneyBucket[];
   basis: MoneyBasis;
   countBy: MoneyCountBy;
 }
+
+/** 몇 구간을 그리는가 */
+const TREND_COUNT = 6;
 
 interface PriceRow {
   price: number | null;
@@ -69,6 +85,8 @@ interface RawOrder {
   clinic_org_id: string;
   lab_org_id: string | null;
   is_billable: boolean;
+  received_at: string | null;
+  shipped_at: string | null;
   order_items: RawItem[] | null;
 }
 
@@ -88,9 +106,23 @@ export async function getHomeMoney(): Promise<HomeMoney> {
     .maybeSingle();
 
   const closingDay = (org as { closing_day: number | null } | null)?.closing_day ?? 1;
-  const range = moneyRange(todayInKst(), orgType, closingDay);
+  const ranges = moneyRanges(todayInKst(), orgType, closingDay, TREND_COUNT);
+  const { basis, countBy } = ranges[ranges.length - 1];
+
+  const buckets: MoneyBucket[] = ranges.map((r) => ({
+    amount: 0,
+    from: r.from,
+    to: r.to,
+    orderCount: 0,
+    unpricedCount: 0,
+  }));
 
   /*
+    ★ 여섯 구간을 한 번에 읽고 나눠 담습니다.
+      구간마다 물으면 조회가 여섯 번입니다. 구간끼리 겹치지도 비지도
+      않는 것은 domain 이 보장하므로(테스트가 잠급니다), 날짜 하나가
+      어느 칸에 드는지는 한 번만 찾으면 됩니다.
+
     ★ 어느 조직의 주문인지 여기서 안 따집니다 — RLS 가 가릅니다.
       치과는 자기 것, 디자인센터는 거래 치과 것, 기공소는 배정받은 것만
       돌아옵니다. 여기서 조건을 한 번 더 걸면 두 곳이 어긋날 때 구멍이 납니다.
@@ -98,34 +130,39 @@ export async function getHomeMoney(): Promise<HomeMoney> {
     ★ 접수 기준은 아직 안 나간 건도 셉니다 — 그게 치과가 보고 싶은 것입니다.
       배송 기준은 나간 것만 셉니다.
   */
-  const dateColumn = range.countBy === 'received' ? 'received_at' : 'shipped_at';
+  const dateColumn = countBy === 'received' ? 'received_at' : 'shipped_at';
+  const span = { from: ranges[0].from, to: ranges[ranges.length - 1].to };
 
   const orders = await supabase
     .from('orders')
     .select(
-      'clinic_org_id, lab_org_id, is_billable, ' +
+      'clinic_org_id, lab_org_id, is_billable, received_at, shipped_at, ' +
         'order_items(type_code, material_code, is_pontic, has_gingival)',
     )
     .is('deleted_at', null)
     .neq('status', 'cancelled')
     .not(dateColumn, 'is', null)
-    .gte(dateColumn, `${range.from}T00:00:00`)
-    .lte(dateColumn, `${range.to}T23:59:59`);
+    .gte(dateColumn, `${span.from}T00:00:00`)
+    .lte(dateColumn, `${span.to}T23:59:59`);
 
-  if (orders.error || !orders.data) return empty(range);
+  if (orders.error || !orders.data) return { current: buckets[buckets.length - 1], trend: buckets, basis, countBy };
 
   const rows = orders.data as unknown as RawOrder[];
-  if (rows.length === 0) return empty(range);
-
-  const priceFor = await loadPricing(supabase, orgType);
-
-  let amount = 0;
-  let unpricedCount = 0;
+  const priceFor = rows.length > 0 ? await loadPricing(supabase, orgType) : null;
 
   for (const order of rows) {
+    const when = (countBy === 'received' ? order.received_at : order.shipped_at) ?? '';
+    const day = when.slice(0, 10);
+
+    // ISO 날짜는 글자 순서가 곧 날짜 순서입니다
+    const bucket = buckets.find((b) => day >= b.from && day <= b.to);
+    if (!bucket) continue;
+
+    bucket.orderCount += 1;
+
     // ★ 리메이크·리페어는 0원입니다. 건수에는 넣습니다 —
     //   "이번 달 스무 건" 에서 빼 버리면 화면이 실제와 어긋납니다
-    if (!order.is_billable) continue;
+    if (!order.is_billable || !priceFor) continue;
 
     // 어느 거래처의 단가인가. 기공소는 자기 것, 나머지는 그 치과 것
     const party = (orgType === 'lab' ? order.lab_org_id : order.clinic_org_id) ?? '';
@@ -137,20 +174,12 @@ export async function getHomeMoney(): Promise<HomeMoney> {
         ...priceFor(party, item.type_code, item.material_code),
       });
 
-      amount += money.amount;
-      if (money.unpriced) unpricedCount += 1;
+      bucket.amount += money.amount;
+      if (money.unpriced) bucket.unpricedCount += 1;
     }
   }
 
-  return {
-    amount,
-    from: range.from,
-    to: range.to,
-    orderCount: rows.length,
-    unpricedCount,
-    basis: range.basis,
-    countBy: range.countBy,
-  };
+  return { current: buckets[buckets.length - 1], trend: buckets, basis, countBy };
 }
 
 // ---------- 단가 ----------
@@ -251,19 +280,15 @@ async function loadPricing(
   };
 }
 
-function empty(range?: {
-  from: string;
-  to: string;
-  basis: MoneyBasis;
-  countBy: MoneyCountBy;
-}): HomeMoney {
-  return {
+/** 로그인이 안 됐거나 소속이 없을 때. 화면은 '아직 셀 것이 없습니다' 를 그립니다 */
+function empty(): HomeMoney {
+  const bucket: MoneyBucket = {
     amount: 0,
-    from: range?.from ?? '',
-    to: range?.to ?? '',
+    from: '',
+    to: '',
     orderCount: 0,
     unpricedCount: 0,
-    basis: range?.basis ?? 'calendar',
-    countBy: range?.countBy ?? 'shipped',
   };
+
+  return { current: bucket, trend: [], basis: 'calendar', countBy: 'shipped' };
 }
