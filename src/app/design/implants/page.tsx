@@ -1,17 +1,22 @@
 // =========================================================
 // 놓을 위치: src/app/design/implants/page.tsx
 //
-// 임플란트 마스터 관리. 디자인센터만 들어옵니다.
-// (레이아웃의 requireSector 가 이미 막고, 쓰기는 RLS 와 서비스가 다시 막습니다)
+// 임플란트 마스터 관리. 디자인센터 **관리자만** 들어옵니다.
+//
+// ★ 사용자(디자이너)에게는 메뉴가 안 보입니다 (사용자 결정 2026-08-12).
+//   메뉴를 숨기는 것만으로는 부족합니다 — 주소를 바로 치면 열립니다.
 // =========================================================
 
 import Link from 'next/link';
+import { requireManagerSector } from '@/server/policies/session';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import ImplantMasterEditor from '@/components/implant/ImplantMasterEditor';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ImplantMasterPage() {
+  await requireManagerSector('design_center');
+
   const catalog = await getImplantCatalog();
 
   return (

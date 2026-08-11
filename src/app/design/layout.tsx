@@ -14,7 +14,7 @@ export default async function DesignLayout({ children }: { children: React.React
     countUnreadNotifications(),
   ]);
   return (
-    <SectorShell sector="design_center" canSeeMoney={canSeeMoney(s.role as MemberRole | null)} orgName={s.orgName ?? ""} userName={s.userName}
+    <SectorShell sector="design_center" isManager={canSeeMoney(s.role as MemberRole | null)} orgName={s.orgName ?? ""} userName={s.userName}
       bell={<NotificationBell notifications={notifications} unreadCount={unreadCount} />}
     >
       {children}

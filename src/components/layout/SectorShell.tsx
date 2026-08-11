@@ -117,10 +117,15 @@ interface NavItem {
   /** 아직 안 만든 화면 */
   soon?: string;
   /**
-   * 금액이 나오는 화면인가. 사용자에게는 안 보입니다.
-   * (사용자 결정 2026-08-12 — 관리자와 사용자의 차이는 금액 하나)
+   * 사용자에게 안 보이는 메뉴인가. (사용자 결정 2026-08-12)
+   *
+   * ★ 섹터마다 다릅니다 — '금액이냐 아니냐' 로 한 번에 자를 수 없습니다.
+   *   치과·기공소 사용자는 **정산까지 그대로 보고** 사용자탭만 빠집니다.
+   *   디자인센터 사용자(디자이너)는 만드는 일만 하므로 훨씬 좁습니다.
+   *   그래서 규칙을 한 곳에 두지 않고 메뉴마다 답니다 — 목록을 보면
+   *   누가 무엇을 보는지 바로 읽힙니다.
    */
-  money?: boolean;
+  staffHidden?: boolean;
 }
 
 const NAV: Record<Sector, NavItem[]> = {
@@ -129,8 +134,8 @@ const NAV: Record<Sector, NavItem[]> = {
     { label: '주문등록', href: '/clinic/orders/new', icon: NAV_ICON.new },
     { label: '주문목록', href: '/clinic/orders', icon: NAV_ICON.list },
     { label: '배송조회', href: '/clinic/deliveries', icon: NAV_ICON.delivery },
-    { label: '정산', href: '/clinic/billing', icon: NAV_ICON.billing, money: true },
-    { label: '사용자', href: '/clinic/users', icon: NAV_ICON.users, money: true },
+    { label: '정산', href: '/clinic/billing', icon: NAV_ICON.billing },
+    { label: '사용자', href: '/clinic/users', icon: NAV_ICON.users, staffHidden: true },
     { label: '게시판', href: '/clinic/notices', icon: NAV_ICON.board },
   ],
   // 시안 순서 그대로입니다 — HOME · 주문등록 · 주문목록 · 배송조회 ·
@@ -140,20 +145,20 @@ const NAV: Record<Sector, NavItem[]> = {
     { label: '주문등록', href: '/design/orders/new', icon: NAV_ICON.new },
     { label: '주문목록', href: '/design/orders', icon: NAV_ICON.list },
     { label: '배송조회', href: '/design/deliveries', icon: NAV_ICON.delivery },
-    { label: '정산관리', href: '/design/billing', icon: NAV_ICON.billing, money: true },
-    { label: '사용자', href: '/design/users', icon: NAV_ICON.users, money: true },
-    { label: '제품', href: '/design/products', icon: NAV_ICON.product, money: true },
-    { label: '휴일', href: '/design/holidays', icon: NAV_ICON.holiday },
-    { label: '임플란트', href: '/design/implants', icon: NAV_ICON.implant },
-    { label: '통계', href: '/design/stats', icon: NAV_ICON.billing, money: true },
+    { label: '정산관리', href: '/design/billing', icon: NAV_ICON.billing, staffHidden: true },
+    { label: '사용자', href: '/design/users', icon: NAV_ICON.users, staffHidden: true },
+    { label: '제품', href: '/design/products', icon: NAV_ICON.product, staffHidden: true },
+    { label: '휴일', href: '/design/holidays', icon: NAV_ICON.holiday, staffHidden: true },
+    { label: '임플란트', href: '/design/implants', icon: NAV_ICON.implant, staffHidden: true },
+    { label: '통계', href: '/design/stats', icon: NAV_ICON.billing, staffHidden: true },
     { label: '게시판', href: '/design/notices', icon: NAV_ICON.board },
   ],
   lab: [
     { label: 'HOME', href: '/lab', icon: NAV_ICON.home },
     { label: '주문목록', href: '/lab/orders', icon: NAV_ICON.list },
     { label: '배송조회', href: '/lab/shipments', icon: NAV_ICON.delivery },
-    { label: '정산', href: '/lab/billing', icon: NAV_ICON.billing, money: true },
-    { label: '사용자', href: '/lab/users', icon: NAV_ICON.users, money: true },
+    { label: '정산', href: '/lab/billing', icon: NAV_ICON.billing },
+    { label: '사용자', href: '/lab/users', icon: NAV_ICON.users, staffHidden: true },
     { label: '제품', icon: NAV_ICON.product, soon: '기공소 단가' },
     { label: '게시판', href: '/lab/notices', icon: NAV_ICON.board },
   ],
@@ -163,8 +168,8 @@ export interface SectorShellProps {
   sector: Sector;
   orgName: string;
   userName: string;
-  /** 금액을 볼 수 있는 사람인가 (관리자). 메뉴가 갈립니다 */
-  canSeeMoney?: boolean;
+  /** 관리자인가. 메뉴가 갈립니다 */
+  isManager?: boolean;
   bell?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -175,16 +180,17 @@ export default function SectorShell({
   userName,
   bell,
   children,
-  canSeeMoney = true,
+  isManager = true,
 }: SectorShellProps) {
   const pathname = usePathname();
 
   /*
-    ★ 금액이 나오는 메뉴는 사용자에게 아예 안 보입니다.
+    ★ 사용자에게 감춘 메뉴는 아예 안 보입니다.
       흐리게 두면 "왜 안 눌리냐" 를 묻습니다. 없는 것이 낫습니다.
-      숨기는 것만으로는 부족해서 화면마다 requireMoneySector 가 또 봅니다.
+      숨기는 것만으로는 부족해서 그 화면마다 requireManagerSector 가
+      또 봅니다 — 주소를 바로 치면 열리니까요.
   */
-  const nav = NAV[sector].filter((item) => !item.money || canSeeMoney);
+  const nav = NAV[sector].filter((item) => !item.staffHidden || isManager);
   const router = useRouter();
   const theme = THEME[sector];
   const items = nav;

@@ -14,7 +14,7 @@ export default async function LabLayout({ children }: { children: React.ReactNod
     countUnreadNotifications(),
   ]);
   return (
-    <SectorShell sector="lab" canSeeMoney={canSeeMoney(s.role as MemberRole | null)} orgName={s.orgName ?? ""} userName={s.userName}
+    <SectorShell sector="lab" isManager={canSeeMoney(s.role as MemberRole | null)} orgName={s.orgName ?? ""} userName={s.userName}
       bell={<NotificationBell notifications={notifications} unreadCount={unreadCount} />}
     >
       {children}

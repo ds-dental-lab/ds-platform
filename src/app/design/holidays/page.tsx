@@ -8,7 +8,7 @@
 //   치과·기공소는 달력에서 결과만 봅니다.
 // =========================================================
 
-import { requireSector } from '@/server/policies/session';
+import { requireManagerSector } from '@/server/policies/session';
 import { listHolidays } from '@/server/repositories/holiday';
 import { todayInKst } from '@/server/domain/week';
 import HolidayTable from '@/components/holiday/HolidayTable';
@@ -24,7 +24,7 @@ export default async function DesignHolidaysPage({
 }: {
   searchParams: Promise<{ year?: string }>;
 }) {
-  await requireSector('design_center');
+  await requireManagerSector('design_center');
 
   const thisYear = Number(todayInKst().slice(0, 4));
   const { year: raw } = await searchParams;

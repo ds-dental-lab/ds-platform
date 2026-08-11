@@ -12,7 +12,7 @@
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { requireManagerSector } from '@/server/policies/session';
+import { requireSector } from '@/server/policies/session';
 import { getPartner } from '@/server/repositories/partner';
 import { getClosedSettlement, getPeriod } from '@/server/repositories/billing';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
@@ -28,7 +28,7 @@ export default async function LabInvoicePage({
 }: {
   params: Promise<{ yearMonth: string }>;
 }) {
-  const session = await requireManagerSector('lab');
+  const session = await requireSector('lab');
   const { yearMonth } = await params;
 
   if (!isValidYearMonth(yearMonth)) notFound();

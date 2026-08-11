@@ -14,7 +14,7 @@ export default async function ClinicLayout({ children }: { children: React.React
     countUnreadNotifications(),
   ]);
   return (
-    <SectorShell sector="clinic" canSeeMoney={canSeeMoney(s.role as MemberRole | null)} orgName={s.orgName ?? ""} userName={s.userName}
+    <SectorShell sector="clinic" isManager={canSeeMoney(s.role as MemberRole | null)} orgName={s.orgName ?? ""} userName={s.userName}
       bell={<NotificationBell notifications={notifications} unreadCount={unreadCount} />}
     >
       {children}

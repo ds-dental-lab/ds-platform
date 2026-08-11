@@ -16,7 +16,7 @@
 //   제품 표가 기공소에 닫혀 있고, 금액은 기공원가에서만 나옵니다.
 // =========================================================
 
-import { requireManagerSector } from '@/server/policies/session';
+import { requireSector } from '@/server/policies/session';
 import { getPartner } from '@/server/repositories/partner';
 import {
   getSettlement,
@@ -35,7 +35,7 @@ export default async function LabBillingPage({
 }: {
   searchParams: Promise<{ ym?: string }>;
 }) {
-  const session = await requireManagerSector('lab');
+  const session = await requireSector('lab');
   const query = await searchParams;
   const today = todayInKst();
 
