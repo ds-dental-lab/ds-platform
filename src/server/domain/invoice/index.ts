@@ -97,23 +97,108 @@ export function paymentDueDate(issuedOn: string, day = PAYMENT_DAY): string {
  *   같은 뺄셈을 목록·상세·인쇄 세 곳에서 하면 언젠가 하나가 달라집니다.
  */
 export interface InvoiceSummary {
+  /** 청구서에 찍힌 금액. 한 번 나가면 안 바뀝니다 */
   total: number;
+  /** 마이너스 청구서로 깎은 합 (양수) */
+  credited: number;
+  /** 실제로 받을 돈 — total 에서 깎은 것을 뺀 값 */
+  billed: number;
   paid: number;
   unpaid: number;
   overpaid: number;
   status: InvoiceStatus;
 }
 
-export function summarize(total: number, payments: number[]): InvoiceSummary {
+export function summarize(
+  total: number,
+  payments: number[],
+  credits: number[] = [],
+): InvoiceSummary {
   const paid = payments.reduce((sum, v) => sum + v, 0);
+  const credited = credits.reduce((sum, v) => sum + v, 0);
+
+  /*
+    ★ 깎는 것은 청구액에서 빼지, 입금으로 적지 않습니다.
+      마이너스 청구서를 '입금 -50,000' 으로 적으면 통장에 없는 돈이
+      들어온 것이 됩니다. 그러면 '얼마 받았나' 를 물을 때마다 틀립니다.
+      받을 돈이 줄어든 것이지, 받은 돈이 는 것이 아닙니다.
+  */
+  const billed = total - credited;
 
   return {
     total,
+    credited,
+    billed,
     paid,
-    unpaid: unpaidAmount(total, paid),
-    overpaid: overpaidAmount(total, paid),
-    status: invoiceStatus(total, paid),
+    unpaid: unpaidAmount(billed, paid),
+    overpaid: overpaidAmount(billed, paid),
+    status: invoiceStatus(billed, paid),
   };
+}
+
+// ---------- 마이너스 청구서 (CRD-) ----------
+
+/**
+ * ★ 나간 청구서는 못 고칩니다. 대신 **깎는 문서를 새로 냅니다.**
+ *   "한 번 나간 문서의 숫자가 나중에 달라지면 신뢰가 무너집니다" 는
+ *   이 프로젝트가 처음부터 지켜 온 규칙입니다. 그런데 리메이크·과청구처럼
+ *   나중에 되돌려야 하는 일은 실제로 생깁니다. 그때 원본을 손대는 대신
+ *   **CRD- 번호가 붙은 마이너스 청구서**를 한 장 더 냅니다.
+ *   원본과 깎은 문서가 나란히 남아, 몇 달 뒤에도 설명이 됩니다.
+ */
+export const CREDIT_PREFIX = 'CRD-';
+
+/**
+ * 이 금액을 깎을 수 있는가.
+ *
+ * ★ 양수로 받습니다. 화면에서 −를 붙여 보여 줍니다.
+ *   음수를 입력하게 두면 "−50000 을 깎는다" 가 되어 부호가 두 번
+ *   뒤집힙니다. 적는 사람도 읽는 사람도 헷갈립니다.
+ *
+ * ★ 청구액보다 많이 못 깎습니다.
+ *   더 깎으면 받을 돈이 음수가 됩니다 — 그건 청구서가 아니라 환불이고,
+ *   여기서 다룰 일이 아닙니다.
+ */
+export function checkCredit(
+  amount: number,
+  total: number,
+  alreadyCredited: number,
+): PaymentVerdict {
+  if (!Number.isFinite(amount) || Math.trunc(amount) !== amount) {
+    return { ok: false, reason: '금액을 숫자로 넣어 주세요' };
+  }
+  if (amount <= 0) return { ok: false, reason: '깎을 금액을 넣어 주세요' };
+
+  const room = total - alreadyCredited;
+
+  if (amount > room) {
+    return {
+      ok: false,
+      reason:
+        room > 0
+          ? `이 청구서에서 더 깎을 수 있는 금액은 ${room.toLocaleString('ko-KR')}원입니다`
+          : '이미 전액을 깎았습니다',
+    };
+  }
+
+  return { ok: true };
+}
+
+/** 마이너스 청구서에는 사유가 반드시 있어야 합니다 */
+export function checkCreditReason(reason: string): PaymentVerdict {
+  if (!reason.trim()) return { ok: false, reason: '사유를 적어 주세요' };
+  return { ok: true };
+}
+
+/**
+ * ★ 발행된 청구서에만 붙습니다.
+ *   아직 안 나간 것은 그냥 마감을 되돌려 다시 만들면 됩니다.
+ *   나가지도 않은 문서를 깎는 문서가 먼저 생기면 순서가 뒤집힙니다.
+ */
+export function canCredit(invoiceNo: string | null, cancelledAt: string | null): PaymentVerdict {
+  if (!invoiceNo) return { ok: false, reason: '아직 발행되지 않은 청구서입니다' };
+  if (cancelledAt) return { ok: false, reason: '취소된 청구서입니다' };
+  return { ok: true };
 }
 
 // ---------- 조정 내역 ----------

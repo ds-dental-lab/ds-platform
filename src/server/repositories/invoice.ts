@@ -32,6 +32,10 @@ export interface InvoiceRow {
   partyType: 'clinic' | 'lab';
 
   total: number;
+  /** 마이너스 청구서로 깎은 합 (양수) */
+  credited: number;
+  /** 실제로 받을 돈 = total − credited */
+  billed: number;
   paid: number;
   unpaid: number;
   overpaid: number;
@@ -102,9 +106,15 @@ export async function listInvoices(filter: InvoiceFilter = {}): Promise<InvoiceR
 
   const ids = rows.map((r) => r.id);
 
-  const [lineRes, payRes] = await Promise.all([
+  const [lineRes, payRes, creditRes] = await Promise.all([
     supabase.from('billing_lines').select('period_id, amount').in('period_id', ids),
     supabase.from('billing_payments').select('period_id, amount').in('period_id', ids),
+    // 취소된 마이너스 청구서는 안 셉니다 — 취소는 '없던 일' 이 됩니다
+    supabase
+      .from('credit_notes')
+      .select('period_id, amount')
+      .in('period_id', ids)
+      .is('cancelled_at', null),
   ]);
 
   const totals = new Map<string, number>();
@@ -117,8 +127,17 @@ export async function listInvoices(filter: InvoiceFilter = {}): Promise<InvoiceR
     paid.set(pay.period_id, [...(paid.get(pay.period_id) ?? []), pay.amount]);
   }
 
+  const credits = new Map<string, number[]>();
+  for (const note of (creditRes.data ?? []) as { period_id: string; amount: number }[]) {
+    credits.set(note.period_id, [...(credits.get(note.period_id) ?? []), note.amount]);
+  }
+
   const out = rows.map((row) => {
-    const money = summarize(totals.get(row.id) ?? 0, paid.get(row.id) ?? []);
+    const money = summarize(
+      totals.get(row.id) ?? 0,
+      paid.get(row.id) ?? [],
+      credits.get(row.id) ?? [],
+    );
 
     return {
       periodId: row.id,
@@ -320,4 +339,59 @@ async function loadUserNames(
 /** UTC 시각을 한국 기준 '2026-08' 로 */
 function toKstMonth(iso: string): string {
   return new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 7);
+}
+
+// ---------- 마이너스 청구서 ----------
+
+export interface CreditNoteRow {
+  id: string;
+  creditNo: string;
+  amount: number;
+  reason: string;
+  issuedAt: string;
+  issuedBy: string;
+  cancelledAt: string | null;
+  cancelReason: string;
+}
+
+/**
+ * 이 청구서에 붙은 마이너스 청구서들.
+ *
+ * ★ 취소된 것도 함께 돌려줍니다.
+ *   번호가 붙은 문서라 지우지 않습니다. 취소한 것도 보여야
+ *   "그 번호 어디 갔냐" 를 안 묻습니다. 셈에서만 빠집니다.
+ */
+export async function listCreditNotes(periodId: string): Promise<CreditNoteRow[]> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from('credit_notes')
+    .select(
+      'id, credit_no, amount, reason, issued_at, cancelled_at, cancel_reason, ' +
+        'issuer:user_profiles!credit_notes_issued_by_fkey(name)',
+    )
+    .eq('period_id', periodId)
+    .order('issued_at', { ascending: false });
+
+  type Raw = {
+    id: string;
+    credit_no: string;
+    amount: number;
+    reason: string;
+    issued_at: string;
+    cancelled_at: string | null;
+    cancel_reason: string | null;
+    issuer: { name: string | null } | null;
+  };
+
+  return ((data ?? []) as unknown as Raw[]).map((row) => ({
+    id: row.id,
+    creditNo: row.credit_no,
+    amount: row.amount,
+    reason: row.reason,
+    issuedAt: row.issued_at,
+    issuedBy: row.issuer?.name ?? '',
+    cancelledAt: row.cancelled_at,
+    cancelReason: row.cancel_reason ?? '',
+  }));
 }

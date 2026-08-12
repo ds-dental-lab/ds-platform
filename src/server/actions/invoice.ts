@@ -18,7 +18,8 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
-import { checkPayment, summarize } from '@/server/domain/invoice';
+import { checkPayment, summarize, checkCreditReason } from '@/server/domain/invoice';
+import { canManageMembers, type MemberRole } from '@/server/domain/member';
 
 export type InvoiceActionResult = { ok: true } | { ok: false; error: string };
 
@@ -223,4 +224,83 @@ async function syncPaidAt(
     .from('billing_periods')
     .update({ paid_at: money.unpaid === 0 ? new Date().toISOString() : null })
     .eq('id', periodId);
+}
+
+// ---------- 마이너스 청구서 (CRD-) ----------
+
+/**
+ * 이미 나간 청구서를 깎습니다.
+ *
+ * ★ 원본을 고치지 않습니다. 번호가 붙은 문서를 한 장 더 냅니다.
+ *   둘이 나란히 남아야 몇 달 뒤에도 설명이 됩니다.
+ *
+ * ★ 셈과 번호는 DB 함수가 합니다.
+ *   한도(청구액보다 많이 못 깎음)를 여기서 세면, 두 사람이 동시에
+ *   누를 때 둘 다 통과합니다. 같은 트랜잭션 안에서 세야 합니다.
+ */
+export async function submitIssueCredit(
+  periodId: string,
+  amount: number,
+  reason: string,
+): Promise<InvoiceActionResult> {
+  const denied = await onlyOwnerManager();
+  if (denied) return { ok: false, error: denied };
+
+  const reasonVerdict = checkCreditReason(reason);
+  if (!reasonVerdict.ok) return { ok: false, error: reasonVerdict.reason };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('issue_credit_note', {
+    p_period_id: periodId,
+    p_amount: Math.trunc(amount),
+    p_reason: reason.trim(),
+  });
+
+  if (error) return { ok: false, error: tidy(error.message) };
+
+  revalidatePath('/design/billing/invoices');
+  revalidatePath('/design/billing', 'layout');
+  revalidatePath('/clinic/billing', 'layout');
+  revalidatePath('/lab/billing', 'layout');
+
+  return { ok: true };
+}
+
+export async function submitCancelCredit(
+  creditId: string,
+  reason: string,
+): Promise<InvoiceActionResult> {
+  const denied = await onlyOwnerManager();
+  if (denied) return { ok: false, error: denied };
+
+  if (!reason.trim()) return { ok: false, error: '취소 사유를 적어 주세요' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('cancel_credit_note', {
+    p_id: creditId,
+    p_reason: reason.trim(),
+  });
+
+  if (error) return { ok: false, error: tidy(error.message) };
+
+  revalidatePath('/design/billing/invoices');
+  revalidatePath('/design/billing', 'layout');
+
+  return { ok: true };
+}
+
+/** 금액을 만지는 일은 관리자만입니다 */
+async function onlyOwnerManager(): Promise<string | null> {
+  const session = await getSession();
+
+  if (!canManageMembers(session?.role as MemberRole | null)) {
+    return '관리자만 할 수 있습니다';
+  }
+
+  return null;
+}
+
+/** DB 가 붙이는 'P0001: ' 같은 앞머리를 뗍니다 */
+function tidy(message: string): string {
+  return message.replace(/^[A-Z0-9]{5}:\s*/, '') || '처리하지 못했습니다';
 }

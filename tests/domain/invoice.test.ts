@@ -14,6 +14,9 @@ import {
   groupAdjustments,
   PAYMENT_DAY,
   type AdjustmentRow,
+  checkCredit,
+  checkCreditReason,
+  canCredit,
 } from '@/server/domain/invoice';
 
 describe('미납', () => {
@@ -93,6 +96,9 @@ describe('한 장 요약', () => {
   it('나눠 들어온 입금을 더합니다', () => {
     expect(summarize(490000, [200000, 190000])).toEqual({
       total: 490000,
+      // 안 깎았으면 청구액이 그대로 받을 돈입니다
+      credited: 0,
+      billed: 490000,
       paid: 390000,
       unpaid: 100000,
       overpaid: 0,
@@ -159,5 +165,105 @@ describe('조정 묶기', () => {
 
   it('아무것도 없으면 빈 배열', () => {
     expect(groupAdjustments([])).toEqual([]);
+  });
+});
+
+// =========================================================
+// 마이너스 청구서 (CRD-) — 사용자 요청 2026-08-12
+// =========================================================
+
+describe('마이너스 청구서', () => {
+  // ★ 깎는 것은 청구액에서 빼지, 입금으로 적지 않습니다.
+  //   '입금 -50,000' 으로 적으면 통장에 없는 돈이 들어온 것이 됩니다.
+  it('★ 깎은 만큼 받을 돈이 줄지, 받은 돈이 늘지 않습니다', () => {
+    const money = summarize(100_000, [], [30_000]);
+
+    expect(money.total).toBe(100_000);
+    expect(money.credited).toBe(30_000);
+    expect(money.billed).toBe(70_000);
+    expect(money.paid).toBe(0);
+    expect(money.unpaid).toBe(70_000);
+  });
+
+  it('깎고 남은 만큼 넣으면 완료입니다', () => {
+    const money = summarize(100_000, [70_000], [30_000]);
+
+    expect(money.unpaid).toBe(0);
+    expect(money.status).toBe('paid');
+  });
+
+  // ★ 이미 다 낸 뒤에 깎으면 그만큼 돌려줄 돈이 됩니다
+  it('★ 다 낸 뒤에 깎으면 과입금으로 남습니다', () => {
+    const money = summarize(100_000, [100_000], [30_000]);
+
+    expect(money.overpaid).toBe(30_000);
+    expect(money.status).toBe('paid');
+  });
+
+  it('여러 장을 내면 합쳐집니다', () => {
+    expect(summarize(100_000, [], [10_000, 20_000]).billed).toBe(70_000);
+  });
+
+  it('안 깎았으면 전과 똑같습니다', () => {
+    const money = summarize(100_000, [40_000]);
+
+    expect(money.credited).toBe(0);
+    expect(money.billed).toBe(100_000);
+    expect(money.unpaid).toBe(60_000);
+  });
+});
+
+describe('깎을 수 있는 금액', () => {
+  it('청구액 안이면 됩니다', () => {
+    expect(checkCredit(30_000, 100_000, 0)).toEqual({ ok: true });
+  });
+
+  // ★ 음수를 넣게 두면 부호가 두 번 뒤집힙니다
+  it('★ 0 이하는 못 넣습니다 — 양수로 받고 화면이 −를 붙입니다', () => {
+    expect(checkCredit(0, 100_000, 0).ok).toBe(false);
+    expect(checkCredit(-30_000, 100_000, 0).ok).toBe(false);
+  });
+
+  // ★ 더 깎으면 받을 돈이 음수가 됩니다 — 그건 환불이지 청구서가 아닙니다
+  it('★ 청구액보다 많이는 못 깎습니다', () => {
+    const verdict = checkCredit(120_000, 100_000, 0);
+
+    expect(verdict.ok).toBe(false);
+    expect(verdict.ok === false && verdict.reason).toContain('100,000');
+  });
+
+  it('이미 깎은 것을 빼고 셉니다', () => {
+    expect(checkCredit(30_000, 100_000, 80_000).ok).toBe(false);
+    expect(checkCredit(20_000, 100_000, 80_000).ok).toBe(true);
+  });
+
+  it('전액을 깎았으면 그렇게 말해 줍니다', () => {
+    const verdict = checkCredit(1, 100_000, 100_000);
+
+    expect(verdict.ok === false && verdict.reason).toContain('전액');
+  });
+
+  it('소수점은 안 받습니다', () => {
+    expect(checkCredit(1000.5, 100_000, 0).ok).toBe(false);
+  });
+});
+
+describe('마이너스 청구서를 낼 수 있는 청구서인가', () => {
+  // ★ 나가지도 않은 문서를 깎는 문서가 먼저 생기면 순서가 뒤집힙니다
+  it('★ 발행 전에는 못 냅니다 — 마감을 되돌려 다시 만들면 됩니다', () => {
+    expect(canCredit(null, null).ok).toBe(false);
+  });
+
+  it('취소된 청구서에는 못 냅니다', () => {
+    expect(canCredit('INV-26000001', '2026-08-12T00:00:00Z').ok).toBe(false);
+  });
+
+  it('발행됐고 살아 있으면 냅니다', () => {
+    expect(canCredit('INV-26000001', null)).toEqual({ ok: true });
+  });
+
+  it('사유가 없으면 못 냅니다', () => {
+    expect(checkCreditReason('  ').ok).toBe(false);
+    expect(checkCreditReason('리메이크 차감')).toEqual({ ok: true });
   });
 });

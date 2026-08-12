@@ -26,8 +26,9 @@ import {
   submitPayment,
   submitResend,
   submitCancelInvoice,
+  submitIssueCredit,
 } from '@/server/actions/invoice';
-import { INVOICE_STATUS_LABEL } from '@/server/domain/invoice';
+import { INVOICE_STATUS_LABEL, checkCredit } from '@/server/domain/invoice';
 import { INVOICE_METHOD_LABEL } from '@/server/domain/invoice-method';
 import type { InvoiceRow } from '@/server/repositories/invoice';
 
@@ -40,6 +41,7 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
   const [refreshing, startTransition] = useTransition();
 
   const [paying, setPaying] = useState<InvoiceRow | null>(null);
+  const [crediting, setCrediting] = useState<InvoiceRow | null>(null);
   const [asking, setAsking] = useState<InvoiceRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -161,7 +163,24 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
                   </td>
 
                   <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#1A2130]">
-                    ₩{row.total.toLocaleString('ko-KR')}
+                    {/*
+                      ★ 깎였으면 원래 금액을 지우지 않고 **함께** 보여 줍니다.
+                        받을 돈만 남기면 "청구서에는 49만원이라 적혀 있는데
+                        왜 42만원이냐" 를 매번 설명해야 합니다.
+                    */}
+                    {row.credited > 0 ? (
+                      <>
+                        <span className="block text-[11.5px] font-normal text-[#98A2B3] line-through">
+                          ₩{row.total.toLocaleString('ko-KR')}
+                        </span>
+                        <span className="block">₩{row.billed.toLocaleString('ko-KR')}</span>
+                        <span className="block text-[11px] font-normal text-[#C77700]">
+                          CRD −{row.credited.toLocaleString('ko-KR')}
+                        </span>
+                      </>
+                    ) : (
+                      <>₩{row.total.toLocaleString('ko-KR')}</>
+                    )}
                   </td>
                   <td
                     className={
@@ -220,6 +239,13 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
                         <TrashIcon />
                       </Icon>
                       <Icon
+                        label="마이너스 청구서 (CRD-)"
+                        onClick={() => setCrediting(row)}
+                        disabled={busy(row.periodId)}
+                      >
+                        <MinusIcon />
+                      </Icon>
+                      <Icon
                         label="정산 (입금 적기)"
                         onClick={() => setPaying(row)}
                         disabled={busy(row.periodId)}
@@ -234,6 +260,17 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
           </tbody>
         </table>
       </div>
+
+      {crediting && (
+        <CreditDialog
+          row={crediting}
+          onClose={() => setCrediting(null)}
+          onSaved={() => {
+            setCrediting(null);
+            startTransition(() => router.refresh());
+          }}
+        />
+      )}
 
       {paying && (
         <PaymentDialog
@@ -465,11 +502,134 @@ function TrashIcon() {
   );
 }
 
+function MinusIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+      <rect x="2.6" y="4.2" width="14.8" height="11.6" rx="1.8" />
+      <path d="M6.6 10h6.8" />
+    </svg>
+  );
+}
+
 function CardIcon() {
   return (
     <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="2.5" y="4.5" width="15" height="11" rx="1.5" />
       <path d="M2.5 8.5h15" />
     </svg>
+  );
+}
+
+// ---------- 마이너스 청구서 ----------
+
+/**
+ * ★ 원본을 고치는 창이 아닙니다.
+ *   "얼마로 바꿀까요" 가 아니라 "얼마를 깎을까요" 를 묻습니다. 그래야
+ *   나가는 문서가 무엇인지가 화면과 일치합니다.
+ */
+function CreditDialog({
+  row,
+  onClose,
+  onSaved,
+}: {
+  row: InvoiceRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [text, setText] = useState('');
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const amount = Number(text.replace(/[^\d-]/g, '') || 0);
+  const room = row.total - row.credited;
+  const verdict = checkCredit(amount, row.total, row.credited);
+  const after = row.billed - amount;
+
+  async function save() {
+    setError('');
+
+    if (!verdict.ok) {
+      setError(verdict.reason);
+      return;
+    }
+
+    setSaving(true);
+    const result = await submitIssueCredit(row.periodId, amount, reason);
+    setSaving(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    onSaved();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-6">
+      <div className="w-full max-w-[400px] rounded-xl bg-white p-6 shadow-xl">
+        <h3 className="text-[15px] font-bold tracking-tight text-[#1A2130]">마이너스 청구서</h3>
+
+        <p className="mt-1.5 text-[12.5px] leading-relaxed text-[#7C8595]">
+          {row.invoiceNo} · {row.partyName}
+          <br />
+          이미 나간 청구서는 고치지 않습니다. <b className="font-semibold text-[#4A5567]">CRD-</b>{' '}
+          번호가 붙은 문서를 한 장 더 내어 그만큼 깎습니다.
+        </p>
+
+        <label className="mb-1.5 mt-4 block text-[12.5px] font-semibold text-[#4A5567]">
+          깎을 금액
+        </label>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          inputMode="numeric"
+          autoFocus
+          placeholder="0"
+          className="w-full rounded border border-[#DDE2EA] px-3 py-2 text-right text-[15px] font-bold tabular-nums outline-none focus:border-[#1279E8]"
+        />
+
+        <p className="mt-1.5 text-[11.5px] text-[#98A2B3]">
+          더 깎을 수 있는 금액 ₩{room.toLocaleString('ko-KR')}
+        </p>
+
+        <label className="mb-1.5 mt-3.5 block text-[12.5px] font-semibold text-[#4A5567]">
+          사유
+        </label>
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="리메이크 차감 · 과청구 정정 등"
+          className="w-full rounded border border-[#DDE2EA] px-3 py-2 text-[13px] outline-none focus:border-[#1279E8]"
+        />
+
+        {/* ★ 누르기 전에 결과를 보여 줍니다. 번호가 붙으면 못 무릅니다 */}
+        {amount > 0 && verdict.ok && (
+          <p className="mt-3 rounded border border-[#DDE7F7] bg-[#F5F9FF] px-3 py-2.5 text-[12.5px] tabular-nums text-[#31517E]">
+            받을 돈 ₩{row.billed.toLocaleString('ko-KR')} → <b>₩{after.toLocaleString('ko-KR')}</b>
+          </p>
+        )}
+
+        {error && <p className="mt-2 text-[12.5px] font-semibold text-[#B3312C]">{error}</p>}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="rounded border border-[#DDE2EA] px-4 py-2 text-[13px] text-[#4A5567] hover:bg-[#F4F6F9]"
+          >
+            취소
+          </button>
+          <button
+            onClick={save}
+            disabled={saving || !verdict.ok || !reason.trim()}
+            className="rounded bg-[#C77700] px-5 py-2 text-[13px] font-semibold text-white hover:bg-[#A96500] disabled:cursor-not-allowed disabled:bg-[#D5DAE2]"
+          >
+            {saving ? '발행 중…' : '발행'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
