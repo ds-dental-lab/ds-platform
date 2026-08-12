@@ -108,6 +108,7 @@ describe('★ 감춘 메뉴에는 문이 달려 있어야 합니다', () => {
     expect(hiddenHrefs('design_center')).toEqual([
       '/design/billing',
       '/design/users',
+      '/design/signups',
       '/design/products',
       '/design/holidays',
       '/design/implants',

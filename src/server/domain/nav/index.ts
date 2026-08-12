@@ -30,6 +30,7 @@ export type NavIcon =
   | 'product'
   | 'holiday'
   | 'implant'
+  | 'approve'
   | 'board';
 
 export interface NavItem {
@@ -66,6 +67,7 @@ export const NAV: Record<Sector, NavItem[]> = {
     { label: '배송조회', href: '/design/deliveries', icon: 'delivery' },
     { label: '정산관리', href: '/design/billing', icon: 'billing', staffHidden: true },
     { label: '사용자', href: '/design/users', icon: 'users', staffHidden: true },
+    { label: '가입승인', href: '/design/signups', icon: 'approve', staffHidden: true },
     { label: '제품', href: '/design/products', icon: 'product', staffHidden: true },
     { label: '휴일', href: '/design/holidays', icon: 'holiday', staffHidden: true },
     { label: '임플란트', href: '/design/implants', icon: 'implant', staffHidden: true },

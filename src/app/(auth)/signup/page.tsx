@@ -4,13 +4,20 @@
 // 가입. 로그인 화면과 같은 모양을 씁니다.
 //
 // ★ 가입만으로는 아무 데도 못 들어갑니다.
-//   초대장이 있어야 조직에 앉습니다 (DB 트리거 handle_new_user).
-//   소속이 없으면 볼 화면도 데이터도 없습니다 — RLS 가 전부 가립니다.
-//   그래서 가입 자체를 잠글 필요가 없습니다. 막는 것은 소속입니다.
+//   소속이 있어야 자리에 앉습니다. 소속이 없으면 볼 화면도 데이터도
+//   없습니다 — RLS 가 전부 가립니다. 그래서 가입 자체를 잠글 필요가
+//   없습니다. 막는 것은 소속입니다.
 //
-// ★ 초대받은 그 이메일로 가입해야 합니다.
-//   다른 주소로 가입하면 계정만 생기고 자리에는 못 앉습니다.
-//   화면 맨 위에 그렇게 적어 둡니다 — 이걸 안 적으면 반드시 헷갈립니다.
+// ★ 들어오는 길이 둘입니다.
+//   ① 스스로 신청 — 치과·기공소가 기관 이름을 적고 신청하면
+//      **디자인센터가 승인**해야 자리가 생깁니다 (사용자 결정 2026-08-12).
+//   ② 초대장 — 이미 있는 조직의 관리자가 직원을 부른 경우.
+//      이때는 초대받은 그 이메일로 가입해야 합니다.
+//
+// ★ 디자인센터는 고를 수 없습니다.
+//   *"회원가입창에서 유저가 디자인 가입 못하게 화면에서 없애줘"*.
+//   화면에서 지우는 것으로 끝내지 않습니다 — signup_requests 의 check
+//   제약이 마지막으로 막습니다. 주소로 직접 보내면 그만이니까요.
 //
 // ★ 메일 확인이 켜져 있으면 가입 직후 세션이 없습니다.
 //   그때는 "메일함을 확인해 주세요" 로 갈라 줍니다. 그냥 로그인 화면으로
@@ -23,6 +30,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import {
+  SIGNUP_SECTORS,
+  SECTOR_LABEL,
+  SECTOR_HINT,
+  checkSignup,
+  MIN_PASSWORD,
+  type SignupSector,
+} from '@/server/domain/signup';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -30,18 +45,17 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [orgType, setOrgType] = useState<SignupSector>('clinic');
+  const [orgName, setOrgName] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [mailSent, setMailSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSignup() {
-    if (!email || !password || !name.trim()) {
-      setError('이름 · 이메일 · 비밀번호를 모두 넣어 주세요.');
-      return;
-    }
-    if (password.length < 8) {
-      setError('비밀번호는 8자 이상으로 해 주세요.');
+    const verdict = checkSignup({ name, email, password, orgType, orgName });
+    if (!verdict.ok) {
+      setError(verdict.reason);
       return;
     }
 
@@ -52,7 +66,13 @@ export default function SignupPage() {
     const { data, error: signError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name: name.trim() } },
+      /*
+        ★ 기관 정보를 여기 실어 보냅니다.
+          가입 직후에는 세션이 없어(메일 확인) 서버 액션을 부를 수
+          없습니다. DB 트리거(handle_new_user)가 이 값을 읽어
+          신청서를 만듭니다 — 사람 손을 한 번도 안 거칩니다.
+      */
+      options: { data: { name: name.trim(), org_type: orgType, org_name: orgName.trim() } },
     });
 
     setLoading(false);
@@ -100,23 +120,55 @@ export default function SignupPage() {
               <br />
               메일 안의 링크를 누르면 가입이 끝납니다.
             </p>
+
+            {/* ★ 여기서 끝이 아니라는 것을 지금 말해 줍니다.
+                메일 확인만 하고 "왜 안 들어가지네" 하며 기다리는 일을 막습니다 */}
+            <p className="auth-hint">
+              그다음 <b>디자인센터의 승인</b>이 있어야 이용할 수 있습니다. 승인되면
+              바로 로그인하실 수 있습니다.
+            </p>
             <Link href="/login" className="btn-primary btn-link">
               로그인으로
             </Link>
           </>
         ) : (
           <>
-            {/* ★ 이걸 안 적으면 반드시 다른 주소로 가입합니다 */}
+            {/* ★ 승인이 필요하다는 것을 누르기 전에 알려 줍니다 */}
             <p className="auth-hint">
-              <b>초대받은 그 이메일</b>로 가입해 주세요. 다른 주소로 가입하면 계정만 생기고
-              조직에는 못 들어갑니다.
+              가입하면 <b>디자인센터의 승인</b> 뒤에 이용할 수 있습니다. 직원으로
+              초대받으셨다면 <b>초대받은 그 이메일</b>로 가입해 주세요.
             </p>
+
+            {/* ★ 디자인센터는 여기 없습니다 (domain/signup 의 SIGNUP_SECTORS) */}
+            <div className="sector-pick">
+              {SIGNUP_SECTORS.map((sector) => (
+                <button
+                  key={sector}
+                  type="button"
+                  className={'sector' + (orgType === sector ? ' on' : '')}
+                  aria-pressed={orgType === sector}
+                  onClick={() => setOrgType(sector)}
+                >
+                  <b>{SECTOR_LABEL[sector]}</b>
+                  <i>{SECTOR_HINT[sector]}</i>
+                </button>
+              ))}
+            </div>
 
             <div className="auth-fields">
               <input
                 className="ctl"
                 type="text"
-                placeholder="이름"
+                placeholder={`${SECTOR_LABEL[orgType]} 이름`}
+                value={orgName}
+                autoComplete="organization"
+                onChange={(e) => setOrgName(e.target.value)}
+              />
+
+              <input
+                className="ctl"
+                type="text"
+                placeholder="이름 (담당자)"
                 value={name}
                 autoComplete="name"
                 onChange={(e) => setName(e.target.value)}
@@ -135,7 +187,7 @@ export default function SignupPage() {
                 <input
                   className="ctl"
                   type={showPw ? 'text' : 'password'}
-                  placeholder="비밀번호 (8자 이상)"
+                  placeholder={`비밀번호 (${MIN_PASSWORD}자 이상)`}
                   value={password}
                   autoComplete="new-password"
                   onChange={(e) => setPassword(e.target.value)}
@@ -197,6 +249,18 @@ const css = `
   font-size:12.5px; line-height:1.6; color:#8A6320;
 }
 .auth-hint b{font-weight:700}
+.sector-pick{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:9px}
+.sector{
+  display:flex; flex-direction:column; gap:3px; align-items:flex-start;
+  padding:11px 12px; border-radius:6px; border:1px solid var(--line-2);
+  background:var(--surface); cursor:pointer; text-align:left;
+  transition:border-color .12s, background .12s;
+}
+.sector b{font-size:14px; font-weight:700; color:var(--ink)}
+.sector i{font-size:11.5px; font-style:normal; color:#98A2B3; line-height:1.4}
+.sector:hover{border-color:#BAC2CE}
+.sector.on{border-color:var(--brand); background:#F2F7FE; box-shadow:0 0 0 3px rgba(18,121,232,.10)}
+.sector.on b{color:var(--brand)}
 .auth-done{margin:0 0 20px; text-align:center; font-size:13.5px; line-height:1.7; color:var(--ink-2)}
 .auth-done b{color:var(--ink); font-weight:700}
 .auth-fields{display:flex; flex-direction:column; gap:9px}

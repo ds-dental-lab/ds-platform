@@ -109,6 +109,14 @@ const NAV_ICON = {
       <path d="M10 9v4M8 11h4" />
     </>,
   ),
+  // 가입승인 — 사람 옆에 체크
+  approve: icon(
+    <>
+      <path d="M8.2 9.4a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+      <path d="M2.6 17.4c0-3 2.5-4.8 5.6-4.8 1 0 2 .2 2.8.6" />
+      <path d="M12.4 14.6 14.4 16.6 18 12.8" />
+    </>,
+  ),
 };
 
 export interface SectorShellProps {
