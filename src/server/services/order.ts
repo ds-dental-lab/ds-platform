@@ -25,6 +25,11 @@ import { isValidShade } from '@/server/domain/shade';
 import { checkDueDate, type DueDatePolicy } from '@/server/domain/due-date';
 import type { HolidayMap } from '@/server/domain/holiday';
 import { canEditSpec, type OrderStatus } from '@/server/domain/order-status';
+import {
+  setupForOrderType,
+  needsTeardown,
+  type OrderType,
+} from '@/server/domain/order-type';
 import { todayInKst } from '@/server/domain/week';
 import { publishOrderCreated } from '@/server/events';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
@@ -319,6 +324,27 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     await supabase.from('order_options').insert(optionRows);
   }
 
+  /*
+    ★ 아날로그는 인상체를 가지러 가야 합니다 (사용자 결정 2026-08-13 —
+      "아날로그는 주문시 수거요청으로 가야해. 실제 임프로 작업을 진행하니깐").
+
+      모델리스는 스캔 파일만 건너오지만 아날로그는 **실물이 움직입니다.**
+      주문을 넣는 순간 수거요청이 함께 서야, 기공소가 무엇을 기다리는지
+      화면에 남습니다. 규칙은 domain/order-type 이 쥡니다.
+
+    ★ 기공소는 아직 정해지지 않았습니다.
+      lab_org_id 를 비워 둡니다 — 디자인센터가 배정하는 순간
+      pickup_fill_lab 트리거가 채워 줍니다. 그래야 그 기공소가
+      수거완료를 누를 수 있습니다.
+  */
+  await openOrderTypeExtras(supabase, {
+    orderId: order.id,
+    orderType: input.orderType ?? 'modelless',
+    clinicOrgId: owners.clinicOrgId,
+    actorOrgId: membership.org_id,
+    actorUserId: user.id,
+  });
+
   // 디자인센터에 접수 알림 (설계서 Q-7 ①)
   await publishOrderCreated({
     orderId: order.id,
@@ -347,6 +373,88 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
  *   RLS 가 한 번 더 막지만(order_insert), 거기서 걸리면 사용자에게
  *   "저장 실패" 만 보입니다. 여기서 걸러야 이유를 말해 줄 수 있습니다.
  */
+/**
+ * 주문 종류가 딸고 오는 것들을 세웁니다 — 딱지와 수거요청.
+ *
+ * ★ 실패해도 주문을 되돌리지 않습니다.
+ *   주문은 이미 들어왔습니다. 수거요청 하나 때문에 되돌리면 사람이
+ *   같은 주문을 다시 넣어야 합니다. 대신 서버 로그에 남깁니다 —
+ *   조용히 사라지면 "왜 수거가 안 뜨지" 를 아무도 못 찾습니다.
+ */
+async function openOrderTypeExtras(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  args: {
+    orderId: string;
+    orderType: OrderType;
+    clinicOrgId: string;
+    actorOrgId: string;
+    actorUserId: string;
+  },
+): Promise<void> {
+  const setup = setupForOrderType(args.orderType);
+  if (!setup.issue && !setup.pickup) return;
+
+  if (setup.issue) {
+    const { error } = await supabase.from('order_issues').insert({
+      order_id: args.orderId,
+      issue_type: setup.issue,
+      opened_by_org_id: args.actorOrgId,
+      reason: setup.issueReason || null,
+    });
+
+    if (error) console.error('[order] 주문 종류 딱지 실패', error);
+  }
+
+  if (setup.pickup) {
+    const { error } = await supabase.from('pickup_requests').insert({
+      clinic_org_id: args.clinicOrgId,
+      // ★ 기공소는 배정될 때 트리거가 채웁니다 (pickup_fill_lab)
+      lab_org_id: null,
+      order_id: args.orderId,
+      kind: setup.pickup,
+      status: 'open',
+      memo: setup.pickupMemo,
+      requested_by_user_id: args.actorUserId,
+    });
+
+    if (error) console.error('[order] 수거요청 생성 실패', error);
+  }
+}
+
+/**
+ * 종류를 바꿔 저장했을 때 앞서 세운 것을 거둡니다.
+ *
+ * ★ 이미 가져간 수거는 안 건드립니다.
+ *   기공소가 인상체를 받아 온 뒤에 치과가 종류를 바꿨다고 그 기록을
+ *   지우면, 물건이 어디 있는지 아무도 모르게 됩니다. 아직 안 가져간
+ *   것만 취소합니다.
+ */
+async function closeOrderTypeExtras(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string,
+  before: OrderType,
+): Promise<void> {
+  const setup = setupForOrderType(before);
+
+  if (setup.issue) {
+    await supabase
+      .from('order_issues')
+      .update({ resolved_at: new Date().toISOString() })
+      .eq('order_id', orderId)
+      .eq('issue_type', setup.issue)
+      .is('resolved_at', null);
+  }
+
+  if (setup.pickup) {
+    await supabase
+      .from('pickup_requests')
+      .update({ status: 'cancelled' })
+      .eq('order_id', orderId)
+      .eq('kind', setup.pickup)
+      .eq('status', 'open');
+  }
+}
+
 async function resolveOwners(
   supabase: Awaited<ReturnType<typeof createClient>>,
   myOrgId: string,
@@ -522,7 +630,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
   // RLS 가 관련 조직만 읽게 해 줍니다 — 여기서는 상태만 다시 봅니다
   const { data: current } = await supabase
     .from('orders')
-    .select('status, patient_id, clinic_org_id')
+    .select('status, patient_id, clinic_org_id, order_type')
     .eq('id', input.orderId)
     .is('deleted_at', null)
     .maybeSingle();
@@ -560,6 +668,29 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
 
   if (headError) {
     return { ok: false, error: `저장하지 못했습니다: ${headError.message}` };
+  }
+
+  /*
+    ★ 종류를 바꾸면 수거요청도 따라가야 합니다 (2026-08-13).
+      모델리스로 넣었다가 아날로그로 고치는 일이 실제로 생깁니다.
+      여기를 빼먹으면 인상체를 보내 놓고 아무도 가지러 안 갑니다 —
+      규칙을 한 군데만 두면 반드시 어긋납니다 (재스캔이 그랬습니다).
+  */
+  const beforeType = (current.order_type as OrderType | null) ?? 'modelless';
+  const afterType = input.orderType ?? 'modelless';
+
+  if (beforeType !== afterType) {
+    if (needsTeardown(beforeType, afterType)) {
+      await closeOrderTypeExtras(supabase, input.orderId, beforeType);
+    }
+
+    await openOrderTypeExtras(supabase, {
+      orderId: input.orderId,
+      orderType: afterType,
+      clinicOrgId: current.clinic_org_id as string,
+      actorOrgId: session.orgId ?? '',
+      actorUserId: session.user.id,
+    });
   }
 
   // ★ 항목·브릿지·옵션을 통째로 갈아끼웁니다.
