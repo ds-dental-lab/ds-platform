@@ -4,6 +4,7 @@ import { getSession } from "@/server/policies/session";
 import { getMySignup } from "@/server/repositories/signup";
 import { waitingView } from "@/server/domain/signup";
 import LogoutButton from "@/components/logout-button";
+import LandingPage from "@/components/site/LandingPage";
 
 const HOME_BY_SECTOR = {
   clinic: "/clinic",
@@ -12,16 +13,24 @@ const HOME_BY_SECTOR = {
 } as const;
 
 /**
- * 소속이 있으면 제 섹터로, 없으면 **왜 없는지** 말해 줍니다.
+ * `/` 는 세 가지 얼굴을 합니다.
  *
- * ★ 전에는 "소속된 조직이 없습니다" 한 줄이었습니다.
- *   이제는 스스로 가입하는 길이 생겼고 (사용자 결정 2026-08-12),
- *   그 사람들은 승인을 기다리는 중입니다. 아무 말이 없으면 자기가 뭘
+ * ★ 로그인 안 했으면 **회사 홈페이지**입니다 (사용자 요청 2026-08-12).
+ *   전에는 곧장 로그인 화면으로 보냈습니다. 그러면 처음 온 사람은
+ *   우리가 무엇을 하는 곳인지 볼 기회가 없이 빈 칸 두 개를 마주합니다.
+ *   홈페이지와 플랫폼을 다른 주소에 두지 않았습니다 — 주소가 둘이면
+ *   거래처가 어디로 들어가야 하는지 헷갈립니다.
+ *
+ * ★ 소속이 있으면 제 섹터로 보냅니다. 로그인 뒤 여기로 돌아오므로
+ *   이 갈림길이 곧 안내판입니다.
+ *
+ * ★ 소속이 없으면 **왜 없는지** 말해 줍니다.
+ *   승인을 기다리는 중일 수 있습니다. 아무 말이 없으면 자기가 뭘
  *   잘못했는지 찾다가 전화를 겁니다.
  */
 export default async function Home() {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) return <LandingPage loggedIn={false} />;
 
   if (session.orgType) {
     redirect(HOME_BY_SECTOR[session.orgType]);
