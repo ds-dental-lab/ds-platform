@@ -181,6 +181,10 @@ export interface OrderDetail {
   in_house: boolean;
   /** 배정된 기공소 id. 셀렉박스의 현재 값입니다 */
   lab_org_id: string | null;
+  /** 담당 디자이너. 디자인을 잡는 순간 정해집니다 (설계: domain/designer) */
+  designer_user_id: string | null;
+  /** 담당 디자이너 이름. 못 찾으면 빈 값 */
+  designer_name: string;
   /** 이 주문에서 내가 맡은 자리들. 한 조직이 둘을 겸할 수 있습니다 */
   roles: Sector[];
   items: OrderDetailItem[];
@@ -282,9 +286,10 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     .select(
       `id, order_no, patient_label:${patientLabelColumn()}, ` +
         'status, order_type, due_date, notes, created_at, received_at, ' +
-        'clinic_org_id, design_org_id, lab_org_id, ' +
+        'clinic_org_id, design_org_id, lab_org_id, designer_user_id, ' +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
         'lab:organizations!orders_lab_org_id_fkey(name), ' +
+        'designer:user_profiles!orders_designer_user_id_fkey(name), ' +
         'order_items(id, tooth_number, slot, type_code, material_code, is_pontic, shade_system, shade_cervical, shade_incisal, implant_manufacturer, implant_type, implant_size, implant_screw, implant_option, has_gingival), ' +
         'order_files(id, kind, file_name, file_size, mime_type, created_at, upload_status), ' +
         'order_options(production_option_groups(name, sort_order), production_option_values(value))',
@@ -300,13 +305,21 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
 
   type RawDetailRow = Omit<
     OrderDetail,
-    'clinic_name' | 'lab_name' | 'items' | 'files' | 'options' | 'in_house' | 'roles'
+    | 'clinic_name'
+    | 'lab_name'
+    | 'items'
+    | 'files'
+    | 'options'
+    | 'in_house'
+    | 'roles'
+    | 'designer_name'
   > & {
     clinic_org_id: string;
     design_org_id: string | null;
     lab_org_id: string | null;
     clinic: { name: string } | null;
     lab: { name: string } | null;
+    designer: { name: string | null } | null;
     order_items: OrderDetailItem[] | null;
     order_files: OrderDetailFile[] | null;
     order_options:
@@ -332,6 +345,8 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     clinic_name: row.clinic?.name ?? '',
     lab_name: row.lab?.name ?? '',
     lab_org_id: row.lab_org_id,
+    designer_user_id: row.designer_user_id,
+    designer_name: row.designer?.name ?? '',
     // 기공소 자리를 디자인센터가 겸하면 자사 제작입니다
     in_house: Boolean(row.lab_org_id && row.lab_org_id === row.design_org_id),
     roles: rolesOf(row, session?.orgId ?? null),

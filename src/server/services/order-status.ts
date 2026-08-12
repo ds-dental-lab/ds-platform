@@ -21,6 +21,8 @@ import {
   type OrderStatus,
   type Sector,
 } from '@/server/domain/order-status';
+import { needsSeat, checkSeat } from '@/server/domain/designer';
+import { canManageMembers, type MemberRole } from '@/server/domain/member';
 
 export type ChangeStatusResult =
   | { ok: true; status: OrderStatus }
@@ -68,6 +70,28 @@ function needsReason(to: OrderStatus): boolean {
   return to === 'rescan' || to === 'cancelled';
 }
 
+/**
+ * 막을 때 부를 이름.
+ *
+ * ★ "다른 디자이너가 맡았습니다" 만 뜨면 누구에게 물어봐야 할지
+ *   모릅니다. 사람 이름이 있어야 옆자리에 말을 걸 수 있습니다.
+ *   이름을 못 찾아도 막는 것은 그대로입니다.
+ */
+async function designerName(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string | null,
+): Promise<string> {
+  if (!userId) return '';
+
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('name')
+    .eq('id', userId)
+    .maybeSingle();
+
+  return (data as { name: string | null } | null)?.name ?? '';
+}
+
 export async function changeOrderStatus(
   orderId: string,
   to: OrderStatus,
@@ -84,7 +108,7 @@ export async function changeOrderStatus(
   // RLS 가 걸러주므로, 못 읽으면 볼 권한이 없는 주문입니다
   const { data: orderRow } = await supabase
     .from('orders')
-    .select('id, status, clinic_org_id, design_org_id, lab_org_id')
+    .select('id, status, clinic_org_id, design_org_id, lab_org_id, designer_user_id')
     .eq('id', orderId)
     .is('deleted_at', null)
     .maybeSingle();
@@ -97,6 +121,7 @@ export async function changeOrderStatus(
     clinic_org_id: string;
     design_org_id: string | null;
     lab_org_id: string | null;
+    designer_user_id: string | null;
   };
 
   const from = order.status;
@@ -118,6 +143,29 @@ export async function changeOrderStatus(
 
   if (needsReason(to) && !reason?.trim()) {
     return { ok: false, error: '사유를 입력해 주세요' };
+  }
+
+  /**
+   * ★ 한 주문은 한 디자이너가 만듭니다 (사용자 결정 2026-08-12).
+   *   *"두명의 디자이너가 한 주문을 하면 안되잖아"*
+   *
+   *   디자인센터 자리로 움직일 때만 봅니다. 치과·기공소가 자기 단계를
+   *   진행하는 것과는 상관이 없습니다.
+   *
+   * ★ 아무도 안 잡았으면 지금 누른 사람이 잡습니다 — 같은 update 에
+   *   함께 실어 보냅니다. 두 사람이 같은 순간에 눌러도 아래
+   *   `.eq('status', from)` 이 하나만 통과시킵니다.
+   */
+  let claiming = false;
+
+  if (roles.includes('design_center') && needsSeat(from, to)) {
+    const verdict = checkSeat(
+      { designerId: order.designer_user_id, designerName: await designerName(supabase, order.designer_user_id) },
+      { userId: session.user.id, isManager: canManageMembers(session.role as MemberRole | null) },
+    );
+
+    if (!verdict.ok) return { ok: false, error: verdict.reason };
+    claiming = verdict.claim;
   }
 
   // 디자인 파일 없이 제작대기로 넘길 수 없습니다
@@ -153,9 +201,16 @@ export async function changeOrderStatus(
   }
 
   // 제작대기로 넘길 때 기공소를 지정합니다 (Q-2)
-  const patch: { status: OrderStatus; lab_org_id?: string; shipped_at?: string } = {
+  const patch: {
+    status: OrderStatus;
+    lab_org_id?: string;
+    shipped_at?: string;
+    designer_user_id?: string;
+  } = {
     status: to,
   };
+
+  if (claiming) patch.designer_user_id = session.user.id;
 
   /**
    * ★ 배송으로 넘어간 시각을 남깁니다. 정산 기간을 가르는 기준입니다.

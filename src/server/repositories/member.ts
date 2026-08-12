@@ -31,6 +31,46 @@ export interface MemberBoard {
   sector: 'clinic' | 'design_center' | 'lab';
 }
 
+/** 담당 셀렉박스에 세울 사람 한 줄 */
+export interface SeatOption {
+  userId: string;
+  name: string;
+}
+
+/**
+ * 지금 일할 수 있는 우리 조직 사람들. 담당 디자이너 셀렉박스가 씁니다.
+ *
+ * ★ 꺼진 계정은 빼고, 자리는 안 가립니다.
+ *   그만둔 사람에게 새 주문을 붙이면 아무도 그 일을 안 합니다.
+ *   반대로 자리로 거르지는 않습니다 — 관리자도 디자인을 잡습니다.
+ *   작은 디자인센터에서는 관리자가 제일 많이 만듭니다.
+ */
+export async function listSeatOptions(): Promise<SeatOption[]> {
+  const session = await getSession();
+  if (!session?.orgId) return [];
+
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from('memberships')
+    .select('user_id')
+    .eq('org_id', session.orgId)
+    .eq('is_active', true)
+    .is('deleted_at', null);
+
+  const ids = [...new Set(((data ?? []) as { user_id: string }[]).map((m) => m.user_id))];
+  if (ids.length === 0) return [];
+
+  const { data: profiles } = await supabase
+    .from('user_profiles')
+    .select('id, name')
+    .in('id', ids);
+
+  return ((profiles ?? []) as { id: string; name: string | null }[])
+    .map((p) => ({ userId: p.id, name: p.name?.trim() || '이름 없음' }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+}
+
 export async function getMemberBoard(): Promise<MemberBoard | null> {
   const session = await getSession();
   if (!session?.orgId || !session.orgType) return null;

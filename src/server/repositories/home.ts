@@ -96,6 +96,7 @@ interface RawRow {
   status: OrderStatus;
   due_date: string;
   patient_label: string;
+  designer_user_id: string | null;
   clinic: { name: string } | null;
   order_issues: { issue_type: IssueType; resolved_at: string | null }[] | null;
 }
@@ -115,7 +116,7 @@ export async function getHomeSummary(): Promise<HomeSummary> {
   const { data, error } = await supabase
     .from('orders')
     .select(
-      'id, status, due_date, patient_label, ' +
+      'id, status, due_date, patient_label, designer_user_id, ' +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
         'order_issues(issue_type, resolved_at)',
     )
@@ -158,7 +159,8 @@ export async function getHomeSummary(): Promise<HomeSummary> {
         dueDate: row.due_date,
         status: row.status,
         designerName: '',
-        designerId: null,
+        // ★ 이제 이력에서 캐지 않고 배정된 사람을 그대로 씁니다
+        designerId: row.designer_user_id,
         startedOn: '',
         dayCount: 1,
       });
@@ -185,13 +187,16 @@ export async function getHomeSummary(): Promise<HomeSummary> {
 }
 
 /**
- * 디자인을 언제 · 누가 잡았는지 채웁니다.
+ * 디자인을 **언제** 잡았는지와, 맡은 사람의 이름을 채웁니다.
  *
- * ★ 담당자 칸을 따로 안 만들었습니다.
- *   **디자인 단계로 옮긴 사람이 그 건을 잡은 사람**입니다. 이미
- *   order_status_history 에 남아 있는 사실이라, 칸을 하나 더 두면
- *   같은 것을 두 곳에 적게 되고 어긋납니다.
- *   나중에 배정 기능이 생기면 그때 갈라도 늦지 않습니다.
+ * ★ '누구' 는 이제 여기서 안 정합니다 (2026-08-12).
+ *   전에는 '디자인 단계로 옮긴 사람' 을 이력에서 캐냈습니다. 읽기에는
+ *   충분했지만 **막을 수가 없었습니다** — 지나간 일을 뒤에서 읽는 값이라
+ *   두 사람이 나란히 눌러도 둘 다 통과했습니다.
+ *   이제 orders.designer_user_id 가 사실이고, 여기서는 이름만 붙입니다.
+ *
+ * ★ 언제는 여전히 이력에서 읽습니다.
+ *   배정된 날이 아니라 **디자인을 잡은 날**부터 세야 '며칠째' 가 맞습니다.
  *
  * ★ 되돌렸다 다시 잡으면 **마지막에 잡은 때**입니다.
  *   기공소가 수정을 요청해 디자인으로 되돌아온 건은, 그 시점부터 다시
@@ -206,12 +211,12 @@ async function fillDesignStart(
 
   const { data } = await supabase
     .from('order_status_history')
-    .select('order_id, created_at, actor_user_id')
+    .select('order_id, created_at')
     .eq('to_status', 'designing')
     .in('order_id', rows.map((r) => r.id))
     .order('created_at', { ascending: false });
 
-  type Raw = { order_id: string; created_at: string; actor_user_id: string | null };
+  type Raw = { order_id: string; created_at: string };
 
   // 차례가 최근 먼저라 처음 만나는 줄이 '마지막에 잡은 때' 입니다
   const latest = new Map<string, Raw>();
@@ -219,14 +224,14 @@ async function fillDesignStart(
     if (!latest.has(row.order_id)) latest.set(row.order_id, row);
   }
 
-  const userIds = [...new Set([...latest.values()].map((r) => r.actor_user_id).filter(Boolean))];
+  const userIds = [...new Set(rows.map((r) => r.designerId).filter(Boolean))] as string[];
   const names = new Map<string, string>();
 
   if (userIds.length > 0) {
     const { data: profiles } = await supabase
       .from('user_profiles')
       .select('id, name')
-      .in('id', userIds as string[]);
+      .in('id', userIds);
 
     for (const p of (profiles ?? []) as { id: string; name: string | null }[]) {
       if (p.name) names.set(p.id, p.name);
@@ -234,12 +239,12 @@ async function fillDesignStart(
   }
 
   for (const row of rows) {
+    if (row.designerId) row.designerName = names.get(row.designerId) ?? '';
+
     const hit = latest.get(row.id);
     if (!hit) continue;
 
     row.startedOn = toKstDate(hit.created_at);
-    row.designerName = hit.actor_user_id ? (names.get(hit.actor_user_id) ?? '') : '';
-    row.designerId = hit.actor_user_id;
     row.dayCount = daysBetween(row.startedOn, today) + 1;
   }
 }

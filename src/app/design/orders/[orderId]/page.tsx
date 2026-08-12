@@ -18,7 +18,10 @@ import OrderDetailScreen from '@/components/order/OrderDetailScreen';
 import OrderAdjustPanel from '@/components/order/OrderAdjustPanel';
 import { getOrderMoney } from '@/server/repositories/order-money';
 import { getSession } from '@/server/policies/session';
-import { canSeeMoney, type MemberRole } from '@/server/domain/member';
+import { canSeeMoney, canManageMembers, type MemberRole } from '@/server/domain/member';
+import { checkSeat, checkAssign, assignable } from '@/server/domain/designer';
+import { listSeatOptions } from '@/server/repositories/member';
+import DesignerAssignSelect from '@/components/order/DesignerAssignSelect';
 import DesignFileUpload from '@/components/order/DesignFileUpload';
 import RemakeRequest from '@/components/order/RemakeRequest';
 import RepairRequest from '@/components/order/RepairRequest';
@@ -55,7 +58,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       서비스 계층(requiresDesignFile)이 실제로 막고, 여기서는
       **누르기 전에** 이유를 보여 줍니다.
   */
-  const forwardBlockedReason =
+  const missingDesignFile =
     order.status === 'designing' && designFiles.length === 0
       ? '디자인 파일을 1개 이상 올려야 제작주문을 넣을 수 있습니다'
       : undefined;
@@ -71,6 +74,41 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
     ? await getOrderMoney(order.id)
     : null;
 
+  /*
+    ★ 한 주문은 한 디자이너가 만듭니다 (사용자 결정 2026-08-12).
+      실제로 막는 곳은 세 군데입니다 — 여기(화면), changeOrderStatus(서버),
+      order_file_insert 정책(DB). 화면에서 감추는 것만으로는 부족합니다.
+  */
+  const viewer = {
+    userId: session?.user.id ?? '',
+    isManager: canManageMembers(session?.role as MemberRole | null),
+  };
+
+  const seat = { designerId: order.designer_user_id, designerName: order.designer_name };
+  const mySeat = checkSeat(seat, viewer);
+
+  // 담당 칸을 고칠 수 있는 사람에게만 사람 목록을 내려보냅니다
+  const canAssignDesigner =
+    assignable(order.status) && checkAssign(seat, viewer, viewer.userId).ok;
+
+  /*
+    ★ 사용자에게는 자기 이름 하나만 줍니다.
+      남에게 넘기는 것은 관리자 일이라 서버가 어차피 막습니다. 고를 수는
+      있는데 누르면 거절당하는 칸을 두면, 그 화면은 거짓말을 합니다.
+  */
+  const seats = !canAssignDesigner
+    ? []
+    : viewer.isManager
+      ? await listSeatOptions()
+      : [{ userId: viewer.userId, name: session?.userName || '나' }];
+
+  /*
+    ★ 남의 주문이면 그 이유가 먼저입니다.
+      "디자인 파일을 올리세요" 라고 안내해 놓고 올리려 하면 막히는 것이
+      제일 나쁩니다. 못 넘기는 진짜 이유를 먼저 적습니다.
+  */
+  const forwardBlockedReason = mySeat.ok ? missingDesignFile : mySeat.reason;
+
   return (
     <OrderDetailScreen
       order={order}
@@ -83,8 +121,24 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       showCost
       labName={order.in_house ? '자사 제작' : order.lab_name}
       forwardBlockedReason={forwardBlockedReason}
+      designerSlot={
+        <DesignerAssignSelect
+          orderId={order.id}
+          current={order.designer_user_id}
+          currentName={order.designer_name}
+          seats={seats}
+          editable={canAssignDesigner}
+          isMine={Boolean(order.designer_user_id) && order.designer_user_id === viewer.userId}
+        />
+      }
+      /*
+        ★ 파일이 곧 작업입니다.
+          남이 맡은 주문에는 올리는 칸 자체를 안 엽니다. 실제 차단은
+          order_file_insert 정책이 합니다 — 업로드는 브라우저에서 곧장
+          저장소로 가므로, 화면만 감추면 막은 것이 아닙니다.
+      */
       designSlot={
-        canUploadDesignFile(order.status, 'design_center') ? (
+        canUploadDesignFile(order.status, 'design_center') && mySeat.ok ? (
           <DesignFileUpload orderId={order.id} />
         ) : null
       }

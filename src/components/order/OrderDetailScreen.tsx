@@ -86,6 +86,14 @@ export interface OrderDetailScreenProps {
   showCost?: boolean;
   /** 배정된 기공소 이름. showCost 일 때만 씁니다 */
   labName?: string;
+  /**
+   * 담당 디자이너 칸에 넣을 것.
+   *
+   * ★ 디자인센터만 넣습니다. 기공소에게는 어차피 이름이 안 옵니다 —
+   *   user_profiles 는 같은 조직 사람만 읽히므로(RLS), 여기서 다시
+   *   가릴 필요가 없습니다.
+   */
+  designerSlot?: React.ReactNode;
   /** 디자인 파일칸 위에 끼워 넣을 것 (업로더 등) */
   designSlot?: React.ReactNode;
   /** 스캔 파일칸 위에 끼워 넣을 것 (재스캔 띠) — 시안 .rescan-bar */
@@ -108,6 +116,7 @@ export default function OrderDetailScreen({
   showClinic = true,
   showCost = false,
   labName,
+  designerSlot,
   designSlot,
   scanSlot,
   extraSlot,
@@ -448,9 +457,7 @@ export default function OrderDetailScreen({
           {showCost && (
             <>
               <div className="flex items-center gap-3.5 px-1 py-0.5 text-[12.5px] text-[#4A5567] lg:col-start-1 lg:row-start-4">
-                <span>
-                  담당자 <b className="font-bold text-[#1A2130]">미지정</b>
-                </span>
+                {designerSlot}
               </div>
 
               <div className="flex items-center gap-3.5 px-1 py-0.5 text-[12.5px] text-[#4A5567] lg:col-start-2 lg:row-start-4">

@@ -9,8 +9,11 @@
 //   지금 규모에서는 그때그때 세는 편이 정확하고 충분히 빠릅니다.
 //   느려지면 그때 굳히면 됩니다 (마감처럼).
 //
-// ★ 디자이너는 **디자인 단계로 옮긴 사람**입니다.
-//   담당자 칸이 따로 없습니다. 배정 기능이 생기면 그때 갈라도 됩니다.
+// ★ 디자이너는 **배정된 담당자**입니다 (orders.designer_user_id).
+//   전에는 '디자인 단계로 옮긴 사람' 을 이력에서 캐냈습니다. 배정 기능이
+//   생긴 뒤에도 그대로 두면, 담당을 넘겨받아 실제로 끝낸 사람 대신
+//   **처음 눌렀던 사람에게 일량이 쌓입니다.** 그건 통계가 아니라 오해입니다.
+//   '언제 잡았고 언제 넘겼나' 는 여전히 이력이 답합니다.
 //
 // ★ 리메이크는 **원주문을 디자인한 사람**에게 답니다.
 //   리메이크 주문 자체를 누가 잡았는지가 아니라, 다시 만들게 된 그 건을
@@ -124,6 +127,33 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
     else handed.set(row.order_id, row);
   }
 
+  /*
+    ★ 누구의 일인가는 주문이 답합니다.
+      이력에는 '그때 누른 사람' 만 있습니다. 담당을 넘겨받아 끝낸 사람이
+      있어도 이력은 처음 누른 사람을 가리킵니다.
+
+      기간 밖에 접수됐지만 기간 안에 디자인을 잡은 건도 있어서,
+      위에서 읽은 orders 만으로는 모자랍니다. 필요한 id 를 모아
+      한 번 더 물어봅니다.
+  */
+  const parentIds = orders
+    .filter((o) => o.is_remake && o.parent_order_id)
+    .map((o) => o.parent_order_id as string);
+
+  const needDesigner = [...new Set([...picked.keys(), ...parentIds])];
+  const designerOf = new Map<string, string>();
+
+  if (needDesigner.length > 0) {
+    const { data } = await supabase
+      .from('orders')
+      .select('id, designer_user_id')
+      .in('id', needDesigner);
+
+    for (const row of (data ?? []) as { id: string; designer_user_id: string | null }[]) {
+      if (row.designer_user_id) designerOf.set(row.id, row.designer_user_id);
+    }
+  }
+
   const tally = new Map<string, DesignerTally & { spans: number[] }>();
 
   const seat = (userId: string) => {
@@ -142,9 +172,10 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
   };
 
   for (const [orderId, row] of picked) {
-    if (!row.actor_user_id) continue;
+    const who = designerOf.get(orderId);
+    if (!who) continue;
 
-    const seatRow = seat(row.actor_user_id);
+    const seatRow = seat(who);
     seatRow.picked += 1;
 
     const done = handed.get(orderId);
@@ -155,25 +186,9 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
   }
 
   // 리메이크는 원주문을 디자인한 사람에게 답니다
-  const parents = orders.filter((o) => o.is_remake && o.parent_order_id);
-
-  if (parents.length > 0) {
-    const { data } = await supabase
-      .from('order_status_history')
-      .select('order_id, actor_user_id, created_at')
-      .eq('to_status', 'designing')
-      .in('order_id', parents.map((o) => o.parent_order_id as string))
-      .order('created_at');
-
-    const parentDesigner = new Map<string, string>();
-    for (const row of (data ?? []) as RawHistory[]) {
-      if (row.actor_user_id) parentDesigner.set(row.order_id, row.actor_user_id);
-    }
-
-    for (const remake of parents) {
-      const who = parentDesigner.get(remake.parent_order_id as string);
-      if (who) seat(who).remade += 1;
-    }
+  for (const parentId of parentIds) {
+    const who = designerOf.get(parentId);
+    if (who) seat(who).remade += 1;
   }
 
   // ---------- 이름 붙이기 ----------
