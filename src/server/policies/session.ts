@@ -28,11 +28,25 @@ export type Sector = 'clinic' | 'design_center' | 'lab';
 export const getSession = cache(async function getSession() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  /*
+    ★ getUser 가 아니라 getClaims 입니다.
+      getUser 는 **매번 Supabase 인증 서버에 물어봅니다** — 화면 하나를
+      그릴 때마다 왕복이 하나 더 붙는 셈이고, 그게 모든 화면에 있었습니다.
 
-  if (!user) return null;
+      이 프로젝트의 토큰은 ES256(비대칭)이라 **서명을 이 서버에서 직접
+      검증**할 수 있습니다. 공개키는 한 번 받아 두고 씁니다.
+      검증을 건너뛰는 것이 아닙니다 — 남이 만든 토큰은 그대로 걸립니다.
+
+      혹시 대칭키(HS256) 프로젝트로 바뀌면 supabase-js 가 알아서
+      서버에 물어봅니다. 그때는 전과 같아질 뿐 틀리지는 않습니다.
+  */
+  const { data: claims } = await supabase.auth.getClaims();
+
+  const userId = claims?.claims?.sub;
+  if (!userId) return null;
+
+  const email = (claims?.claims?.email as string | undefined) ?? '';
+  const user = { id: userId, email };
 
   /*
     ★ 둘을 **함께** 보냅니다.
@@ -44,12 +58,12 @@ export const getSession = cache(async function getSession() {
     supabase
       .from('memberships')
       .select('role, org_id, organizations(name, org_type)')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('is_active', true)
       .maybeSingle(),
 
     // 상단바에 조직명과 나란히 찍습니다
-    supabase.from('user_profiles').select('name').eq('id', user.id).maybeSingle(),
+    supabase.from('user_profiles').select('name').eq('id', userId).maybeSingle(),
   ]);
 
   const org = (data?.organizations ?? null) as {
@@ -59,12 +73,12 @@ export const getSession = cache(async function getSession() {
 
   return {
     user,
-    email: user.email ?? '',
+    email,
     role: data?.role ?? null,
     orgId: data?.org_id ?? null,
     orgName: org?.name ?? null,
     orgType: org?.org_type ?? null,
-    userName: profile?.name ?? user.email?.split('@')[0] ?? '',
+    userName: profile?.name ?? email.split('@')[0] ?? '',
   };
 });
 

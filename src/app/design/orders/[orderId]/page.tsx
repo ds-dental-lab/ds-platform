@@ -38,17 +38,22 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
   const order = await getOrderDetail(orderId);
   if (!order) notFound();
 
-  const [labs, implantCatalog, messages, prosthesisCatalog] = await Promise.all([
+  /*
+    ★ 휴일도 **함께** 부릅니다.
+      다른 것을 하나도 안 쓰는데 줄 맨 뒤에서 혼자 기다리고 있었습니다.
+      주문등록·주문상세·수정 네 화면이 모두 같은 모양이었습니다.
+  */
+  const [labs, implantCatalog, messages, prosthesisCatalog, holidays] = await Promise.all([
     listPartnerLabs(),
     getImplantCatalog(),
     listOrderMessages(orderId),
     // 꺼진 제품도 함께 — 지난 주문이 그 조합을 가리킵니다
     getProsthesisCatalog({ includeInactive: true }),
+    // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
+    getHolidayMap(),
   ]);
 
   const today = todayInKst();
-  // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
-  const holidays = await getHolidayMap();
   const designFiles = order.files.filter((f) => f.kind === 'design');
 
   /*

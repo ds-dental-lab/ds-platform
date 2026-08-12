@@ -23,17 +23,24 @@ export const dynamic = 'force-dynamic';
 export default async function NewOrderPage() {
   const session = await requireSector('clinic');
 
-  const [implantCatalog, implantFavorites, optionGroups, optionPresets, prosthesisCatalog] = await Promise.all([
-    getImplantCatalog(),
-    listImplantFavorites(),
-    getProductionOptions(),
-    listOptionPresets(),
-    getProsthesisCatalog(),
-  ]);
+  /*
+    ★ 휴일도 **함께** 부릅니다.
+      전에는 Promise.all 뒤에 따로 await 로 붙어 있었습니다. 다른 것을
+      하나도 안 쓰는데 줄 맨 뒤에서 혼자 기다린 셈이라, 왕복 하나가
+      고스란히 화면 뜨는 시간에 더해졌습니다.
+  */
+  const [implantCatalog, implantFavorites, optionGroups, optionPresets, prosthesisCatalog, holidays] =
+    await Promise.all([
+      getImplantCatalog(),
+      listImplantFavorites(),
+      getProductionOptions(),
+      listOptionPresets(),
+      getProsthesisCatalog(),
+      // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
+      getHolidayMap(),
+    ]);
 
   const today = todayInKst();
-  // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
-  const holidays = await getHolidayMap();
 
   return (
     <NewOrderForm

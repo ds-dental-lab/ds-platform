@@ -33,14 +33,20 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   if (!order) notFound();
 
   const today = todayInKst();
-  // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
-  const holidays = await getHolidayMap();
 
-  const [implantCatalog, messages, prosthesisCatalog] = await Promise.all([
+  /*
+    ★ 휴일도 **함께** 부릅니다.
+      전에는 Promise.all 앞에서 혼자 기다렸습니다. 다른 것을 하나도
+      안 쓰는데 줄을 세워 둔 셈이라, 왕복 하나가 고스란히 화면 뜨는
+      시간에 더해졌습니다.
+  */
+  const [implantCatalog, messages, prosthesisCatalog, holidays] = await Promise.all([
     getImplantCatalog(),
     listOrderMessages(orderId),
     // 지난 주문이 가리키는 조합은 꺼져도 이름을 잃지 않아야 합니다
     getProsthesisCatalog({ includeInactive: true }),
+    // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
+    getHolidayMap(),
   ]);
 
   return (

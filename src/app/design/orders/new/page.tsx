@@ -51,7 +51,11 @@ export default async function DesignNewOrderPage({
   const selected =
     clinics.find((c) => c.id === clinicId) ?? (clinics.length === 1 ? clinics[0] : null);
 
-  const [implantCatalog, implantFavorites, optionGroups, optionPresets, prosthesisCatalog] =
+  /*
+    ★ 휴일도 함께 부릅니다. 다른 것을 하나도 안 쓰는데 줄 맨 뒤에서
+      혼자 기다리고 있었습니다 (치과 주문등록도 같았습니다).
+  */
+  const [implantCatalog, implantFavorites, optionGroups, optionPresets, prosthesisCatalog, holidays] =
     await Promise.all([
       getImplantCatalog(),
       // ★ 그 치과의 즐겨찾기입니다. 디자인센터 자기 것이 아닙니다
@@ -59,11 +63,11 @@ export default async function DesignNewOrderPage({
       getProductionOptions(),
       selected ? listOptionPresets(selected.id) : Promise.resolve([]),
       getProsthesisCatalog(),
+      // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
+      getHolidayMap(),
     ]);
 
   const today = todayInKst();
-  // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
-  const holidays = await getHolidayMap();
 
   return (
     <NewOrderForm
