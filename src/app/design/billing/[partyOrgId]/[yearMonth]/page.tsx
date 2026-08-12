@@ -40,26 +40,35 @@ export default async function InvoicePage({
 
   if (!isValidYearMonth(yearMonth)) notFound();
 
-  const partner = await getPartner(partyOrgId);
-  if (!partner) notFound();
+  /*
+    ★ 서로를 안 쓰는 넷을 **함께** 부릅니다.
+      전에는 거래처 → 정산기간 → 제품목록 → 우리조직 순으로 줄을 세웠는데,
+      넷 다 앞의 결과를 하나도 안 씁니다 (기간도 partyOrgId 로 찾습니다).
+      다섯 단계였던 것이 두 단계가 됩니다.
+  */
+  const supabase = await createClient();
 
-  const period = await getPeriod(partyOrgId, yearMonth);
+  const [partner, period, catalog, { data }] = await Promise.all([
+    getPartner(partyOrgId),
+    getPeriod(partyOrgId, yearMonth),
+    getProsthesisCatalog({ includeInactive: true }),
+    // 우리 조직 정보 — 문서의 한쪽에 들어갑니다
+    supabase
+      .from('organizations')
+      .select('name, biz_no, ceo_name, address')
+      .eq('id', session.orgId!)
+      .maybeSingle(),
+  ]);
+
+  if (!partner) notFound();
   // 마감 전에는 뽑을 것이 없습니다
   if (!period?.closedAt) notFound();
 
+  // 이것만 앞의 결과를 씁니다 (기간·제품)
   const { from, to } = periodRange(yearMonth, partner.closingDay);
-  const catalog = await getProsthesisCatalog({ includeInactive: true });
   const settlement = await getClosedSettlement(period.id, from, to, catalog);
 
   const parties = invoicePartiesFor(partner.orgType);
-
-  // 우리 조직 정보 — 문서의 한쪽에 들어갑니다
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('organizations')
-    .select('name, biz_no, ceo_name, address')
-    .eq('id', session.orgId!)
-    .maybeSingle();
 
   const mine = (data ?? { name: session.orgName ?? '', biz_no: null, ceo_name: null, address: null }) as {
     name: string;

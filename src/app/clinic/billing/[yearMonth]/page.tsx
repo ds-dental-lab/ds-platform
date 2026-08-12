@@ -34,24 +34,33 @@ export default async function ClinicInvoicePage({
 
   if (!isValidYearMonth(yearMonth)) notFound();
 
-  const me = await getPartner(session.orgId!);
-  if (!me) notFound();
+  /*
+    ★ 서로를 안 쓰는 넷을 **함께** 부릅니다.
+      기간을 찾을 때 me.id 를 기다렸는데, getPartner(orgId) 는 그 조직을
+      그대로 돌려주므로 me.id 는 session.orgId 와 같습니다.
+      즉 기다릴 이유가 없었습니다. 다섯 단계 → 두 단계.
+  */
+  const supabase = await createClient();
 
-  const period = await getPeriod(me.id, yearMonth);
+  const [me, period, catalog, { data }] = await Promise.all([
+    getPartner(session.orgId!),
+    getPeriod(session.orgId!, yearMonth),
+    getProsthesisCatalog({ includeInactive: true }),
+    // 청구하는 쪽 — 전속 디자인센터 (통합 모델이라 하나뿐입니다)
+    supabase
+      .from('organizations')
+      .select('name, biz_no, ceo_name, address')
+      .eq('org_type', 'design_center')
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (!me) notFound();
   if (!period?.closedAt) notFound();
 
+  // 이것만 앞의 결과를 씁니다 (기간·제품)
   const { from, to } = periodRange(yearMonth, me.closingDay);
-  const catalog = await getProsthesisCatalog({ includeInactive: true });
   const settlement = await getClosedSettlement(period.id, from, to, catalog);
-
-  // 청구하는 쪽 — 전속 디자인센터 (통합 모델이라 하나뿐입니다)
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('organizations')
-    .select('name, biz_no, ceo_name, address')
-    .eq('org_type', 'design_center')
-    .limit(1)
-    .maybeSingle();
 
   const design = (data ?? { name: '디자인센터', biz_no: null, ceo_name: null, address: null }) as {
     name: string;
