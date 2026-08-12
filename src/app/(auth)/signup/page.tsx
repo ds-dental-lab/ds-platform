@@ -33,10 +33,63 @@ import { createClient } from '@/lib/supabase/client';
 import {
   SIGNUP_SECTORS,
   SECTOR_LABEL,
+  SECTOR_HINT,
   checkSignup,
   MIN_PASSWORD,
   type SignupSector,
 } from '@/server/domain/signup';
+
+/**
+ * 고르는 칸에 들어가는 그림.
+ *
+ * ★ 둘 다 이(齒)를 씁니다 — 다만 **주변이 다릅니다.**
+ *   전혀 다른 물건(의자·작업대)으로 그려 봤더니 44px 에서는 무슨
+ *   모양인지 안 읽혔습니다. 같은 이를 놓고 **치과는 사람이 오는 곳,
+ *   기공소는 만드는 곳**이라는 것만 덧붙이는 편이 훨씬 빨리 갈립니다.
+ *
+ * ★ 이 모양은 지어내지 않고 치식도가 쓰는 것을 그대로 씁니다
+ *   (components/dental/ToothChart/toothShapes — 제1대구치).
+ *   같은 제품 안에서 이가 두 가지 모양으로 그려지면 안 됩니다.
+ */
+const TOOTH =
+  'M 3 42 C 3 14 22 2 38 10 C 45 14 48 22 50 28 C 52 22 55 14 62 10 C 78 2 97 14 97 42 ' +
+  'C 97 72 84 96 62 98 C 54 99 46 99 38 98 C 16 96 3 72 3 42 Z';
+
+const SECTOR_ART: Record<SignupSector, React.ReactNode> = {
+  // 치과 — 이 + 의료 십자. 진료하는 곳입니다
+  clinic: (
+    <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
+      <path
+        d={TOOTH}
+        transform="translate(2 2) scale(0.6)"
+        stroke="currentColor"
+        strokeWidth="7"
+        strokeLinejoin="round"
+      />
+      <circle cx="76" cy="76" r="16" stroke="currentColor" strokeWidth="7" />
+      <path d="M76 68v16M68 76h16" stroke="currentColor" strokeWidth="7" strokeLinecap="round" />
+    </svg>
+  ),
+  // 기공소 — 이 + 톱니바퀴. 만드는 곳입니다
+  lab: (
+    <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
+      <path
+        d={TOOTH}
+        transform="translate(2 2) scale(0.6)"
+        stroke="currentColor"
+        strokeWidth="7"
+        strokeLinejoin="round"
+      />
+      <circle cx="76" cy="76" r="9" stroke="currentColor" strokeWidth="7" />
+      <path
+        d="M76 58v5M76 89v5M94 76h-5M63 76h-5M88.7 63.3l-3.5 3.5M66.8 85.2l-3.5 3.5M88.7 88.7l-3.5-3.5M66.8 66.8l-3.5-3.5"
+        stroke="currentColor"
+        strokeWidth="7"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
+};
 
 export default function SignupPage() {
   const router = useRouter();
@@ -138,30 +191,41 @@ export default function SignupPage() {
               초대받으셨다면 <b>초대받은 그 이메일</b>로 가입해 주세요.
             </p>
 
+            {/*
+              ★ 어느 쪽인지부터 크게 묻습니다.
+                이 화면에서 가장 중요한 갈림길입니다 — 여기가 갈리면
+                기관 이름의 뜻도, 승인 뒤에 열리는 화면도 통째로 달라집니다.
+                셀렉박스 한 줄로 두면 이메일·비밀번호 사이에 묻혀서,
+                잘못 고른 채 끝까지 가서 승인 단계에서야 발견됩니다.
+
+              ★ 디자인센터는 여기 없습니다 (domain/signup 의 SIGNUP_SECTORS).
+                화면에서 빼는 것으로 끝내지 않습니다 — 표의 check 제약이
+                마지막으로 막습니다.
+            */}
+            <p className="pick-ask">어디에서 쓰시나요?</p>
+
+            <div className="sector-pick">
+              {SIGNUP_SECTORS.map((sector) => (
+                <button
+                  key={sector}
+                  type="button"
+                  className={'sector' + (orgType === sector ? ' on' : '')}
+                  aria-pressed={orgType === sector}
+                  onClick={() => setOrgType(sector)}
+                >
+                  <span className="sector-art">{SECTOR_ART[sector]}</span>
+                  <b>{SECTOR_LABEL[sector]}</b>
+                  <i>{SECTOR_HINT[sector]}</i>
+                  <span className="sector-tick" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2.5 7.4 5.6 10.5 11.5 3.8" />
+                    </svg>
+                  </span>
+                </button>
+              ))}
+            </div>
+
             <div className="auth-fields">
-              {/*
-                ★ 다른 칸과 같은 모양의 한 줄입니다.
-                  전에는 큼직한 카드 둘로 갈라 놨는데, 로그인·가입 화면은
-                  칸이 위에서 아래로 한 줄씩 내려오는 곳입니다. 거기만
-                  덩어리가 끼면 그 화면에서 제일 먼저 눈에 띄고, 정작
-                  중요한 것(이메일·비밀번호)이 뒤로 밀립니다.
-
-                ★ 디자인센터는 여기 없습니다 (domain/signup 의 SIGNUP_SECTORS).
-                  화면에서 빼는 것으로 끝내지 않습니다 — 표의 check 제약이
-                  마지막으로 막습니다.
-              */}
-              <select
-                className="ctl"
-                value={orgType}
-                onChange={(e) => setOrgType(e.target.value as SignupSector)}
-              >
-                {SIGNUP_SECTORS.map((sector) => (
-                  <option key={sector} value={sector}>
-                    {SECTOR_LABEL[sector]}
-                  </option>
-                ))}
-              </select>
-
               <input
                 className="ctl"
                 type="text"
@@ -255,9 +319,29 @@ const css = `
   font-size:12.5px; line-height:1.6; color:#8A6320;
 }
 .auth-hint b{font-weight:700}
-select.ctl{appearance:none; color:var(--ink); cursor:pointer;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%2398A2B3' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-  background-repeat:no-repeat; background-position:right 13px center; padding-right:34px}
+.pick-ask{margin:0 0 9px; font-size:12.5px; font-weight:700; color:var(--ink-2)}
+.sector-pick{display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:14px}
+.sector{
+  position:relative; display:flex; flex-direction:column; align-items:center; gap:3px;
+  padding:18px 10px 15px; border-radius:9px; border:1.5px solid var(--line-2);
+  background:var(--surface); cursor:pointer; text-align:center; color:#98A2B3;
+  transition:border-color .12s, background .12s, color .12s, box-shadow .12s;
+}
+.sector-art{display:block; width:54px; height:54px; margin-bottom:5px}
+.sector-art svg{width:100%; height:100%; display:block}
+.sector b{font-size:16px; font-weight:800; letter-spacing:-0.02em; color:var(--ink)}
+.sector i{font-size:11.5px; font-style:normal; color:#98A2B3; line-height:1.45; word-break:keep-all}
+.sector:hover{border-color:#B6C6DC; background:#FAFCFF}
+.sector.on{border-color:var(--brand); background:#F2F7FE; color:var(--brand);
+  box-shadow:0 0 0 3px rgba(18,121,232,.10)}
+.sector.on b{color:var(--brand)}
+.sector.on i{color:#5B7FB0}
+.sector-tick{
+  position:absolute; top:8px; right:8px; width:17px; height:17px; border-radius:50%;
+  display:grid; place-items:center; background:var(--brand); color:#fff; opacity:0;
+  transition:opacity .12s;
+}
+.sector.on .sector-tick{opacity:1}
 .auth-done{margin:0 0 20px; text-align:center; font-size:13.5px; line-height:1.7; color:var(--ink-2)}
 .auth-done b{color:var(--ink); font-weight:700}
 .auth-fields{display:flex; flex-direction:column; gap:9px}
