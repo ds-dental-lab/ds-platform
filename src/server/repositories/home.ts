@@ -108,10 +108,15 @@ export async function getHomeSummary(): Promise<HomeSummary> {
   const supabase = await createClient();
   const today = todayInKst();
 
-  // 금액은 세는 기준이 달라 따로 읽습니다 (접수일/배송일 · 정산기간/달력 월)
+  /*
+    ★ 서로 안 쓰는 것은 **동시에** 보냅니다.
+      금액·공지·수거는 주문 조회 결과를 하나도 안 씁니다. 그런데
+      수거만 맨 아래에서 따로 기다리고 있었습니다 — 왕복 하나를
+      줄줄이 세워 둔 셈입니다.
+  */
   const money = getHomeMoney();
-  // 공지는 다른 표라 함께 시작해 두고 아래에서 받습니다
   const notices = listNotices(HOME_NOTICES);
+  const pickups = listOpenPickups(supabase);
 
   const { data, error } = await supabase
     .from('orders')
@@ -179,7 +184,7 @@ export async function getHomeSummary(): Promise<HomeSummary> {
     statusCounts,
     issueCounts,
     todayDeliveries,
-    pickups: await listOpenPickups(supabase),
+    pickups: await pickups,
     money: await money,
     worklist: mine,
     notices: await notices,

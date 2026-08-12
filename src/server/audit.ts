@@ -18,6 +18,7 @@
 // =========================================================
 
 import 'server-only';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 
@@ -39,8 +40,18 @@ export interface AuditEntry {
  * ★ 아무것도 안 나갔으면 안 남깁니다.
  *   목록을 열었는데 0건이면 개인정보가 나간 것이 없습니다.
  *   빈 조회까지 쌓으면 정작 봐야 할 줄이 묻힙니다.
+ *
+ * ★ **화면을 보낸 뒤에** 남깁니다 (next/server 의 after).
+ *   전에는 기록이 끝나야 화면이 나갔습니다 — 주문 상세를 열 때마다
+ *   왕복이 하나 더 붙은 셈입니다. 기록은 사람이 기다릴 일이 아닙니다.
+ *   after 는 응답을 보낸 뒤에도 서버가 이 일을 마치도록 보장합니다.
+ *   (그냥 await 를 빼면 서버리스에서는 응답과 함께 중간에 끊깁니다.)
  */
 export async function recordAccess(entry: AuditEntry): Promise<void> {
+  after(() => writeAccess(entry));
+}
+
+async function writeAccess(entry: AuditEntry): Promise<void> {
   try {
     if (entry.subjectCount === 0) return;
 
