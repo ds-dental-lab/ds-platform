@@ -18,6 +18,7 @@
 
 'use client';
 
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitAccount, type AccountInput } from '@/server/actions/account';
@@ -30,6 +31,8 @@ import {
 } from '@/server/domain/invoice-method';
 
 export interface AccountFormProps {
+  /** 이 섹터의 뿌리 주소 — /clinic · /design · /lab */
+  basePath: string;
   org: {
     name: string;
     code: string | null;
@@ -54,7 +57,7 @@ const TYPE_LABEL = {
   lab: '기공소',
 } as const;
 
-export default function AccountForm({ org, editable }: AccountFormProps) {
+export default function AccountForm({ org, editable, basePath }: AccountFormProps) {
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
   const [saving, setSaving] = useState(false);
@@ -266,8 +269,18 @@ export default function AccountForm({ org, editable }: AccountFormProps) {
 
         {/* ---------- 아래줄 ---------- */}
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#E8EBF0] px-6 py-4">
-          {/* ★ '열람 기록 보기' 를 뻐습니다 (사용자 요청 2026-08-12).
-              화면과 기록은 그대로 있고 계정정보에서 가는 길만 없았습니다 */}
+          {/* ★ '열람 기록 보기' 는 뺐습니다 (사용자 요청 2026-08-12).
+              화면과 기록은 그대로 있고 계정정보에서 가는 길만 없앴습니다.
+              보관기간은 남깁니다 — 여기 말고는 갈 데가 없습니다 */}
+          {editable && (
+            <Link
+              href={`${basePath}/account/retention`}
+              className="mr-auto h-10 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold leading-10 text-[#4A5567] hover:bg-[#F4F6F9]"
+            >
+              보관기간·파기
+            </Link>
+          )}
+
           {!editable && (
             <span className="mr-auto text-[12px] text-[#98A2B3]">
               관리자만 고칠 수 있습니다.

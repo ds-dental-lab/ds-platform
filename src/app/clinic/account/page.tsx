@@ -20,5 +20,5 @@ export default async function AccountPage() {
   const org = await getMyOrg();
   if (!org) notFound();
 
-  return <AccountForm org={org} editable={org.editable} />;
+  return <AccountForm org={org} editable={org.editable} basePath="/clinic" />;
 }
