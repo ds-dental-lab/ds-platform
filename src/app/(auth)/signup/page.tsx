@@ -296,6 +296,15 @@ export default function SignupPage() {
                 로그인
               </Link>
             </p>
+
+            {/* ★ 가입 전에 읽을 수 있어야 의미가 있습니다 */}
+            <p className="auth-legal">
+              가입하면{' '}
+              <Link href="/privacy" className="link strong">
+                개인정보 처리방침
+              </Link>
+              에 따라 정보가 처리됩니다.
+            </p>
           </>
         )}
       </div>
@@ -377,6 +386,7 @@ const css = `
 .btn-primary:hover:not(:disabled){background:var(--brand-dark)}
 .btn-primary:disabled{background:#D5DAE2; color:#8E98A8; cursor:not-allowed}
 .auth-join{margin:22px 0 0; text-align:center; font-size:13px; color:var(--ink-2)}
+.auth-legal{margin:10px 0 0; text-align:center; font-size:11.5px; line-height:1.6; color:#98A2B3}
 .link{color:var(--ink-2); cursor:pointer; text-decoration:none}
 .link.strong{font-weight:600; color:var(--brand)}
 `;

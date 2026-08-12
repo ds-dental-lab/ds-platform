@@ -111,6 +111,13 @@ export default function LoginPage() {
             비밀번호 찾기
           </Link>
         </p>
+
+        {/* ★ 처리방침은 로그인 없이 닿아야 합니다 */}
+        <p className="auth-legal">
+          <Link href="/privacy" className="link">
+            개인정보 처리방침
+          </Link>
+        </p>
       </div>
     </div>
   );
@@ -159,6 +166,7 @@ const css = `
 .btn-primary:hover:not(:disabled){background:var(--brand-dark)}
 .btn-primary:disabled{background:#D5DAE2; color:#8E98A8; cursor:not-allowed}
 .auth-join{margin:22px 0 0; text-align:center; font-size:13px; color:var(--ink-2)}
+.auth-legal{margin:10px 0 0; text-align:center; font-size:12px; color:#98A2B3}
 .link{color:var(--ink-2); cursor:pointer; text-decoration:none}
 .link:hover{text-decoration:underline}
 .link.strong{font-weight:600; color:var(--brand)}

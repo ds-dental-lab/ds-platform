@@ -16,6 +16,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { canManageMembers, type MemberRole } from '@/server/domain/member';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { INVOICE_METHODS, type InvoiceMethod } from '@/server/domain/invoice-method';
@@ -100,6 +101,89 @@ export async function submitAccount(input: AccountInput): Promise<AccountResult>
   revalidatePath('/lab/account');
   // 청구서 머리에 이 값이 실립니다
   revalidatePath('/design/billing', 'layout');
+
+  return { ok: true };
+}
+
+// ---------- 개인정보 처리방침 ----------
+
+export interface PrivacyInput {
+  officerDept: string;
+  officerTel: string;
+  officerEmail: string;
+  /** 비우면 초안으로 되돌아갑니다 */
+  effectiveOn: string | null;
+}
+
+/**
+ * 처리방침에 실릴 값을 정합니다.
+ *
+ * ★ 책임자의 **이름은 여기서 안 받습니다.**
+ *   organizations.privacy_officer_user_id 가 가리키는 계정에서 따라옵니다.
+ *   이름을 글자로 박아 두면 사람이 바뀌었을 때 문서만 옛 이름을 답니다.
+ *
+ * ★ 시행일을 넣는 것이 곧 "검토를 마쳤다" 는 뜻입니다.
+ *   비어 있는 동안 공개 화면은 '초안' 이라고 밝힙니다.
+ */
+export async function submitPrivacySettings(input: PrivacyInput): Promise<AccountResult> {
+  const session = await getSession();
+
+  if (!session?.orgId || !canManageMembers(session.role as MemberRole | null)) {
+    return { ok: false, error: '관리자만 정할 수 있습니다' };
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .update({
+      privacy_officer_dept: input.officerDept.trim() || null,
+      privacy_officer_tel: input.officerTel.trim() || null,
+      privacy_officer_email: input.officerEmail.trim() || null,
+      privacy_policy_effective_on: input.effectiveOn || null,
+    })
+    .eq('id', session.orgId)
+    .select('id');
+
+  if (error) return { ok: false, error: `저장하지 못했습니다: ${error.message}` };
+  if (!data || data.length === 0) return { ok: false, error: '바꿀 수 있는 조직이 아닙니다' };
+
+  revalidatePath('/design/account/privacy');
+  revalidatePath('/privacy');
+
+  return { ok: true };
+}
+
+/** 보호책임자를 우리 조직의 다른 사람으로 넘깁니다 */
+export async function submitPrivacyOfficer(userId: string): Promise<AccountResult> {
+  const session = await getSession();
+
+  if (!session?.orgId || !canManageMembers(session.role as MemberRole | null)) {
+    return { ok: false, error: '관리자만 정할 수 있습니다' };
+  }
+
+  const supabase = await createClient();
+
+  // 화면이 보낸 id 를 믿지 않습니다 — 우리 조직 사람인지 봅니다
+  const { data: seat } = await supabase
+    .from('memberships')
+    .select('user_id')
+    .eq('user_id', userId)
+    .eq('org_id', session.orgId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!seat) return { ok: false, error: '우리 조직 사람이 아닙니다' };
+
+  const { error } = await supabase
+    .from('organizations')
+    .update({ privacy_officer_user_id: userId })
+    .eq('id', session.orgId);
+
+  if (error) return { ok: false, error: `저장하지 못했습니다: ${error.message}` };
+
+  revalidatePath('/design/account/privacy');
+  revalidatePath('/privacy');
 
   return { ok: true };
 }
