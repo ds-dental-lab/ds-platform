@@ -151,8 +151,9 @@ export default function PrivacyBoard({ facts, officerUserId, seats }: PrivacyBoa
             <Hint>이 계정의 이름이 처리방침에 그대로 나갑니다.</Hint>
           </Field>
 
-          <Field label="부서">
-            <Input value={dept} onChange={setDept} placeholder="예: 운영팀" />
+          <Field label="부서 (없으면 비워 두세요)">
+            <Input value={dept} onChange={setDept} placeholder="없으면 비워 두세요" />
+            <Hint>비우면 처리방침에 부서 줄이 아예 안 나옵니다.</Hint>
           </Field>
 
           <Field label="연락처">

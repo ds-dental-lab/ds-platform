@@ -246,7 +246,9 @@ export default async function PrivacyPolicyPage() {
 
         <dl className="mt-4 rounded-lg border border-[#E8EBF0] bg-[#F8F9FB] px-5 py-4 text-[13.5px]">
           <Row label="성명" value={facts.officerName} />
-          <Row label="부서" value={facts.officerDept} />
+          {/* ★ 부서는 없을 수 있습니다 (작은 회사). 없으면 줄 자체를 안 냅니다 —
+                '미지정' 이라고 적으면 있어야 하는데 안 정한 것처럼 보입니다 */}
+          {facts.officerDept?.trim() && <Row label="부서" value={facts.officerDept} />}
           <Row label="연락처" value={facts.officerTel} />
           <Row label="전자우편" value={facts.officerEmail} />
         </dl>
