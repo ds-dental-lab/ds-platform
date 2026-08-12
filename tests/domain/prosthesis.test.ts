@@ -13,6 +13,8 @@ import {
   buildAbbr,
   isBridgeable,
   requiresImplantModel,
+  changeOptions,
+  specLabel,
 } from '@/server/domain/prosthesis';
 
 /**
@@ -121,5 +123,55 @@ describe('임플란트 모델 필수', () => {
     expect(requiresImplantModel(CATALOG, 'implant')).toBe(true);
     expect(requiresImplantModel(CATALOG, 'crown')).toBe(false);
     expect(requiresImplantModel(CATALOG, 'inlay')).toBe(false);
+  });
+});
+
+// =========================================================
+// 리메이크에서 고를 수 있는 보철 — 사용자 결정 2026-08-12
+//   "지르코니아에서 지르코니아같은 불필요한거는 없었으면 좋겠어.
+//    단, 임플란트 scrp/cemented 는 hole 유무차이기 때문에 가능하게"
+// =========================================================
+
+describe('리메이크 보철 선택지', () => {
+  // ★ 아무것도 안 바꿀 거면 '그대로' 가 이미 있습니다
+  it('★ 지금과 똑같은 것은 목록에서 빠집니다', () => {
+    const options = changeOptions(FALLBACK_TYPES, 'crown', 'zirconia');
+
+    expect(options.some((o) => o.typeCode === 'crown' && o.materialCode === 'zirconia')).toBe(false);
+    // 같은 크라운의 다른 재료는 남습니다
+    expect(options.some((o) => o.typeCode === 'crown' && o.materialCode === 'pmma')).toBe(true);
+  });
+
+  it('다른 종류는 그대로 다 나옵니다', () => {
+    const options = changeOptions(FALLBACK_TYPES, 'crown', 'zirconia');
+
+    expect(options.some((o) => o.typeCode === 'inlay')).toBe(true);
+    expect(options.some((o) => o.typeCode === 'implant')).toBe(true);
+  });
+
+  // ★ 같은 지르코니아라도 스크류 구멍이 있고 없고가 다릅니다
+  it('★ 임플란트는 똑같아 보여도 안 뺍니다', () => {
+    const current = FALLBACK_TYPES.find((t) => t.code === 'implant')!.materials[0].code;
+    const options = changeOptions(FALLBACK_TYPES, 'implant', current);
+
+    expect(options.some((o) => o.typeCode === 'implant' && o.materialCode === current)).toBe(true);
+  });
+
+  it('가릴 때 코드가 아니라 성질(needsImplantModel)로 봅니다', () => {
+    const fake = FALLBACK_TYPES.map((t) =>
+      t.code === 'crown' ? { ...t, needsImplantModel: true } : t,
+    );
+    const options = changeOptions(fake, 'crown', 'zirconia');
+
+    // 픽스처를 받는 종류로 바뀌었으니 이제 안 빠집니다
+    expect(options.some((o) => o.typeCode === 'crown' && o.materialCode === 'zirconia')).toBe(true);
+  });
+
+  it('이름은 사람이 읽는 말로 만듭니다', () => {
+    expect(specLabel(FALLBACK_TYPES, 'crown', 'zirconia')).toBe('크라운 · 지르코니아');
+  });
+
+  it('모르는 코드면 코드를 그대로 씁니다 — 화면이 비지 않게', () => {
+    expect(specLabel(FALLBACK_TYPES, 'unknown', 'x')).toBe('unknown · x');
   });
 });

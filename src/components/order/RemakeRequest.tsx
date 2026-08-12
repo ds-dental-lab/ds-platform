@@ -35,7 +35,7 @@ import ShadeDialog from '@/components/order/ShadeDialog';
 import DueDatePicker from '@/components/order/DueDatePicker';
 import type { HolidayMap } from '@/server/domain/holiday';
 import ToothPickRow from '@/components/dental/ToothChart/ToothPickRow';
-import { buildAbbr, getMaterials, type ProsthesisCatalog } from '@/server/domain/prosthesis';
+import { getMaterials, type ProsthesisCatalog, changeOptions, specLabel } from '@/server/domain/prosthesis';
 import { formatShade, type ToothShade, type ShadeSystemCode } from '@/server/domain/shade';
 import {
   canRequestRemakeAsAny,
@@ -288,7 +288,7 @@ export default function RemakeRequest({
 
                           <label className="min-w-[220px] flex-1">
                             <span className="mb-1 block text-[11.5px] font-semibold text-[#98A2B3]">
-                              보철 (현재 {buildAbbr(prosthesisCatalog, item.type_code, item.material_code)})
+                              보철
                             </span>
                             <select
                               value={
@@ -312,16 +312,29 @@ export default function RemakeRequest({
                               }}
                               className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#1279E8]"
                             >
-                              <option value="">그대로</option>
-                              {prosthesisCatalog.map((type) =>
-                                getMaterials(prosthesisCatalog, type.code).map((mat) => (
+                              {/*
+                                ★ '그대로' 옆에 **지금 무엇인지**를 적습니다
+                                  (사용자 결정 2026-08-12). 그냥 '그대로' 라고만
+                                  두면 그게 무엇인지 위 글자를 다시 읽어야 합니다.
+                              */}
+                              <option value="">
+                                그대로 ({specLabel(prosthesisCatalog, item.type_code, item.material_code)})
+                              </option>
+
+                              {/*
+                                ★ 지금과 똑같은 것은 목록에 없습니다.
+                                  다만 임플란트는 남습니다 — 같은 지르코니아라도
+                                  스크류 구멍 유무가 다릅니다 (domain/prosthesis).
+                              */}
+                              {changeOptions(prosthesisCatalog, item.type_code, item.material_code).map(
+                                (opt) => (
                                   <option
-                                    key={`${type.code}|${mat.code}`}
-                                    value={`${type.code}|${mat.code}`}
+                                    key={`${opt.typeCode}|${opt.materialCode}`}
+                                    value={`${opt.typeCode}|${opt.materialCode}`}
                                   >
-                                    {type.name} · {mat.name}
+                                    {opt.label}
                                   </option>
-                                )),
+                                ),
                               )}
                             </select>
                           </label>

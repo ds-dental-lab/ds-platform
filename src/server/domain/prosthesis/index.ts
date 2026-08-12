@@ -294,3 +294,67 @@ export function allowsGingival(
 ): boolean {
   return getMaterial(catalog, typeCode, materialCode)?.hasPink ?? false;
 }
+
+// ---------- 리메이크에서 보철을 바꿀 때 ----------
+
+export interface SpecOption {
+  typeCode: string;
+  materialCode: string;
+  /** '크라운 · 지르코니아' */
+  label: string;
+}
+
+/** 지금 무엇으로 되어 있는지 — '크라운 · 지르코니아'. 못 찾으면 코드를 그대로 */
+export function specLabel(
+  catalog: ProsthesisCatalog,
+  typeCode: string,
+  materialCode: string,
+): string {
+  const type = getType(catalog, typeCode);
+  const material = getMaterial(catalog, typeCode, materialCode);
+
+  return `${type?.name ?? typeCode} · ${material?.name ?? materialCode}`;
+}
+
+/**
+ * 리메이크에서 고를 수 있는 보철 목록.
+ *
+ * ★ **지금과 똑같은 것은 뺍니다** (사용자 결정 2026-08-12).
+ *   지르코니아를 지르코니아로 바꾸는 줄이 목록에 있으면, 고를 때마다
+ *   "이게 바뀌는 건가" 를 한 번씩 생각하게 됩니다. 아무것도 안 바꿀
+ *   거면 '그대로' 가 이미 있습니다.
+ *
+ * ★ **임플란트는 안 뺍니다** (사용자 결정 2026-08-12).
+ *   *"scrp, cemented 는 hole 유무 차이"* — 같은 지르코니아라도 스크류
+ *   구멍이 있고 없고가 다릅니다. 이름이 같아 보여도 다른 물건이라,
+ *   여기서 걸러 내면 실제로 필요한 선택지가 사라집니다.
+ *
+ * ★ 'implant' 라는 코드로 안 찾습니다.
+ *   needsImplantModel(픽스처 정보를 받는 종류) 로 봅니다 — 코드나
+ *   이름으로 찾으면 제품탭에서 새 종류를 만든 날 조용히 안 듣습니다.
+ */
+export function changeOptions(
+  catalog: ProsthesisCatalog,
+  currentType: string,
+  currentMaterial: string,
+): SpecOption[] {
+  const out: SpecOption[] = [];
+
+  for (const type of catalog) {
+    for (const material of getMaterials(catalog, type.code)) {
+      const same = type.code === currentType && material.code === currentMaterial;
+
+      // 임플란트는 같아 보여도 남겨 둡니다 (구멍 유무)
+      if (same && !type.needsImplantModel) continue;
+
+      out.push({
+        typeCode: type.code,
+        materialCode: material.code,
+        label: `${type.name} · ${material.name}`,
+      });
+    }
+  }
+
+  return out;
+}
+
