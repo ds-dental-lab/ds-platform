@@ -6,14 +6,26 @@
 // (설계서 §5.3 결정 2 — 권한은 DB와 서버 양쪽에서 검사)
 // =========================================================
 
+import { cache } from 'react';
 import { redirect, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 
 export type Sector = 'clinic' | 'design_center' | 'lab';
 
-/** 로그인 안 했으면 null. 로그인은 했지만 소속이 없으면 orgType 이 null */
-export async function getSession() {
+/**
+ * 로그인 안 했으면 null. 로그인은 했지만 소속이 없으면 orgType 이 null.
+ *
+ * ★ 한 요청 안에서는 **한 번만** 물어봅니다 (React cache).
+ *   이 함수는 66곳에서 부릅니다 — 레이아웃, 화면, 저장소, 액션이
+ *   각자 부르니 한 페이지를 그리는 데 여러 번 실행됐습니다.
+ *   한 번에 왕복이 3번(인증·소속·프로필)이므로, 대여섯 번 불리면
+ *   왕복이 스무 번 가까이 됩니다. 서버와 DB가 멀면 그게 곧 체감 속도입니다.
+ *
+ *   cache 는 **요청 하나** 안에서만 삽니다. 다음 요청은 다시 물어보므로
+ *   로그아웃하거나 권한이 바뀐 것이 늦게 반영될 일은 없습니다.
+ */
+export const getSession = cache(async function getSession() {
   const supabase = await createClient();
 
   const {
@@ -22,19 +34,23 @@ export async function getSession() {
 
   if (!user) return null;
 
-  const { data } = await supabase
-    .from('memberships')
-    .select('role, org_id, organizations(name, org_type)')
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .maybeSingle();
+  /*
+    ★ 둘을 **함께** 보냅니다.
+      소속과 이름은 서로를 안 씁니다. 줄줄이 기다릴 이유가 없는데
+      순서대로 두면 왕복이 두 번입니다 — 서버와 DB가 멀수록 그 차이가
+      그대로 화면 뜨는 시간이 됩니다.
+  */
+  const [{ data }, { data: profile }] = await Promise.all([
+    supabase
+      .from('memberships')
+      .select('role, org_id, organizations(name, org_type)')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle(),
 
-  // 상단바에 조직명과 나란히 찍습니다
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('name')
-    .eq('id', user.id)
-    .maybeSingle();
+    // 상단바에 조직명과 나란히 찍습니다
+    supabase.from('user_profiles').select('name').eq('id', user.id).maybeSingle(),
+  ]);
 
   const org = (data?.organizations ?? null) as {
     name: string;
@@ -50,7 +66,7 @@ export async function getSession() {
     orgType: org?.org_type ?? null,
     userName: profile?.name ?? user.email?.split('@')[0] ?? '',
   };
-}
+});
 
 /** 로그인 필수 화면에서 사용 */
 export async function requireSession() {
