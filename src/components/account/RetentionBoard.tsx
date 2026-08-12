@@ -245,23 +245,48 @@ function Row({
           제안 {formatDays(meta.suggestedDays)}
         </button>
 
-        {dirty && (
-          <button
-            type="button"
-            onClick={save}
-            disabled={disabled || saving}
-            className="h-9 rounded-md bg-[#1279E8] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#0F68C9] disabled:opacity-60"
-          >
-            {saving ? '저장 중…' : '저장'}
-          </button>
+        {/*
+          ★ 안 눌렀을 때도 **보여 둡니다.**
+            전에는 값이 바뀌어야 버튼이 나타났습니다. 그러니 '제안' 을 눌러
+            칸이 채워진 것을 보고 저장된 줄 알고 나가 버립니다 —
+            실제로 그렇게 됐고, 표에는 아무것도 안 들어와 있었습니다.
+            누를 것이 늘 같은 자리에 있어야 합니다.
+        */}
+        <button
+          type="button"
+          onClick={save}
+          disabled={disabled || saving || !dirty}
+          className="h-9 rounded-md bg-[#1279E8] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
+        >
+          {saving ? '저장 중…' : '저장'}
+        </button>
+
+        {/* ★ 안 눌렀다는 것을 글자로도 말합니다. 회색 버튼만으로는 약합니다 */}
+        {dirty && !saving && (
+          <span className="text-[12px] font-bold text-[#C77700]">← 아직 저장 안 됐습니다</span>
         )}
       </div>
 
+      {/*
+        ★ 지금 저장된 값을 그대로 적습니다.
+          칸 안의 숫자는 '내가 친 것' 이고 이건 '표에 든 것' 입니다.
+          둘을 같이 보여 줘야 저장이 됐는지 눈으로 확인됩니다.
+      */}
+      <p className="mt-2 text-[12px] text-[#7C8595]">
+        지금 설정{' '}
+        <b
+          className={
+            'font-bold ' + (plan.keepDays === null ? 'text-[#C77700]' : 'text-[#1A2130]')
+          }
+        >
+          {formatDays(plan.keepDays)}
+        </b>
+        {plan.keepDays === null && ' — 이 항목은 지워지지 않습니다'}
+      </p>
+
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#F0F2F5] pt-3">
         {plan.keepDays === null ? (
-          <span className="text-[12px] text-[#98A2B3]">
-            아직 안 정했습니다 — 이 항목은 지워지지 않습니다.
-          </span>
+          <span className="text-[12px] text-[#98A2B3]">보관기간을 정해야 파기할 수 있습니다.</span>
         ) : (
           <span className="text-[12.5px] text-[#4A5567]">
             지금 지울 것{' '}
