@@ -17,7 +17,8 @@ import { createClient } from '@/lib/supabase/server';
 import { todayInKst } from '@/server/domain/week';
 import { getHomeMoney, type HomeMoney } from '@/server/repositories/home-money';
 import { getSession } from '@/server/policies/session';
-import { canSeeMoney, type MemberRole } from '@/server/domain/member';
+import { canManageMembers, type MemberRole } from '@/server/domain/member';
+import { visibleWork, sortWork } from '@/server/domain/worklist';
 import { listNotices, type NoticeRow } from '@/server/repositories/notice';
 import type { OrderStatus } from '@/server/domain/order-status';
 import type { IssueType } from '@/server/domain/order-list';
@@ -166,28 +167,11 @@ export async function getHomeSummary(): Promise<HomeSummary> {
 
   await fillDesignStart(supabase, worklist, today);
 
-  /*
-    ★ 사용자는 **자기가 잡은 것만** 봅니다 (사용자 결정 2026-08-12).
-      남의 일까지 보이면 무엇이 내 몫인지가 흐려집니다.
-      관리자는 전부 봅니다 — 누가 얼마나 잡고 있는지가 관리의 일입니다.
-  */
+  // 누구에게 무엇이 보이고 어떤 차례인지는 domain/worklist 가 정합니다
   const me = await getSession();
-  const mine = canSeeMoney(me?.role as MemberRole | null)
-    ? worklist
-    : worklist.filter((w) => w.designerId === me?.user.id);
-
-  mine.sort(
-    (a, b) => b.dayCount - a.dayCount || a.dueDate.localeCompare(b.dueDate),
+  const mine = sortWork(
+    visibleWork(worklist, me?.user.id ?? null, canManageMembers(me?.role as MemberRole | null)),
   );
-
-  /*
-    ★ 오래 잡고 있는 것이 맨 위입니다.
-      요청시한이 아니라 **며칠째인가**로 셉니다 — 이 목록은 '무엇이 급한가'
-      가 아니라 '무엇이 안 끝나고 있는가' 를 보는 자리입니다.
-      급한 것은 주문목록의 D-day 가 봅니다.
-      같은 날 잡은 것끼리는 요청시한이 이른 것부터.
-  */
-
 
   return {
     statusCounts,
