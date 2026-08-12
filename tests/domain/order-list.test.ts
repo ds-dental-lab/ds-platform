@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   statusesForSector,
-  formatRemakeLabel,
+  formatRemakeCell,
   computeDDay,
   formatToothList,
   sectorOfStatus,
@@ -208,27 +208,41 @@ describe('섹터별 상태 목록', () => {
 
 describe('리메이크 표기', () => {
   it('★ 원주문은 다시 만든 횟수를 회 로 찍는다', () => {
-    expect(formatRemakeLabel({ isRemake: false, remakeSeq: 0, remakeCount: 2 })).toBe('2회');
+    expect(formatRemakeCell({ isRemake: false, remakeSeq: 0, remakeCount: 2 }).text).toBe('2');
   });
 
-  it('★ 리메이크는 몇 차인지를 차 로 찍는다', () => {
-    expect(formatRemakeLabel({ isRemake: true, remakeSeq: 1, remakeCount: 0 })).toBe('1차');
-    expect(formatRemakeLabel({ isRemake: true, remakeSeq: 2, remakeCount: 0 })).toBe('2차');
+  // ★ 사용자 결정 2026-08-12 — "1차 2차가 아닌 그냥 1,2"
+  it('★ 숫자만 찍는다', () => {
+    expect(formatRemakeCell({ isRemake: true, remakeSeq: 1, remakeCount: 0 }).text).toBe('1');
+    expect(formatRemakeCell({ isRemake: true, remakeSeq: 2, remakeCount: 0 }).text).toBe('2');
+  });
+
+  // ★ 글자가 같아지므로 색과 툴팁이 유일한 구별입니다
+  it('★ 리메이크 자신인지 아닌지는 남겨 둔다', () => {
+    expect(formatRemakeCell({ isRemake: true, remakeSeq: 2, remakeCount: 0 }).isSelf).toBe(true);
+    expect(formatRemakeCell({ isRemake: false, remakeSeq: 0, remakeCount: 2 }).isSelf).toBe(false);
+  });
+
+  it('★ 같은 2 라도 무엇을 세는지 말해 준다', () => {
+    expect(formatRemakeCell({ isRemake: true, remakeSeq: 2, remakeCount: 0 }).title).toContain('2차');
+    expect(formatRemakeCell({ isRemake: false, remakeSeq: 0, remakeCount: 2 }).title).toContain('2번');
   });
 
   it('★ 2차 리메이크가 0 으로 보이지 않는다', () => {
     // remakeCount 만 쓰면 0 이 되어 리메이크가 아닌 것처럼 보였습니다
-    const label = formatRemakeLabel({ isRemake: true, remakeSeq: 2, remakeCount: 0 });
-    expect(label).not.toBe('0');
-    expect(label).toBe('2차');
+    const cell = formatRemakeCell({ isRemake: true, remakeSeq: 2, remakeCount: 0 });
+    expect(cell.text).not.toBe('0');
+    expect(cell.text).toBe('2');
   });
 
   it('한 번도 안 만든 원주문은 0', () => {
-    expect(formatRemakeLabel({ isRemake: false, remakeSeq: 0, remakeCount: 0 })).toBe('0');
+    expect(formatRemakeCell({ isRemake: false, remakeSeq: 0, remakeCount: 0 }).text).toBe('0');
   });
 
   it('리메이크가 또 다시 만들어져도 차수를 유지한다', () => {
-    // 1차 리메이크가 한 번 더 리메이크돼도 '1차' 입니다
-    expect(formatRemakeLabel({ isRemake: true, remakeSeq: 1, remakeCount: 1 })).toBe('1차');
+    // 1차 리메이크가 한 번 더 리메이크돼도 자기 차수(1)를 찍습니다
+    const cell = formatRemakeCell({ isRemake: true, remakeSeq: 1, remakeCount: 1 });
+    expect(cell.text).toBe('1');
+    expect(cell.isSelf).toBe(true);
   });
 });

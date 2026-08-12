@@ -186,22 +186,51 @@ export function isSortable(column: string): column is SortColumn {
 
 // ---------- 리메이크 표기 (사용자 확정 2026-08-11, 다 안) ----------
 
+export interface RemakeCell {
+  /** 칸에 찍을 글자. 숫자만입니다 */
+  text: string;
+  /** 이 줄 자신이 리메이크인가 — 색으로 가릅니다 */
+  isSelf: boolean;
+  /** 마우스를 올렸을 때 무엇을 세는 숫자인지 */
+  title: string;
+}
+
 /**
- * 목록의 '리메이크 횟수' 칸에 무엇을 찍을지.
+ * 목록의 '리메이크' 칸.
  *
- * ★ 원주문과 리메이크는 궁금한 것이 다릅니다.
- *     원주문   몇 번 다시 만들었나        → '2회'
- *     리메이크 내가 몇 차인가             → '2차'
+ * ★ 숫자만 찍습니다 (사용자 결정 2026-08-12 — "1차 2차가 아닌 그냥 1,2").
+ *   '2회'·'2차' 처럼 단위를 붙이면 좁은 칸에서 줄이 흔들립니다.
  *
- *   한 열에 둘을 같이 찍습니다. 서로 다른 수인데 같은 숫자로 보이면
- *   2차 리메이크가 0 으로 나옵니다 — 아직 자기가 다시 만들어진 적이
- *   없다는 뜻이지만, 보는 사람은 리메이크가 아닌 줄 압니다.
+ * ★ 그런데 두 숫자는 뜻이 다릅니다.
+ *     원주문   몇 번 다시 만들었나   (remakeCount)
+ *     리메이크 내가 몇 차인가        (remakeSeq)
+ *   글자를 똑같이 '2' 로 찍으면 이 둘이 구별되지 않습니다. 그래서
+ *   **색과 툴팁**으로 가릅니다 — 숫자만 보고 싶다는 요청은 지키되,
+ *   무엇을 세는 숫자인지는 잃지 않습니다.
+ *
+ * ★ 2차 리메이크가 0 으로 보이면 안 됩니다.
+ *   remakeCount 만 쓰면 그렇게 됩니다 — 자기가 아직 안 다시 만들어졌을
+ *   뿐인데 리메이크가 아닌 줄 압니다.
  */
-export function formatRemakeLabel(row: {
+export function formatRemakeCell(row: {
   isRemake: boolean;
   remakeSeq: number;
   remakeCount: number;
-}): string {
-  if (row.isRemake) return `${row.remakeSeq}차`;
-  return row.remakeCount > 0 ? `${row.remakeCount}회` : '0';
+}): RemakeCell {
+  if (row.isRemake) {
+    return {
+      text: String(row.remakeSeq),
+      isSelf: true,
+      title: `이 주문은 ${row.remakeSeq}차 리메이크입니다`,
+    };
+  }
+
+  return {
+    text: String(row.remakeCount),
+    isSelf: false,
+    title:
+      row.remakeCount > 0
+        ? `이 주문은 ${row.remakeCount}번 다시 만들어졌습니다`
+        : '다시 만든 적이 없습니다',
+  };
 }
