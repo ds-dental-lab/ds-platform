@@ -108,6 +108,13 @@ export interface OrderDetailScreenProps {
   scanSlot?: React.ReactNode;
   /** 치식도 아래에 끼워 넣을 것 (수거 카드 등) */
   extraSlot?: React.ReactNode;
+  /**
+   * 머리줄 **바로 아래**에 끼워 넣을 것 (리페어 칸).
+   *
+   * ★ 치식도보다 위입니다. 이 건이 왜 다시 들어왔는지는
+   *   어느 이가 몇 개인지보다 먼저 읽혀야 합니다.
+   */
+  issueSlot?: React.ReactNode;
   /** 아래줄에 끼워 넣을 것 (리메이크 · 리페어 신청) — 시안 .dt-bar */
   barSlot?: React.ReactNode;
 }
@@ -129,6 +136,7 @@ export default function OrderDetailScreen({
   designSlot,
   scanSlot,
   extraSlot,
+  issueSlot,
   barSlot,
 }: OrderDetailScreenProps) {
   const placements: ChartPlacement[] = order.items.map((item) => ({
@@ -265,6 +273,8 @@ export default function OrderDetailScreen({
             </span>
           </div>
         </div>
+
+        {issueSlot && <div className="px-[18px] pt-3.5">{issueSlot}</div>}
 
         {/* ---------- .dt-arch ---------- */}
         <div className="px-[18px] pb-[30px] pt-6">

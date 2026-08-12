@@ -200,6 +200,10 @@ export interface OrderDetail {
   designer_user_id: string | null;
   /** 담당 디자이너 이름. 못 찾으면 빈 값 */
   designer_name: string;
+  /** 이 주문 자체가 리페어인가 (§4.5) */
+  is_repair: boolean;
+  /** 리페어·리메이크라면 어느 주문에서 나왔는가 */
+  parent_order_id: string | null;
   /** 이 주문에서 내가 맡은 자리들. 한 조직이 둘을 겸할 수 있습니다 */
   roles: Sector[];
   items: OrderDetailItem[];
@@ -301,6 +305,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     .select(
       `id, order_no, patient_label:${patientLabelColumn()}, ` +
         'status, order_type, due_date, notes, created_at, received_at, ' +
+        'is_repair, parent_order_id, ' +
         'clinic_org_id, design_org_id, lab_org_id, designer_user_id, ' +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
         'lab:organizations!orders_lab_org_id_fkey(name), ' +
@@ -363,6 +368,8 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     clinic_org_id: row.clinic_org_id,
     designer_user_id: row.designer_user_id,
     designer_name: row.designer?.name ?? '',
+    is_repair: Boolean(row.is_repair),
+    parent_order_id: row.parent_order_id,
     // 기공소 자리를 디자인센터가 겸하면 자사 제작입니다
     in_house: Boolean(row.lab_org_id && row.lab_org_id === row.design_org_id),
     roles: rolesOf(row, session?.orgId ?? null),

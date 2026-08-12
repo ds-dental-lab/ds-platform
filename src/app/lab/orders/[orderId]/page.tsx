@@ -19,6 +19,8 @@ import { listOrderMessages } from '@/server/repositories/order-message';
 import { todayInKst } from '@/server/domain/week';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
 import PickupCard from '@/components/order/PickupCard';
+import RepairPanel from '@/components/order/RepairPanel';
+import { getRepairContext } from '@/server/repositories/repair';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,12 +33,18 @@ export default async function LabOrderDetailPage({ params }: LabOrderDetailPageP
   const order = await getOrderDetail(orderId);
   if (!order) notFound();
 
-  const [implantCatalog, pickups, messages, prosthesisCatalog] = await Promise.all([
+  const [implantCatalog, pickups, messages, prosthesisCatalog, repair] = await Promise.all([
     getImplantCatalog(),
     listPickupsForOrder(orderId),
     listOrderMessages(orderId),
     // 꺼진 제품도 함께 — 지난 주문이 그 조합을 가리킵니다
     getProsthesisCatalog({ includeInactive: true }),
+    /*
+      ★ 기공소가 제일 절실한 칸입니다.
+        무엇을 어떻게 고쳐 달라는 글을 못 보면, 물건만 받아 놓고
+        손을 못 댑니다.
+    */
+    getRepairContext(order),
   ]);
 
   return (
@@ -53,6 +61,9 @@ export default async function LabOrderDetailPage({ params }: LabOrderDetailPageP
           : undefined
       }
       extraSlot={pickups.length > 0 ? <PickupCard pickups={pickups} /> : null}
+      issueSlot={
+        <RepairPanel repair={repair} isRepair={order.is_repair} orderPath="/lab/orders" />
+      }
     />
   );
 }

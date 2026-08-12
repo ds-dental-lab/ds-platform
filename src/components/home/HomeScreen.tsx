@@ -22,7 +22,8 @@ import Link from 'next/link';
 import { STATUS_LABEL, type OrderStatus, type Sector } from '@/server/domain/order-status';
 import { ISSUE_META, type IssueType } from '@/server/domain/order-list';
 import MoneyTrend from '@/components/home/MoneyTrend';
-import type { HomeSummary, HomeWork } from '@/server/repositories/home';
+import { PICKUP_KIND_LABEL, PICKUP_STATUS_LABEL } from '@/lib/format/pickup';
+import type { HomeSummary, HomePickup, HomeWork } from '@/server/repositories/home';
 
 /** 섹터마다 세는 상태가 다릅니다 */
 const STATUS_ROWS: Record<Sector, OrderStatus[]> = {
@@ -332,21 +333,28 @@ export default function HomeScreen({
         <Card className="min-h-[300px]">
           <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">수거요청</h2>
 
-          <div className="mt-3.5 grid grid-cols-3 border-b border-[#E8EBF0] pb-2.5 text-[12px] text-[#98A2B3]">
+          <div className="mt-3.5 grid grid-cols-[1fr_0.72fr_0.72fr] gap-2 border-b border-[#E8EBF0] pb-2.5 text-[12px] text-[#98A2B3]">
             <span>치과명</span>
             <span>요청시한</span>
-            <span>요청사항</span>
+            <span>상태</span>
           </div>
 
           {summary.pickups.length === 0 ? (
             <Empty className="py-20">데이터가 없습니다.</Empty>
           ) : (
-            <ul className="divide-y divide-[#F0F2F5]">
+            <ul className="-mx-1.5 divide-y divide-[#F0F2F5]">
               {summary.pickups.map((row) => (
-                <li key={row.id} className="grid grid-cols-3 gap-2 py-2.5 text-[12.5px]">
-                  <span className="truncate text-[#4A5567]">{row.clinicName}</span>
-                  <span className="tabular-nums text-[#4A5567]">{row.dueDate}</span>
-                  <span className="truncate text-[#98A2B3]">{row.memo}</span>
+                <li key={row.id}>
+                  {/*
+                    ★ 눌러서 그 주문을 엽니다 (사용자 요청 2026-08-13).
+                      요청사항 한 줄을 좁은 칸에 욱여넣는 대신, 무엇을
+                      가져가는지·왜인지는 주문상세에서 온전히 봅니다.
+                      여기서는 마우스를 올리면 미리 보입니다.
+                  */}
+                  <PickupRow
+                    row={row}
+                    href={row.orderId ? `${path.orders}/${row.orderId}` : null}
+                  />
                 </li>
               ))}
             </ul>
@@ -354,6 +362,51 @@ export default function HomeScreen({
         </Card>
       </div>
     </div>
+  );
+}
+
+// ---------- 수거요청 한 줄 ----------
+
+/**
+ * ★ 상태 글자가 꼭 필요합니다 (2026-08-13).
+ *   '배송 전까지 남긴다' 로 바꾼 순간, 이미 가져간 건도 카드에 남습니다.
+ *   상태를 안 적으면 목록이 "아직 안 가져갔다" 는 거짓말을 합니다.
+ */
+function PickupRow({ row, href }: { row: HomePickup; href: string | null }) {
+  const title =
+    `${PICKUP_KIND_LABEL[row.kind] ?? row.kind} 수거` +
+    (row.memo ? ` · ${row.memo}` : '');
+
+  const body = (
+    <>
+      <span className="truncate text-[#4A5567]">{row.clinicName}</span>
+      <span className="tabular-nums text-[#4A5567]">{row.dueDate}</span>
+      <span
+        className={
+          'truncate text-[11.5px] font-semibold ' +
+          (row.waiting ? 'text-[#C77700]' : 'text-[#98A2B3]')
+        }
+      >
+        {PICKUP_STATUS_LABEL[row.status] ?? row.status}
+      </span>
+    </>
+  );
+
+  const shape =
+    'grid grid-cols-[1fr_0.72fr_0.72fr] items-center gap-2 rounded px-1.5 py-2.5 text-[12.5px]';
+
+  if (!href) {
+    return (
+      <div className={shape} title={title}>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Link href={href} title={title} className={`${shape} hover:bg-[#F4F8FE]`}>
+      {body}
+    </Link>
   );
 }
 

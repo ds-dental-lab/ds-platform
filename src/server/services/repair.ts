@@ -220,6 +220,29 @@ export async function requestRepair(input: RepairInput): Promise<RepairResult> {
     requested_by_user_id: session.user.id,
   });
 
+  /*
+    ★ 리페어 딱지 (사용자 요청 2026-08-13).
+      "리페어 요청 건에 대한 주문에 관해서는 리페어 이슈 딱지가
+       표현되었으면 해. 또한 Home 진행중 이슈에 카운트 됬으면 해"
+
+    ★ 딱지는 **리페어 주문 자신**에게 붙입니다. 원주문이 아닙니다.
+      리메이크는 원주문에 붙였는데, 그쪽은 "이 건이 다시 만들어졌다" 는
+      원주문의 흠이라 그게 맞습니다. 리페어는 다릅니다 —
+      지금 손이 가야 하는 것은 새로 만들어진 그 리페어 건입니다.
+      원주문은 대개 이미 완료라, 거기 붙이면 '진행중 이슈' 에서
+      조용히 빠집니다 (HOME 은 끝난 주문을 세지 않습니다).
+
+    ★ 닫지 않습니다. 리페어 주문이 완료되면 HOME 카운트에서 저절로
+      빠지고, 목록의 딱지는 그대로 남습니다 — 그 주문은 끝난 뒤에도
+      리페어 건이 맞습니다.
+  */
+  await supabase.from('order_issues').insert({
+    order_id: repair.id,
+    issue_type: 'repair',
+    opened_by_org_id: session.orgId,
+    reason: input.notes.trim(),
+  });
+
   // 상태 이력에 시작점을 남깁니다 (from 은 비어 있습니다 — 생성이니까)
   await supabase.from('order_status_history').insert({
     order_id: repair.id,

@@ -10,6 +10,8 @@ import { notFound } from 'next/navigation';
 import { getOrderDetail, listPartnerLabs } from '@/server/repositories/order';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
+import { getRepairContext } from '@/server/repositories/repair';
+import RepairPanel from '@/components/order/RepairPanel';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { getHolidayMap } from '@/server/repositories/holiday';
 import { todayInKst } from '@/server/domain/week';
@@ -43,7 +45,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       다른 것을 하나도 안 쓰는데 줄 맨 뒤에서 혼자 기다리고 있었습니다.
       주문등록·주문상세·수정 네 화면이 모두 같은 모양이었습니다.
   */
-  const [labs, implantCatalog, messages, prosthesisCatalog, holidays] = await Promise.all([
+  const [labs, implantCatalog, messages, prosthesisCatalog, holidays, repair] = await Promise.all([
     listPartnerLabs(),
     getImplantCatalog(),
     listOrderMessages(orderId),
@@ -51,6 +53,8 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
     getProsthesisCatalog({ includeInactive: true }),
     // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
     getHolidayMap(),
+    // 리페어 칸 — 여기 함께 넣어야 왕복이 안 늘어납니다
+    getRepairContext(order),
   ]);
 
   const today = todayInKst();
@@ -123,6 +127,9 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       showCost
       labName={order.in_house ? '자사 제작' : order.lab_name}
       forwardBlockedReason={forwardBlockedReason}
+      issueSlot={
+        <RepairPanel repair={repair} isRepair={order.is_repair} orderPath="/design/orders" />
+      }
       /*
         ★ 읽기만 하는 한 줄입니다 (사용자 결정 2026-08-12).
           조정은 스패너 안으로 들어갔고, 여기서는 숫자만 봅니다.

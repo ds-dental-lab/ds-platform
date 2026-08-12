@@ -47,6 +47,25 @@ export default function DesignerAssignSelect({
   const [error, setError] = useState('');
   const [value, setValue] = useState(current ?? '');
 
+  /*
+    ★ 서버가 바꾼 담당을 따라갑니다 (사용자 신고 2026-08-13 —
+      "디자인 누를때 새로고침 안해도 바로 담당자가 확인되게").
+
+      '디자인' 버튼을 누르면 서버가 그 자리에서 나를 담당으로 박습니다
+      (changeOrderStatus 의 claiming). 화면도 새로 그려져 current 에
+      내 id 가 실려 오는데, useState 의 초기값은 **처음 한 번만** 쓰입니다.
+      그래서 셀렉박스만 '미지정' 에 멈춰 있었습니다. 새로고침을 해야
+      비로소 이 컴포넌트가 새로 만들어지면서 맞는 값이 들어왔습니다.
+
+      useEffect 로 맞추면 한 번 틀린 화면을 그린 뒤 고칩니다.
+      그리기 도중에 바로잡으면 사람은 잘못된 값을 아예 못 봅니다.
+  */
+  const [seen, setSeen] = useState(current ?? '');
+  if (seen !== (current ?? '')) {
+    setSeen(current ?? '');
+    setValue(current ?? '');
+  }
+
   if (!editable) {
     return (
       <span>

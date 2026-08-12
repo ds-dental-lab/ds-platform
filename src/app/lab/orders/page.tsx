@@ -6,6 +6,7 @@
 // =========================================================
 
 import OrderListScreen from '@/components/order/OrderListScreen';
+import AutoRefresh from '@/components/layout/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,14 +16,18 @@ interface PageProps {
 
 export default async function LabOrderListPage({ searchParams }: PageProps) {
   return (
-    <OrderListScreen
-      sector="lab"
-      title="작업목록"
-      basePath="/lab/orders"
-      orderPath="/lab/orders"
-      showLab={false}
-      showClinicSearch
-      searchParams={await searchParams}
-    />
+    <>
+      {/* ★ 제작대기가 들어오면 새로고침 없이 목록에 붙습니다 (사용자 요청 2026-08-13) */}
+      <AutoRefresh />
+      <OrderListScreen
+        sector="lab"
+        title="작업목록"
+        basePath="/lab/orders"
+        orderPath="/lab/orders"
+        showLab={false}
+        showClinicSearch
+        searchParams={await searchParams}
+      />
+    </>
   );
 }

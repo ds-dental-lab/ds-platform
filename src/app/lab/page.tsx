@@ -9,6 +9,7 @@ import { getHomeSummary } from '@/server/repositories/home';
 import { getSession } from '@/server/policies/session';
 import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 import HomeScreen from '@/components/home/HomeScreen';
+import AutoRefresh from '@/components/layout/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,10 +18,14 @@ export default async function HomePage() {
   const session = await getSession();
 
   return (
-    <HomeScreen
-      sector="lab"
-      summary={summary}
-      canSeeMoney={canSeeMoney(session?.role as MemberRole | null)}
-    />
+    <>
+      {/* ★ 제작대기가 들어오면 새로고침 없이 올라옵니다 (사용자 요청 2026-08-13) */}
+      <AutoRefresh />
+      <HomeScreen
+        sector="lab"
+        summary={summary}
+        canSeeMoney={canSeeMoney(session?.role as MemberRole | null)}
+      />
+    </>
   );
 }

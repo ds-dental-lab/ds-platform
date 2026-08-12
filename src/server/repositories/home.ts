@@ -20,6 +20,7 @@ import { getSession } from '@/server/policies/session';
 import { canManageMembers, type MemberRole } from '@/server/domain/member';
 import { visibleWork, sortWork } from '@/server/domain/worklist';
 import { listNotices, type NoticeRow } from '@/server/repositories/notice';
+import { pickupStillListed, pickupWaiting } from '@/server/domain/pickup';
 import type { OrderStatus } from '@/server/domain/order-status';
 import type { IssueType } from '@/server/domain/order-list';
 
@@ -35,6 +36,14 @@ export interface HomePickup {
   clinicName: string;
   dueDate: string;
   memo: string;
+  /** 눌러서 열 주문. 주문 없이 만든 수거면 null */
+  orderId: string | null;
+  /** open · assigned · done — 카드에 그대로 적습니다 */
+  status: string;
+  /** 무엇을 가져가는가 — 보철물 · 모델 · 인상체 */
+  kind: string;
+  /** 아직 안 가져갔는가 */
+  waiting: boolean;
 }
 
 /** 지금 디자인 중인 주문 한 줄 */
@@ -264,27 +273,54 @@ function daysBetween(from: string, to: string): number {
   return Math.max(0, Math.round(ms / 86400000));
 }
 
-/** 아직 안 가져간 수거요청 */
+/**
+ * HOME 수거요청 카드에 세울 것들.
+ *
+ * ★ '배송' 전까지 남습니다 (사용자 결정 2026-08-13).
+ *   전에는 `status = 'open'` 만 읽어, 기공소가 수거완료를 누르는 순간
+ *   목록에서 사라졌습니다. 물건을 받아 온 것과 그 건이 끝난 것은
+ *   다릅니다. 규칙은 domain/pickup 이 쥡니다.
+ *
+ * ★ 그래서 상태로 거르는 일을 DB 에 못 맡깁니다.
+ *   기준이 딸린 **주문의 단계**라, 조인한 표의 값을 봐야 합니다.
+ *   대신 넉넉히 읽어 와서 여기서 거르고 열 줄만 남깁니다.
+ */
+const PICKUP_SCAN = 60;
+const PICKUP_SHOWN = 10;
+
 async function listOpenPickups(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<HomePickup[]> {
   const { data } = await supabase
     .from('pickup_requests')
-    .select('id, memo, created_at, order:orders(due_date, clinic:organizations!orders_clinic_org_id_fkey(name))')
-    .eq('status', 'open')
+    .select(
+      'id, kind, status, memo, created_at, order_id, ' +
+        'order:orders(due_date, status, clinic:organizations!orders_clinic_org_id_fkey(name))',
+    )
+    .neq('status', 'cancelled')
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(PICKUP_SCAN);
 
   type RawPickup = {
     id: string;
+    kind: string;
+    status: string;
     memo: string | null;
-    order: { due_date: string; clinic: { name: string } | null } | null;
+    order_id: string | null;
+    order: { due_date: string; status: OrderStatus; clinic: { name: string } | null } | null;
   };
 
-  return ((data ?? []) as unknown as RawPickup[]).map((row) => ({
-    id: row.id,
-    clinicName: row.order?.clinic?.name ?? '',
-    dueDate: row.order?.due_date ?? '',
-    memo: row.memo ?? '',
-  }));
+  return ((data ?? []) as unknown as RawPickup[])
+    .filter((row) => pickupStillListed(row.status, row.order?.status ?? null))
+    .slice(0, PICKUP_SHOWN)
+    .map((row) => ({
+      id: row.id,
+      clinicName: row.order?.clinic?.name ?? '',
+      dueDate: row.order?.due_date ?? '',
+      memo: row.memo ?? '',
+      orderId: row.order_id,
+      status: row.status,
+      kind: row.kind,
+      waiting: pickupWaiting(row.status),
+    }));
 }

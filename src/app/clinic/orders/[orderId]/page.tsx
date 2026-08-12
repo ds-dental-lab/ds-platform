@@ -20,6 +20,8 @@ import OrderDetailScreen from '@/components/order/OrderDetailScreen';
 import RepairRequest from '@/components/order/RepairRequest';
 import RemakeRequest from '@/components/order/RemakeRequest';
 import RescanBar from '@/components/order/RescanBar';
+import RepairPanel from '@/components/order/RepairPanel';
+import { getRepairContext } from '@/server/repositories/repair';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,13 +42,15 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       안 쓰는데 줄을 세워 둔 셈이라, 왕복 하나가 고스란히 화면 뜨는
       시간에 더해졌습니다.
   */
-  const [implantCatalog, messages, prosthesisCatalog, holidays] = await Promise.all([
+  const [implantCatalog, messages, prosthesisCatalog, holidays, repair] = await Promise.all([
     getImplantCatalog(),
     listOrderMessages(orderId),
     // 지난 주문이 가리키는 조합은 꺼져도 이름을 잃지 않아야 합니다
     getProsthesisCatalog({ includeInactive: true }),
     // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
     getHolidayMap(),
+    // 리페어 칸 — 여기 함께 넣어야 왕복이 안 늘어납니다
+    getRepairContext(order),
   ]);
 
   return (
@@ -58,6 +62,9 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       prosthesisCatalog={prosthesisCatalog}
       messages={messages}
       showClinic={false}
+      issueSlot={
+        <RepairPanel repair={repair} isRepair={order.is_repair} orderPath="/clinic/orders" />
+      }
       scanSlot={
         order.status === 'rescan' ? (
           <RescanBar
