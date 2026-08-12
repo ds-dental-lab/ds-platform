@@ -106,9 +106,17 @@ export function checkNewPassword(password: string, confirm: string): Verdict {
  *
  * ★ 이메일을 그대로 다시 적어 줍니다.
  *   오타로 엉뚱한 곳에 보내 놓고 메일함만 들여다보는 일을 막습니다.
+ *
+ * ★ 들어오는 길이 둘이라는 것을 말해 줍니다.
+ *   메일에 번호가 없을 수도 있습니다 (템플릿 설정에 달렸습니다).
+ *   그때 링크를 눌러도 된다는 것을 모르면, 번호를 찾다가 그냥 덮습니다.
  */
 export function sentMessage(email: string): string {
-  return `${email.trim()} 로 인증번호를 보냈습니다. 메일이 안 보이면 스팸함도 확인해 주세요.`;
+  return (
+    `${email.trim()} 로 메일을 보냈습니다. ` +
+    '메일에 적힌 번호를 넣거나, 메일 속 링크를 눌러도 됩니다. ' +
+    '안 보이면 스팸함도 확인해 주세요.'
+  );
 }
 
 /** 재발송까지 남은 초 */

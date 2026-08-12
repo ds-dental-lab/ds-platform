@@ -2,23 +2,32 @@
 // 놓을 위치: src/app/(auth)/reset/page.tsx
 //
 // 비밀번호 찾기. (사용자 요청 2026-08-12)
-//   ① 가입한 이메일 → 인증번호 발송
-//   ② 메일로 온 인증번호 → 확인
+//   ① 가입한 이메일 → 메일 발송
+//   ② 메일로 온 인증번호 → 확인      ┐ 둘 중 아무 쪽이나
+//   ②' 메일의 링크를 누름            ┘
 //   ③ 새 비밀번호 → 저장하고 로그인 화면으로
 //
-// ★ 한 화면에서 세 걸음을 걷습니다.
+// ★ 들어오는 길이 둘입니다.
+//   번호를 옮겨 적는 쪽이 기기를 안 가려서 좋지만, 메일 본문에 번호가
+//   들어가려면 Supabase 쪽 템플릿에 `{{ .Token }}` 을 넣어야 합니다.
+//   그 설정은 프로젝트에 따라 손을 못 대기도 합니다 (실제로 막혔습니다).
+//   그래서 **기본 메일에 들어 있는 링크**로도 같은 자리에 닿게 했습니다.
+//   템플릿을 못 고쳐도 오늘 당장 됩니다.
+//
+// ★ 한 화면에서 걷습니다.
 //   페이지를 옮기면 새로고침 한 번에 인증이 날아갑니다. 사람은 메일을
 //   보러 창을 왔다 갔다 하므로, 그 사이에 화면이 초기화되면 안 됩니다.
+//   링크로 돌아오는 곳도 이 화면이라, 돌아오면 ③ 부터 이어집니다.
 //
 // ★ 규칙은 domain/password-reset 이 쥡니다. 여기는 그리기만 합니다.
 // =========================================================
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { createRecoveryClient } from '@/lib/supabase/client';
 import {
   checkEmail,
   checkCode,
@@ -47,12 +56,70 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
+  /**
+   * ★ 연결은 **하나**를 끝까지 씁니다.
+   *   이 연결은 세션을 저장하지 않고 제 안에만 들고 있습니다. 걸음마다
+   *   새로 만들면, 인증까지 해 놓고 새 비밀번호를 저장하려는 순간
+   *   "로그인이 필요합니다" 를 만납니다 — 방금 인증한 사람에게.
+   *
+   *   ref 로 미룹니다. 화면을 그리는 도중(서버)에는 만들 일이 없습니다.
+   */
+  const clientRef = useRef<ReturnType<typeof createRecoveryClient> | null>(null);
+  const client = () => (clientRef.current ??= createRecoveryClient());
+
   // 재발송까지 남은 시간
   useEffect(() => {
     if (cooldown <= 0) return;
     const timer = setTimeout(() => setCooldown((n) => n - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
+
+  /**
+   * 메일의 링크를 눌러 돌아온 경우.
+   *
+   * ★ 링크에 실려 온 값은 supabase 가 알아서 읽습니다.
+   *   주소를 직접 뜯지 않습니다 — 형식이 바뀌면 조용히 안 듣게 됩니다.
+   *   다 읽고 나면 PASSWORD_RECOVERY 를 알려 주므로 그때 ③ 으로 넘깁니다.
+   *
+   * ★ 링크가 상했으면 주소에 이유가 실려 옵니다.
+   *   아무 말 없이 첫 칸을 보여 주면, 방금 링크를 누른 사람은 자기가
+   *   무엇을 잘못했는지 모릅니다.
+   */
+  useEffect(() => {
+    const { data } = client().auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setNotice('');
+        setError('');
+        setStep('password');
+      }
+    });
+
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const failed = params.get('error_description') ?? params.get('error');
+
+    if (failed) {
+      /*
+        ★ 첫 그림을 그린 뒤에 띄웁니다.
+          이 화면은 미리 만들어 두는(prerender) HTML 이라, 그리는 도중에
+          주소를 보고 글을 얹으면 서버가 만든 것과 달라집니다.
+          한 박자 늦추면 빈 폼이 먼저 서고 그 위에 메시지가 붙습니다.
+
+        ★ 주소를 지우는 것도 여기서 합니다.
+          Next 가 자리를 잡으면서 주소를 한 번 다시 씁니다 — 먼저 지우면
+          그때 되살아납니다. 새로고침할 때마다 같은 말이 또 뜨면 안 됩니다.
+      */
+      queueMicrotask(() => {
+        history.replaceState(null, '', window.location.pathname);
+        setError(
+          failed.toLowerCase().includes('expired')
+            ? '링크가 만료됐습니다. 아래에서 다시 받아 주세요.'
+            : '링크가 올바르지 않습니다. 아래에서 다시 받아 주세요.',
+        );
+      });
+    }
+
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   /**
    * ★ 그 이메일이 있는지 없는지 말하지 않습니다.
@@ -69,8 +136,15 @@ export default function ResetPasswordPage() {
     setError('');
     setLoading(true);
 
-    const supabase = createClient();
-    const { error: sendError } = await supabase.auth.resetPasswordForEmail(email.trim());
+    /*
+      ★ 돌아올 곳을 이 화면으로 잡습니다.
+        메일의 링크를 누르면 여기로 돌아오고, 위 useEffect 가 알아채
+        새 비밀번호 칸부터 이어집니다. 따로 만든 페이지로 보내면
+        같은 화면을 두 벌 만들게 됩니다.
+    */
+    const { error: sendError } = await client().auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset`,
+    });
 
     setLoading(false);
 
@@ -95,8 +169,7 @@ export default function ResetPasswordPage() {
     setError('');
     setLoading(true);
 
-    const supabase = createClient();
-    const { error: otpError } = await supabase.auth.verifyOtp({
+    const { error: otpError } = await client().auth.verifyOtp({
       email: email.trim(),
       token: normalizeCode(code),
       type: 'recovery',
@@ -123,8 +196,7 @@ export default function ResetPasswordPage() {
     setError('');
     setLoading(true);
 
-    const supabase = createClient();
-    const { error: saveError } = await supabase.auth.updateUser({ password });
+    const { error: saveError } = await client().auth.updateUser({ password });
 
     if (saveError) {
       setLoading(false);
@@ -138,7 +210,7 @@ export default function ResetPasswordPage() {
         들여보내면 **새 비밀번호가 진짜 되는지 아무도 확인하지 않은 채**
         넘어갑니다. 한 번 쳐 보고 들어가는 편이 안전합니다.
     */
-    await supabase.auth.signOut();
+    await client().auth.signOut();
     setLoading(false);
     setStep('done');
     router.refresh();
@@ -163,8 +235,8 @@ export default function ResetPasswordPage() {
 
         <h1 className="auth-title">{step === 'done' ? '비밀번호를 바꿨습니다' : '비밀번호 찾기'}</h1>
         <p className="auth-lead">
-          {step === 'email' && '가입할 때 쓴 이메일로 인증번호를 보내 드립니다.'}
-          {step === 'code' && '메일로 받은 번호를 그대로 넣어 주세요.'}
+          {step === 'email' && '가입할 때 쓴 이메일로 비밀번호 재설정 메일을 보내 드립니다.'}
+          {step === 'code' && '메일에 번호가 있으면 그대로 넣고, 없으면 메일 속 링크를 눌러 주세요.'}
           {step === 'password' && '새 비밀번호를 정해 주세요.'}
           {step === 'done' && '새 비밀번호로 로그인해 주세요.'}
         </p>

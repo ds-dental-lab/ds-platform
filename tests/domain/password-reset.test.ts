@@ -136,6 +136,12 @@ describe('화면에 쓰는 글', () => {
     expect(sentMessage('a@b.co')).toContain('스팸함');
   });
 
+  // ★ 메일에 번호가 없을 수도 있습니다 (템플릿 설정에 달렸습니다).
+  //   링크를 눌러도 된다는 걸 모르면 번호를 찾다가 그냥 덮습니다.
+  it('★ 링크를 눌러도 된다고 말해 줍니다', () => {
+    expect(sentMessage('a@b.co')).toContain('링크');
+  });
+
   it('재발송은 남은 초를 보여 줍니다', () => {
     expect(resendLabel(42)).toBe('재발송 (42초)');
     expect(resendLabel(0)).toBe('인증번호 다시 받기');
