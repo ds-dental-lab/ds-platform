@@ -65,7 +65,15 @@ export default function ToothChart({
 
   return (
     <div className="w-full overflow-x-auto px-2.5 pb-4 pt-1.5">
-      <div className="min-w-[860px]">
+      {/*
+        ★ `min-w-[860px]` 이었는데 **실제로 필요한 폭은 959px** 입니다.
+          모자란 만큼 한 줄이 눌려서, 치아 사이 이음매가 먼저 짜부라지고
+          이가 서로 겹쳐 붙습니다 (창 900px 에서 재 보니 959 → 860).
+          숫자를 키우는 대신 `min-w-max` 로 둡니다 — 치아 크기가 바뀌어도
+          따라옵니다. 자리가 남으면 블록이라 폭을 다 쓰고 가운데 정렬,
+          모자라면 눌리지 않고 가로 스크롤로 넘어갑니다.
+      */}
+      <div className="min-w-max">
         <ArchRow
           teeth={upper}
           placements={placements}
