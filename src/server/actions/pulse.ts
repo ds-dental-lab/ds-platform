@@ -29,16 +29,23 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 
 /**
- * 지금 이 사람에게 보이는 주문들의 상태를 한 줄로 요약합니다.
+ * 지금 이 사람 화면이 바뀌어야 하는지를 한 줄로 요약합니다.
  * 값 자체에는 뜻이 없습니다 — **달라졌는가**만 봅니다.
+ *
+ * ★ 알림도 함께 봅니다 (2026-08-13).
+ *   대화가 알림을 만들기 시작했는데, 알림은 orders 를 건드리지 않습니다.
+ *   주문만 보고 있으면 새 글이 와도 종에 숫자가 안 붙습니다 —
+ *   그 사람이 어디로든 옮겨 갈 때까지요. 그러면 알림을 만든 보람이
+ *   없습니다. 종은 상단바(레이아웃)에 있고, refresh 는 레이아웃까지
+ *   다시 그립니다.
  */
-export async function orderPulse(): Promise<string> {
+export async function sectorPulse(): Promise<string> {
   const session = await getSession();
   if (!session?.orgId) return '';
 
   const supabase = await createClient();
 
-  const [latest, counted] = await Promise.all([
+  const [latest, counted, unread] = await Promise.all([
     supabase
       .from('orders')
       .select('updated_at')
@@ -49,9 +56,14 @@ export async function orderPulse(): Promise<string> {
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .is('deleted_at', null),
+    // 안 읽은 알림 수 — 종에 붙는 바로 그 숫자입니다
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .is('read_at', null),
   ]);
 
   const at = (latest.data as { updated_at: string }[] | null)?.[0]?.updated_at ?? '';
 
-  return `${at}|${counted.count ?? 0}`;
+  return `${at}|${counted.count ?? 0}|${unread.count ?? 0}`;
 }

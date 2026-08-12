@@ -8,8 +8,10 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
+import { publishOrderMessage } from '@/server/events';
 
 export type MessageResult = { ok: true } | { ok: false; error: string };
 
@@ -41,6 +43,14 @@ export async function submitOrderMessage(
   const problem = checkBody(body);
   if (problem) return { ok: false, error: problem };
 
+  // after() 안에서도 쓰므로 좁혀진 값을 꺼내 둡니다
+  const author = {
+    orgId: session.orgId,
+    sector: session.orgType,
+    name: session.orgName ?? '',
+  };
+  const text = body.trim();
+
   const supabase = await createClient();
 
   const { error } = await supabase.from('order_messages').insert({
@@ -53,6 +63,27 @@ export async function submitOrderMessage(
   });
 
   if (error) return { ok: false, error: `보내지 못했습니다: ${error.message}` };
+
+  /*
+    ★ 대화도 종에 붙습니다 (사용자 결정 2026-08-13).
+      전에는 대화만 알림을 하나도 안 만들었습니다. 상태가 바뀌면
+      숫자가 붙는데 글은 아무 소리 없이 쌓여서, 치과가 급한 것을 적어
+      놓아도 상대가 그 주문을 다시 열 때까지 아무도 몰랐습니다.
+
+    ★ 보낸 사람을 기다리게 하지 않습니다.
+      알림을 만드는 동안 전송 버튼이 멈춰 있을 이유가 없습니다.
+      after() 는 응답을 보낸 뒤에 돕니다.
+  */
+  after(() =>
+    publishOrderMessage({
+      orderId,
+      authorOrgId: author.orgId,
+      authorUserId: session.user.id,
+      authorSector: author.sector,
+      authorName: author.name,
+      body: text,
+    }),
+  );
 
   refreshAll();
   return { ok: true };

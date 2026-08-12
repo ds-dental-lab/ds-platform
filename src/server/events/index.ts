@@ -15,6 +15,9 @@
 import { createClient } from '@/lib/supabase/server';
 import {
   planStatusNotifications,
+  planMessageNotifications,
+  resolveRecipients,
+  MESSAGE_PREVIEW,
   type RecipientSlot,
 } from '@/server/domain/notification';
 import type { OrderStatus, Sector } from '@/server/domain/order-status';
@@ -232,6 +235,86 @@ export async function publishRepairRequested(event: {
     });
   } catch (error) {
     console.error('[events] 리페어 이벤트 처리 실패', error);
+  }
+}
+
+/**
+ * 주문 대화에 글이 올라왔습니다. (사용자 결정 2026-08-13)
+ *
+ * ★ 여기서 실패해도 글은 이미 올라갔습니다.
+ *   알림이 안 붙었다고 남의 말을 지우지 않습니다.
+ */
+export async function publishOrderMessage(event: {
+  orderId: string;
+  authorOrgId: string;
+  authorUserId: string;
+  authorSector: Sector;
+  authorName: string;
+  body: string;
+}): Promise<void> {
+  try {
+    const supabase = await createClient();
+
+    const { data } = await supabase
+      .from('orders')
+      .select('order_no, patient_label, clinic_org_id, design_org_id, lab_org_id')
+      .eq('id', event.orderId)
+      .maybeSingle();
+
+    if (!data) return;
+
+    const order = data as unknown as {
+      order_no: string;
+      patient_label: string;
+      clinic_org_id: string | null;
+      design_org_id: string | null;
+      lab_org_id: string | null;
+    };
+
+    const { data: saved } = await supabase
+      .from('domain_events')
+      .insert({
+        event_type: 'order.message',
+        aggregate_type: 'order',
+        aggregate_id: event.orderId,
+        actor_org_id: event.authorOrgId,
+        actor_user_id: event.authorUserId,
+        payload: { preview: event.body.slice(0, MESSAGE_PREVIEW) },
+      })
+      .select('id')
+      .single();
+
+    const plans = planMessageNotifications(event.authorSector, {
+      orderNo: order.order_no,
+      patientLabel: order.patient_label,
+      body: event.body,
+      authorName: event.authorName,
+    });
+
+    const orgOf: Record<RecipientSlot, string | null> = {
+      clinic: order.clinic_org_id,
+      design: order.design_org_id,
+      lab: order.lab_org_id,
+    };
+
+    // 누가 실제로 받는지는 도메인이 정합니다 (자사 제작 함정이 여기 있습니다)
+    const rows = resolveRecipients(plans, orgOf, event.authorOrgId).map(({ plan, orgId }) => ({
+      org_id: orgId,
+      event_id: saved?.id ?? null,
+      channel: 'in_app' as const,
+      status: 'sent' as const,
+      event_type: 'order.message',
+      title: plan.title,
+      body: plan.body ?? null,
+      link: linkFor(plan.to, event.orderId),
+      payload: { orderId: event.orderId },
+    }));
+
+    if (rows.length > 0) {
+      await supabase.from('notifications').insert(rows);
+    }
+  } catch (error) {
+    console.error('[events] 대화 알림 처리 실패', error);
   }
 }
 

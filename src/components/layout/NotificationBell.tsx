@@ -51,8 +51,17 @@ export default function NotificationBell({
           <path d="M8.2 15.5a1.9 1.9 0 0 0 3.6 0" />
         </svg>
 
+        {/*
+          ★ 점이 아니라 숫자입니다 (2026-08-13).
+            대화가 알림을 만들기 시작하면서 종이 실제로 자주 울립니다.
+            점만 있으면 "뭔가 있다" 까지만 알고, 두 건인지 열 건인지를
+            열어 봐야 압니다. 열어 보게 만드는 것이 점의 목적이지만,
+            매번 열게 하면 결국 안 열어 봅니다.
+        */}
         {unreadCount > 0 && (
-          <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#E5484D]" />
+          <span className="absolute -right-0.5 -top-0.5 grid h-[15px] min-w-[15px] place-items-center rounded-full border border-white bg-[#E5484D] px-[3px] text-[9.5px] font-extrabold leading-none text-white">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
         )}
       </button>
 

@@ -6,6 +6,7 @@
 // =========================================================
 
 import OrderListScreen from '@/components/order/OrderListScreen';
+import AutoRefresh from '@/components/layout/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,14 +16,17 @@ interface PageProps {
 
 export default async function ClinicOrderListPage({ searchParams }: PageProps) {
   return (
-    <OrderListScreen
-      sector="clinic"
-      title="주문목록"
-      basePath="/clinic/orders"
-      orderPath="/clinic/orders"
-      showLab={false}
-      showClinicSearch={false}
-      searchParams={await searchParams}
-    />
+    <>
+      <AutoRefresh />
+      <OrderListScreen
+        sector="clinic"
+        title="주문목록"
+        basePath="/clinic/orders"
+        orderPath="/clinic/orders"
+        showLab={false}
+        showClinicSearch={false}
+        searchParams={await searchParams}
+      />
+    </>
   );
 }

@@ -22,7 +22,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { orderPulse } from '@/server/actions/pulse';
+import { sectorPulse } from '@/server/actions/pulse';
 
 export interface AutoRefreshProps {
   /**
@@ -56,7 +56,7 @@ export default function AutoRefresh({ everySec = 20 }: AutoRefreshProps) {
       busy.current = true;
 
       try {
-        const next = await orderPulse();
+        const next = await sectorPulse();
         if (!alive) return;
 
         if (stamp.current === null) {

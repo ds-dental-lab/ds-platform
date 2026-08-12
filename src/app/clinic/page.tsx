@@ -9,6 +9,7 @@ import { getHomeSummary } from '@/server/repositories/home';
 import { getSession } from '@/server/policies/session';
 import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 import HomeScreen from '@/components/home/HomeScreen';
+import AutoRefresh from '@/components/layout/AutoRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,10 +18,14 @@ export default async function HomePage() {
   const session = await getSession();
 
   return (
-    <HomeScreen
-      sector="clinic"
-      summary={summary}
-      canSeeMoney={canSeeMoney(session?.role as MemberRole | null)}
-    />
+    <>
+      {/* ★ 치과에도 붙입니다 — 대화 알림이 종에 뜨려면 여기가 있어야 합니다 */}
+      <AutoRefresh />
+      <HomeScreen
+        sector="clinic"
+        summary={summary}
+        canSeeMoney={canSeeMoney(session?.role as MemberRole | null)}
+      />
+    </>
   );
 }
