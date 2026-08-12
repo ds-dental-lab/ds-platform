@@ -483,6 +483,39 @@ export const STATUS_ORDER: OrderStatus[] = [
   'cancelled',
 ];
 
+// ---------- 상태가 바뀔 때 여닫는 이슈 딱지 ----------
+
+/**
+ * 이 전이가 이슈 딱지를 열거나 닫는가. (사용자 신고 2026-08-13)
+ *
+ * ★ 이 규칙이 **아무 데도 없어서** 재스캔 딱지가 한 번도 안 열렸습니다.
+ *   닫는 코드만 rescan.ts 에 있었고, 열린 적이 없으니 늘 0행을 고치고
+ *   지나갔습니다. 목록의 이슈 필터도 HOME 의 진행중 이슈도 영영 0이었고,
+ *   상태 필터와 같이 켜면 결과가 0건이 되어 상태 조회까지 고장 난 것처럼
+ *   보였습니다. 규칙을 여기 두고 테스트로 못박습니다.
+ *
+ * ★ 나가는 길을 한 갈래만 보지 않습니다.
+ *   재업로드(rescan.ts)가 정상 경로지만, 다른 길로 재스캔을 벗어나도
+ *   딱지는 닫혀야 합니다. 안 그러면 다음 재스캔 때 한 주문이 두 번
+ *   세어집니다.
+ *
+ * ★ 리메이크·리페어는 여기가 아닙니다.
+ *   그 둘은 **새 주문을 만들면서** 딱지를 답니다. 상태 전이가 아니라
+ *   생성이라, 각자의 서비스가 쥡니다.
+ */
+export interface IssueChange {
+  /** 새로 열 딱지 */
+  open: 'rescan' | null;
+  /** 닫을 딱지 */
+  resolve: 'rescan' | null;
+}
+
+export function issueOnTransition(from: OrderStatus, to: OrderStatus): IssueChange {
+  if (to === 'rescan') return { open: 'rescan', resolve: null };
+  if (from === 'rescan') return { open: null, resolve: 'rescan' };
+  return { open: null, resolve: null };
+}
+
 // ---------- 파일 지우기 ----------
 
 /**

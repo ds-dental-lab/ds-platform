@@ -16,6 +16,7 @@ import { getSession } from '@/server/policies/session';
 import { publishOrderStatusChanged } from '@/server/events';
 import {
   canTransition,
+  issueOnTransition,
   requiresDesignFile,
   requiresLabAssignment,
   type OrderStatus,
@@ -281,6 +282,43 @@ export async function changeOrderStatus(
     actor_user_id: session.user.id,
     reason: reason?.trim() || null,
   });
+
+  /*
+    ★ 재스캔 딱지 (사용자 신고 2026-08-13 — "재스캔 이슈 조회가 안 된다").
+
+      재스캔 이슈를 **여는 곳이 한 군데도 없었습니다.** rescan.ts 에
+      "열려 있던 재스캔 이슈를 닫습니다" 는 코드가 있었지만, 열린 적이
+      없으니 늘 0행을 고치고 지나갔습니다. 그래서
+        · 목록의 이슈 딱지가 재스캔 주문에 안 붙고
+        · 이슈 필터 '재스캔' 이 항상 0건이고
+        · HOME '진행중 이슈' 의 재스캔도 항상 0
+      이었습니다. 상태 필터와 함께 켜면 결과가 0건이 되어, 상태 조회까지
+      고장 난 것처럼 보였습니다.
+
+    ★ 나가는 길에서도 닫습니다.
+      rescan.ts(재업로드)가 닫아 주지만 그건 한 갈래일 뿐입니다.
+      다른 길로 재스캔을 벗어나면 딱지가 열린 채 남아, 다음 재스캔 때
+      한 주문이 두 번 세어집니다.
+  */
+  const issue = issueOnTransition(from, to);
+
+  if (issue.open) {
+    await supabase.from('order_issues').insert({
+      order_id: orderId,
+      issue_type: issue.open,
+      opened_by_org_id: session.orgId,
+      reason: reason?.trim() || null,
+    });
+  }
+
+  if (issue.resolve) {
+    await supabase
+      .from('order_issues')
+      .update({ resolved_at: new Date().toISOString() })
+      .eq('order_id', orderId)
+      .eq('issue_type', issue.resolve)
+      .is('resolved_at', null);
+  }
 
   // 이벤트 발행 · 알림 적재 (설계서 §3.4, §5.3 결정 5)
   await publishOrderStatusChanged({
