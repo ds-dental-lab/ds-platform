@@ -17,6 +17,7 @@ import { submitDeleteOrder } from '@/server/actions/order-delete';
 import {
   canDeleteOrder,
   canEditSpec,
+  deleteWarnings,
   canManageOrder,
   STATUS_LABEL,
   type OrderStatus,
@@ -60,6 +61,13 @@ export default function OrderActions({
   const mySector = roles.includes('design_center') ? 'design_center' : undefined;
 
   const deletable = canDeleteOrder(status, mySector);
+
+  /*
+    ★ 막지 않기로 했으면 대신 알려 줍니다 (사용자 결정 2026-08-12).
+      접수 건을 지우는 것과 완료 건을 지우는 것은 결과가 전혀 다릅니다.
+      같은 창을 띄우면 그 차이를 아무도 모른 채 누릅니다.
+  */
+  const warnings = deleteWarnings(status);
   const editable = canEditSpec(status, mySector) && Boolean(editPath);
 
   const lockedReason = `${STATUS_LABEL[status]} 단계에서는 할 수 없습니다 — 이미 작업이 시작됐습니다`;
@@ -143,9 +151,26 @@ export default function OrderActions({
             <h3 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A2130]">
               이 주문을 지울까요?
             </h3>
-            <p className="mt-2 text-[12.5px] text-[#98A2B3]">
-              목록에서 사라집니다. 되돌리려면 관리자에게 문의해야 합니다.
-            </p>
+
+            {warnings.length === 0 ? (
+              <p className="mt-2 text-[12.5px] text-[#98A2B3]">
+                목록에서 사라집니다. 되돌리려면 관리자에게 문의해야 합니다.
+              </p>
+            ) : (
+              <>
+                <ul className="mt-3 space-y-1.5 rounded-lg bg-[#FDF0E0] px-4 py-3 text-left">
+                  {warnings.map((line) => (
+                    <li key={line} className="flex gap-1.5 text-[12.5px] leading-relaxed text-[#8A5A18]">
+                      <span aria-hidden="true">·</span>
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2.5 text-[12px] font-semibold text-[#D8453F]">
+                  화면에서 되돌릴 수 없습니다.
+                </p>
+              </>
+            )}
 
             {error && <p className="mt-3 text-[12.5px] text-[#D8453F]">{error}</p>}
 

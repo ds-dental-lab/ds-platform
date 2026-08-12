@@ -26,6 +26,7 @@ import {
   checkRepairReasons,
   repairReasonLabel,
   canEditFiles,
+  deleteWarnings,
 } from '@/server/domain/order-status';
 
 describe('상태 목록', () => {
@@ -395,5 +396,44 @@ describe('리페어 사유', () => {
   it('이름을 코드로 되찾는다', () => {
     expect(repairReasonLabel('occlusion_high')).toBe('교합 높음');
     expect(repairReasonLabel('없는코드')).toBe('없는코드');
+  });
+});
+
+// =========================================================
+// 지우기 전 경고 — 사용자 결정 2026-08-12
+//   "완료된것도 삭제할수 있게 해줘 / 문제가 될부분있을까?"
+//   → 막지 않고 **알려 주기로** 했습니다.
+// =========================================================
+
+describe('지우기 전에 알려야 할 것', () => {
+  // ★ 원래 지울 수 있던 자리입니다. 새삼 겁줄 이유가 없습니다
+  it('★ 접수·재스캔은 경고가 없습니다', () => {
+    expect(deleteWarnings('received')).toEqual([]);
+    expect(deleteWarnings('rescan')).toEqual([]);
+  });
+
+  // ★ 접수 건을 지우는 것과 완료 건을 지우는 것은 결과가 전혀 다릅니다
+  it('★ 완료 건은 통계와 청구를 짚어 줍니다', () => {
+    const w = deleteWarnings('completed').join(' ');
+
+    expect(w).toContain('완료');
+    expect(w).toContain('통계');
+    expect(w).toContain('청구');
+  });
+
+  it('취소된 건도 같습니다', () => {
+    expect(deleteWarnings('cancelled').join(' ')).toContain('통계');
+  });
+
+  it('작업 중인 건은 어느 단계인지 말해 줍니다', () => {
+    expect(deleteWarnings('designing').join(' ')).toContain('디자인');
+    expect(deleteWarnings('production').join(' ')).toContain('제작');
+  });
+
+  // ★ 지운 사람은 자기 화면만 보지만, 사라지는 것은 치과 화면에서도입니다
+  it('★ 치과에서도 사라진다는 것을 늘 말합니다', () => {
+    for (const s of ['designing', 'production', 'shipping', 'completed'] as const) {
+      expect(deleteWarnings(s).join(' ')).toContain('치과');
+    }
   });
 });

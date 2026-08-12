@@ -268,6 +268,37 @@ export function canDeleteOrder(status: OrderStatus, sector?: Sector): boolean {
 }
 
 /**
+ * 지우기 전에 **알려야 할 것들.**
+ *
+ * ★ 막지 않기로 했으면 대신 알려 줘야 합니다 (사용자 결정 2026-08-12).
+ *   디자인센터에는 단계를 열어 줬습니다. 그런데 접수 건을 지우는 것과
+ *   완료 건을 지우는 것은 결과가 전혀 다릅니다 — 완료 건은 통계와
+ *   청구에 이미 얹혀 있습니다.
+ *   경고 없이 같은 창을 띄우면, 그 차이를 아무도 모른 채 누릅니다.
+ *
+ * ★ 되돌리는 화면이 없다는 것도 여기서 말합니다.
+ *   deleted_at 만 찍히므로 데이터는 살아 있지만, 화면에서 되살릴
+ *   길이 없습니다. 그 사실을 누르기 전에 알아야 합니다.
+ */
+export function deleteWarnings(status: OrderStatus): string[] {
+  if (DELETABLE_STATUSES.includes(status)) return [];
+
+  const out: string[] = [];
+
+  if (isFinal(status)) {
+    out.push('이미 완료된 주문입니다');
+    out.push('통계(리메이크율·디자이너 일량)에서 빠집니다');
+    out.push('아직 마감하지 않은 달이면 청구액이 줄어듭니다');
+  } else {
+    out.push(`${STATUS_LABEL[status]} 단계 — 이미 작업이 진행 중입니다`);
+  }
+
+  out.push('치과 화면에서도 사라집니다');
+
+  return out;
+}
+
+/**
  * 주문 자체를 고치거나 지울 수 있는 자리인가.
  *
  * ★ 기공소는 못 합니다.
