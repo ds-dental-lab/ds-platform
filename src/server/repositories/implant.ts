@@ -6,7 +6,9 @@
 // =========================================================
 
 import 'server-only';
+import { unstable_cache } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createPublicClient } from '@/lib/supabase/public';
 import { getSession } from '@/server/policies/session';
 import type { ImplantCatalog } from '@/server/domain/implant';
 
@@ -41,8 +43,33 @@ function live<T extends RawRow>(rows: T[] | null): T[] {
  * ★ 비활성(is_active=false)은 목록에서 뺍니다.
  *   이미 주문에 쓰인 값은 삭제 대신 비활성으로 두기 때문입니다 (설계서 §4.4).
  */
-export async function getImplantCatalog(): Promise<ImplantCatalog> {
-  const supabase = await createClient();
+/** 캐시를 비울 때 쓰는 이름. 임플란트를 고치는 액션이 이걸 부릅니다 */
+export const IMPLANT_CATALOG_TAG = 'implant-catalog';
+
+/**
+ * 임플란트 목록.
+ *
+ * ★ **모든 화면이 같은 것을 봅니다.**
+ *   implant_makers 의 RLS 는 `using (true)` 입니다 — 조직마다 다르지도,
+ *   가격이 섞이지도 않습니다. 그래서 한 번 읽어 두고 함께 씁니다.
+ *   열 곳 넘는 화면이 매번 다시 물어보던 것이 사라집니다.
+ *
+ * ★ 그래서 쿠키를 안 보는 연결을 씁니다 (createPublicClient).
+ *   캐시 안에서는 쿠키를 못 읽습니다 — 여러 요청이 함께 쓰는 것이라
+ *   한 사람의 쿠키를 보면 그 사람 것이 남에게 가기 때문입니다.
+ *
+ * ★ 임플란트를 고치면 그 자리에서 캐시를 비웁니다
+ *   (actions/implant 의 revalidateTag). 그 연결이 끊기면
+ *   "고쳤는데 안 바뀌네" 가 됩니다.
+ */
+export const getImplantCatalog = unstable_cache(
+  loadImplantCatalog,
+  ['implant-catalog'],
+  { tags: [IMPLANT_CATALOG_TAG] },
+);
+
+async function loadImplantCatalog(): Promise<ImplantCatalog> {
+  const supabase = createPublicClient();
 
   const { data, error } = await supabase
     .from('implant_makers')

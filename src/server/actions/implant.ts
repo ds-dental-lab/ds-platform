@@ -6,7 +6,8 @@
 
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
+import { IMPLANT_CATALOG_TAG } from '@/server/repositories/implant';
 import {
   addImplantNode,
   renameImplantNode,
@@ -20,6 +21,15 @@ import {
 
 /** 마스터가 바뀌면 주문 화면의 선택지도 달라집니다 */
 function revalidateImplantConsumers(): void {
+  /*
+    ★ 목록을 캐시해 두었으므로 여기서 비웁니다.
+      이 한 줄이 빠지면 "고쳤는데 화면이 안 바뀌네" 가 됩니다.
+
+    ★ revalidateTag 가 아니라 updateTag 입니다 (Next 16).
+      revalidateTag 는 '언젠가 새로 읽어라' 라서 방금 고친 사람이
+      옛 목록을 그대로 봅니다. updateTag 는 **그 자리에서** 바꿉니다.
+  */
+  updateTag(IMPLANT_CATALOG_TAG);
   revalidatePath('/design/implants');
   revalidatePath('/clinic/orders/new');
   revalidatePath('/playground/implant');
