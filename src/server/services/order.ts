@@ -10,6 +10,7 @@
 
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
+import { getSession } from '@/server/policies/session';
 import { isValidTooth } from '@/server/domain/tooth';
 import {
   isValidCombination,
@@ -510,10 +511,13 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
 
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: '로그인이 필요합니다' };
+  /*
+    ★ auth.getUser() 대신 getSession 입니다.
+      같은 요청 안에서 이미 물어본 것을 또 묻지 않습니다 (React cache).
+      게다가 섹터가 필요합니다 — 디자인센터는 단계를 안 가립니다.
+  */
+  const session = await getSession();
+  if (!session) return { ok: false, error: '로그인이 필요합니다' };
 
   // RLS 가 관련 조직만 읽게 해 줍니다 — 여기서는 상태만 다시 봅니다
   const { data: current } = await supabase
@@ -526,7 +530,8 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
   if (!current) return { ok: false, error: '주문을 찾을 수 없습니다' };
 
   const status = current.status as OrderStatus;
-  if (!canEditSpec(status)) {
+  // ★ 디자인센터는 단계를 안 가립니다 (사용자 결정 2026-08-12)
+  if (!canEditSpec(status, session.orgType ?? undefined)) {
     return {
       ok: false,
       error:

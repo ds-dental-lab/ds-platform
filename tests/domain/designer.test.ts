@@ -86,15 +86,14 @@ describe('담당을 바꿔도 되는가', () => {
     expect(checkAssign(내자리, 나, null)).toEqual({ ok: true, claim: false });
   });
 
-  it('★ 사용자는 남에게 넘기지 못합니다', () => {
-    const verdict = checkAssign(빈자리, 나, '남');
-
-    expect(verdict.ok).toBe(false);
-    expect(verdict.ok === false && verdict.reason).toContain('관리자');
+  // ★ 사용자 결정 2026-08-12 — 일이 몰리거나 자리를 비울 때 서로 넘기는 것은
+  //   그날그날의 일입니다. 그때마다 관리자를 찾게 하면 결국 아무도 안 넘깁니다.
+  it('★ 디자이너끼리 서로 넘길 수 있습니다', () => {
+    expect(checkAssign(빈자리, 나, '남')).toEqual({ ok: true, claim: false });
   });
 
-  it('★ 사용자는 남이 잡은 것을 뺏지 못합니다', () => {
-    expect(checkAssign(남의자리, 나, '나').ok).toBe(false);
+  it('★ 남이 맡은 것을 가져오는 것도 됩니다 — 누가 가져갔는지는 화면에 남습니다', () => {
+    expect(checkAssign(남의자리, 나, '나')).toEqual({ ok: true, claim: true });
   });
 
   // ★ 아프거나 그만두면 누군가는 이어받아야 합니다

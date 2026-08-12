@@ -42,7 +42,11 @@ export async function submitDeleteOrder(orderId: string): Promise<DeleteOrderRes
   if (!order) return { ok: false, error: '주문을 찾을 수 없습니다' };
 
   const status = order.status as OrderStatus;
-  if (!canDeleteOrder(status)) {
+  /*
+    ★ 디자인센터는 단계를 안 가립니다 (사용자 결정 2026-08-12).
+      화면에서 버튼을 보여 주는 것과 별개로 여기서 다시 봅니다.
+  */
+  if (!canDeleteOrder(status, session.orgType ?? undefined)) {
     return {
       ok: false,
       error: `${STATUS_LABEL[status]} 단계에서는 지울 수 없습니다. 이미 작업이 시작된 주문입니다`,

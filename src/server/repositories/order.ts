@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { recordAccess } from '@/server/audit';
 import type { OrderStatus, Sector } from '@/server/domain/order-status';
+import type { IssueType } from '@/server/domain/order-list';
 
 /**
  * 환자 이름을 어느 컬럼에서 읽을지 정합니다.
@@ -42,6 +43,10 @@ export interface OrderListRow {
   file_count: number;
   /** 의뢰 치과 이름. 디자인센터는 여러 치과 주문이 섞여 보이므로 필요합니다 */
   clinic_name: string;
+  /** 배정된 기공소. 치과에는 RLS 가 막아 빈 값으로 옵니다 (설계서 §8.5) */
+  lab_name: string;
+  /** 아직 안 풀린 이슈 하나. 배송조회 딱지에 씁니다 */
+  issue: IssueType | null;
 }
 
 export interface OrderListFilter {
@@ -62,6 +67,8 @@ interface RawListRow {
   order_items: { count: number }[] | null;
   order_files: { count: number }[] | null;
   clinic: { name: string } | null;
+  lab: { name: string } | null;
+  order_issues: { issue_type: IssueType; resolved_at: string | null }[] | null;
 }
 
 /** 목록. 최신순으로 돌려줍니다. RLS가 내 조직이 관련된 주문만 골라줍니다 */
@@ -74,7 +81,10 @@ export async function listOrders(filter: OrderListFilter = {}): Promise<OrderLis
     .select(
       `id, order_no, patient_label:${labelColumn}, status, order_type, due_date, created_at, ` +
         'order_items(count), order_files(count), ' +
-        'clinic:organizations!orders_clinic_org_id_fkey(name)',
+        'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
+        // 치과에는 RLS 가 막아 null 로 옵니다 (설계서 §8.5)
+        'lab:organizations!orders_lab_org_id_fkey(name), ' +
+        'order_issues(issue_type, resolved_at)',
     )
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -103,6 +113,9 @@ export async function listOrders(filter: OrderListFilter = {}): Promise<OrderLis
     item_count: row.order_items?.[0]?.count ?? 0,
     file_count: row.order_files?.[0]?.count ?? 0,
     clinic_name: row.clinic?.name ?? '',
+    lab_name: row.lab?.name ?? '',
+    // ★ 아직 안 풀린 것만. 지나간 재스캔까지 붙이면 딱지가 늘 켜져 있습니다
+    issue: (row.order_issues ?? []).find((i) => !i.resolved_at)?.issue_type ?? null,
   }));
 }
 
@@ -181,6 +194,8 @@ export interface OrderDetail {
   in_house: boolean;
   /** 배정된 기공소 id. 셀렉박스의 현재 값입니다 */
   lab_org_id: string | null;
+  /** 이 주문의 치과. 디자인센터가 수정할 때 그 치과의 즐겨찾기를 읽습니다 */
+  clinic_org_id: string;
   /** 담당 디자이너. 디자인을 잡는 순간 정해집니다 (설계: domain/designer) */
   designer_user_id: string | null;
   /** 담당 디자이너 이름. 못 찾으면 빈 값 */
@@ -345,6 +360,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     clinic_name: row.clinic?.name ?? '',
     lab_name: row.lab?.name ?? '',
     lab_org_id: row.lab_org_id,
+    clinic_org_id: row.clinic_org_id,
     designer_user_id: row.designer_user_id,
     designer_name: row.designer?.name ?? '',
     // 기공소 자리를 디자인센터가 겸하면 자사 제작입니다
@@ -443,7 +459,9 @@ export async function listOrdersByDueDate(
     .select(
       `id, order_no, patient_label:${labelColumn}, status, order_type, due_date, created_at, ` +
         'order_items(count), order_files(count), ' +
-        'clinic:organizations!orders_clinic_org_id_fkey(name)',
+        'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
+        'lab:organizations!orders_lab_org_id_fkey(name), ' +
+        'order_issues(issue_type, resolved_at)',
     )
     .is('deleted_at', null)
     .gte('due_date', from)
@@ -473,5 +491,8 @@ export async function listOrdersByDueDate(
     item_count: row.order_items?.[0]?.count ?? 0,
     file_count: row.order_files?.[0]?.count ?? 0,
     clinic_name: row.clinic?.name ?? '',
+    lab_name: row.lab?.name ?? '',
+    // ★ 아직 안 풀린 것만. 지나간 재스캔까지 붙이면 딱지가 늘 켜져 있습니다
+    issue: (row.order_issues ?? []).find((i) => !i.resolved_at)?.issue_type ?? null,
   }));
 }

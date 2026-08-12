@@ -50,9 +50,17 @@ export default function OrderActions({
   if (!canManageOrder(roles)) return null;
 
   const busy = saving || pending;
-  const deletable = canDeleteOrder(status);
-  // ★ 사양 수정은 접수에서만. 재스캔은 파일만 바꿉니다 (설계서 §2.1 C-4)
-  const editable = canEditSpec(status) && Boolean(editPath);
+
+  /*
+    ★ 디자인센터는 단계를 안 가립니다 (사용자 결정 2026-08-12).
+      치과는 접수에서만 사양을 고치고, 재스캔은 파일만 바꿉니다
+      (설계서 §2.1 C-4). 그 규칙은 "이미 남이 그 사양으로 일을 시작해서"
+      인데, 그 일을 하는 쪽이 디자인센터입니다.
+  */
+  const mySector = roles.includes('design_center') ? 'design_center' : undefined;
+
+  const deletable = canDeleteOrder(status, mySector);
+  const editable = canEditSpec(status, mySector) && Boolean(editPath);
 
   const lockedReason = `${STATUS_LABEL[status]} 단계에서는 할 수 없습니다 — 이미 작업이 시작됐습니다`;
 

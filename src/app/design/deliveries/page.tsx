@@ -38,6 +38,7 @@ export default async function DesignDeliveriesPage({ searchParams }: PageProps) 
 
       <div className="mt-5">
         <DeliveryBoard
+          showLab
           weekStart={weekStart}
           today={today}
           orders={orders}

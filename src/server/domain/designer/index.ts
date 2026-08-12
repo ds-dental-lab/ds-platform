@@ -84,10 +84,18 @@ export function checkSeat(seat: DesignSeat, viewer: Viewer): SeatVerdict {
 /**
  * 담당을 이 값으로 바꿔도 되는가.
  *
- * ★ 관리자는 아무에게나 넘깁니다 (아프거나 그만두면 누군가는 이어받아야 합니다).
- * ★ 사용자는 **자기가 잡거나 자기가 내려놓는 것**만 합니다.
- *   내려놓기를 막으면, 관리자가 자리에 없는 동안 잘못 잡은 주문이
- *   아무도 못 건드리는 상태로 굳습니다.
+ * ★ **디자이너끼리 서로 넘길 수 있습니다** (사용자 결정 2026-08-12).
+ *   전에는 남에게 넘기는 것을 관리자만 할 수 있었습니다. 그런데 일이
+ *   몰리거나 자리를 비울 때 서로 넘기는 것은 그날그날의 일이고,
+ *   그때마다 관리자를 찾게 하면 결국 아무도 안 넘깁니다.
+ *
+ * ★ 그래도 **빈자리로 만드는 것과 뺏는 것**은 다릅니다.
+ *   남이 맡은 것을 자기에게 가져오는 것도 이제 됩니다 — 다만 누가
+ *   가져갔는지는 그대로 화면에 남습니다.
+ *
+ * ★ 넘길 상대가 **살아 있는 우리 조직 사람**인지는 서버가 봅니다
+ *   (actions/order-status 의 submitAssignDesigner).
+ *   여기서는 사람 목록을 모르므로 그 검사는 못 합니다.
  */
 export function checkAssign(
   seat: DesignSeat,
@@ -95,19 +103,6 @@ export function checkAssign(
   next: string | null,
 ): SeatVerdict {
   if (seat.designerId === next) return { ok: true, claim: false };
-
-  if (viewer.isManager) return { ok: true, claim: next === viewer.userId };
-
-  // 남이 잡고 있는 것은 뺏지 못합니다
-  if (seat.designerId && seat.designerId !== viewer.userId) {
-    const who = seat.designerName?.trim() || '다른 디자이너';
-    return { ok: false, reason: `${who} 님이 맡은 주문입니다. 관리자만 담당을 바꿉니다` };
-  }
-
-  // 빈자리거나 내 자리입니다 — 나에게 오거나 비우는 것만 됩니다
-  if (next !== null && next !== viewer.userId) {
-    return { ok: false, reason: '남에게 넘기는 것은 관리자만 할 수 있습니다' };
-  }
 
   return { ok: true, claim: next === viewer.userId };
 }

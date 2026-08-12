@@ -19,6 +19,10 @@
 //
 // ★ 이미 청구서에 실린 조정은 못 지웁니다.
 //   나간 문서의 숫자는 안 바뀝니다. 되돌리려면 반대 조정을 넣습니다.
+//
+// ★ 접어 둡니다 (사용자 결정 2026-08-12).
+//   금액을 만질 일은 가끔입니다. 주문을 볼 때마다 표가 펼쳐져 있으면
+//   정작 봐야 할 치식·파일이 아래로 밀립니다. 스패너를 누를 때만 폅니다.
 // =========================================================
 
 'use client';
@@ -41,15 +45,41 @@ export default function OrderAdjustPanel({ money, patientLabel }: OrderAdjustPan
   const [refreshing, startTransition] = useTransition();
   const [editing, setEditing] = useState<{ item: OrderMoneyItem; side: Side } | null>(null);
   const [error, setError] = useState('');
+  const [open, setOpen] = useState(false);
 
   const clinicTotal = money.items.reduce((s, i) => s + i.clinicAmount + i.clinicAdjust, 0);
   const labTotal = money.items.reduce((s, i) => s + i.labAmount + i.labAdjust, 0);
 
+  /* ★ 접혀 있을 때는 스패너 하나만 둡니다 */
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title="금액 조정 (관리자만)"
+        className="mt-3 flex items-center gap-1.5 rounded-md border border-[#E8EBF0] bg-white px-3 py-2 text-[12.5px] font-semibold text-[#7C8595] hover:border-[#B6C6DC] hover:text-[#1279E8]"
+      >
+        <WrenchIcon />
+        금액 조정
+      </button>
+    );
+  }
+
   return (
     <section className="mt-3 rounded-lg border border-[#E8EBF0] bg-white">
       <header className="flex flex-wrap items-baseline gap-2 border-b border-[#E8EBF0] px-4 py-3">
-        <h3 className="text-[13.5px] font-bold tracking-tight text-[#1A2130]">금액 조정</h3>
+        <h3 className="flex items-center gap-1.5 text-[13.5px] font-bold tracking-tight text-[#1A2130]">
+          <WrenchIcon />
+          금액 조정
+        </h3>
         <span className="text-[11.5px] text-[#98A2B3]">관리자만 보입니다</span>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="ml-auto rounded px-2 py-1 text-[12px] font-semibold text-[#98A2B3] hover:bg-[#F4F6F9]"
+        >
+          접기
+        </button>
       </header>
 
       {/* ★ 자사 제작은 지급이 없습니다 (설계서 Q-6) — 자기가 자기에게 주는 돈입니다 */}
@@ -396,4 +426,23 @@ function AdjustDialog({
 
 function won(amount: number): string {
   return `${amount < 0 ? '-' : ''}₩${Math.abs(amount).toLocaleString('ko-KR')}`;
+}
+
+function WrenchIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12.7 6.3a3.4 3.4 0 0 1 4.5-4.5l-2.5 2.5.9 2.6 2.6.9 2.5-2.5" transform="scale(.85) translate(-1 1)" />
+      <path d="M11.6 8.4 3.9 16.1a1.9 1.9 0 1 0 2.7 2.7l7.7-7.7" />
+    </svg>
+  );
 }

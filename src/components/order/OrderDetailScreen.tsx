@@ -94,6 +94,14 @@ export interface OrderDetailScreenProps {
    *   가릴 필요가 없습니다.
    */
   designerSlot?: React.ReactNode;
+  /**
+   * 담당자 옆에 붙는 금액 한 줄 — 기공수가·기공원가.
+   *
+   * ★ 디자인센터 **관리자만** 봅니다 (사용자 결정 2026-08-12).
+   *   디자이너에게는 금액이 아예 안 보이는 것이 이 프로젝트의 규칙입니다.
+   *   조정은 스패너 안에 있고, 여기는 **읽기만** 하는 한 줄입니다.
+   */
+  costLine?: React.ReactNode;
   /** 디자인 파일칸 위에 끼워 넣을 것 (업로더 등) */
   designSlot?: React.ReactNode;
   /** 스캔 파일칸 위에 끼워 넣을 것 (재스캔 띠) — 시안 .rescan-bar */
@@ -117,6 +125,7 @@ export default function OrderDetailScreen({
   showCost = false,
   labName,
   designerSlot,
+  costLine,
   designSlot,
   scanSlot,
   extraSlot,
@@ -456,8 +465,9 @@ export default function OrderDetailScreen({
           {/* g-f · g-g — 담당자 · 기공소 (치과에는 감춥니다) */}
           {showCost && (
             <>
-              <div className="flex items-center gap-3.5 px-1 py-0.5 text-[12.5px] text-[#4A5567] lg:col-start-1 lg:row-start-4">
+              <div className="flex flex-wrap items-center gap-3.5 px-1 py-0.5 text-[12.5px] text-[#4A5567] lg:col-start-1 lg:row-start-4">
                 {designerSlot}
+                {costLine}
               </div>
 
               <div className="flex items-center gap-3.5 px-1 py-0.5 text-[12.5px] text-[#4A5567] lg:col-start-2 lg:row-start-4">
@@ -480,7 +490,10 @@ export default function OrderDetailScreen({
             status={order.status}
             roles={order.roles}
             orderPath={home.href}
-            editPath={sector === 'clinic' ? `/clinic/orders/${order.id}/edit` : undefined}
+            /* ★ 디자인센터도 고칠 수 있습니다 (사용자 결정 2026-08-12) */
+            editPath={
+              sector === 'lab' ? undefined : `/${sector === 'clinic' ? 'clinic' : 'design'}/orders/${order.id}/edit`
+            }
           />
 
           {barSlot}

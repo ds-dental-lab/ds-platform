@@ -21,6 +21,7 @@ import {
   formatWeekRange,
   type IsoDate,
 } from '@/server/domain/week';
+import { ISSUE_META } from '@/server/domain/order-list';
 import type { OrderListRow } from '@/server/repositories/order';
 
 export interface DeliveryBoardProps {
@@ -33,6 +34,8 @@ export interface DeliveryBoardProps {
   orderPath: string;
   /** 치과 이름을 칸에 적을지. 디자인센터·기공소만 켭니다 */
   showClinic?: boolean;
+  /** 기공소를 보일지. 치과에는 감춥니다 (설계서 §8.5) */
+  showLab?: boolean;
 }
 
 export default function DeliveryBoard({
@@ -42,6 +45,7 @@ export default function DeliveryBoard({
   basePath,
   orderPath,
   showClinic = false,
+  showLab = false,
 }: DeliveryBoardProps) {
   const days = getWeekDays(weekStart);
 
@@ -135,22 +139,46 @@ export default function DeliveryBoard({
                       href={`${orderPath}/${order.id}`}
                       className="block rounded border border-gray-200 bg-white px-2 py-1.5 hover:border-gray-400"
                     >
+                      {/*
+                        ★ 주문번호를 뺐습니다 (사용자 결정 2026-08-12).
+                          달력에서 찾는 것은 "누구 것이 언제 나가나" 이지
+                          번호가 아닙니다. 번호는 상세에 들어가면 있습니다.
+                      */}
                       <div className="flex items-center justify-between gap-1">
-                        <span className="truncate font-mono text-[11px] font-semibold text-blue-600">
-                          {order.order_no.replace(/^ORD-/, '')}
+                        <span className="truncate text-[12.5px] font-bold text-[#1A2130]">
+                          {order.patient_label}
                         </span>
                         <OrderStatusBadge status={order.status} />
                       </div>
 
-                      <p className="mt-0.5 truncate text-[12px] text-gray-800">
-                        {order.patient_label}
-                      </p>
-
                       {showClinic && order.clinic_name && (
-                        <p className="truncate text-[11px] text-gray-400">
+                        <p className="mt-0.5 truncate text-[11px] text-gray-500">
                           {order.clinic_name}
                         </p>
                       )}
+
+                      {/* ★ 치과에는 기공소가 안 보입니다 (설계서 §8.5) */}
+                      {showLab && order.lab_name && (
+                        <p className="truncate text-[11px] text-gray-400">{order.lab_name}</p>
+                      )}
+
+                      <div className="mt-1 flex items-center justify-between gap-1">
+                        <span className="text-[10.5px] tabular-nums text-gray-400">
+                          {order.created_at.slice(2, 10)}
+                        </span>
+
+                        {order.issue && (
+                          <span
+                            className="rounded px-1.5 py-px text-[10px] font-bold"
+                            style={{
+                              background: ISSUE_META[order.issue].bg,
+                              color: ISSUE_META[order.issue].fg,
+                            }}
+                          >
+                            {ISSUE_META[order.issue].label}
+                          </span>
+                        )}
+                      </div>
                     </Link>
                   ))
                 )}

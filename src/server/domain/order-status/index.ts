@@ -183,20 +183,28 @@ export function canUploadDesignFile(status: OrderStatus, sector: Sector): boolea
  */
 export type EditScope = 'full' | 'files' | 'none';
 
-export function editScopeOf(status: OrderStatus): EditScope {
+/**
+ * ★ 디자인센터는 **단계를 안 가립니다** (사용자 결정 2026-08-12).
+ *   치과에게 좁게 열어 둔 이유는 "이미 남이 그 사양으로 일을 시작했기
+ *   때문" 이었습니다. 그런데 그 일을 하는 쪽이 바로 디자인센터입니다.
+ *   자기가 만들고 있는 것을 자기가 고치는 것은 남을 놀라게 하지 않습니다.
+ *   전화로 "이거 바꿔 주세요" 를 받아 처리하는 곳이기도 합니다.
+ */
+export function editScopeOf(status: OrderStatus, sector?: Sector): EditScope {
+  if (sector === 'design_center') return 'full';
   if (status === 'received') return 'full';
   if (status === 'rescan') return 'files';
   return 'none';
 }
 
 /** 무엇이든 고칠 수 있는가 */
-export function canEditOrder(status: OrderStatus): boolean {
-  return editScopeOf(status) !== 'none';
+export function canEditOrder(status: OrderStatus, sector?: Sector): boolean {
+  return editScopeOf(status, sector) !== 'none';
 }
 
-/** 보철 사양까지 고칠 수 있는가 — 접수 상태에서만 */
-export function canEditSpec(status: OrderStatus): boolean {
-  return editScopeOf(status) === 'full';
+/** 보철 사양까지 고칠 수 있는가 — 접수 상태에서만 (디자인센터는 언제나) */
+export function canEditSpec(status: OrderStatus, sector?: Sector): boolean {
+  return editScopeOf(status, sector) === 'full';
 }
 
 /**
@@ -244,7 +252,18 @@ export function canEditDueDate(status: OrderStatus, sector: Sector): boolean {
  */
 const DELETABLE_STATUSES: OrderStatus[] = ['received', 'rescan'];
 
-export function canDeleteOrder(status: OrderStatus): boolean {
+/**
+ * ★ 디자인센터는 **단계를 안 가립니다** (사용자 결정 2026-08-12).
+ *   위 설명은 '남의 작업 시간이 날아간다' 는 걱정이었는데, 그 작업을
+ *   하는 쪽이 디자인센터 자신입니다. 잘못 들어온 주문을 정리하는 것도
+ *   그쪽 일입니다.
+ *
+ * ★ 지워도 기록은 남습니다 (deleted_at).
+ *   이미 마감된 정산의 금액은 billing_lines 에 굳어 있어 흔들리지
+ *   않습니다 — 지난 청구서의 숫자는 그대로입니다.
+ */
+export function canDeleteOrder(status: OrderStatus, sector?: Sector): boolean {
+  if (sector === 'design_center') return true;
   return DELETABLE_STATUSES.includes(status);
 }
 

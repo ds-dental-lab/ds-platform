@@ -97,15 +97,12 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
     assignable(order.status) && checkAssign(seat, viewer, viewer.userId).ok;
 
   /*
-    ★ 사용자에게는 자기 이름 하나만 줍니다.
-      남에게 넘기는 것은 관리자 일이라 서버가 어차피 막습니다. 고를 수는
-      있는데 누르면 거절당하는 칸을 두면, 그 화면은 거짓말을 합니다.
+    ★ 디자이너에게도 **전체 목록**을 줍니다 (사용자 결정 2026-08-12).
+      "가입되어 활성화된 유저들끼리 담당자 이전을 할 수 있다."
+      살아 있는 우리 조직 사람인지는 서버가 다시 봅니다
+      (submitAssignDesigner).
   */
-  const seats = !canAssignDesigner
-    ? []
-    : viewer.isManager
-      ? await listSeatOptions()
-      : [{ userId: viewer.userId, name: session?.userName || '나' }];
+  const seats = canAssignDesigner ? await listSeatOptions() : [];
 
   /*
     ★ 남의 주문이면 그 이유가 먼저입니다.
@@ -126,6 +123,36 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       showCost
       labName={order.in_house ? '자사 제작' : order.lab_name}
       forwardBlockedReason={forwardBlockedReason}
+      /*
+        ★ 읽기만 하는 한 줄입니다 (사용자 결정 2026-08-12).
+          조정은 스패너 안으로 들어갔고, 여기서는 숫자만 봅니다.
+          money 가 없으면(=디자이너) 줄 자체가 안 나옵니다.
+      */
+      costLine={
+        money ? (
+          <span className="flex items-center gap-3 tabular-nums">
+            <span>
+              기공수가{' '}
+              <b className="font-bold text-[#1A2130]">
+                {money.items
+                  .reduce((sum, i) => sum + i.clinicAmount + i.clinicAdjust, 0)
+                  .toLocaleString('ko-KR')}
+              </b>
+            </span>
+            {/* ★ 자사 제작은 지급이 없습니다 (설계서 Q-6) */}
+            {!money.inHouse && (
+              <span>
+                기공원가{' '}
+                <b className="font-bold text-[#1A2130]">
+                  {money.items
+                    .reduce((sum, i) => sum + i.labAmount + i.labAdjust, 0)
+                    .toLocaleString('ko-KR')}
+                </b>
+              </span>
+            )}
+          </span>
+        ) : null
+      }
       designerSlot={
         <DesignerAssignSelect
           orderId={order.id}
