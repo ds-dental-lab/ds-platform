@@ -106,6 +106,10 @@ export default function LoginPage() {
           <Link href="/signup" className="link strong">
             회원가입
           </Link>
+          <span className="sep">·</span>
+          <Link href="/reset" className="link">
+            비밀번호 찾기
+          </Link>
         </p>
       </div>
     </div>
@@ -156,5 +160,7 @@ const css = `
 .btn-primary:disabled{background:#D5DAE2; color:#8E98A8; cursor:not-allowed}
 .auth-join{margin:22px 0 0; text-align:center; font-size:13px; color:var(--ink-2)}
 .link{color:var(--ink-2); cursor:pointer; text-decoration:none}
+.link:hover{text-decoration:underline}
 .link.strong{font-weight:600; color:var(--brand)}
+.sep{margin:0 7px; color:#C4CBD6}
 `;
