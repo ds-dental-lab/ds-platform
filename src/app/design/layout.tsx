@@ -7,12 +7,13 @@ import {
   countUnreadNotifications,
 } from "@/server/repositories/notification";
 import { countPendingSignups } from "@/server/repositories/signup";
+import { countNewContacts } from "@/server/repositories/contact";
 
 export default async function DesignLayout({ children }: { children: React.ReactNode }) {
   const s = await requireSector("design_center");
   const isManager = canSeeMoney(s.role as MemberRole | null);
 
-  const [notifications, unreadCount, pendingSignups] = await Promise.all([
+  const [notifications, unreadCount, pendingSignups, newContacts] = await Promise.all([
     listNotifications(),
     countUnreadNotifications(),
     /*
@@ -22,11 +23,12 @@ export default async function DesignLayout({ children }: { children: React.React
         메뉴 자체가 관리자에게만 보이므로 셀 일도 관리자일 때뿐입니다.
     */
     isManager ? countPendingSignups() : Promise.resolve(0),
+    isManager ? countNewContacts() : Promise.resolve(0),
   ]);
 
   return (
     <SectorShell sector="design_center" isManager={isManager} orgName={s.orgName ?? ""} userName={s.userName}
-      navCounts={{ "/design/signups": pendingSignups }}
+      navCounts={{ "/design/signups": pendingSignups, "/design/contacts": newContacts }}
       bell={<NotificationBell notifications={notifications} unreadCount={unreadCount} />}
     >
       {children}

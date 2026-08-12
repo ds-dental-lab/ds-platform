@@ -18,6 +18,7 @@
 // =========================================================
 
 import Link from 'next/link';
+import ContactForm from '@/components/site/ContactForm';
 
 /** ★ 고치실 곳은 여기뿐입니다 */
 const SITE = {
@@ -31,7 +32,8 @@ export default function LandingPage({ loggedIn }: { loggedIn: boolean }) {
   return (
     <div className="min-h-screen bg-white text-[#1A2130]">
       <Header loggedIn={loggedIn} />
-      <Hero loggedIn={loggedIn} />
+      <Hero />
+      <Scope />
       <Why />
       <Flow />
       <Products />
@@ -59,6 +61,9 @@ function Header({ loggedIn }: { loggedIn: boolean }) {
           </a>
           <a href="#products" className="hidden text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8] sm:block">
             취급 보철
+          </a>
+          <a href="#contact" className="hidden text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8] sm:block">
+            수가표 요청
           </a>
 
           <Link
@@ -90,7 +95,7 @@ function Logo() {
 
 // ---------- 첫 화면 ----------
 
-function Hero({ loggedIn }: { loggedIn: boolean }) {
+function Hero() {
   return (
     <section className="relative overflow-hidden border-b border-[#E8EBF0] bg-gradient-to-b from-[#F7FAFF] to-white">
       <div className="mx-auto max-w-[1080px] px-6 py-20 sm:py-28">
@@ -108,12 +113,12 @@ function Hero({ loggedIn }: { loggedIn: boolean }) {
         </p>
 
         <div className="mt-9 flex flex-wrap gap-2.5">
-          <Link
-            href={loggedIn ? '/' : '/signup'}
+          <a
+            href="#contact"
             className="grid h-12 place-items-center rounded-lg bg-[#1279E8] px-7 text-[15px] font-bold text-white hover:bg-[#0F68C9]"
           >
-            {loggedIn ? '내 화면으로' : '거래 시작하기'}
-          </Link>
+            수가표 요청하기
+          </a>
           <a
             href="#flow"
             className="grid h-12 place-items-center rounded-lg border border-[#DDE2EA] px-7 text-[15px] font-bold text-[#4A5567] hover:bg-[#F4F6F9]"
@@ -277,19 +282,64 @@ function Platform() {
 
 function Contact() {
   return (
-    <section className="border-t border-[#E8EBF0] bg-[#F7FAFF]">
-      <div className="mx-auto max-w-[1080px] px-6 py-16 text-center">
-        <h2 className="text-[24px] font-extrabold tracking-[-0.035em]">먼저 이야기부터 나누셔도 됩니다</h2>
-        <p className="mt-3 text-[14px] leading-relaxed text-[#4A5567]">
-          쓰시던 스캐너, 보내시는 물량, 원하시는 납기를 알려 주시면 맞춰 안내해 드리겠습니다.
-        </p>
+    <section id="contact" className="border-t border-[#E8EBF0] bg-[#F7FAFF]">
+      <div className="mx-auto max-w-[1080px] px-6 py-18 sm:py-24">
+        <div className="grid gap-10 sm:grid-cols-[0.9fr_1.1fr] sm:items-start">
+          <div className="sm:sticky sm:top-24">
+            <p className="text-[12px] font-bold tracking-[0.14em] text-[#1279E8]">CONTACT</p>
+            <h2 className="mt-3 text-[26px] font-extrabold leading-[1.3] tracking-[-0.035em] sm:text-[30px]">
+              수가표부터
+              <br />
+              받아 보세요
+            </h2>
+            <p className="mt-4 text-[14px] leading-relaxed text-[#4A5567]">
+              거래를 정하지 않으셔도 됩니다. 품목별 수가와 납기를 먼저 보시고
+              판단하시면 됩니다.
+            </p>
 
-        <a
-          href={`tel:${SITE.tel.replace(/-/g, '')}`}
-          className="mt-7 inline-grid h-12 place-items-center rounded-lg bg-[#1A2130] px-8 text-[16px] font-extrabold tracking-[-0.02em] text-white hover:bg-[#2A3550]"
-        >
-          {SITE.tel}
-        </a>
+            <div className="mt-7 rounded-xl border border-[#DDE7F7] bg-white p-5">
+              <p className="text-[12.5px] font-bold text-[#7C8595]">바로 통화를 원하시면</p>
+              <a
+                href={`tel:${SITE.tel.replace(/-/g, '')}`}
+                className="mt-1.5 block text-[21px] font-extrabold tracking-[-0.03em] text-[#1A2130] hover:text-[#1279E8]"
+              >
+                {SITE.tel}
+              </a>
+            </div>
+          </div>
+
+          <ContactForm />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------- 취급 범위 · 스캐너 ----------
+
+function Scope() {
+  return (
+    <section className="border-b border-[#E8EBF0] bg-white">
+      <div className="mx-auto grid max-w-[1080px] gap-10 px-6 py-16 sm:grid-cols-2">
+        <div>
+          <h2 className="text-[21px] font-extrabold leading-snug tracking-[-0.035em]">
+            크라운부터 임플란트까지,<br />모두 가능합니다.
+          </h2>
+          <p className="mt-3.5 text-[13.5px] leading-relaxed text-[#4A5567]">
+            크라운·브릿지 / 인레이·온레이 / 임플란트 보철·어버트먼트를 제작합니다.
+            상세 수가는 수가표로 안내드립니다.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-[21px] font-extrabold leading-snug tracking-[-0.035em]">
+            어떤 스캐너를 쓰셔도<br />받습니다.
+          </h2>
+          <p className="mt-3.5 text-[13.5px] leading-relaxed text-[#4A5567]">
+            구강스캔 파일(STL 등)을 보내 주시면 됩니다. 쓰시는 스캐너를 알려 주시면
+            맞춰 안내드리겠습니다.
+          </p>
+        </div>
       </div>
     </section>
   );
