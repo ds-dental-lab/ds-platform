@@ -133,16 +133,21 @@ export function dueQuery(
   }
 
   /*
-    ★ 파일은 **주문이 끝난 날**부터 셉니다.
-      올린 날부터 세면 오래 걸린 주문의 파일이 아직 만드는 중에
-      사라집니다. 그래서 완료된 주문만 봅니다.
+    ★ 파일은 **주문이 완료된 날**부터 셉니다 (orders.completed_at).
+      올린 날부터 세면 오래 걸린 주문의 파일이 아직 만드는 중에 사라집니다.
+
+    ★ updated_at 을 쓰면 안 됩니다.
+      orders_touch 가 아무 수정에나 그 값을 밀어 올립니다 — 메모 한 줄만
+      고쳐도 시계가 뒤로 가서 파기가 조용히 안 일어납니다.
+      completed_at 을 따로 둔 이유입니다 (20260812180000).
   */
   let q = supabase
     .from('order_files')
-    .select('id, storage_path, order:orders!inner(status, updated_at)', select)
+    .select('id, storage_path, order:orders!inner(status, completed_at)', select)
     .is('deleted_at', null)
     .eq('order.status', 'completed')
-    .lt('order.updated_at', cutoff);
+    .not('order.completed_at', 'is', null)
+    .lt('order.completed_at', cutoff);
 
   if (opts.limit) q = q.limit(opts.limit);
 
