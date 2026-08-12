@@ -247,7 +247,14 @@ export default function SignupPage() {
               <input
                 className="ctl"
                 type="email"
-                placeholder="이메일"
+                /*
+                  ★ 이 주소로 로그인합니다.
+                    가입할 때만 쓰는 확인용 주소라고 오해하면, 회사 대표
+                    메일이나 원장님 개인 메일을 아무거나 적습니다. 그러면
+                    나중에 "아이디가 뭐였죠" 가 반드시 옵니다.
+                    다른 칸과 같은 방식으로 괄호 안에 적습니다.
+                */
+                placeholder="이메일 (로그인 아이디)"
                 value={email}
                 autoComplete="username"
                 onChange={(e) => setEmail(e.target.value)}

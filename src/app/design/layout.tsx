@@ -6,15 +6,27 @@ import {
   listNotifications,
   countUnreadNotifications,
 } from "@/server/repositories/notification";
+import { countPendingSignups } from "@/server/repositories/signup";
 
 export default async function DesignLayout({ children }: { children: React.ReactNode }) {
   const s = await requireSector("design_center");
-  const [notifications, unreadCount] = await Promise.all([
+  const isManager = canSeeMoney(s.role as MemberRole | null);
+
+  const [notifications, unreadCount, pendingSignups] = await Promise.all([
     listNotifications(),
     countUnreadNotifications(),
+    /*
+      ★ 기다리는 가입 신청을 사이드바에 띄웁니다.
+        승인 화면에 들어가야만 보이면, 아무도 안 들어가는 날에는
+        그 치과가 하루 종일 아무것도 못 합니다.
+        메뉴 자체가 관리자에게만 보이므로 셀 일도 관리자일 때뿐입니다.
+    */
+    isManager ? countPendingSignups() : Promise.resolve(0),
   ]);
+
   return (
-    <SectorShell sector="design_center" isManager={canSeeMoney(s.role as MemberRole | null)} orgName={s.orgName ?? ""} userName={s.userName}
+    <SectorShell sector="design_center" isManager={isManager} orgName={s.orgName ?? ""} userName={s.userName}
+      navCounts={{ "/design/signups": pendingSignups }}
       bell={<NotificationBell notifications={notifications} unreadCount={unreadCount} />}
     >
       {children}

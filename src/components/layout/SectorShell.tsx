@@ -125,6 +125,14 @@ export interface SectorShellProps {
   userName: string;
   /** 관리자인가. 메뉴가 갈립니다 */
   isManager?: boolean;
+  /**
+   * 메뉴 옆에 붙일 숫자. 주소 → 건수.
+   *
+   * ★ 기다리는 일이 있는데 아무 표시가 없으면 아무도 안 들어갑니다.
+   *   가입 승인이 그렇습니다 — 그동안 그 치과는 아무것도 못 합니다.
+   *   0 이면 안 붙입니다. 0 을 띄우면 볼 것이 없는데도 눈이 갑니다.
+   */
+  navCounts?: Record<string, number>;
   bell?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -133,6 +141,7 @@ export default function SectorShell({
   sector,
   orgName,
   userName,
+  navCounts,
   bell,
   children,
   isManager = true,
@@ -285,15 +294,31 @@ export default function SectorShell({
             //   둘이 함께 켜져 있었습니다. 더 깊은 쪽이 이깁니다.
             const active = item.href === activeHref;
 
+            const count = (item.href && navCounts?.[item.href]) || 0;
+
             const inner = (
               <>
                 {NAV_ICON[item.icon as NavIcon]}
                 {!collapsed && <span>{item.label}</span>}
+
+                {count > 0 && (
+                  /* ★ 접었을 때도 보여야 합니다 — 접어 뒀다고 안 급해지지 않습니다 */
+                  <span
+                    title={`${count}건 기다리는 중`}
+                    className={
+                      'grid h-[17px] min-w-[17px] place-items-center rounded-full bg-[#D8453F] px-1 ' +
+                      'text-[10.5px] font-extrabold leading-none text-white ' +
+                      (collapsed ? 'absolute right-1 top-1' : 'ml-auto')
+                    }
+                  >
+                    {count > 99 ? '99+' : count}
+                  </span>
+                )}
               </>
             );
 
             const base =
-              'flex items-center gap-[13px] rounded-md text-[14px] font-semibold whitespace-nowrap transition-colors ' +
+              'relative flex items-center gap-[13px] rounded-md text-[14px] font-semibold whitespace-nowrap transition-colors ' +
               (collapsed ? 'justify-center py-[11px]' : 'px-3 py-[11px]');
 
             if (!item.href) {
