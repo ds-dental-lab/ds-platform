@@ -33,7 +33,6 @@ import { createClient } from '@/lib/supabase/client';
 import {
   SIGNUP_SECTORS,
   SECTOR_LABEL,
-  SECTOR_HINT,
   checkSignup,
   MIN_PASSWORD,
   type SignupSector,
@@ -139,23 +138,30 @@ export default function SignupPage() {
               초대받으셨다면 <b>초대받은 그 이메일</b>로 가입해 주세요.
             </p>
 
-            {/* ★ 디자인센터는 여기 없습니다 (domain/signup 의 SIGNUP_SECTORS) */}
-            <div className="sector-pick">
-              {SIGNUP_SECTORS.map((sector) => (
-                <button
-                  key={sector}
-                  type="button"
-                  className={'sector' + (orgType === sector ? ' on' : '')}
-                  aria-pressed={orgType === sector}
-                  onClick={() => setOrgType(sector)}
-                >
-                  <b>{SECTOR_LABEL[sector]}</b>
-                  <i>{SECTOR_HINT[sector]}</i>
-                </button>
-              ))}
-            </div>
-
             <div className="auth-fields">
+              {/*
+                ★ 다른 칸과 같은 모양의 한 줄입니다.
+                  전에는 큼직한 카드 둘로 갈라 놨는데, 로그인·가입 화면은
+                  칸이 위에서 아래로 한 줄씩 내려오는 곳입니다. 거기만
+                  덩어리가 끼면 그 화면에서 제일 먼저 눈에 띄고, 정작
+                  중요한 것(이메일·비밀번호)이 뒤로 밀립니다.
+
+                ★ 디자인센터는 여기 없습니다 (domain/signup 의 SIGNUP_SECTORS).
+                  화면에서 빼는 것으로 끝내지 않습니다 — 표의 check 제약이
+                  마지막으로 막습니다.
+              */}
+              <select
+                className="ctl"
+                value={orgType}
+                onChange={(e) => setOrgType(e.target.value as SignupSector)}
+              >
+                {SIGNUP_SECTORS.map((sector) => (
+                  <option key={sector} value={sector}>
+                    {SECTOR_LABEL[sector]}
+                  </option>
+                ))}
+              </select>
+
               <input
                 className="ctl"
                 type="text"
@@ -249,18 +255,9 @@ const css = `
   font-size:12.5px; line-height:1.6; color:#8A6320;
 }
 .auth-hint b{font-weight:700}
-.sector-pick{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:9px}
-.sector{
-  display:flex; flex-direction:column; gap:3px; align-items:flex-start;
-  padding:11px 12px; border-radius:6px; border:1px solid var(--line-2);
-  background:var(--surface); cursor:pointer; text-align:left;
-  transition:border-color .12s, background .12s;
-}
-.sector b{font-size:14px; font-weight:700; color:var(--ink)}
-.sector i{font-size:11.5px; font-style:normal; color:#98A2B3; line-height:1.4}
-.sector:hover{border-color:#BAC2CE}
-.sector.on{border-color:var(--brand); background:#F2F7FE; box-shadow:0 0 0 3px rgba(18,121,232,.10)}
-.sector.on b{color:var(--brand)}
+select.ctl{appearance:none; color:var(--ink); cursor:pointer;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%2398A2B3' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat:no-repeat; background-position:right 13px center; padding-right:34px}
 .auth-done{margin:0 0 20px; text-align:center; font-size:13.5px; line-height:1.7; color:var(--ink-2)}
 .auth-done b{color:var(--ink); font-weight:700}
 .auth-fields{display:flex; flex-direction:column; gap:9px}
