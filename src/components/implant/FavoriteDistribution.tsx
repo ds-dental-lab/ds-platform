@@ -39,6 +39,14 @@ export default function FavoriteDistribution({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  /**
+   * 지우려는 항목. 누르면 바로 안 지우고 한 번 묻습니다.
+   *
+   * ★ 치과가 담은 것은 **남의 자료**입니다. 배포한 것을 거두는 것과
+   *   달리, 지우면 그 치과 화면에서 조합이 사라지고 다시 담아야 합니다.
+   */
+  const [removing, setRemoving] = useState<ImplantFavorite | null>(null);
+
   const [makerCode, setMakerCode] = useState('');
   const [typeCode, setTypeCode] = useState('');
   const [sizeCode, setSizeCode] = useState('');
@@ -234,21 +242,73 @@ export default function FavoriteDistribution({
                       {favorite.pushed ? '배포' : '치과가 담음'}
                     </span>
 
-                    {favorite.pushed && (
-                      <button
-                        onClick={() => run(() => submitRemoveImplantFavorite(favorite.id))}
-                        disabled={busy}
-                        className="ml-auto text-[12px] text-gray-400 hover:text-red-600"
-                      >
-                        회수
-                      </button>
-                    )}
+                    {/*
+                      ★ 치과가 담은 것도 뺄 수 있습니다 (사용자 요청 2026-08-13).
+                        임플란트 마스터를 쥔 쪽은 디자인센터입니다. 치과가
+                        단종된 픽스처나 잘못된 조합을 담아 두면 그 조합으로
+                        주문이 들어오고, 전화가 오는 곳도 디자인센터입니다.
+
+                      ★ 말은 나눕니다. 내가 보낸 것을 거두는 '회수' 와
+                        남이 담은 것을 지우는 '삭제' 는 다른 일입니다.
+                    */}
+                    <button
+                      onClick={() => setRemoving(favorite)}
+                      disabled={busy}
+                      className="ml-auto text-[12px] text-gray-400 hover:text-red-600"
+                    >
+                      {favorite.pushed ? '회수' : '삭제'}
+                    </button>
                   </li>
                 ))}
               </ul>
             )}
           </div>
         </>
+      )}
+
+      {removing && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-6">
+          <div className="w-full max-w-[380px] rounded-xl bg-white p-6">
+            <h3 className="text-[15px] font-bold text-[#1A2130]">
+              {removing.pushed ? '이 배포를 거둘까요?' : '이 조합을 지울까요?'}
+            </h3>
+
+            <p className="mt-2 rounded-md bg-[#F4F6F9] px-3 py-2 font-mono text-[12.5px] text-[#4A5567]">
+              {removing.label}
+            </p>
+
+            {/*
+              ★ 치과가 담은 것은 남의 자료입니다. 지우면 그 치과 화면에서
+                사라지고 다시 담아야 합니다 — 그 사실을 적어 둡니다.
+            */}
+            <p className="mt-2 text-[12.5px] leading-relaxed text-[#4A5567]">
+              {removing.pushed
+                ? '이 치과의 목록에서 빠집니다. 필요하면 다시 배포할 수 있습니다.'
+                : '치과가 직접 담은 조합입니다. 지우면 그 치과가 다시 담아야 합니다.'}
+            </p>
+
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRemoving(null)}
+                className="h-10 flex-1 rounded-md border border-[#DDE2EA] text-[13px] text-[#4A5567] hover:bg-[#F4F6F9]"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  await run(() => submitRemoveImplantFavorite(removing.id));
+                  setRemoving(null);
+                }}
+                className="h-10 flex-1 rounded-md bg-[#D8453F] text-[13px] font-bold text-white hover:bg-[#C13B36] disabled:bg-[#D5DAE2]"
+              >
+                {removing.pushed ? '회수' : '삭제'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
