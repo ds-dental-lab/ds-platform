@@ -34,6 +34,8 @@ import OrderActions from '@/components/order/OrderActions';
 import OrderFileList, { DownloadAllButton } from '@/components/order/OrderFileList';
 import LabAssignSelect from '@/components/order/LabAssignSelect';
 import MissingFileBar from '@/components/order/MissingFileBar';
+import OrderProgress from '@/components/order/OrderProgress';
+import type { ProgressStep } from '@/server/domain/progress';
 import { computeDDay } from '@/server/domain/order-list';
 import { buildSummaryLines } from '@/server/domain/summary';
 import { colorOfType, type ProsthesisCatalog } from '@/server/domain/prosthesis';
@@ -109,6 +111,13 @@ export interface OrderDetailScreenProps {
   /** 치식도 아래에 끼워 넣을 것 (수거 카드 등) */
   extraSlot?: React.ReactNode;
   /**
+   * 진행 막대. (사용자 요청 2026-08-13)
+   *
+   * ★ 머리줄의 상태는 **지금** 어디인지만 말합니다.
+   *   어디까지 왔고 다음이 무엇인지는 이 줄이 답합니다.
+   */
+  progress?: ProgressStep[];
+  /**
    * 머리줄 **바로 아래**에 끼워 넣을 것 (리페어 칸).
    *
    * ★ 치식도보다 위입니다. 이 건이 왜 다시 들어왔는지는
@@ -137,6 +146,7 @@ export default function OrderDetailScreen({
   scanSlot,
   extraSlot,
   issueSlot,
+  progress,
   barSlot,
 }: OrderDetailScreenProps) {
   const placements: ChartPlacement[] = order.items.map((item) => ({
@@ -273,6 +283,13 @@ export default function OrderDetailScreen({
             </span>
           </div>
         </div>
+
+        {/* 넓은 것에는 자기 스크롤을 줍니다 — 칸이 여덟까지 늘어납니다 */}
+        {progress && progress.length > 1 && (
+          <div className="overflow-x-auto border-b border-[#F0F2F5] px-[18px] py-3">
+            <OrderProgress steps={progress} />
+          </div>
+        )}
 
         {issueSlot && <div className="px-[18px] pt-3.5">{issueSlot}</div>}
 

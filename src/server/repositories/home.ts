@@ -295,7 +295,8 @@ async function listOpenPickups(
     .from('pickup_requests')
     .select(
       'id, kind, status, memo, created_at, order_id, ' +
-        'order:orders(due_date, status, clinic:organizations!orders_clinic_org_id_fkey(name))',
+        'order:orders(due_date, status, deleted_at, ' +
+        'clinic:organizations!orders_clinic_org_id_fkey(name))',
     )
     .neq('status', 'cancelled')
     .order('created_at', { ascending: false })
@@ -307,10 +308,27 @@ async function listOpenPickups(
     status: string;
     memo: string | null;
     order_id: string | null;
-    order: { due_date: string; status: OrderStatus; clinic: { name: string } | null } | null;
+    order: {
+      due_date: string;
+      status: OrderStatus;
+      deleted_at: string | null;
+      clinic: { name: string } | null;
+    } | null;
   };
 
   return ((data ?? []) as unknown as RawPickup[])
+    /*
+      ★ 눌러도 안 열리는 줄은 세우지 않습니다 (2026-08-13).
+        수거요청은 보이는데 그 주문은 못 보는 경우가 둘 있습니다 —
+        주문이 지워졌거나, RLS 가 주문 쪽만 막았거나. 그대로 두면
+        목록에는 있는데 누르면 "열 수 없는 주문" 이 뜹니다.
+        목록이 거짓말을 하느니 한 줄 덜 보이는 편이 낫습니다.
+    */
+    .filter((row) => {
+      if (row.order_id === null) return true;   // 주문 없이 만든 수거
+      if (!row.order) return false;             // 못 보는 주문
+      return !row.order.deleted_at;             // 지워진 주문
+    })
     .filter((row) => pickupStillListed(row.status, row.order?.status ?? null))
     .slice(0, PICKUP_SHOWN)
     .map((row) => ({

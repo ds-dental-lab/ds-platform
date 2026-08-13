@@ -295,6 +295,32 @@ export async function listStatusHistory(orderId: string): Promise<OrderHistoryRo
   }));
 }
 
+/**
+ * 상세를 못 여는 이유. (사용자 요청 2026-08-13)
+ *
+ * ★ getOrderDetail 은 두 경우에 다 null 을 줍니다 — 지워졌거나,
+ *   우리 조직 것이 아니거나. 화면에 404 하나로 보이면 보는 사람은
+ *   자기가 뭘 잘못했는지 알 수 없습니다. 특히 HOME 목록에서 눌러
+ *   들어왔는데 404 가 뜨면 "이 프로그램이 이상하다" 로 읽힙니다.
+ *
+ * ★ 지워진 것은 **볼 수 있던 사람에게만** 그렇게 보입니다.
+ *   RLS 가 남의 주문은 애초에 안 돌려주므로, 여기서 'deleted' 가
+ *   나온다는 것은 이미 그 주문을 볼 자격이 있다는 뜻입니다.
+ */
+export async function getOrderAbsence(orderId: string): Promise<'deleted' | 'hidden'> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from('orders')
+    .select('id, deleted_at')
+    .eq('id', orderId)
+    .maybeSingle();
+
+  const row = data as { deleted_at: string | null } | null;
+
+  return row?.deleted_at ? 'deleted' : 'hidden';
+}
+
 /** 상세. 이 조직이 볼 수 없는 주문이면 null 을 돌려줍니다 (RLS 가 걸러줌) */
 export async function getOrderDetail(orderId: string): Promise<OrderDetail | null> {
   const supabase = await createClient();

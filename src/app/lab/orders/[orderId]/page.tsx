@@ -10,8 +10,9 @@
 //   3. 수거가 안 끝났으면 제작을 시작하지 못합니다 — 물건이 아직 없습니다
 // =========================================================
 
-import { notFound } from 'next/navigation';
-import { getOrderDetail } from '@/server/repositories/order';
+import OrderUnavailable from '@/components/order/OrderUnavailable';
+import { orderProgress } from '@/server/domain/progress';
+import { getOrderAbsence, getOrderDetail } from '@/server/repositories/order';
 import { listPickupsForOrder } from '@/server/repositories/pickup';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
@@ -32,7 +33,20 @@ interface LabOrderDetailPageProps {
 export default async function LabOrderDetailPage({ params }: LabOrderDetailPageProps) {
   const { orderId } = await params;
   const order = await getOrderDetail(orderId);
-  if (!order) notFound();
+
+  /*
+    ★ 404 대신 이유를 적습니다 (사용자 요청 2026-08-13).
+      지워졌거나 우리 조직 것이 아니거나인데, 둘 다 404 로 보이면
+      HOME 목록에서 눌러 들어온 사람은 뭘 잘못했는지 모릅니다.
+  */
+  if (!order) {
+    return (
+      <OrderUnavailable
+        reason={await getOrderAbsence(orderId)}
+        ordersPath="/lab/orders"
+      />
+    );
+  }
 
   const [implantCatalog, pickups, messages, prosthesisCatalog, repair] = await Promise.all([
     getImplantCatalog(),
@@ -56,6 +70,16 @@ export default async function LabOrderDetailPage({ params }: LabOrderDetailPageP
       implantCatalog={implantCatalog}
       prosthesisCatalog={prosthesisCatalog}
       messages={messages}
+      /*
+        ★ 진행 막대 (사용자 요청 2026-08-13).
+          머리줄의 상태는 지금 어디인지만 말합니다. 수거는 아예 주문
+          상태에 안 담기므로, 둘을 합쳐야 과정이 보입니다.
+      */
+      progress={orderProgress({
+        status: order.status,
+        isRepair: order.is_repair,
+        pickups,
+      })}
       forwardBlockedReason={
         pickups.some((p) => pickupWaiting(p.status))
           ? '수거를 마친 뒤 제작을 시작할 수 있습니다'

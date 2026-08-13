@@ -6,8 +6,9 @@
 //   기공소 배정 · 디자인 파일 업로드가 더 붙습니다.
 // =========================================================
 
-import { notFound } from 'next/navigation';
-import { getOrderDetail, listPartnerLabs } from '@/server/repositories/order';
+import OrderUnavailable from '@/components/order/OrderUnavailable';
+import { orderProgress } from '@/server/domain/progress';
+import { getOrderAbsence, getOrderDetail, listPartnerLabs } from '@/server/repositories/order';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { getRepairContext } from '@/server/repositories/repair';
@@ -41,7 +42,20 @@ interface OrderDetailPageProps {
 export default async function DesignOrderDetailPage({ params }: OrderDetailPageProps) {
   const { orderId } = await params;
   const order = await getOrderDetail(orderId);
-  if (!order) notFound();
+
+  /*
+    ★ 404 대신 이유를 적습니다 (사용자 요청 2026-08-13).
+      지워졌거나 우리 조직 것이 아니거나인데, 둘 다 404 로 보이면
+      HOME 목록에서 눌러 들어온 사람은 뭘 잘못했는지 모릅니다.
+  */
+  if (!order) {
+    return (
+      <OrderUnavailable
+        reason={await getOrderAbsence(orderId)}
+        ordersPath="/design/orders"
+      />
+    );
+  }
 
   /*
     ★ 휴일도 **함께** 부릅니다.
@@ -154,6 +168,16 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       showCost
       labName={order.in_house ? '자사 제작' : order.lab_name}
       forwardBlockedReason={forwardBlockedReason}
+      /*
+        ★ 진행 막대 (사용자 요청 2026-08-13).
+          머리줄의 상태는 지금 어디인지만 말합니다. 수거는 아예 주문
+          상태에 안 담기므로, 둘을 합쳐야 과정이 보입니다.
+      */
+      progress={orderProgress({
+        status: order.status,
+        isRepair: order.is_repair,
+        pickups,
+      })}
       issueSlot={
         <RepairPanel repair={repair} isRepair={order.is_repair} orderPath="/design/orders" />
       }

@@ -3,13 +3,15 @@
 //
 // 주문상세 (치과). (설계서 §9.1)
 //   화면은 OrderDetailScreen 하나로 세 섹터가 나눠 씁니다.
-//   RLS 가 이 조직 주문이 아니면 걸러주므로, 못 찾으면 404 입니다.
+//   RLS 가 이 조직 주문이 아니면 걸러줍니다 — 그때는 404 가 아니라
+//   왜 못 여는지를 적은 화면을 보여 줍니다 (OrderUnavailable).
 //
 // ★ 치과에는 치과 이름을 보이지 않습니다. 자기 이름을 볼 이유가 없습니다.
 // =========================================================
 
-import { notFound } from 'next/navigation';
-import { getOrderDetail } from '@/server/repositories/order';
+import OrderUnavailable from '@/components/order/OrderUnavailable';
+import { orderProgress } from '@/server/domain/progress';
+import { getOrderAbsence, getOrderDetail } from '@/server/repositories/order';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
@@ -34,7 +36,20 @@ interface OrderDetailPageProps {
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
   const { orderId } = await params;
   const order = await getOrderDetail(orderId);
-  if (!order) notFound();
+
+  /*
+    ★ 404 대신 이유를 적습니다 (사용자 요청 2026-08-13).
+      지워졌거나 우리 조직 것이 아니거나인데, 둘 다 404 로 보이면
+      HOME 목록에서 눌러 들어온 사람은 뭘 잘못했는지 모릅니다.
+  */
+  if (!order) {
+    return (
+      <OrderUnavailable
+        reason={await getOrderAbsence(orderId)}
+        ordersPath="/clinic/orders"
+      />
+    );
+  }
 
   const today = todayInKst();
 
@@ -72,6 +87,16 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       prosthesisCatalog={prosthesisCatalog}
       messages={messages}
       showClinic={false}
+      /*
+        ★ 진행 막대 (사용자 요청 2026-08-13).
+          머리줄의 상태는 지금 어디인지만 말합니다. 수거는 아예 주문
+          상태에 안 담기므로, 둘을 합쳐야 과정이 보입니다.
+      */
+      progress={orderProgress({
+        status: order.status,
+        isRepair: order.is_repair,
+        pickups,
+      })}
       extraSlot={
         pickups.length > 0 ? <PickupCard pickups={pickups} canComplete={false} /> : null
       }
