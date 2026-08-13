@@ -39,6 +39,7 @@ import { STATUS_LABEL, type OrderStatus, type Sector } from '@/server/domain/ord
 import { ISSUE_META, type IssueType } from '@/server/domain/order-list';
 import MoneyTrend from '@/components/home/MoneyTrend';
 import { PICKUP_KIND_LABEL, PICKUP_STATUS_LABEL } from '@/lib/format/pickup';
+import { WORK_LABEL } from '@/server/domain/worklist';
 import type { HomeSummary, HomePickup, HomeWork } from '@/server/repositories/home';
 
 /** 섹터마다 세는 상태가 다릅니다 */
@@ -131,8 +132,6 @@ const HOME_PATH: Record<
 export interface HomeScreenProps {
   sector: Sector;
   summary: HomeSummary;
-  /** 디자인센터는 진행 중 작업 목록을 왼쪽 아래에 세웁니다 */
-  showWorklist?: boolean;
   /**
    * 금액을 볼 수 있는 사람인가 (관리자).
    *
@@ -146,7 +145,6 @@ export interface HomeScreenProps {
 export default function HomeScreen({
   sector,
   summary,
-  showWorklist,
   canSeeMoney = true,
 }: HomeScreenProps) {
   const money = MONEY_LABEL[sector];
@@ -155,10 +153,10 @@ export default function HomeScreen({
   /*
     ★ 왼쪽 칸에서 남는 높이를 누가 가져가나.
       보통은 맨 아래 추이입니다. 금액을 못 보는 사용자에게는 추이가
-      아예 없으므로, 그때는 진행중 상태·이슈가 대신 늘어납니다.
+      아예 없으므로, 그때는 '내 일' 목록이 대신 늘어납니다.
       아무도 안 늘어나면 그 칸만 짧게 끝나 다시 어긋납니다.
   */
-  const statusGrows = !canSeeMoney;
+  const workGrows = !canSeeMoney;
 
   return (
     <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
@@ -206,7 +204,7 @@ export default function HomeScreen({
         </Card>
         )}
 
-        <div className={'grid grid-cols-2 gap-3.5 ' + (statusGrows ? 'flex-1' : 'shrink-0')}>
+        <div className="grid shrink-0 grid-cols-2 gap-3.5">
           <Card>
             <h2 className="mb-3.5 text-[14px] font-bold tracking-tight text-[#1A2130]">
               진행중 상태
@@ -263,8 +261,18 @@ export default function HomeScreen({
           </Card>
         </div>
 
-        {/* 디자인센터만 작업 리스트가 하나 더 붙습니다 */}
-        {showWorklist && <Worklist rows={summary.worklist} ordersPath={path.orders} />}
+        {/*
+          ★ 세 섹터가 다 세웁니다 (사용자 결정 2026-08-13).
+            금액을 못 보는 사용자에게는 이 카드가 남는 높이를 가져갑니다 —
+            그래야 왼쪽 칸이 다른 두 칸과 같은 줄에서 끝납니다.
+        */}
+        <Worklist
+          rows={summary.worklist}
+          total={summary.worklist.length}
+          ordersPath={path.orders}
+          sector={sector}
+          grow={workGrows}
+        />
 
         {/* ★ 금액 추이는 세 섹터 모두 봅니다.
             전에는 디자인센터 자리에 작업 리스트만 두어, 정작 이 화면을 매일
@@ -438,88 +446,141 @@ function PickupRow({ row, href }: { row: HomePickup; href: string | null }) {
   );
 }
 
-// ---------- 작업 리스트 (디자인센터) ----------
+// ---------- '내 일' 목록 (세 섹터 공통) ----------
 
 /** 카드에 보여 줄 줄 수. 넘치면 '외 N건' 으로 접습니다 */
 const WORKLIST_SHOWN = 6;
 
 /**
- * 지금 디자인 중인 주문. (사용자 결정 2026-08-12)
+ * 지금 내 손에 있는 주문.
  *
- * ★ **디자인을 잡았을 때** 올라옵니다. 접수만 된 건은 아직 작업이 아닙니다.
- *   제작주문으로 넘기면 빠집니다 — 그때부터 기공소의 일입니다.
+ * ★ **세 섹터가 다 씁니다** (사용자 결정 2026-08-13).
+ *   전에는 디자인센터에만 있었습니다. 그래서 사용자 계정으로 들어가면
+ *   왼쪽 칸에 카드가 하나뿐이라 관리자 화면의 절반도 안 되는 페이지가
+ *   됐습니다 — 재 보니 327px 대 766px 이었습니다. 이제 어느 계정으로
+ *   들어와도 왼쪽 칸 맨 아래에 **같은 모양의 목록**이 섭니다.
  *
- * ★ 끝나지 않은 건은 계속 남습니다. 대신 **며칠째인지**를 답니다.
- *   그게 없으면 오래 걸리는 건이 새 건들 사이에 섞여 조용히 늙습니다.
- *   그래서 차례도 요청시한이 아니라 오래 잡고 있는 것부터입니다.
+ * ★ 표의 틀은 넷으로 고정입니다. 섹터마다 **머리말 두 개만** 바뀝니다.
+ *   틀까지 갈리면 계정을 옮길 때마다 눈이 다시 자리를 찾아야 합니다.
  *
- * ★ 디자이너는 **디자인 단계로 옮긴 사람**입니다.
- *   담당자 칸을 따로 두지 않았습니다 — 이미 이력에 남아 있는 사실이라
- *   두 곳에 적으면 어긋납니다.
+ * ★ 무엇이 오르고 누가 임자인지는 domain/worklist 가 정합니다
+ *   (WORK_STATUSES · ownerOf). 치과는 넣은 사람, 디자인센터는 디자인을
+ *   잡은 사람, 기공소는 임자가 없습니다 — 조직이 통째로 받으니까요.
+ *
+ * ★ '경과' 의 뜻도 섹터마다 다릅니다.
+ *   디자인센터만 **잡은 지 며칠째**이고, 나머지는 **요청시한을 며칠
+ *   지났나**입니다. 치과·기공소에는 '잡은 순간' 이 없습니다.
  */
-function Worklist({ rows, ordersPath }: { rows: HomeWork[]; ordersPath: string }) {
+const WORK_COLUMNS = 'grid-cols-[1fr_1.2fr_0.9fr_0.6fr]';
+
+function Worklist({
+  rows,
+  ordersPath,
+  sector,
+  total,
+  grow,
+}: {
+  rows: HomeWork[];
+  ordersPath: string;
+  sector: Sector;
+  /** 접기 전 전체 건수 */
+  total: number;
+  /** 왼쪽 칸에서 남는 높이를 가져갈 것인가 */
+  grow?: boolean;
+}) {
   const shown = rows.slice(0, WORKLIST_SHOWN);
+  const label = WORK_LABEL[sector];
+  const design = sector === 'design_center';
 
   return (
-    <Card className="shrink-0">
+    <Card className={grow ? 'flex-1' : 'shrink-0'}>
       <div className="flex items-center">
-        <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">작업 리스트</h2>
-        <span className="ml-auto text-[13px] text-[#98A2B3]">{rows.length}건</span>
+        <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">{label.title}</h2>
+        <span className="ml-auto text-[13px] text-[#98A2B3]">{total}건</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-[1fr_1.2fr_0.9fr_0.6fr] gap-2 border-b border-[#E8EBF0] pb-2 text-[13px] text-[#98A2B3]">
-        <span>치과명</span>
+      <div
+        className={`mt-3 grid ${WORK_COLUMNS} gap-2 border-b border-[#E8EBF0] pb-2 text-[13px] text-[#98A2B3]`}
+      >
+        {/* ★ 치과에는 치과명 칸이 쓸모없습니다 — 모든 줄이 자기 치과입니다 */}
+        <span>{sector === 'clinic' ? '상태' : '치과명'}</span>
         <span>환자정보</span>
-        <span>디자이너</span>
+        <span>{design ? '디자이너' : '요청시한'}</span>
         <span className="text-right">경과</span>
       </div>
 
       {shown.length === 0 ? (
-        <Empty className="py-8">진행 중인 작업이 없습니다.</Empty>
+        <Empty className="py-8">{label.empty}</Empty>
       ) : (
         <ul className="-mx-1.5">
           {shown.map((row) => (
             <li key={row.id}>
               <Link
                 href={`${ordersPath}/${row.id}`}
-                title={`${row.startedOn || '?'} 에 잡음 · 요청시한 ${row.dueDate}`}
-                className="grid grid-cols-[1fr_1.2fr_0.9fr_0.6fr] items-center gap-2 rounded px-1.5 py-[7px] text-[13.5px] hover:bg-[#F4F8FE]"
+                title={
+                  design
+                    ? `${row.startedOn || '?'} 에 잡음 · 요청시한 ${row.dueDate}`
+                    : `요청시한 ${row.dueDate}`
+                }
+                className={`grid ${WORK_COLUMNS} items-center gap-2 rounded px-1.5 py-[7px] text-[13.5px] hover:bg-[#F4F8FE]`}
               >
-                <span className="truncate text-[#4A5567]">{row.clinicName}</span>
-                <span className="truncate font-semibold text-[#1A2130]">{row.patientLabel}</span>
                 <span className="truncate text-[#4A5567]">
-                  {row.designerName || <span className="text-[#C4CBD6]">미상</span>}
+                  {sector === 'clinic' ? STATUS_LABEL[row.status] : row.clinicName}
+                </span>
+                <span className="truncate font-semibold text-[#1A2130]">{row.patientLabel}</span>
+                <span className="truncate tabular-nums text-[#4A5567]">
+                  {design ? (
+                    row.designerName || <span className="text-[#C4CBD6]">미상</span>
+                  ) : (
+                    row.dueDate.slice(5)
+                  )}
                 </span>
 
-                {/* ★ 하루 넘긴 건은 눈에 띄어야 합니다.
-                    오늘 잡은 것과 나흘째인 것이 같아 보이면 목록이 소용없습니다 */}
-                <span
-                  className={
-                    'truncate text-right tabular-nums ' +
-                    (row.dayCount >= 3
-                      ? 'font-bold text-[#D8453F]'
-                      : row.dayCount >= 2
-                        ? 'font-semibold text-[#C77700]'
-                        : 'text-[#98A2B3]')
-                  }
-                >
-                  {row.dayCount}일째
-                </span>
+                <Elapsed days={row.dayCount} design={design} />
               </Link>
             </li>
           ))}
         </ul>
       )}
 
-      {rows.length > shown.length && (
+      {total > shown.length && (
         <Link
           href={ordersPath}
           className="mt-1.5 block text-[13px] text-[#4A5567] hover:text-[#1279E8]"
         >
-          외 {rows.length - shown.length}건 더 보기 ›
+          외 {total - shown.length}건 더 보기 ›
         </Link>
       )}
     </Card>
+  );
+}
+
+/**
+ * 오른쪽 끝 '경과' 칸.
+ *
+ * ★ 하루 넘긴 건은 눈에 띄어야 합니다. 오늘 잡은 것과 나흘째인 것이
+ *   같아 보이면 목록이 소용없습니다.
+ *
+ * ★ 치과·기공소는 **시한을 안 넘겼으면 아무 말도 안 합니다.**
+ *   '0일 지남' 은 지났다는 말처럼 읽힙니다.
+ */
+function Elapsed({ days, design }: { days: number; design: boolean }) {
+  const hot = design ? days >= 3 : days >= 1;
+  const warm = design ? days >= 2 : days >= 1;
+
+  return (
+    <span
+      className={
+        'truncate text-right tabular-nums ' +
+        (hot
+          ? 'font-bold text-[#D8453F]'
+          : warm
+            ? 'font-semibold text-[#C77700]'
+            : 'text-[#98A2B3]')
+      }
+    >
+      {design ? `${days}일째` : days > 0 ? `${days}일 지남` : '–'}
+    </span>
   );
 }
 

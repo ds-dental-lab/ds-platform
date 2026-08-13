@@ -25,7 +25,6 @@ export default async function HomePage() {
         sector="design_center"
         summary={summary}
         canSeeMoney={canSeeMoney(session?.role as MemberRole | null)}
-        showWorklist
       />
     </>
   );

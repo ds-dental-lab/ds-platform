@@ -89,7 +89,7 @@ const BUSY: HomeSummary = {
       dueDate: '2026-08-15',
       status: 'designing',
       designerName: '이대신',
-      designerId: 'u1',
+      ownerId: 'u1',
       startedOn: '2026-08-11',
       dayCount: 3,
     },
@@ -100,7 +100,7 @@ const BUSY: HomeSummary = {
       dueDate: '2026-08-16',
       status: 'designing',
       designerName: '',
-      designerId: null,
+      ownerId: null,
       startedOn: '2026-08-13',
       dayCount: 1,
     },
@@ -129,11 +129,11 @@ const BUSY: HomeSummary = {
   ],
 };
 
-const CASES: { key: string; label: string; sector: Sector; summary: HomeSummary; worklist?: boolean; money?: boolean }[] = [
+const CASES: { key: string; label: string; sector: Sector; summary: HomeSummary; money?: boolean }[] = [
   { key: 'clinic-blank', label: '치과 · 값 없음', sector: 'clinic', summary: BLANK },
   { key: 'clinic-busy', label: '치과 · 값 있음', sector: 'clinic', summary: BUSY },
   { key: 'clinic-user', label: '치과 · 사용자(금액 없음)', sector: 'clinic', summary: BUSY, money: false },
-  { key: 'design-busy', label: '디자인센터', sector: 'design_center', summary: BUSY, worklist: true },
+  { key: 'design-busy', label: '디자인센터', sector: 'design_center', summary: BUSY },
   { key: 'lab-busy', label: '기공소', sector: 'lab', summary: BUSY },
 ];
 
@@ -146,7 +146,7 @@ export default function HomePlayground() {
           <HomeScreen
             sector={c.sector}
             summary={c.summary}
-            showWorklist={c.worklist}
+            
             canSeeMoney={c.money !== false}
           />
         </section>

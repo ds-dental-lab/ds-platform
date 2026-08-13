@@ -18,10 +18,15 @@ import { todayInKst } from '@/server/domain/week';
 import { getHomeMoney, type HomeMoney } from '@/server/repositories/home-money';
 import { getSession } from '@/server/policies/session';
 import { canManageMembers, type MemberRole } from '@/server/domain/member';
-import { visibleWork, sortWork } from '@/server/domain/worklist';
+import {
+  visibleWork,
+  sortWork,
+  ownerOf,
+  WORK_STATUSES,
+} from '@/server/domain/worklist';
 import { listNotices, type NoticeRow } from '@/server/repositories/notice';
 import { pickupStillListed, pickupWaiting } from '@/server/domain/pickup';
-import type { OrderStatus } from '@/server/domain/order-status';
+import type { OrderStatus, Sector } from '@/server/domain/order-status';
 import type { IssueType } from '@/server/domain/order-list';
 
 export interface HomeDelivery {
@@ -46,20 +51,20 @@ export interface HomePickup {
   waiting: boolean;
 }
 
-/** 지금 디자인 중인 주문 한 줄 */
+/** '내 일' 목록 한 줄. 무엇이 오르는지는 섹터마다 다릅니다 */
 export interface HomeWork {
   id: string;
   clinicName: string;
   patientLabel: string;
   dueDate: string;
   status: OrderStatus;
-  /** 디자인을 잡은 사람. 못 찾으면 빈 문자열 */
+  /** 임자의 이름. 못 찾으면 빈 문자열 */
   designerName: string;
-  /** 그 사람의 id — 사용자에게는 자기 것만 보여 주는 데 씁니다 */
-  designerId: string | null;
-  /** 디자인을 잡은 날 (KST) */
+  /** 임자의 id — 사용자에게 자기 것만 보여 주는 데 씁니다 */
+  ownerId: string | null;
+  /** 디자인을 잡은 날 (KST). 디자인센터만 채웁니다 */
   startedOn: string;
-  /** 잡은 날부터 오늘까지 며칠째인가. 오늘 잡았으면 1 */
+  /** 며칠째인가. 오늘 잡았으면 1 */
   dayCount: number;
 }
 
@@ -78,7 +83,7 @@ export interface HomeWork {
  *
  * ★ 제작주문으로 넘기면 빠집니다. 그때부터 기공소의 일입니다.
  */
-const DESIGN_WORK: OrderStatus[] = ['designing'];
+/* 어떤 상태가 오르는지는 domain/worklist 의 WORK_STATUSES 가 정합니다 */
 
 export interface HomeSummary {
   /** 진행중 상태별 건수. 완료·취소는 세지 않습니다 */
@@ -106,6 +111,7 @@ interface RawRow {
   due_date: string;
   patient_label: string;
   designer_user_id: string | null;
+  created_by: string | null;
   clinic: { name: string } | null;
   order_issues: { issue_type: IssueType; resolved_at: string | null }[] | null;
 }
@@ -123,6 +129,15 @@ export async function getHomeSummary(): Promise<HomeSummary> {
       수거만 맨 아래에서 따로 기다리고 있었습니다 — 왕복 하나를
       줄줄이 세워 둔 셈입니다.
   */
+  /*
+    ★ 세션을 맨 앞에서 한 번 읽습니다.
+      어느 섹터인지에 따라 '내 일' 에 담을 상태가 달라져서, 줄을 고르기
+      전에 알아야 합니다. getSession 은 요청당 한 번만 실제로 돕니다.
+  */
+  const me = await getSession();
+  const sector = (me?.orgType ?? 'clinic') as Sector;
+  const workStatuses = WORK_STATUSES[sector];
+
   const money = getHomeMoney();
   const notices = listNotices(HOME_NOTICES);
   const pickups = listOpenPickups(supabase);
@@ -130,7 +145,7 @@ export async function getHomeSummary(): Promise<HomeSummary> {
   const { data, error } = await supabase
     .from('orders')
     .select(
-      'id, status, due_date, patient_label, designer_user_id, ' +
+      'id, status, due_date, patient_label, designer_user_id, created_by, ' +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
         'order_issues(issue_type, resolved_at)',
     )
@@ -165,7 +180,7 @@ export async function getHomeSummary(): Promise<HomeSummary> {
     }
 
     // ★ 조회를 더 하지 않습니다 — 위에서 이미 다 읽어 온 줄들입니다
-    if (DESIGN_WORK.includes(row.status)) {
+    if (workStatuses.includes(row.status)) {
       worklist.push({
         id: row.id,
         clinicName: row.clinic?.name ?? '',
@@ -173,20 +188,36 @@ export async function getHomeSummary(): Promise<HomeSummary> {
         dueDate: row.due_date,
         status: row.status,
         designerName: '',
-        // ★ 이제 이력에서 캐지 않고 배정된 사람을 그대로 씁니다
-        designerId: row.designer_user_id,
+        // ★ 임자가 누구인지는 섹터마다 다릅니다 (domain/worklist)
+        ownerId: ownerOf(sector, {
+          designerId: row.designer_user_id,
+          createdBy: row.created_by,
+        }),
         startedOn: '',
         dayCount: 1,
       });
     }
   }
 
-  await fillDesignStart(supabase, worklist, today);
+  /*
+    ★ '며칠째' 를 세는 기준이 섹터마다 다릅니다.
+      디자인센터만 **디자인을 잡은 날**부터 셉니다 — 이력을 한 번 더
+      읽어야 합니다. 치과·기공소는 그런 순간이 없어서 요청시한을
+      기준으로 남은 날을 봅니다. 없는 이력을 억지로 읽으면 왕복만 늘고
+      모든 줄이 1일째로 나옵니다.
+  */
+  if (sector === 'design_center') await fillDesignStart(supabase, worklist, today);
+  else fillDueGap(worklist, today);
 
   // 누구에게 무엇이 보이고 어떤 차례인지는 domain/worklist 가 정합니다
-  const me = await getSession();
   const mine = sortWork(
-    visibleWork(worklist, me?.user.id ?? null, canManageMembers(me?.role as MemberRole | null)),
+    visibleWork(
+      worklist,
+      me?.user.id ?? null,
+      canManageMembers(me?.role as MemberRole | null),
+      // 기공소는 임자를 안 둡니다 — 사용자도 같은 목록을 봅니다
+      sector === 'lab',
+    ),
   );
 
   return {
@@ -238,7 +269,7 @@ async function fillDesignStart(
     if (!latest.has(row.order_id)) latest.set(row.order_id, row);
   }
 
-  const userIds = [...new Set(rows.map((r) => r.designerId).filter(Boolean))] as string[];
+  const userIds = [...new Set(rows.map((r) => r.ownerId).filter(Boolean))] as string[];
   const names = new Map<string, string>();
 
   if (userIds.length > 0) {
@@ -253,7 +284,7 @@ async function fillDesignStart(
   }
 
   for (const row of rows) {
-    if (row.designerId) row.designerName = names.get(row.designerId) ?? '';
+    if (row.ownerId) row.designerName = names.get(row.ownerId) ?? '';
 
     const hit = latest.get(row.id);
     if (!hit) continue;
@@ -341,4 +372,27 @@ async function listOpenPickups(
       kind: row.kind,
       waiting: pickupWaiting(row.status),
     }));
+}
+
+/**
+ * 디자인센터가 아닌 곳의 '며칠째'.
+ *
+ * ★ 치과·기공소에는 **'잡은 순간' 이 없습니다.** 치과는 넣은 뒤로 계속
+ *   자기 일이고, 기공소는 조직이 통째로 받습니다. 그래서 이력을 읽지
+ *   않고 **요청시한까지 남은 날**로 급한 차례를 만듭니다.
+ *
+ * ★ 지난 것은 큰 수가 됩니다. sortWork 가 큰 것부터 세우므로,
+ *   **시한을 넘긴 건이 맨 위**에 옵니다 — 그게 먼저 봐야 할 것입니다.
+ */
+function fillDueGap(rows: HomeWork[], today: string): void {
+  const now = Date.parse(`${today}T00:00:00Z`);
+
+  for (const row of rows) {
+    const due = Date.parse(`${row.dueDate}T00:00:00Z`);
+    const days = Number.isNaN(due) ? 0 : Math.round((now - due) / 86400000);
+
+    // 아직 안 지난 건은 0. 지난 건만 '며칠 지났나' 로 셉니다
+    row.dayCount = Math.max(0, days);
+    row.startedOn = '';
+  }
 }
