@@ -801,3 +801,47 @@ function bridgeLabel(items: GroupableItem[]): string {
 export function formatTeeth(teeth: number[], isBridge: boolean): string {
   return teeth.join(isBridge ? '-' : ', ');
 }
+
+// ---------- 단가를 바꾸면 어디까지 흔들리는가 ----------
+//
+// 사용자 질문 2026-08-13 — "단가를 중간에 바꾸면 그 시점부터인가,
+// 그 달부터인가?"
+//
+// ★ 지금 구조의 답은 **둘 다 아닙니다.** 정산은 단가표를 볼 때마다
+//   다시 읽으므로, 실제 규칙은 **'마감 시점의 단가'** 입니다.
+//   그래서 8월 20일에 값을 올리면 **8월 1일에 나간 건까지 소급**됩니다.
+//
+// ★ 마감된 달은 안전합니다 — billing_lines 에 굳어 있습니다.
+//   흔들리는 것은 **아직 안 닫힌 기간에 이미 배송된 건**뿐입니다.
+//   그 수를 세어 저장하기 전에 보여 주는 것이 이 함수입니다.
+//
+// ★ 이것은 임시방편입니다. 제대로 된 답은 단가에 유효기간을 두어
+//   배송일에 맞는 값을 고르는 것입니다(price_lists 에 effective_from
+//   칸이 이미 있습니다). 다만 그 전에도 **모르고 소급되는 일**만은
+//   없애야 합니다 — 청구서가 나간 뒤에는 설명할 길이 없습니다.
+
+export interface RepriceImpact {
+  /** 아직 안 닫힌 기간 중 흔들리는 달들. 이른 것부터 */
+  months: YearMonth[];
+  /** 그 달들에 이미 배송된 청구 대상 건수 */
+  orderCount: number;
+}
+
+/**
+ * 단가를 바꾸기 전에 화면에 띄울 말. 흔들릴 것이 없으면 null.
+ *
+ * ★ **건수와 달을 같이 적습니다.** "청구액이 바뀔 수 있습니다" 만으로는
+ *   아무도 손을 멈추지 않습니다. '8월 · 3건' 이라고 적혀야 그 3건이
+ *   무엇인지 확인하러 갑니다.
+ */
+export function repriceWarning(impact: RepriceImpact): string | null {
+  if (impact.orderCount <= 0 || impact.months.length === 0) return null;
+
+  const months = impact.months.join(' · ');
+
+  return (
+    `아직 마감하지 않은 ${months} 에 이미 배송된 ${impact.orderCount}건이 이 단가로 계산됩니다. ` +
+    '단가를 바꾸면 그 건들의 청구액도 함께 바뀝니다. ' +
+    '마감한 달은 안 바뀝니다.'
+  );
+}

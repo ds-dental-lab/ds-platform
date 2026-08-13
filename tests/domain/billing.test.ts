@@ -20,6 +20,7 @@ import {
   sumItems,
   canClosePeriod,
   canIssueInvoice,
+  repriceWarning,
   canReopenPeriod,
   splitItemLines,
   invoicePartiesFor,
@@ -766,5 +767,46 @@ describe('발행할 수 있는가', () => {
   // ★ 이미 닫혀 있으면 그 판단은 닫을 때 끝났습니다 — 날짜를 다시 안 봅니다
   it('★ 이미 닫혀 있으면 날짜를 다시 안 봅니다', () => {
     expect(canIssueInvoice(range, '2026-07-20', true, false, 2)).toEqual({ ok: true });
+  });
+});
+
+// ---------- 단가를 바꾸면 어디까지 흔들리나 (사용자 질문 2026-08-13) ----------
+//
+// ★ 지금 구조는 '주문 시점' 도 '변경 월부터' 도 아닙니다.
+//   정산이 단가표를 볼 때마다 다시 읽으므로 **'마감 시점의 단가'** 입니다.
+//   그래서 8월 20일에 올리면 8월 1일에 나간 건까지 소급됩니다.
+//   마감된 달만 안전합니다 — 그 사실을 저장 전에 알려 주려는 규칙입니다.
+
+describe('단가 변경 경고', () => {
+  it('흔들릴 것이 없으면 아무 말도 안 합니다', () => {
+    expect(repriceWarning({ months: [], orderCount: 0 })).toBeNull();
+  });
+
+  it('건수가 0이면 달이 있어도 안 띄웁니다', () => {
+    expect(repriceWarning({ months: ['2026-08'], orderCount: 0 })).toBeNull();
+  });
+
+  // ★ "청구액이 바뀔 수 있습니다" 만으로는 아무도 손을 멈추지 않습니다.
+  //   '8월 · 3건' 이라고 적혀야 그 3건을 확인하러 갑니다.
+  it('★ 달과 건수를 같이 적습니다', () => {
+    const msg = repriceWarning({ months: ['2026-08'], orderCount: 3 });
+
+    expect(msg).toContain('2026-08');
+    expect(msg).toContain('3건');
+  });
+
+  // ★ 지난 달을 안 닫아 뒀으면 그것도 함께 흔들립니다
+  it('★ 안 닫힌 달이 여럿이면 다 적습니다', () => {
+    const msg = repriceWarning({ months: ['2026-07', '2026-08'], orderCount: 5 });
+
+    expect(msg).toContain('2026-07');
+    expect(msg).toContain('2026-08');
+  });
+
+  // ★ 겁만 주면 안 됩니다. 안 바뀌는 것도 같이 말해야 손이 덜 떨립니다
+  it('★ 마감한 달은 안 바뀐다고 밝힙니다', () => {
+    const msg = repriceWarning({ months: ['2026-08'], orderCount: 1 });
+
+    expect(msg).toContain('마감한 달은 안 바뀝니다');
   });
 });

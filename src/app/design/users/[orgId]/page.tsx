@@ -9,7 +9,12 @@
 
 import { notFound } from 'next/navigation';
 import { requireManagerSector } from '@/server/policies/session';
-import { getPartner, getPartnerPrices } from '@/server/repositories/partner';
+import {
+  getPartner,
+  getPartnerPrices,
+  getRepriceImpact,
+} from '@/server/repositories/partner';
+import { repriceWarning } from '@/server/domain/billing';
 import PartnerPriceTable from '@/components/partner/PartnerPriceTable';
 
 export const dynamic = 'force-dynamic';
@@ -26,11 +31,18 @@ export default async function PartnerPricePage({
   const partner = await getPartner(orgId);
   if (!partner || (partner.orgType !== 'clinic' && partner.orgType !== 'lab')) notFound();
 
-  const rows = await getPartnerPrices(partner);
+  const [rows, impact] = await Promise.all([
+    getPartnerPrices(partner),
+    getRepriceImpact(partner),
+  ]);
 
   return (
     <div className="mx-auto max-w-[1400px]">
-      <PartnerPriceTable partner={partner} rows={rows} />
+      <PartnerPriceTable
+        partner={partner}
+        rows={rows}
+        repriceWarning={repriceWarning(impact)}
+      />
       <div className="pb-10" />
     </div>
   );
