@@ -90,7 +90,8 @@ export default async function DesignBillingPage({
     ? await getClosedSettlement(period!.id, from, to, catalog)
     : await getSettlement(partner, from, to, catalog);
 
-  const verdict = canClosePeriod({ from, to }, today, closed);
+  /* 건수까지 보고 판단합니다 — 셀 것이 없으면 단추가 아예 안 눌립니다 */
+  const verdict = canClosePeriod({ from, to }, today, closed, settlement.items.length);
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-3">

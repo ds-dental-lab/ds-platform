@@ -234,7 +234,7 @@ export default function SectorShell({
               */}
               <DenFlowMark height={19} className="ml-0.5 mr-1.5" />
 
-              <span className="flex items-baseline gap-[.3em] whitespace-nowrap text-[17px] font-extrabold leading-none tracking-[-0.045em]">
+              <span className="flex items-baseline whitespace-nowrap text-[17px] font-extrabold leading-none tracking-[-0.045em]">
                 <b className="text-[#1B2A4A]">Den</b>
                 <i className="font-semibold not-italic tracking-[.01em] text-[#9AA3AE]">Flow</i>
               </span>

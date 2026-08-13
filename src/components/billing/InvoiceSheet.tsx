@@ -259,7 +259,7 @@ export default function InvoiceSheet({
       </Section>
 
       <footer className="mt-8 border-t border-[#E8EBF0] pt-4 text-[11px] text-[#98A2B3]">
-        이 문서는 Den Flow 에서 자동으로 만들어졌습니다. 금액이 다르면 발행처에 알려 주세요.
+        이 문서는 DenFlow 에서 자동으로 만들어졌습니다. 금액이 다르면 발행처에 알려 주세요.
       </footer>
     </article>
   );

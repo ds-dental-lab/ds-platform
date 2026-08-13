@@ -203,7 +203,7 @@ export default function LoginPage() {
             카드가 380px 인데 안쪽은 316px 뿐이라 20px 쯤 모자랐습니다.
 
             고친 것 둘.
-            ① 앞말에서 'Den Flow' 를 뺐습니다. 바로 위에 마크와 이름이
+            ① 앞말에서 'DenFlow' 를 뺐습니다. 바로 위에 마크와 이름이
                있어 두 번 말하는 셈이었습니다.
             ② 두 링크와 가운뎃점을 한 덩어리로 묶어 **그 안에서는 안
                쪼개지게** 했습니다. 글자를 키우거나 창을 좁혀도 둘이
@@ -247,7 +247,7 @@ const css = `
   box-shadow:0 1px 3px rgba(26,33,48,.04);
 }
 .auth-logo{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:30px}
-.logo-txt{display:inline-flex; align-items:baseline; gap:.30em; font-size:24px; font-weight:800; letter-spacing:-0.045em; line-height:1}
+.logo-txt{display:inline-flex; align-items:baseline; gap:0; font-size:24px; font-weight:800; letter-spacing:-0.045em; line-height:1}
 .logo-txt b{color:#1B2A4A; font-weight:800}
 .logo-txt i{color:#9AA3AE; font-weight:600; font-style:normal; letter-spacing:.01em}
 .auth-fields{display:flex; flex-direction:column; gap:9px}

@@ -20,7 +20,7 @@ import "./globals.css";
 */
 
 export const metadata: Metadata = {
-  title: "Den Flow",
+  title: "DenFlow",
   description: "치과 · 디자인센터 · 기공소를 잇는 보철 주문 플랫폼",
 };
 

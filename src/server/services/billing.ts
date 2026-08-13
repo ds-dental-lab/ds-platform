@@ -33,7 +33,14 @@ import { todayInKst } from '@/server/domain/week';
 
 export type CloseResult =
   | { ok: true; lines: number; amount: number }
-  | { ok: false; error: string };
+  /**
+   * 못 닫은 이유.
+   *
+   * ★ `empty` 는 **실패가 아니라 건너뛴 것**입니다. 그 달에 나간 물건이
+   *   없는 거래처는 청구할 것도 없습니다. 일괄 마감 결과에서 빨간 실패로
+   *   세면, 거래처가 쉰 곳이 많은 달에는 화면이 온통 빨개집니다.
+   */
+  | { ok: false; error: string; empty?: boolean };
 
 /**
  * 거래처 하나의 한 기간을 마감합니다.
@@ -88,6 +95,17 @@ export async function closeBillingPeriod(
 
   const priced = canFreezeAmounts(settlement.unpricedCount);
   if (!priced.ok) return { ok: false, error: priced.reason };
+
+  /*
+    ★ 셀 것이 없으면 여기서 멈춥니다 (사용자 요청 2026-08-13).
+      건수는 셈을 해 봐야 알 수 있어서, 날짜·중복 검사와 달리 이 자리에
+      옵니다. **아직 아무것도 안 만들었으므로** 빈 기간이 남지 않습니다.
+
+    ★ 일괄 마감은 이 실패를 한 줄로 받아 나머지를 계속 돕니다
+      (closeManyPeriods 가 거래처마다 따로 부릅니다).
+  */
+  const notEmpty = canClosePeriod(range, todayInKst(), false, settlement.items.length);
+  if (!notEmpty.ok) return { ok: false, error: notEmpty.reason, empty: true };
 
   // ---------- ① 기간 줄 ----------
   //
@@ -231,6 +249,8 @@ export interface BulkCloseRow {
   ok: boolean;
   /** 못 했으면 이유 */
   error?: string;
+  /** 실패가 아니라 **건너뛴 것** — 그 달에 청구할 건이 없는 거래처 */
+  skipped?: boolean;
   amount: number;
 }
 
@@ -275,6 +295,7 @@ export async function closeManyPeriods(
       name: party.name,
       ok: result.ok,
       error: result.ok ? undefined : result.error,
+      skipped: result.ok ? undefined : result.empty,
       amount: result.ok ? result.amount : 0,
     });
   }

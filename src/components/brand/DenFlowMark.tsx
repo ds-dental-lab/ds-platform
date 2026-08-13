@@ -1,7 +1,7 @@
 // =========================================================
 // 놓을 위치: src/components/brand/DenFlowMark.tsx
 //
-// Den Flow 마크. 사용자가 준 denflow-mark-v2.svg 를 그대로 옮겼습니다.
+// DenFlow 마크. 사용자가 준 denflow-mark-v2.svg 를 그대로 옮겼습니다.
 // 왼쪽 점 셋(스캔)이 선으로 모여 오른쪽 한 줄기로 나갑니다.
 //
 // ★ 파일이 아니라 컴포넌트로 둡니다.
@@ -42,7 +42,7 @@ export default function DenFlowMark({
       height={height}
       viewBox={`${BOX.x} ${BOX.y} ${BOX.w} ${BOX.h}`}
       role="img"
-      aria-label="Den Flow"
+      aria-label="DenFlow"
       style={{ flexShrink: 0 }}
     >
       <defs>

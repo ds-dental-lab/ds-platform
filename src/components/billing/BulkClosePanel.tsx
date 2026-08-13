@@ -123,11 +123,21 @@ export default function BulkClosePanel({ yearMonth, groups }: BulkClosePanelProp
       {/* ---------- 결과 ---------- */}
       {result && (
         <div className="border-t border-[#E8EBF0] px-5 py-3.5">
+          {/*
+            ★ '청구할 건이 없어 건너뜀' 은 실패가 아닙니다 (2026-08-13).
+              그 달에 쉰 거래처는 청구할 것도 없습니다. 빨간 실패로 세면
+              쉰 곳이 많은 달에 화면이 온통 빨개져, 진짜 실패가 묻힙니다.
+          */}
           <p className="text-[13.5px] font-semibold text-[#4A5567]">
             마감 {result.filter((r) => r.ok).length}곳 성공
-            {result.some((r) => !r.ok) && (
+            {result.some((r) => r.skipped) && (
+              <span className="ml-2 text-[#98A2B3]">
+                · {result.filter((r) => r.skipped).length}곳 건너뜀
+              </span>
+            )}
+            {result.some((r) => !r.ok && !r.skipped) && (
               <span className="ml-2 text-[#D8453F]">
-                · {result.filter((r) => !r.ok).length}곳 실패
+                · {result.filter((r) => !r.ok && !r.skipped).length}곳 실패
               </span>
             )}
           </p>
@@ -138,8 +148,12 @@ export default function BulkClosePanel({ yearMonth, groups }: BulkClosePanelProp
                 key={row.partyOrgId}
                 className="flex items-center gap-2 rounded px-1.5 py-1 text-[13.5px]"
               >
-                <span className={row.ok ? 'text-[#12855B]' : 'text-[#D8453F]'}>
-                  {row.ok ? '✓' : '✕'}
+                <span
+                  className={
+                    row.ok ? 'text-[#12855B]' : row.skipped ? 'text-[#C4CBD6]' : 'text-[#D8453F]'
+                  }
+                >
+                  {row.ok ? '✓' : row.skipped ? '–' : '✕'}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[#1A2130]">{row.name}</span>
 
@@ -148,7 +162,9 @@ export default function BulkClosePanel({ yearMonth, groups }: BulkClosePanelProp
                     ₩{row.amount.toLocaleString('ko-KR')}
                   </span>
                 ) : (
-                  <span className="text-[#B3312C]">{row.error}</span>
+                  <span className={row.skipped ? 'text-[#98A2B3]' : 'text-[#B3312C]'}>
+                    {row.error}
+                  </span>
                 )}
               </li>
             ))}

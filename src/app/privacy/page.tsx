@@ -30,7 +30,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: '개인정보 처리방침 — Den Flow',
+  title: '개인정보 처리방침 — DenFlow',
 };
 
 export default async function PrivacyPolicyPage() {
@@ -43,7 +43,7 @@ export default async function PrivacyPolicyPage() {
     <main className="mx-auto max-w-[760px] px-6 py-12 text-[#1A2130]">
       <header className="border-b border-[#E8EBF0] pb-6">
         <Link href="/login" className="text-[13.5px] font-semibold text-[#1279E8] hover:underline">
-          ← Den Flow
+          ← DenFlow
         </Link>
         <h1 className="mt-3 text-[26px] font-extrabold tracking-[-0.04em]">개인정보 처리방침</h1>
         <p className="mt-2 text-[14px] text-[#7C8595]">
@@ -69,8 +69,8 @@ export default async function PrivacyPolicyPage() {
           다음과 같이 개인정보 처리방침을 수립·공개합니다.
         </P>
         <P>
-          회사는 치과와 기공소를 잇는 보철 제작주문 플랫폼 <B>Den Flow</B>를 운영합니다.
-          이 방침은 Den Flow 서비스에 적용됩니다.
+          회사는 치과와 기공소를 잇는 보철 제작주문 플랫폼 <B>DenFlow</B>를 운영합니다.
+          이 방침은 DenFlow 서비스에 적용됩니다.
         </P>
       </Section>
 

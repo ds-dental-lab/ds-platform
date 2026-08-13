@@ -389,11 +389,32 @@ export function canClosePeriod(
   range: ClosableRange,
   today: IsoDate,
   alreadyClosed: boolean,
+  itemCount = 1,
 ): CloseVerdict {
   if (alreadyClosed) return { ok: false, reason: '이미 마감한 기간입니다' };
 
   if (today <= range.to) {
     return { ok: false, reason: `${range.to} 이 지나야 마감할 수 있습니다` };
+  }
+
+  /*
+    ★ 셀 것이 없으면 안 닫습니다 (사용자 요청 2026-08-13).
+      실제로 7월을 연습하다가, 그 달에 나간 물건이 하나도 없는 치과 둘을
+      닫아 버렸습니다. 줄이 하나도 안 굳은 빈 기간이 둘 생겼고, 청구내역이
+      비어 있는 이유를 한참 찾았습니다.
+
+    ★ **다음 달에 아무 영향이 없습니다.**
+      기간 줄은 (거래처 · 연월) 마다 따로 서고, 8월 정산은 8월 배송일로만
+      고릅니다. 7월을 건너뛴다고 8월이 막히거나 7월 물건이 8월로 넘어오지
+      않습니다 — 애초에 7월에 물건이 없어서 못 닫은 것이니까요.
+      periodRange/periodOfDate 도 앞 기간을 안 봅니다.
+
+    ★ 0원과 '없음' 은 다릅니다.
+      무상으로 0원을 매긴 건이 한 줄이라도 있으면 itemCount 는 1 이상이라
+      그대로 닫힙니다. 막는 것은 **줄 자체가 없는** 경우뿐입니다.
+  */
+  if (itemCount <= 0) {
+    return { ok: false, reason: '이 기간에 청구할 건이 없습니다' };
   }
 
   return { ok: true };
@@ -584,8 +605,8 @@ export function invoicePartiesFor(partyType: 'clinic' | 'lab'): InvoiceParties {
  * 인쇄할 때 창 제목으로 걸 이름. (사용자 결정 2026-08-13)
  *
  * ★ 크롬은 'PDF 로 저장' 의 **기본 파일명을 창 제목에서 가져옵니다.**
- *   그대로 두면 거래처마다 `Den Flow.pdf` 가 나와서, 열 개를 뽑으면
- *   `Den Flow (1).pdf` … 가 됩니다. 나중에 누구 것인지 알 수가 없습니다.
+ *   그대로 두면 거래처마다 `DenFlow.pdf` 가 나와서, 열 개를 뽑으면
+ *   `DenFlow (1).pdf` … 가 됩니다. 나중에 누구 것인지 알 수가 없습니다.
  *
  * ★ 파일명에 못 쓰는 글자를 미리 지웁니다.
  *   `/ \ : * ? " < > |` 가 들어가면 저장이 막히거나 이름이 잘립니다.

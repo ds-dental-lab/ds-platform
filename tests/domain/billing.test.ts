@@ -320,6 +320,78 @@ describe('마감할 수 있는가', () => {
   });
 });
 
+// ---------- 셀 것이 없으면 안 닫습니다 (사용자 요청 2026-08-13) ----------
+//
+// 실제로 7월을 연습하다가, 그 달에 나간 물건이 하나도 없는 치과 둘을
+// 닫아 버렸습니다. 줄이 하나도 안 굳은 빈 기간이 둘 생겼고, 청구내역이
+// 비어 있는 이유를 한참 찾았습니다.
+
+describe('빈 기간은 안 닫는다', () => {
+  const range = { from: '2026-06-26', to: '2026-07-25' };
+  const after = '2026-08-13';
+
+  it('★ 청구할 건이 0이면 못 닫는다', () => {
+    const verdict = canClosePeriod(range, after, false, 0);
+
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('이 기간에 청구할 건이 없습니다');
+  });
+
+  it('한 줄이라도 있으면 닫힌다', () => {
+    expect(canClosePeriod(range, after, false, 1)).toEqual({ ok: true });
+  });
+
+  // ★ 0원과 '없음' 은 다릅니다. 무상 처리한 건도 청구서에는 남아야 합니다
+  it('★ 0원짜리 줄만 있어도 닫힌다 — 0원과 없음은 다릅니다', () => {
+    expect(canClosePeriod(range, after, false, 3).ok).toBe(true);
+  });
+
+  it('건수를 안 주면 예전처럼 닫힌다 — 날짜만 보던 곳이 안 깨집니다', () => {
+    expect(canClosePeriod(range, after, false)).toEqual({ ok: true });
+  });
+
+  // ★ 날짜가 먼저입니다. 아직 안 끝난 기간은 건수와 상관없이 못 닫습니다
+  it('★ 기간이 안 끝났으면 건수가 있어도 못 닫는다', () => {
+    const verdict = canClosePeriod(range, '2026-07-20', false, 5);
+
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toContain('2026-07-25');
+  });
+});
+
+// ---------- 다음 달에 영향이 없어야 합니다 (사용자 조건 2026-08-13) ----------
+//
+// *"그 대신 다음달 진행시 문제가 있으면 안 됨"*.
+// 기간은 (거래처 · 연월) 마다 따로 서고, 앞 기간을 보지 않습니다.
+
+describe('★ 빈 달을 건너뛰어도 다음 달이 멀쩡합니다', () => {
+  const july = periodRange('2026-07', 26);
+  const august = periodRange('2026-08', 26);
+
+  it('7월을 못 닫아도 8월은 닫힌다', () => {
+    // 7월: 건이 없어 막힘
+    expect(canClosePeriod(july, '2026-08-26', false, 0).ok).toBe(false);
+    // 8월: 앞 달과 무관하게 닫힘
+    expect(canClosePeriod(august, '2026-09-26', false, 2).ok).toBe(true);
+  });
+
+  it('★ 두 기간이 안 겹치고 사이가 안 벌어진다 — 넘어갈 물건이 없습니다', () => {
+    expect(july.to < august.from).toBe(true);
+
+    const dayAfterJuly = new Date(Date.parse(`${july.to}T00:00:00Z`) + 86400000)
+      .toISOString()
+      .slice(0, 10);
+
+    expect(dayAfterJuly).toBe(august.from);
+  });
+
+  it('★ 7월 마지막 날 배송분은 8월이 아니라 7월로 간다', () => {
+    // 못 닫은 달의 물건이 다음 달로 밀리는 일은 없습니다 — 구간이 정합니다
+    expect(periodOfDate(july.to, 26)).toBe('2026-07');
+    expect(periodOfDate(august.from, 26)).toBe('2026-08');
+  });
+});
+
 describe('마감을 되돌릴 수 있는가', () => {
   it('청구서를 뽑기 전이면 되돌린다', () => {
     expect(canReopenPeriod({ closedAt: '2026-08-26T00:00:00Z', issuedAt: null })).toEqual({
