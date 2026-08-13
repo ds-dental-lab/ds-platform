@@ -6,7 +6,7 @@
 // =========================================================
 
 import { describe, it, expect } from 'vitest';
-import { orderProgress, pickupPhase } from '@/server/domain/progress';
+import { orderProgress, pickupPhase, progressNote } from '@/server/domain/progress';
 
 /** 읽기 쉽게 '지금' 칸의 이름만 뽑습니다 */
 function now(steps: ReturnType<typeof orderProgress>): string | undefined {
@@ -127,6 +127,61 @@ describe('아날로그 — 접수·디자인에 수거가 함께 붙는다', () 
       '배송중',
       '완료',
     ]);
+  });
+});
+
+describe('치과에게는 고객의 말로 한 줄', () => {
+  it('★ 우리 말을 안 쓴다 — 수거대기는 우리가 일을 나누려고 만든 이름입니다', () => {
+    const note = progressNote(
+      orderProgress({ status: 'production_wait', isRepair: true, pickups: OPEN }),
+    );
+
+    expect(note).toBe('보철물을 가지러 갈 예정입니다.');
+  });
+
+  it('만드는 중이면 그렇게 적는다', () => {
+    expect(
+      progressNote(orderProgress({ status: 'production', isRepair: true, pickups: GOT })),
+    ).toContain('만들고 있습니다');
+  });
+
+  it('배송·완료도 말이 있다', () => {
+    expect(
+      progressNote(orderProgress({ status: 'shipping', isRepair: true, pickups: GOT })),
+    ).toContain('배송');
+    expect(
+      progressNote(orderProgress({ status: 'completed', isRepair: true, pickups: GOT })),
+    ).toContain('완료');
+  });
+
+  it('★ 시킬 일을 적지 않는다 — 치과는 여기서 누를 것이 없습니다', () => {
+    for (const status of ['received', 'designing', 'production_wait', 'production'] as const) {
+      for (const pickups of [[], OPEN, MOVING, GOT]) {
+        const note = progressNote(orderProgress({ status, isRepair: false, pickups }));
+        expect(note).not.toContain('주세요');
+        expect(note).not.toContain('눌러');
+      }
+    }
+  });
+
+  it('모든 칸에 말이 있다 — 빈 줄이 뜨면 안 됩니다', () => {
+    for (const status of [
+      'received',
+      'rescan',
+      'designing',
+      'production_wait',
+      'production',
+      'shipping',
+      'completed',
+      'cancelled',
+    ] as const) {
+      for (const isRepair of [true, false]) {
+        for (const pickups of [[], OPEN, MOVING, GOT]) {
+          const note = progressNote(orderProgress({ status, isRepair, pickups }));
+          expect(note.length).toBeGreaterThan(0);
+        }
+      }
+    }
   });
 });
 

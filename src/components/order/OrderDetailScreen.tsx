@@ -34,7 +34,7 @@ import OrderActions from '@/components/order/OrderActions';
 import OrderFileList, { DownloadAllButton } from '@/components/order/OrderFileList';
 import LabAssignSelect from '@/components/order/LabAssignSelect';
 import MissingFileBar from '@/components/order/MissingFileBar';
-import OrderProgress from '@/components/order/OrderProgress';
+import OrderProgress, { ProgressNote } from '@/components/order/OrderProgress';
 import type { ProgressStep } from '@/server/domain/progress';
 import { computeDDay } from '@/server/domain/order-list';
 import { buildSummaryLines } from '@/server/domain/summary';
@@ -117,6 +117,8 @@ export interface OrderDetailScreenProps {
    *   어디까지 왔고 다음이 무엇인지는 이 줄이 답합니다.
    */
   progress?: ProgressStep[];
+  /** 막대 아래 한 줄. 치과에만 답니다 (고객의 말) */
+  progressNote?: string;
   /**
    * 머리줄 **바로 아래**에 끼워 넣을 것 (리페어 칸).
    *
@@ -147,6 +149,7 @@ export default function OrderDetailScreen({
   extraSlot,
   issueSlot,
   progress,
+  progressNote,
   barSlot,
 }: OrderDetailScreenProps) {
   const placements: ChartPlacement[] = order.items.map((item) => ({
@@ -286,8 +289,11 @@ export default function OrderDetailScreen({
 
         {/* 넓은 것에는 자기 스크롤을 줍니다 — 칸이 여덟까지 늘어납니다 */}
         {progress && progress.length > 1 && (
-          <div className="overflow-x-auto border-b border-[#F0F2F5] px-[18px] py-3">
-            <OrderProgress steps={progress} />
+          <div className="border-b border-[#F0F2F5] px-[18px] py-3">
+            <div className="overflow-x-auto">
+              <OrderProgress steps={progress} />
+            </div>
+            {progressNote && <ProgressNote note={progressNote} />}
           </div>
         )}
 

@@ -68,6 +68,36 @@ export interface ProgressInput {
   pickups: { status: string }[];
 }
 
+/**
+ * 지금 단계를 **고객의 말**로 한 줄. (사용자 요청 2026-08-13 —
+ *   "치과는 작업하는 사람들이 아니고 고객이니깐 과정만 확인할뿐")
+ *
+ * ★ 치과에게는 '수거대기' 같은 우리 말이 안 통합니다.
+ *   그건 우리가 일을 나누려고 만든 이름입니다. 치과가 알고 싶은 것은
+ *   "내 환자 것이 지금 어떻게 되고 있나" 하나뿐입니다.
+ *
+ * ★ 시킬 일을 적지 않습니다.
+ *   치과는 여기서 누를 것이 없습니다. "~해 주세요" 를 적으면 자기가
+ *   뭔가 해야 하는 줄 알고 버튼을 찾습니다.
+ */
+const NOTE: Record<string, string> = {
+  received: '접수되었습니다. 곧 디자인을 시작합니다.',
+  designing: '디자인 작업 중입니다.',
+  production_wait: '기공소에 제작을 넘겼습니다.',
+  pickup_wait: '보철물을 가지러 갈 예정입니다.',
+  pickup_moving: '수거 중입니다. 곧 기공소에 도착합니다.',
+  pickup_done: '보철물을 받았습니다. 곧 제작을 시작합니다.',
+  production: '기공소에서 만들고 있습니다.',
+  shipping: '제작이 끝나 배송 중입니다.',
+  completed: '완료되었습니다.',
+  cancelled: '취소된 주문입니다.',
+};
+
+export function progressNote(steps: ProgressStep[]): string {
+  const current = steps.find((s) => s.state === 'current');
+  return current ? (NOTE[current.key] ?? '') : '';
+}
+
 export function orderProgress(input: ProgressInput): ProgressStep[] {
   const rank = RANK[input.status];
 

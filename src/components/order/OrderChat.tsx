@@ -88,7 +88,16 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
       </div>
 
       {/* ---------- 지난 글 ---------- */}
-      <div ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      {/*
+        ★ 바탕을 옅게 깝니다.
+          흰 화면에 흰 말풍선을 두면 테두리 하나로만 버팁니다.
+          바탕이 한 톤 내려가야 풍선이 풍선으로 보입니다 — 카톡도
+          대화 바탕만 따로 깔아 둡니다.
+      */}
+      <div
+        ref={listRef}
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#F7F8FA] px-4 py-4"
+      >
         {messages.length === 0 ? (
           <p className="py-16 text-center text-[13px] text-[#98A2B3]">아직 대화가 없습니다.</p>
         ) : (
@@ -101,19 +110,24 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
                 key={message.id}
                 className={'flex flex-col ' + (message.mine ? 'items-end' : 'items-start')}
               >
-                <div className="mb-1 flex items-center gap-1.5">
-                  <span
-                    className="rounded px-1.5 py-0.5 text-[10.5px] font-bold"
-                    style={{ background: meta.soft, color: meta.color }}
-                  >
-                    {meta.label}
-                  </span>
-                  <span className="text-[11.5px] text-[#98A2B3]">{message.authorName}</span>
-                  <span className="text-[11px] text-[#C4CBD6]">
-                    {stamp(message.createdAt)}
-                    {message.editedAt && ' (수정됨)'}
-                  </span>
-                </div>
+                {/*
+                  ★ 이름은 **상대 글에만** 답니다 (사용자 요청 2026-08-13).
+                    카톡이 그렇습니다 — 내가 한 말에 내 이름을 붙이지
+                    않습니다. 자리(오른쪽)와 색이 이미 "나" 라고 말합니다.
+                */}
+                {!message.mine && (
+                  <div className="mb-1 flex items-center gap-1.5 pl-1">
+                    <span
+                      className="rounded px-1.5 py-0.5 text-[10.5px] font-bold"
+                      style={{ background: meta.soft, color: meta.color }}
+                    >
+                      {meta.label}
+                    </span>
+                    <span className="text-[11.5px] font-semibold text-[#4A5567]">
+                      {message.authorName}
+                    </span>
+                  </div>
+                )}
 
                 {isEditing ? (
                   <div className="w-full">
@@ -149,15 +163,33 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
                     </div>
                   </div>
                 ) : (
-                  <div
-                    className={
-                      'max-w-[92%] whitespace-pre-wrap rounded-lg px-3.5 py-2.5 text-[13px] leading-relaxed ' +
-                      (message.mine
-                        ? 'bg-[#EDF3FE] text-[#1A2130]'
-                        : 'bg-[#F4F6F9] text-[#1A2130]')
-                    }
-                  >
-                    {message.body}
+                  /*
+                    ★ 누가 한 말인지가 한눈에 보여야 합니다 (사용자 지적).
+                      전에는 내 말이 #EDF3FE, 남의 말이 #F4F6F9 였습니다 —
+                      둘 다 아주 옅은 회색빛이라 나란히 놓으면 구별이
+                      안 됐습니다. 내 말은 **찬 파랑에 흰 글씨**로 채우고
+                      남의 말은 테두리만 둔 흰 풍선으로 둡니다.
+
+                    ★ 꼬리를 답니다.
+                      말풍선 쪽 위 모서리 하나만 각지게 두면 그쪽에서
+                      나온 말로 읽힙니다 — 카톡·아이메시지가 쓰는 방법입니다.
+                  */
+                  <div className={'flex max-w-[92%] items-end gap-1.5 ' + (message.mine ? 'flex-row' : 'flex-row-reverse')}>
+                    <span className="shrink-0 pb-0.5 text-[10.5px] tabular-nums text-[#C4CBD6]">
+                      {stamp(message.createdAt)}
+                      {message.editedAt && ' 수정'}
+                    </span>
+
+                    <div
+                      className={
+                        'min-w-0 whitespace-pre-wrap px-3.5 py-2.5 text-[13px] leading-relaxed ' +
+                        (message.mine
+                          ? 'rounded-2xl rounded-br-[4px] bg-[#1279E8] text-white'
+                          : 'rounded-2xl rounded-tl-[4px] border border-[#E3E7ED] bg-white text-[#1A2130]')
+                      }
+                    >
+                      {message.body}
+                    </div>
                   </div>
                 )}
 

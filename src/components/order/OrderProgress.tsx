@@ -83,3 +83,20 @@ export default function OrderProgress({ steps }: { steps: ProgressStep[] }) {
     </ol>
   );
 }
+
+/**
+ * 막대 아래 한 줄. (치과에만 답니다)
+ *
+ * ★ 막대 **바깥**에 둡니다. 막대는 좁아지면 가로로 스크롤하는데,
+ *   안에 넣으면 이 글도 같이 밀려 나가 안 보입니다.
+ *
+ * ★ 칸 이름은 우리 말이라 고객에게 안 통합니다.
+ *   '수거대기' 를 보고 치과가 무엇을 알 수 있겠습니까.
+ */
+export function ProgressNote({ note }: { note: string }) {
+  if (!note) return null;
+
+  return (
+    <p className="mt-2.5 text-[12.5px] font-semibold text-[#1279E8]">{note}</p>
+  );
+}

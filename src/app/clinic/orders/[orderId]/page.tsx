@@ -10,7 +10,7 @@
 // =========================================================
 
 import OrderUnavailable from '@/components/order/OrderUnavailable';
-import { orderProgress } from '@/server/domain/progress';
+import { orderProgress, progressNote } from '@/server/domain/progress';
 import { getOrderAbsence, getOrderDetail } from '@/server/repositories/order';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { listOrderMessages } from '@/server/repositories/order-message';
@@ -23,7 +23,6 @@ import RepairRequest from '@/components/order/RepairRequest';
 import RemakeRequest from '@/components/order/RemakeRequest';
 import RescanBar from '@/components/order/RescanBar';
 import RepairPanel from '@/components/order/RepairPanel';
-import PickupCard from '@/components/order/PickupCard';
 import { getRepairContext } from '@/server/repositories/repair';
 import { listPickupsForOrder } from '@/server/repositories/pickup';
 
@@ -70,13 +69,20 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       // 리페어 칸 — 여기 함께 넣어야 왕복이 안 늘어납니다
       getRepairContext(order),
       /*
-        ★ 치과도 수거가 어디쯤인지는 봐야 합니다 (사용자 결정 2026-08-13).
-          보철물·인상체를 내주고 나면 "가져갔나" 를 알 길이 없었습니다.
-          다만 **누르는 것은 못 합니다** — 보내는 쪽이 도착을 선언할 수는
-          없습니다. canComplete 를 안 줍니다.
+        ★ 수거 카드를 치과에는 **안 보여 줍니다** (사용자 지적 2026-08-13 —
+          "치과는 작업하는 사람들이 아니고 고객이니깐 과정만 확인할뿐").
+          수거가 어디쯤인지는 진행 막대의 수거대기·수거중·수거완료 칸이
+          이미 말합니다. 같은 것을 카드로 또 펴면 치과 화면이 작업자용
+          화면처럼 보입니다. 여기서는 막대를 그리는 재료로만 씁니다.
       */
       listPickupsForOrder(orderId),
     ]);
+
+  const progress = orderProgress({
+    status: order.status,
+    isRepair: order.is_repair,
+    pickups,
+  });
 
   return (
     <OrderDetailScreen
@@ -92,16 +98,21 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           머리줄의 상태는 지금 어디인지만 말합니다. 수거는 아예 주문
           상태에 안 담기므로, 둘을 합쳐야 과정이 보입니다.
       */
-      progress={orderProgress({
-        status: order.status,
-        isRepair: order.is_repair,
-        pickups,
-      })}
-      extraSlot={
-        pickups.length > 0 ? <PickupCard pickups={pickups} canComplete={false} /> : null
-      }
+      progress={progress}
+      /*
+        ★ 치과에게는 칸 이름만으로 부족합니다 (사용자 지적 2026-08-13).
+          '수거대기' 는 우리가 일을 나누려고 만든 이름입니다. 지금 무슨
+          일이 벌어지는 중인지 고객의 말로 한 줄 적어 줍니다.
+      */
+      progressNote={progressNote(progress)}
       issueSlot={
-        <RepairPanel repair={repair} isRepair={order.is_repair} orderPath="/clinic/orders" />
+        <RepairPanel
+          repair={repair}
+          isRepair={order.is_repair}
+          orderPath="/clinic/orders"
+          /* 치과는 보낸 쪽입니다 — "들어온 건" 이 아니라 "요청하신 내용" */
+          audience="requester"
+        />
       }
       scanSlot={
         order.status === 'rescan' ? (
