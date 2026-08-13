@@ -25,6 +25,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/server/policies/session';
 import { dueQuery } from '@/server/repositories/retention';
 import {
@@ -137,11 +138,28 @@ export async function submitPurge(target: RetentionTarget): Promise<PurgeResult>
     if (delError) return { ok: false, error: `지우지 못했습니다: ${delError.message}` };
     removed = gone?.length ?? 0;
   } else {
+    /*
+      ★ 파기는 **service_role 로 지웁니다** (2026-08-13).
+
+        파일을 지울 수 있는 자리는 '접수·재스캔·디자인' 안으로 좁혀
+        두었습니다 — 기공소가 남의 스캔을 지우거나, 치과가 완료된 건의
+        파일을 지우는 것을 막기 위해서입니다 (order_file_delete).
+
+        그런데 파기가 지우는 것은 **바로 그 완료된 건들**입니다. 사용자
+        세션으로 지우면 그 정책에 걸려 **조용히 0건**이 됩니다 —
+        오류도 안 납니다 (RLS 는 막을 때 0행을 돌려줍니다).
+
+        지울 줄은 위에서 이미 RLS 로 우리 조직 것만 골라 놓았고,
+        관리자인지·기간이 지났는지도 서버가 다시 봤습니다. 그 다음의
+        실제 삭제만 열쇠를 바꿔 답니다.
+    */
+    const admin = createAdminClient();
+
     // ★ 저장소를 먼저 비웁니다 — 표를 먼저 지우면 경로를 잃습니다
     const paths = rows.map((r) => r.storage_path).filter(Boolean) as string[];
-    if (paths.length > 0) await supabase.storage.from(BUCKET).remove(paths);
+    if (paths.length > 0) await admin.storage.from(BUCKET).remove(paths);
 
-    const { data: gone, error: delError } = await supabase
+    const { data: gone, error: delError } = await admin
       .from('order_files')
       .delete()
       .in('id', rows.map((r) => r.id))
