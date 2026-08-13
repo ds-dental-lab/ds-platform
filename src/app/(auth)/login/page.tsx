@@ -10,6 +10,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { loginProblem } from '@/server/domain/login';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,6 +21,23 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  /** 확인 메일을 다시 보낼 수 있는 상황인가 */
+  const [canResend, setCanResend] = useState(false);
+  const [resent, setResent] = useState('');
+
+  async function handleResend() {
+    setResent('');
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+
+    setResent(
+      error
+        ? '메일을 다시 보내지 못했습니다. 잠시 뒤에 시도해 주세요.'
+        : '확인 메일을 다시 보냈습니다. 메일함과 스팸함을 봐 주세요.',
+    );
+  }
+
   async function handleLogin() {
     if (!email || !password) {
       setError('이메일과 비밀번호를 입력해 주세요.');
@@ -27,6 +45,8 @@ export default function LoginPage() {
     }
 
     setError('');
+    setCanResend(false);
+    setResent('');
     setLoading(true);
 
     const supabase = createClient();
@@ -35,7 +55,15 @@ export default function LoginPage() {
     setLoading(false);
 
     if (error) {
-      setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+      /*
+        ★ 원인마다 다른 말을 합니다 (사용자 신고 2026-08-13).
+          전에는 무슨 오류든 "비밀번호가 올바르지 않습니다" 였습니다.
+          실제 원인이 **이메일 확인 전**이었던 사람이 비밀번호만
+          계속 다시 쳤습니다 — 영원히 안 됩니다.
+      */
+      const problem = loginProblem(error.code);
+      setError(problem.message);
+      setCanResend(problem.canResend);
       return;
     }
 
@@ -97,6 +125,14 @@ export default function LoginPage() {
 
         {error && <p className="auth-err">{error}</p>}
 
+        {/* ★ 막힌 사람에게 빠져나갈 길을 같이 줍니다 */}
+        {canResend && !resent && (
+          <button type="button" className="auth-resend" onClick={handleResend}>
+            확인 메일 다시 보내기
+          </button>
+        )}
+        {resent && <p className="auth-note">{resent}</p>}
+
         <button className="btn-primary" onClick={handleLogin} disabled={loading}>
           {loading ? '확인 중…' : '로그인'}
         </button>
@@ -157,7 +193,11 @@ const css = `
   color:#98A2B3; background:none; border:none; cursor:pointer;
 }
 .eye:hover{color:var(--ink-2); background:var(--bg)}
-.auth-err{margin:12px 0 0; font-size:13px; color:var(--danger); line-height:1.5}
+.auth-err{margin:12px 0 0; font-size:13px; color:var(--danger); line-height:1.5; white-space:pre-line}
+/* 막힌 사람이 빠져나갈 길. 로그인 버튼과 헷갈리지 않게 테두리만 둡니다 */
+.auth-resend{margin:10px 0 0; width:100%; height:38px; border:1px solid var(--line-2); border-radius:8px; background:#fff; font-size:13px; font-weight:700; color:#4A5567; cursor:pointer}
+.auth-resend:hover{background:#F4F6F9}
+.auth-note{margin:10px 0 0; font-size:12.5px; color:#4A5567; line-height:1.5}
 .btn-primary{
   width:100%; height:48px; margin-top:18px; border-radius:5px; border:none;
   background:var(--brand); color:#fff; font-size:15px; font-weight:700;
