@@ -60,3 +60,38 @@ export function loginProblem(code: string | null | undefined): LoginProblem {
       return WRONG;
   }
 }
+
+// ---------- 아이디 기억하기 ----------
+//
+// 사용자 요청 2026-08-13 — "매번 로그인할 때 편리성을 위해서".
+//
+// ★ **아이디만** 담습니다. 비밀번호는 담지 않습니다.
+//   담아 두면 그 컴퓨터를 쓰는 사람 누구나 로그인할 수 있고,
+//   치과 데스크 컴퓨터는 여럿이 같이 씁니다. 아이디만 채워 두어도
+//   손이 가는 일의 절반은 줄어듭니다.
+//
+// ★ 담는 것은 **로그인이 된 다음**입니다.
+//   오타 난 주소를 담아 두면 다음에도 그 오타로 시작합니다.
+
+/** 브라우저에 담아 두는 자리 */
+export const REMEMBER_KEY = 'denflow.login.email';
+
+/**
+ * 담아 둘 값으로 다듬습니다. 담을 게 못 되면 null.
+ *
+ * ★ 앞뒤 공백을 떼고 소문자로 맞춥니다 — 인증 서버가 그렇게 다룹니다.
+ *   `Won@Clinic.KR` 로 담아 두면 다음에 화면과 서버의 값이 달라 보입니다.
+ * ★ 모양이 아닌 것은 안 담습니다. 옛 브라우저에 남은 이상한 값이
+ *   칸에 채워지면 사람이 그걸 지우고 다시 쳐야 합니다.
+ */
+export function rememberableEmail(raw: string | null | undefined): string | null {
+  const trimmed = (raw ?? '').trim().toLowerCase();
+
+  if (!trimmed) return null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return null;
+
+  /* 너무 긴 값은 담지 않습니다 — 저장소를 채우는 길이 됩니다 */
+  if (trimmed.length > 254) return null;
+
+  return trimmed;
+}

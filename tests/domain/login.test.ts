@@ -10,7 +10,7 @@
 // =========================================================
 
 import { describe, it, expect } from 'vitest';
-import { loginProblem } from '@/server/domain/login';
+import { loginProblem, rememberableEmail } from '@/server/domain/login';
 
 describe('원인마다 다른 말을 한다', () => {
   it('★ 메일 확인 전이면 그렇게 말한다 — 비밀번호 탓을 하면 안 됩니다', () => {
@@ -61,5 +61,37 @@ describe('원인마다 다른 말을 한다', () => {
     ]) {
       expect(loginProblem(code).message.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// ---------- 아이디 기억하기 (2026-08-13) ----------
+
+describe('rememberableEmail', () => {
+  it('앞뒤 공백을 떼고 소문자로 맞춥니다', () => {
+    // 인증 서버가 그렇게 다룹니다. 대문자로 담아 두면 화면과 서버가 달라 보입니다
+    expect(rememberableEmail('  Won@Clinic.KR ')).toBe('won@clinic.kr');
+  });
+
+  it('빈 값은 안 담습니다', () => {
+    expect(rememberableEmail('')).toBeNull();
+    expect(rememberableEmail('   ')).toBeNull();
+    expect(rememberableEmail(null)).toBeNull();
+    expect(rememberableEmail(undefined)).toBeNull();
+  });
+
+  it('★ 이메일 모양이 아니면 안 담습니다', () => {
+    // 옛 브라우저에 남은 이상한 값이 칸에 채워지면 사람이 지우고 다시 칩니다
+    expect(rememberableEmail('won')).toBeNull();
+    expect(rememberableEmail('won@clinic')).toBeNull();
+    expect(rememberableEmail('a b@c.kr')).toBeNull();
+  });
+
+  it('아주 긴 값은 안 담습니다', () => {
+    expect(rememberableEmail('a'.repeat(250) + '@b.kr')).toBeNull();
+  });
+
+  it('담고 읽은 값이 제자리로 돌아옵니다', () => {
+    const once = rememberableEmail('clinic@test.kr');
+    expect(rememberableEmail(once)).toBe(once);
   });
 });

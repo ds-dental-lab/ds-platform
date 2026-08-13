@@ -6,21 +6,58 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { loginProblem } from '@/server/domain/login';
+import { loginProblem, rememberableEmail, REMEMBER_KEY } from '@/server/domain/login';
 import DenFlowMark from '@/components/brand/DenFlowMark';
+
+/* 다른 탭에서 지웠을 때도 따라옵니다 */
+function subscribeRemembered(onChange: () => void) {
+  window.addEventListener('storage', onChange);
+  return () => window.removeEventListener('storage', onChange);
+}
+
+function readRemembered(): string {
+  return window.localStorage.getItem(REMEMBER_KEY) ?? '';
+}
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState('');
+  /*
+    ★ 담아 둔 아이디는 **읽는 값**이지 상태가 아닙니다.
+      효과 안에서 setState 로 채우면, 화면이 한 번 빈 칸으로 그려졌다가
+      다시 그려집니다(React 19 의 린트도 이것을 막습니다).
+      useSyncExternalStore 는 서버에서는 빈 값, 브라우저에서는 담아 둔
+      값을 내주어 **그림이 한 번에** 맞습니다.
+      [[UnreadPing]] 의 소리 스위치와 같은 방식입니다.
+  */
+  const savedEmail = useSyncExternalStore(subscribeRemembered, readRemembered, () => '');
+
+  /** 사람이 한 글자라도 치면 그때부터는 담아 둔 값 대신 이쪽입니다 */
+  const [typedEmail, setTypedEmail] = useState<string | null>(null);
+  const email = typedEmail ?? rememberableEmail(savedEmail) ?? '';
+  const setEmail = setTypedEmail;
+
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  /**
+   * 아이디 기억하기. (사용자 요청 2026-08-13)
+   *
+   * ★ 처음 오는 사람에게는 **켜져 있습니다.** 매일 같은 자리에서
+   *   같은 계정으로 들어오는 사람들이라, 꺼 두면 아무도 안 켭니다.
+   *
+   * ★ 담는 것은 **로그인이 된 다음**입니다. 오타 난 주소를 담아 두면
+   *   다음에도 그 오타로 시작합니다.
+   *
+   * ★ 비밀번호는 안 담습니다. 치과 데스크 컴퓨터는 여럿이 같이 씁니다.
+   */
+  const [remember, setRemember] = useState(true);
 
   /** 확인 메일을 다시 보낼 수 있는 상황인가 */
   const [canResend, setCanResend] = useState(false);
@@ -67,6 +104,15 @@ export default function LoginPage() {
       setCanResend(problem.canResend);
       return;
     }
+
+    /*
+      ★ 여기서 담습니다 — 로그인이 **된 다음**입니다.
+        끄면 지웁니다. 껐는데 옛 값이 남아 있으면 다음에 또 채워집니다.
+    */
+    const keep = remember ? rememberableEmail(email) : null;
+
+    if (keep) window.localStorage.setItem(REMEMBER_KEY, keep);
+    else window.localStorage.removeItem(REMEMBER_KEY);
 
     router.push('/');
     router.refresh();
@@ -118,6 +164,23 @@ export default function LoginPage() {
               </svg>
             </button>
           </div>
+
+          {/*
+            ★ 아이디만 기억합니다 (사용자 요청 2026-08-13).
+              '로그인 상태 유지' 는 안 답니다 — **이미 그렇게 돌고
+              있습니다.** 로그인하면 400일짜리 쿠키가 심기고, 만료된
+              토큰은 미들웨어가 조용히 새로 받아 옵니다. 체크칸을 달아
+              봐야 켜나 끄나 같아서, 거짓 스위치가 하나 느는 셈입니다.
+              (자세한 확인은 커밋 메시지에 적어 두었습니다.)
+          */}
+          <label className="keep">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            <span>아이디 기억하기</span>
+          </label>
         </div>
 
         {error && <p className="auth-err">{error}</p>}
@@ -217,6 +280,10 @@ const css = `
 .btn-primary:disabled{background:#D5DAE2; color:#8E98A8; cursor:not-allowed}
 .auth-join{margin:22px 0 0; text-align:center; font-size:13px; color:var(--ink-2)}
 .auth-links{white-space:nowrap}
+/* 아이디 기억하기 — 칸들 바로 아래, 왼쪽 맞춤 */
+.keep{display:flex; align-items:center; gap:7px; margin-top:3px; cursor:pointer;
+  font-size:12.5px; color:var(--ink-2); user-select:none}
+.keep input{width:15px; height:15px; margin:0; cursor:pointer; accent-color:var(--brand)}
 .auth-legal{margin:10px 0 0; text-align:center; font-size:12px; color:#98A2B3}
 .link{color:var(--ink-2); cursor:pointer; text-decoration:none}
 .link:hover{text-decoration:underline}
