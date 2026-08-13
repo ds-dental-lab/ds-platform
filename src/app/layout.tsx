@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DS Flow",
+  title: "Den Flow",
   description: "치과 · 디자인센터 · 기공소를 잇는 보철 주문 플랫폼",
 };
 

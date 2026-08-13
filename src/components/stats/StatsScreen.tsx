@@ -80,11 +80,14 @@ export default function StatsScreen({ stats, months, month }: StatsScreenProps) 
         </header>
 
         <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-5 py-2.5 text-[12px] leading-relaxed text-[#98A2B3]">
-          <b className="font-semibold text-[#4A5567]">디자인 단계로 옮긴 사람</b>을 그 건의
-          디자이너로 봅니다 (담당자 배정 기능은 아직 없습니다). 리메이크는{' '}
-          <b className="font-semibold text-[#4A5567]">원주문을 디자인한 사람</b>에게 답니다 —
-          다만 리메이크 사유가 디자인 탓이 아닌 경우가 많습니다. 사람을 세우는 숫자가 아니라
-          어디를 들여다볼지 고르는 숫자로 봐 주세요.
+          <b className="font-semibold text-[#4A5567]">배정된 담당 디자이너</b>를 기준으로 셉니다.
+          리메이크는 <b className="font-semibold text-[#4A5567]">원주문을 디자인한 사람</b>에게
+          답니다 — 다만 리메이크 사유가 디자인 탓이 아닌 경우가 많습니다.
+          <br />
+          <b className="font-semibold text-[#4A5567]">완성 금액</b>은 그 기간에{' '}
+          <b className="font-semibold text-[#4A5567]">배송된</b> 건의 치과 판매가입니다. 깎아 준
+          조정은 빼지 않고, 리메이크·리페어는 0원입니다. 사람을 세우는 숫자가 아니라 어디를
+          들여다볼지 고르는 숫자로 봐 주세요.
         </p>
 
         {stats.designers.length === 0 ? (
@@ -96,6 +99,7 @@ export default function StatsScreen({ stats, months, month }: StatsScreenProps) 
                 <Th className="pl-5">디자이너</Th>
                 <Th right>잡음</Th>
                 <Th right>넘김</Th>
+                <Th right>완성 금액</Th>
                 <Th right>평균 소요</Th>
                 <Th right>리메이크</Th>
                 <Th right className="pr-5">
@@ -109,6 +113,23 @@ export default function StatsScreen({ stats, months, month }: StatsScreenProps) 
                   <Td className="pl-5 font-semibold text-[#1A2130]">{row.name}</Td>
                   <Td right>{row.picked}</Td>
                   <Td right>{row.handed}</Td>
+                  {/*
+                    ★ 단가 미정이 섞이면 그 사실을 답니다 (2026-08-13).
+                      0원으로 조용히 세면 그 사람 능률이 낮아 보입니다.
+                  */}
+                  <Td right>
+                    <span className="font-semibold tabular-nums text-[#1A2130]">
+                      {row.amount.toLocaleString('ko-KR')}
+                    </span>
+                    {row.amountUnpriced && (
+                      <span
+                        title="단가를 안 정한 제품이 섞여 있어 실제보다 적습니다"
+                        className="ml-1 font-bold text-[#B3312C]"
+                      >
+                        *
+                      </span>
+                    )}
+                  </Td>
                   <Td right>{row.avgDays === null ? '—' : `${row.avgDays}일`}</Td>
                   <Td right>{row.remade}</Td>
                   <Td right className="pr-5">
@@ -166,7 +187,6 @@ export default function StatsScreen({ stats, months, month }: StatsScreenProps) 
           아직 못 넣은 것
         </h2>
         <ul className="mt-2 space-y-1 text-[12px] leading-relaxed text-[#98A2B3]">
-          <li>· 직원 계정이 서면 디자이너가 여럿으로 갈립니다 (지금은 옮긴 사람 하나)</li>
           <li>· 제품별·재료별 물량, 기공소별 납기 지킴률</li>
           <li>· 달끼리 견주기 (지난달 대비 ↑↓)</li>
           <li>· 내려받기 (엑셀)</li>

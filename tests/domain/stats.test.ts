@@ -23,6 +23,8 @@ const designer = (over: Partial<DesignerTally>): DesignerTally => ({
   handed: 0,
   remade: 0,
   avgDays: null,
+  amount: 0,
+  amountUnpriced: false,
   ...over,
 });
 

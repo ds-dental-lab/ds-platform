@@ -5,7 +5,7 @@
 // (사용자 결정 2026-08-13)
 //
 // ★ 크롬의 'PDF 로 저장' 은 기본 파일명을 **창 제목**에서 가져옵니다.
-//   그대로 두면 거래처마다 `DS Flow.pdf` 가 나옵니다.
+//   그대로 두면 거래처마다 `Den Flow.pdf` 가 나옵니다.
 //
 // ★ 끝나면 되돌립니다.
 //   안 되돌리면 인쇄한 뒤로 브라우저 탭에 파일명이 계속 붙어 있습니다.
@@ -29,7 +29,7 @@ export default function PrintTitle({ fileName }: { fileName: string }) {
         '이 화면의 제목' 을 그때 다시 만듭니다.
     */
     const after = () => {
-      document.title = 'DS Flow';
+      document.title = 'Den Flow';
     };
 
     window.addEventListener('beforeprint', before);

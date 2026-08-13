@@ -1,8 +1,8 @@
-# DS Flow — Sprint 0 실행 안내서
+# Den Flow — Sprint 0 실행 안내서
 
 **대상** 개발 경험이 없는 상태에서 직접 진행하시는 분
 **기간** 5영업일 (하루 3~4시간 기준)
-**기준 문서** DS Flow Architecture v1.0, Sprint 0 Foundation v1.1
+**기준 문서** Den Flow Architecture v1.0, Sprint 0 Foundation v1.1
 **끝나면 얻는 것** 인터넷 주소로 접속되는 빈 화면 3개(치과·디자인센터·기공소)와, 앞으로 기능을 얹을 수 있는 뼈대
 
 ---
@@ -491,7 +491,7 @@ git push
 `README.md` 파일에 아래를 적어두세요. 6개월 뒤의 본인을 위한 것입니다.
 
 ```markdown
-# DS Flow
+# Den Flow
 
 치과 보철 거래 플랫폼
 

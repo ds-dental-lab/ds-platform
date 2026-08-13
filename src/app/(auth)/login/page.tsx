@@ -77,14 +77,14 @@ export default function LoginPage() {
 
       <div className="auth-card">
         <div className="auth-logo">
-          <svg className="logo-mark" viewBox="0 0 142 100" fill="none" aria-label="DS Flow">
+          <svg className="logo-mark" viewBox="0 0 142 100" fill="none" aria-label="Den Flow">
             <path d="M10 8 H40 A42 42 0 0 1 40 92 H10 Z" stroke="#1B2A4A" strokeWidth="12" strokeLinejoin="miter" fill="none" />
             <path d="M126 58 C126 78 108 92 88 92 C74 92 62 84 58 72 C54 60 62 50 74 46" stroke="#1B2A4A" strokeWidth="12" strokeLinecap="round" fill="none" />
             <path d="M74 46 C86 42 100 40 108 34" stroke="#1B2A4A" strokeWidth="12" strokeLinecap="round" fill="none" />
           </svg>
           <span className="logo-txt">
-            <b>DS</b>
-            <i>FLOW</i>
+            <b>Den</b>
+            <i>Flow</i>
           </span>
         </div>
 
@@ -138,7 +138,7 @@ export default function LoginPage() {
         </button>
 
         <p className="auth-join">
-          DS Flow 회원이 아니신가요?{' '}
+          Den Flow 회원이 아니신가요?{' '}
           <Link href="/signup" className="link strong">
             회원가입
           </Link>

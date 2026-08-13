@@ -248,7 +248,7 @@ const PLATFORM = [
 
 function Platform() {
   return (
-    <Section eyebrow="DS FLOW" title="주문부터 정산까지, 전화 없이">
+    <Section eyebrow="DEN FLOW" title="주문부터 정산까지, 전화 없이">
       <div className="mt-8 grid gap-8 sm:grid-cols-[1.1fr_1fr] sm:items-center">
         <ul className="space-y-3.5">
           {PLATFORM.map((line) => (

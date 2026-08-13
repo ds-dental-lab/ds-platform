@@ -1,9 +1,9 @@
-# DS Flow — Sprint 1 실행 안내서
+# Den Flow — Sprint 1 실행 안내서
 
 **주제** 인증과 데이터 모델
 **기간** 5영업일 (하루 3~4시간 기준)
 **선행** Sprint 0 완료 (GitHub · Vercel · Next.js · Supabase 연결)
-**기준 문서** DS Flow 시스템설계서 v0.7 §4, 구현계획서 v1.6 Sprint 1
+**기준 문서** Den Flow 시스템설계서 v0.7 §4, 구현계획서 v1.6 Sprint 1
 
 **끝나면 얻는 것** 치과 · 디자인센터 · 기공소 계정으로 각각 로그인해 자기 화면에 들어가고, 다른 섹터 화면은 막히는 상태
 
