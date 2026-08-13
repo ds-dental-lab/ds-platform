@@ -19,6 +19,7 @@ import {
   itemAmount,
   sumItems,
   canClosePeriod,
+  canIssueInvoice,
   canReopenPeriod,
   splitItemLines,
   invoicePartiesFor,
@@ -718,5 +719,52 @@ describe('금액 추이 구간', () => {
 
   it('0개를 달라고 해도 한 개는 준다', () => {
     expect(moneyRanges('2026-08-11', 'clinic', 26, 0)).toHaveLength(1);
+  });
+});
+
+// ---------- 발행 규칙 (2026-08-13) ----------
+//
+// ★ 실제로 여기서 한 번 틀렸습니다.
+//   발행 단추를 마감 규칙으로 막았더니 **이미 마감된 기간에서 발행이
+//   잠겼습니다** — "이미 마감한 기간입니다" 라면서요. 일괄 마감으로
+//   닫아 둔 것들이 통째로 못 나갈 뻔했습니다.
+
+describe('발행할 수 있는가', () => {
+  const range = { from: '2026-06-26', to: '2026-07-25' };
+  const after = '2026-08-13';
+
+  it('★ 이미 마감된 기간은 발행할 수 있습니다 — 발행만 남은 상태입니다', () => {
+    expect(canIssueInvoice(range, after, true, false, 2)).toEqual({ ok: true });
+  });
+
+  it('아직 안 닫혔어도 기간이 끝났으면 발행합니다 — 발행이 마감까지 합니다', () => {
+    expect(canIssueInvoice(range, after, false, false, 2)).toEqual({ ok: true });
+  });
+
+  it('★ 두 번 내지 않습니다', () => {
+    const verdict = canIssueInvoice(range, after, true, true, 2);
+
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('이미 발행한 기간입니다');
+  });
+
+  it('★ 빈 청구서는 안 냅니다 — 마감돼 있어도', () => {
+    const verdict = canIssueInvoice(range, after, true, false, 0);
+
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('이 기간에 청구할 건이 없습니다');
+  });
+
+  // ★ 안 닫힌 기간을 발행하면 닫기까지 하므로, 닫을 수 없는 날이면 발행도 못 합니다
+  it('★ 기간이 안 끝났고 아직 안 닫혔으면 못 냅니다', () => {
+    const verdict = canIssueInvoice(range, '2026-07-20', false, false, 2);
+
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toContain('2026-07-25');
+  });
+
+  // ★ 이미 닫혀 있으면 그 판단은 닫을 때 끝났습니다 — 날짜를 다시 안 봅니다
+  it('★ 이미 닫혀 있으면 날짜를 다시 안 봅니다', () => {
+    expect(canIssueInvoice(range, '2026-07-20', true, false, 2)).toEqual({ ok: true });
   });
 });

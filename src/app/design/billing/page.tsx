@@ -21,7 +21,12 @@ import {
   listClosedParties,
 } from '@/server/repositories/billing';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
-import { periodRange, isValidYearMonth, canClosePeriod } from '@/server/domain/billing';
+import {
+  periodRange,
+  isValidYearMonth,
+  canClosePeriod,
+  canIssueInvoice,
+} from '@/server/domain/billing';
 import { todayInKst } from '@/server/domain/week';
 import SettlementScreen from '@/components/billing/SettlementScreen';
 import BillingTabs from '@/components/billing/BillingTabs';
@@ -90,8 +95,18 @@ export default async function DesignBillingPage({
     ? await getClosedSettlement(period!.id, from, to, catalog)
     : await getSettlement(partner, from, to, catalog);
 
-  /* 건수까지 보고 판단합니다 — 셀 것이 없으면 단추가 아예 안 눌립니다 */
-  const verdict = canClosePeriod({ from, to }, today, closed, settlement.items.length);
+  /*
+    ★ 단추는 **발행** 이므로 발행 규칙으로 봅니다 (canIssueInvoice).
+      마감 규칙으로 보면 이미 마감된 기간에서 "이미 마감한 기간입니다"
+      라며 발행이 잠깁니다 — 실제로 그렇게 만들었다가 잡았습니다.
+  */
+  const verdict = canIssueInvoice(
+    { from, to },
+    today,
+    closed,
+    Boolean(period?.issuedAt),
+    settlement.items.length,
+  );
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-3">

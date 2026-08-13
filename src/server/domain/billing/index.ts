@@ -421,6 +421,42 @@ export function canClosePeriod(
 }
 
 /**
+ * 이 기간을 지금 **발행**해도 되는가.
+ *
+ * ★ 마감과 규칙이 다릅니다 (2026-08-13 — 실제로 여기서 한 번 틀렸습니다).
+ *   발행 단추를 마감 규칙(`canClosePeriod`)으로 막았더니, **이미 마감된
+ *   기간에서 발행이 잠겼습니다** — "이미 마감한 기간입니다" 라면서요.
+ *   마감된 기간이야말로 발행만 남은 상태인데 말입니다.
+ *   일괄 마감으로 닫아 둔 것들이 통째로 못 나갈 뻔했습니다.
+ *
+ * ★ 그래서 세 가지만 봅니다.
+ *   ① 이미 나갔으면 두 번 안 냅니다.
+ *   ② 청구할 건이 없으면 안 냅니다 — 빈 청구서는 문서가 아닙니다.
+ *   ③ **아직 안 닫혔을 때만** 날짜를 봅니다. 발행이 마감까지 하므로,
+ *      닫을 수 없는 날이면 발행도 못 합니다. 이미 닫혀 있으면 그
+ *      판단은 닫을 때 이미 끝났습니다.
+ */
+export function canIssueInvoice(
+  range: ClosableRange,
+  today: IsoDate,
+  closed: boolean,
+  issued: boolean,
+  itemCount: number,
+): CloseVerdict {
+  if (issued) return { ok: false, reason: '이미 발행한 기간입니다' };
+
+  if (itemCount <= 0) {
+    return { ok: false, reason: '이 기간에 청구할 건이 없습니다' };
+  }
+
+  if (!closed && today <= range.to) {
+    return { ok: false, reason: `${range.to} 이 지나야 발행할 수 있습니다` };
+  }
+
+  return { ok: true };
+}
+
+/**
  * 이 조정이 **언제** 청구서에 실리는가. (사용자 신고 2026-08-13 —
  *   "주문서에서 조정금액이 정산에 적용되지 않는경우")
  *
