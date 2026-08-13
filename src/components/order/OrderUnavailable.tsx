@@ -32,8 +32,8 @@ const MESSAGE: Record<OrderAbsence, { title: string; body: string }> = {
   hidden: {
     title: '열 수 없는 주문입니다',
     body:
-      '없는 주문이거나, 우리 조직이 볼 수 있는 주문이 아닙니다.\n' +
-      '주소를 직접 고쳐 들어오셨다면 목록에서 다시 찾아 주세요.',
+      '없는 주문이거나, 지금 로그인한 계정으로는 볼 수 없는 주문입니다.\n' +
+      '다른 치과의 주문이거나, 계정을 바꿔 들어오셔야 하는 건일 수 있습니다.',
   },
 };
 
@@ -75,12 +75,27 @@ export default function OrderUnavailable({ reason, ordersPath }: OrderUnavailabl
           {message.body}
         </p>
 
-        <Link
-          href={ordersPath}
-          className="mt-6 inline-grid h-[38px] place-items-center rounded-[7px] bg-[#1279E8] px-6 text-[13px] font-bold text-white hover:bg-[#1554C8]"
-        >
-          주문목록으로
-        </Link>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <Link
+            href={ordersPath}
+            className="grid h-[38px] place-items-center rounded-[7px] bg-[#1279E8] px-6 text-[13px] font-bold text-white hover:bg-[#1554C8]"
+          >
+            주문목록으로
+          </Link>
+
+          {/*
+            ★ 계정이 달라서 막힌 경우가 흔합니다 (사용자 요청 2026-08-13).
+              목록으로 보내 봐야 거기도 안 보입니다 — 나갈 길을 같이 냅니다.
+          */}
+          {reason === 'hidden' && (
+            <Link
+              href="/login"
+              className="grid h-[38px] place-items-center rounded-[7px] border border-[#DDE2EA] bg-white px-5 text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+            >
+              다른 계정으로 로그인
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   );
