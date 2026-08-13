@@ -48,18 +48,38 @@ export interface AuditEntry {
  *   (그냥 await 를 빼면 서버리스에서는 응답과 함께 중간에 끊깁니다.)
  */
 export async function recordAccess(entry: AuditEntry): Promise<void> {
-  after(() => writeAccess(entry));
+  if (entry.subjectCount === 0) return;
+
+  /*
+    ★ **쿠키는 여기서, 그리는 중에 읽습니다** (2026-08-13 고침).
+      전에는 after() 안에서 getSession() → createClient() 를 불렀는데,
+      Next 는 그리는 도중에 걸어 둔 after 안에서 `cookies()` 를 부르는
+      것을 막습니다. 그래서 **열람 기록이 한 줄도 안 남고 있었습니다.**
+
+      화면은 멀쩡했습니다. 실패를 삼키고 서버 로그에만 적었으니까요 —
+      개발 로그를 들여다보기 전까지 아무도 몰랐습니다.
+      *"기록이 안 남는 고장은 화면에 아무 표시가 없다"* 는 것을 이 건이
+      그대로 보여 줍니다.
+
+      세션과 연결을 미리 만들어 넘기면, after 안에서는 이미 읽어 둔
+      값만 씁니다. 응답을 먼저 보내고 기록은 뒤에 한다는 원래 뜻은
+      그대로입니다.
+  */
+  const session = await getSession();
+  if (!session?.orgId) return;
+
+  const supabase = await createClient();
+
+  after(() => writeAccess(supabase, session.user.id, session.orgId!, entry));
 }
 
-async function writeAccess(entry: AuditEntry): Promise<void> {
+async function writeAccess(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  actorUserId: string,
+  actorOrgId: string,
+  entry: AuditEntry,
+): Promise<void> {
   try {
-    if (entry.subjectCount === 0) return;
-
-    const session = await getSession();
-    if (!session?.orgId) return;
-
-    const supabase = await createClient();
-
     /*
       ★ 표에 바로 넣지 않고 함수를 부릅니다 (record_access).
         같은 사람이 같은 대상을 5분 안에 다시 열면 한 줄로 봅니다.
@@ -73,8 +93,8 @@ async function writeAccess(entry: AuditEntry): Promise<void> {
         한 문장으로 넣어야 그 틈이 없습니다.
     */
     await supabase.rpc('record_access', {
-      p_actor_user_id: session.user.id,
-      p_actor_org_id: session.orgId,
+      p_actor_user_id: actorUserId,
+      p_actor_org_id: actorOrgId,
       p_action: entry.action,
       p_target_id: entry.targetId ?? null,
       p_subject_count: entry.subjectCount ?? 1,
