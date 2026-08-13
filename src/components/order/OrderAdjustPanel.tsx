@@ -177,6 +177,13 @@ export default function OrderAdjustPanel({ money, patientLabel }: OrderAdjustPan
       <p className="border-t border-[#E8EBF0] px-4 py-2.5 text-[11.5px] leading-relaxed text-[#98A2B3]">
         금액을 눌러 깎거나 더합니다. 원금액은 그대로 두고 차액 한 줄이 붙습니다 — 사유는 청구서에
         그대로 실립니다.
+        {/*
+          ★ 언제 실리는지를 같이 적습니다 (사용자 신고 2026-08-13).
+            정산은 배송된 건만 셉니다. 접수 단계에서 조정을 걸면 정산에
+            안 보이는데, 그 이유를 화면이 한 마디도 안 했습니다.
+            "적용이 안 됐다" 로 읽힙니다.
+        */}
+        <span className="mt-1 block font-semibold text-[#4A5567]">{money.timingNote}</span>
       </p>
 
       {editing && (
@@ -186,6 +193,7 @@ export default function OrderAdjustPanel({ money, patientLabel }: OrderAdjustPan
           partyOrgId={editing.side === 'clinic' ? money.clinicOrgId : (money.labOrgId as string)}
           partyName={editing.side === 'clinic' ? money.clinicName : money.labName}
           patientLabel={patientLabel}
+          timingNote={money.timingNote}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -248,6 +256,7 @@ function AdjustDialog({
   item,
   side,
   partyOrgId,
+  timingNote,
   partyName,
   patientLabel,
   onClose,
@@ -258,6 +267,8 @@ function AdjustDialog({
   item: OrderMoneyItem;
   side: Side;
   partyOrgId: string;
+  /** 이 조정이 언제 청구서에 실리는가 */
+  timingNote: string;
   partyName: string;
   patientLabel: string;
   onClose: () => void;
@@ -365,6 +376,14 @@ function AdjustDialog({
             placeholder="금액"
             className="h-10 w-full rounded-md border border-[#DDE2EA] px-3 text-[14px] tabular-nums outline-none focus:border-[#1279E8]"
           />
+
+          {/*
+            ★ 누르기 전에 알아야 합니다 (사용자 신고 2026-08-13).
+              저장하고 정산을 열어 봤는데 없으면 "안 먹었다" 로 읽습니다.
+          */}
+          <p className="rounded-md bg-[#F4F6F9] px-3 py-2 text-[11.5px] leading-relaxed text-[#4A5567]">
+            {timingNote}
+          </p>
 
           {/* ★ 사유가 없으면 저장이 안 됩니다 — 청구서에 그대로 실립니다 */}
           <input

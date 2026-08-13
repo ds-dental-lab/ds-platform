@@ -22,7 +22,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { resolvePartyPrice } from '@/server/domain/pricing';
-import { itemAmount } from '@/server/domain/billing';
+import { itemAmount, adjustmentTiming } from '@/server/domain/billing';
 
 export interface OrderMoneyItem {
   itemId: string;
@@ -60,6 +60,13 @@ export interface OrderMoney {
   inHouse: boolean;
   /** 리메이크·리페어는 0원입니다 */
   billable: boolean;
+  /**
+   * 이 조정이 언제 청구서에 실리는지 (domain/billing 의 adjustmentTiming).
+   *
+   * ★ 정산은 **배송된 건만** 셉니다. 접수 단계에서 조정을 걸면
+   *   정산에 안 보이는데, 그 이유를 화면이 말해 주지 않았습니다.
+   */
+  timingNote: string;
   items: OrderMoneyItem[];
 }
 
@@ -80,8 +87,8 @@ export async function getOrderMoney(orderId: string): Promise<OrderMoney | null>
   const { data: orderRow } = await supabase
     .from('orders')
     .select(
-      'id, clinic_org_id, lab_org_id, design_org_id, is_billable, ' +
-        'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
+      'id, clinic_org_id, lab_org_id, design_org_id, is_billable, shipped_at, ' +
+        'clinic:organizations!orders_clinic_org_id_fkey(name, closing_day), ' +
         'lab:organizations!orders_lab_org_id_fkey(name), ' +
         'order_items(id, tooth_number, type_code, material_code, is_pontic, has_gingival)',
     )
@@ -93,7 +100,8 @@ export async function getOrderMoney(orderId: string): Promise<OrderMoney | null>
     lab_org_id: string | null;
     design_org_id: string | null;
     is_billable: boolean;
-    clinic: { name: string } | null;
+    shipped_at: string | null;
+    clinic: { name: string; closing_day: number } | null;
     lab: { name: string } | null;
     order_items:
       | {
@@ -256,6 +264,11 @@ export async function getOrderMoney(orderId: string): Promise<OrderMoney | null>
     labName: order.lab?.name ?? '',
     inHouse,
     billable: order.is_billable,
+    timingNote: adjustmentTiming({
+      billable: order.is_billable,
+      shippedAt: order.shipped_at,
+      closingDay: order.clinic?.closing_day ?? 26,
+    }).note,
     items: items.sort((a, b) => a.toothNumber - b.toothNumber),
   };
 }

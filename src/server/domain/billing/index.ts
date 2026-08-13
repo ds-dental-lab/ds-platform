@@ -400,6 +400,54 @@ export function canClosePeriod(
 }
 
 /**
+ * 이 조정이 **언제** 청구서에 실리는가. (사용자 신고 2026-08-13 —
+ *   "주문서에서 조정금액이 정산에 적용되지 않는경우")
+ *
+ * ★ 버그가 아니라 **말을 안 해 준 것**이었습니다.
+ *   정산은 **배송된 건만** 셉니다 (getSettlement 의 shipped_at 조건).
+ *   그런데 조정은 접수 단계에서도 걸 수 있습니다. 그래서 조정을 넣고
+ *   정산을 열어 본 사람은 "적용이 안 됐다" 고 읽습니다.
+ *   실제로 그런 조정이 하나 있었습니다 — ORD-260812-005, 접수 상태.
+ *
+ * ★ 언제 붙는지를 **달까지** 알려 줍니다.
+ *   "나중에 붙습니다" 로는 부족합니다. 배송일이 드는 달이 곧 그 건의
+ *   정산 달이므로(periodOfDate), 배송된 건은 몇 월 청구서에 실릴지
+ *   지금 알 수 있습니다.
+ */
+export interface AdjustmentTiming {
+  /** 지금 상태로 청구서에 실릴 수 있는가 */
+  willBill: boolean;
+  /** 화면에 적을 한 줄 */
+  note: string;
+}
+
+export function adjustmentTiming(input: {
+  /** 리메이크·리페어는 청구 대상이 아닙니다 */
+  billable: boolean;
+  /** 배송된 날. 아직이면 null */
+  shippedAt: string | null;
+  closingDay: number;
+}): AdjustmentTiming {
+  if (!input.shippedAt) {
+    return {
+      willBill: false,
+      note: '아직 배송 전이라 정산에 안 잡힙니다. 배송되면 이 조정이 함께 붙습니다.',
+    };
+  }
+
+  const month = periodOfDate(input.shippedAt.slice(0, 10), input.closingDay);
+
+  if (!input.billable) {
+    return {
+      willBill: true,
+      note: `이 주문은 청구 대상이 아니지만(리메이크·리페어), 조정한 금액은 ${month} 정산에 실립니다.`,
+    };
+  }
+
+  return { willBill: true, note: `${month} 정산에 실립니다.` };
+}
+
+/**
  * 금액을 굳혀도 되는가. (2026-08-13 점검에서 찾음)
  *
  * ★ 단가를 안 정한 건이 섞여 있으면 마감하면 안 됩니다.
