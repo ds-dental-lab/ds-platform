@@ -15,7 +15,6 @@
 'use client';
 
 import { useState } from 'react';
-import DsMark from '@/components/brand/DsMark';
 import { visibleNav, type NavIcon } from '@/server/domain/nav';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -226,13 +225,9 @@ export default function SectorShell({
           </IconButton>
 
           {!collapsed && (
-            <span className="flex items-center gap-1.5 whitespace-nowrap">
-              {/* ★ 실제 로고 마크 (사용자 제공, 2026-08-13) */}
-              <DsMark height={19} />
-              <span className="flex items-baseline gap-[.3em] text-[17px] font-extrabold leading-none tracking-[-0.045em]">
-                <b className="text-[#1B2A4A]">DS</b>
-                <i className="font-semibold not-italic tracking-[.01em] text-[#9AA3AE]">FLOW</i>
-              </span>
+            <span className="flex items-baseline gap-[.3em] whitespace-nowrap text-[17px] font-extrabold leading-none tracking-[-0.045em]">
+              <b className="text-[#1B2A4A]">DS</b>
+              <i className="font-semibold not-italic tracking-[.01em] text-[#9AA3AE]">FLOW</i>
             </span>
           )}
         </div>
