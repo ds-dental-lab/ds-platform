@@ -118,7 +118,6 @@ export default function OrderQuickFilters({
   sector,
 }: OrderQuickFiltersProps) {
   const shownStatuses = statusesForSector(sector).map(({ status }) => status);
-  const on = statuses.length + issues.length;
 
   /**
    * 아이콘을 눌렀을 때 갈 주소.
@@ -141,16 +140,6 @@ export default function OrderQuickFilters({
     else next.delete(key);
 
     next.delete('page'); // 필터가 바뀌면 1쪽으로
-    const qs = next.toString();
-    return qs ? `${basePath}?${qs}` : basePath;
-  }
-
-  /** 켜진 것을 한 번에 끄는 주소 */
-  function clearHref(): string {
-    const next = new URLSearchParams(params);
-    next.delete('status');
-    next.delete('issue');
-    next.delete('page');
     const qs = next.toString();
     return qs ? `${basePath}?${qs}` : basePath;
   }
@@ -190,33 +179,6 @@ export default function OrderQuickFilters({
         </div>
       </div>
 
-      {/*
-        ★ 몇 개를 켰는지 적고, 한 번에 끄는 길을 둡니다.
-          여러 개가 켜지면 "왜 이 건이 안 보이지" 가 생깁니다. 아이콘을
-          하나씩 다시 눌러 끄게 두면 그 물음이 안 풀립니다.
-          하나도 안 켜졌을 때는 줄이 아예 없습니다 — 늘 있으면 자리만 먹습니다.
-      */}
-      {on > 0 && (
-        <div className="mt-2 flex items-center gap-2 text-[12px] text-[#98A2B3]">
-          <span>
-            {[
-              statuses.length > 0
-                ? `상태 ${statuses.map((s) => STATUS_LABEL[s]).join(' · ')}`
-                : null,
-              issues.length > 0 ? `이슈 ${issues.map((i) => ISSUE_META[i].label).join(' · ')}` : null,
-            ]
-              .filter(Boolean)
-              .join('  |  ')}
-          </span>
-
-          <Link
-            href={clearHref()}
-            className="rounded border border-[#DDE2EA] px-2 py-[3px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
-          >
-            필터 끄기
-          </Link>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,16 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+/*
+  ★ 웹폰트를 안 씁니다 (2026-08-13 — 화면이 느리다는 지적을 재 보고).
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+    create-next-app 이 넣은 Geist·Geist Mono 가 **모든 화면에서 preload**
+    되고 있었는데, 정작 어디에도 안 붙어 있었습니다.
+    globals.css 의 `--font-sans: var(--font-sans)` 가 **자기 자신을 가리켜**
+    값이 비었고, 그래서 브라우저 기본 글꼴이 그려지고 있었습니다.
+    로그인 화면에서 잰 결과 woff2 두 개가 첫 그림을 붙잡고 있었습니다.
+
+    빼도 **보이는 것은 그대로입니다** — 원래 안 쓰이던 글꼴입니다.
+    대신 `--font-sans`·`--font-mono` 에 내려받을 것이 없는 시스템 글꼴을
+    적어 두었습니다(globals.css). 로그인·가입 화면은 예전부터 자기
+    글꼴 목록을 따로 갖고 있어 영향이 없습니다.
+
+  ★ 청구서의 나눔고딕은 그대로입니다 (lib/fonts).
+    거기는 인쇄물이라 기계마다 달라지면 안 됩니다.
+*/
 
 export const metadata: Metadata = {
   title: "Den Flow",
@@ -19,10 +26,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="ko" className="h-full antialiased">
       {/*
         ★ body 를 flex 로 두면 안 됩니다.
           create-next-app 이 남긴 `flex flex-col` 인데, 이 안의 페이지는

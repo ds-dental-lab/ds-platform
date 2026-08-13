@@ -134,15 +134,29 @@ export default function LoginPage() {
           {loading ? '확인 중…' : '로그인'}
         </button>
 
+        {/*
+          ★ 한 줄에 들어가야 합니다 (사용자 요청 2026-08-13).
+            전에는 '비밀번호 찾기' 의 끝 글자만 다음 줄로 넘어갔습니다.
+            카드가 380px 인데 안쪽은 316px 뿐이라 20px 쯤 모자랐습니다.
+
+            고친 것 둘.
+            ① 앞말에서 'Den Flow' 를 뺐습니다. 바로 위에 마크와 이름이
+               있어 두 번 말하는 셈이었습니다.
+            ② 두 링크와 가운뎃점을 한 덩어리로 묶어 **그 안에서는 안
+               쪼개지게** 했습니다. 글자를 키우거나 창을 좁혀도 둘이
+               갈라서지 않습니다.
+        */}
         <p className="auth-join">
-          Den Flow 회원이 아니신가요?{' '}
-          <Link href="/signup" className="link strong">
-            회원가입
-          </Link>
-          <span className="sep">·</span>
-          <Link href="/reset" className="link">
-            비밀번호 찾기
-          </Link>
+          회원이 아니신가요?{' '}
+          <span className="auth-links">
+            <Link href="/signup" className="link strong">
+              회원가입
+            </Link>
+            <span className="sep">·</span>
+            <Link href="/reset" className="link">
+              비밀번호 찾기
+            </Link>
+          </span>
         </p>
 
         {/* ★ 처리방침은 로그인 없이 닿아야 합니다 */}
@@ -202,6 +216,7 @@ const css = `
 .btn-primary:hover:not(:disabled){background:var(--brand-dark)}
 .btn-primary:disabled{background:#D5DAE2; color:#8E98A8; cursor:not-allowed}
 .auth-join{margin:22px 0 0; text-align:center; font-size:13px; color:var(--ink-2)}
+.auth-links{white-space:nowrap}
 .auth-legal{margin:10px 0 0; text-align:center; font-size:12px; color:#98A2B3}
 .link{color:var(--ink-2); cursor:pointer; text-decoration:none}
 .link:hover{text-decoration:underline}
