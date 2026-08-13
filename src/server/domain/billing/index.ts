@@ -501,6 +501,29 @@ export function invoicePartiesFor(partyType: 'clinic' | 'lab'): InvoiceParties {
   };
 }
 
+/**
+ * 인쇄할 때 창 제목으로 걸 이름. (사용자 결정 2026-08-13)
+ *
+ * ★ 크롬은 'PDF 로 저장' 의 **기본 파일명을 창 제목에서 가져옵니다.**
+ *   그대로 두면 거래처마다 `DS Flow.pdf` 가 나와서, 열 개를 뽑으면
+ *   `DS Flow (1).pdf` … 가 됩니다. 나중에 누구 것인지 알 수가 없습니다.
+ *
+ * ★ 파일명에 못 쓰는 글자를 미리 지웁니다.
+ *   `/ \ : * ? " < > |` 가 들어가면 저장이 막히거나 이름이 잘립니다.
+ *   거래처 이름에 괄호나 점은 흔하니 그대로 두고 이것만 뺍니다.
+ */
+export function invoiceFileName(
+  title: string,
+  receiverName: string,
+  yearMonth: string,
+): string {
+  const parts = [title, receiverName, yearMonth]
+    .map((part) => part.replace(/[/\\:*?"<>|]/g, '').trim())
+    .filter(Boolean);
+
+  return parts.join('_');
+}
+
 // ---------- 조정 ----------
 
 /**

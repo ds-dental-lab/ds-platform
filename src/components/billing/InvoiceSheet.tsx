@@ -20,7 +20,14 @@
 
 'use client';
 
-import { groupInvoiceLines, formatTeeth, type InvoiceParties } from '@/server/domain/billing';
+import {
+  groupInvoiceLines,
+  formatTeeth,
+  invoiceFileName,
+  type InvoiceParties,
+} from '@/server/domain/billing';
+import { invoiceFont } from '@/lib/fonts';
+import PrintTitle from '@/components/billing/PrintTitle';
 import type { Settlement } from '@/server/repositories/billing';
 import type { PartnerRow } from '@/server/repositories/partner';
 
@@ -62,7 +69,18 @@ export default function InvoiceSheet({
   const lines = groupInvoiceLines(settlement.items, (id) => settlement.bridgeOf[id] ?? null);
 
   return (
-    <article className="mx-auto max-w-[860px] bg-white p-10 text-[#1A2130] print:max-w-none print:p-0">
+    /*
+      ★ 나눔고딕을 여기서만 씌웁니다 (사용자 결정 2026-08-13).
+        앱의 나머지는 기계에 있는 글꼴을 씁니다 — 각자 익숙한 글자로
+        보면 됩니다. 그런데 **청구서는 거래처에 나가는 문서**라, 받는
+        쪽 기계에 따라 줄이 밀리고 숫자 칸이 어긋나면 안 됩니다.
+        빌드할 때 받아 우리 서버에 두므로 열 때 구글을 부르지 않습니다.
+    */
+    <article
+      className={`${invoiceFont.className} mx-auto max-w-[860px] bg-white p-10 text-[#1A2130] print:max-w-none print:p-0`}
+    >
+      {/* 'PDF 로 저장' 의 기본 파일명 — 인쇄하는 동안만 창 제목을 바꿉니다 */}
+      <PrintTitle fileName={invoiceFileName(parties.title, receiver.name, yearMonth)} />
       {/* ---------- 머리 ---------- */}
       <header className="flex items-start justify-between border-b-2 border-[#1A2130] pb-5">
         <div>
