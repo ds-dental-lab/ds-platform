@@ -103,20 +103,20 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
   return (
     <>
       {error && (
-        <p className="mb-2 rounded-md bg-[#FDECEA] px-3 py-2 text-[12.5px] font-semibold text-[#B3312C]">
+        <p className="mb-2 rounded-md bg-[#FDECEA] px-3 py-2 text-[13.5px] font-semibold text-[#B3312C]">
           {error}
         </p>
       )}
       {note && (
-        <p className="mb-2 rounded-md bg-[#E7EEFA] px-3 py-2 text-[12.5px] font-semibold text-[#1279E8]">
+        <p className="mb-2 rounded-md bg-[#E7EEFA] px-3 py-2 text-[13.5px] font-semibold text-[#1279E8]">
           {note}
         </p>
       )}
 
       <div className="overflow-x-auto rounded-lg border border-[#E8EBF0] bg-white">
-        <table className="w-full min-w-[900px] text-[12.5px]">
+        <table className="w-full min-w-[900px] text-[13.5px]">
           <thead>
-            <tr className="border-b border-[#E8EBF0] text-left text-[12px] text-[#98A2B3]">
+            <tr className="border-b border-[#E8EBF0] text-left text-[13px] text-[#98A2B3]">
               <th className="px-4 py-3 font-medium">청구 번호</th>
               <th className="px-4 py-3 font-medium">청구서 발행일</th>
               <th className="px-4 py-3 font-medium">청구 방법</th>
@@ -132,7 +132,7 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
           <tbody className="divide-y divide-[#F0F2F5]">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-20 text-center text-[13px] text-[#98A2B3]">
+                <td colSpan={9} className="px-4 py-20 text-center text-[14px] text-[#98A2B3]">
                   발행된 청구서가 없습니다. 정산 탭에서 마감하고 발행하면 여기 쌓입니다.
                 </td>
               </tr>
@@ -157,7 +157,7 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
                   <td className="px-4 py-3">
                     <span className="block font-semibold text-[#1A2130]">{row.partyName}</span>
                     {/* ★ 발행할 때 베낀 값입니다 — 지금 설정이 아닙니다 */}
-                    <span className="block text-[11.5px] text-[#98A2B3]">
+                    <span className="block text-[12.5px] text-[#98A2B3]">
                       {row.sentTo ?? '-'}
                     </span>
                   </td>
@@ -170,7 +170,7 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
                     */}
                     {row.credited > 0 ? (
                       <>
-                        <span className="block text-[11.5px] font-normal text-[#98A2B3] line-through">
+                        <span className="block text-[12.5px] font-normal text-[#98A2B3] line-through">
                           ₩{row.total.toLocaleString('ko-KR')}
                         </span>
                         <span className="block">₩{row.billed.toLocaleString('ko-KR')}</span>
@@ -202,7 +202,7 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
                   <td className="px-4 py-3">
                     <span
                       className={
-                        'rounded-full px-2.5 py-1 text-[11.5px] font-bold ' +
+                        'rounded-full px-2.5 py-1 text-[12.5px] font-bold ' +
                         (row.status === 'paid'
                           ? 'bg-[#E6F4EE] text-[#12855B]'
                           : 'bg-[#FDECEA] text-[#D8453F]')
@@ -291,10 +291,10 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
               <h3 className="text-[15px] font-bold tracking-tight text-[#1A2130]">
                 이 청구서를 취소할까요?
               </h3>
-              <p className="mt-2 text-[12.5px] text-[#4A5567]">
+              <p className="mt-2 text-[13.5px] text-[#4A5567]">
                 {asking.invoiceNo} · {asking.partyName}
               </p>
-              <p className="mt-1.5 text-[12px] text-[#98A2B3]">
+              <p className="mt-1.5 text-[13px] text-[#98A2B3]">
                 마감 상태로 돌아갑니다. 번호는 다시 쓰지 않습니다.
               </p>
             </div>
@@ -369,17 +369,17 @@ function PaymentDialog({
       <div className="w-full max-w-[420px] overflow-hidden rounded-xl bg-white shadow-xl">
         <header className="px-6 pb-2 pt-5">
           <h2 className="text-[16px] font-bold tracking-tight text-[#1A2130]">정산</h2>
-          <p className="mt-0.5 text-[12px] text-[#98A2B3]">
+          <p className="mt-0.5 text-[13px] text-[#98A2B3]">
             {row.invoiceNo} · {row.partyName}
           </p>
         </header>
 
         <div className="px-6 pb-5 pt-3">
           <div className="flex items-baseline">
-            <label htmlFor="pay" className="text-[13px] font-semibold text-[#4A5567]">
+            <label htmlFor="pay" className="text-[14px] font-semibold text-[#4A5567]">
               정산 금액
             </label>
-            <span className="ml-auto text-[13px] font-bold text-[#1A2130]">
+            <span className="ml-auto text-[14px] font-bold text-[#1A2130]">
               미납 금액: ₩{row.unpaid.toLocaleString('ko-KR')}
             </span>
           </div>
@@ -394,7 +394,7 @@ function PaymentDialog({
 
           {/* ★ 넣고 나면 얼마가 남는지 그 자리에서 보여 줍니다 */}
           {valid && (
-            <p className="mt-1.5 text-[12px] text-[#98A2B3]">
+            <p className="mt-1.5 text-[13px] text-[#98A2B3]">
               {left > 0 ? (
                 <>
                   넣으면 <b className="font-bold text-[#B3312C]">₩{left.toLocaleString('ko-KR')}</b>{' '}
@@ -414,10 +414,10 @@ function PaymentDialog({
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             placeholder="메모 (선택) — 예) 8월분 합산 입금"
-            className="mt-3 h-10 w-full rounded-md border border-[#DDE2EA] px-3 text-[13px] outline-none focus:border-[#1279E8]"
+            className="mt-3 h-10 w-full rounded-md border border-[#DDE2EA] px-3 text-[14px] outline-none focus:border-[#1279E8]"
           />
 
-          {error && <p className="mt-2 text-[12.5px] font-semibold text-[#D8453F]">{error}</p>}
+          {error && <p className="mt-2 text-[13.5px] font-semibold text-[#D8453F]">{error}</p>}
         </div>
 
         <footer className="flex gap-2 px-6 pb-5">
@@ -425,7 +425,7 @@ function PaymentDialog({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="ml-auto h-10 rounded-md px-4 text-[13px] font-semibold text-[#98A2B3] hover:text-[#4A5567]"
+            className="ml-auto h-10 rounded-md px-4 text-[14px] font-semibold text-[#98A2B3] hover:text-[#4A5567]"
           >
             취소
           </button>
@@ -433,7 +433,7 @@ function PaymentDialog({
             type="button"
             onClick={save}
             disabled={saving || !valid}
-            className="h-10 rounded-md bg-[#1279E8] px-5 text-[13px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#C4CBD6]"
+            className="h-10 rounded-md bg-[#1279E8] px-5 text-[14px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#C4CBD6]"
           >
             {saving ? '적는 중…' : '정산 완료'}
           </button>
@@ -571,14 +571,14 @@ function CreditDialog({
       <div className="w-full max-w-[400px] rounded-xl bg-white p-6 shadow-xl">
         <h3 className="text-[15px] font-bold tracking-tight text-[#1A2130]">마이너스 청구서</h3>
 
-        <p className="mt-1.5 text-[12.5px] leading-relaxed text-[#7C8595]">
+        <p className="mt-1.5 text-[13.5px] leading-relaxed text-[#7C8595]">
           {row.invoiceNo} · {row.partyName}
           <br />
           이미 나간 청구서는 고치지 않습니다. <b className="font-semibold text-[#4A5567]">CRD-</b>{' '}
           번호가 붙은 문서를 한 장 더 내어 그만큼 깎습니다.
         </p>
 
-        <label className="mb-1.5 mt-4 block text-[12.5px] font-semibold text-[#4A5567]">
+        <label className="mb-1.5 mt-4 block text-[13.5px] font-semibold text-[#4A5567]">
           깎을 금액
         </label>
         <input
@@ -590,41 +590,41 @@ function CreditDialog({
           className="w-full rounded border border-[#DDE2EA] px-3 py-2 text-right text-[15px] font-bold tabular-nums outline-none focus:border-[#1279E8]"
         />
 
-        <p className="mt-1.5 text-[11.5px] text-[#98A2B3]">
+        <p className="mt-1.5 text-[12.5px] text-[#98A2B3]">
           더 깎을 수 있는 금액 ₩{room.toLocaleString('ko-KR')}
         </p>
 
-        <label className="mb-1.5 mt-3.5 block text-[12.5px] font-semibold text-[#4A5567]">
+        <label className="mb-1.5 mt-3.5 block text-[13.5px] font-semibold text-[#4A5567]">
           사유
         </label>
         <input
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="리메이크 차감 · 과청구 정정 등"
-          className="w-full rounded border border-[#DDE2EA] px-3 py-2 text-[13px] outline-none focus:border-[#1279E8]"
+          className="w-full rounded border border-[#DDE2EA] px-3 py-2 text-[14px] outline-none focus:border-[#1279E8]"
         />
 
         {/* ★ 누르기 전에 결과를 보여 줍니다. 번호가 붙으면 못 무릅니다 */}
         {amount > 0 && verdict.ok && (
-          <p className="mt-3 rounded border border-[#DDE7F7] bg-[#F5F9FF] px-3 py-2.5 text-[12.5px] tabular-nums text-[#31517E]">
+          <p className="mt-3 rounded border border-[#DDE7F7] bg-[#F5F9FF] px-3 py-2.5 text-[13.5px] tabular-nums text-[#31517E]">
             받을 돈 ₩{row.billed.toLocaleString('ko-KR')} → <b>₩{after.toLocaleString('ko-KR')}</b>
           </p>
         )}
 
-        {error && <p className="mt-2 text-[12.5px] font-semibold text-[#B3312C]">{error}</p>}
+        {error && <p className="mt-2 text-[13.5px] font-semibold text-[#B3312C]">{error}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onClose}
             disabled={saving}
-            className="rounded border border-[#DDE2EA] px-4 py-2 text-[13px] text-[#4A5567] hover:bg-[#F4F6F9]"
+            className="rounded border border-[#DDE2EA] px-4 py-2 text-[14px] text-[#4A5567] hover:bg-[#F4F6F9]"
           >
             취소
           </button>
           <button
             onClick={save}
             disabled={saving || !verdict.ok || !reason.trim()}
-            className="rounded bg-[#C77700] px-5 py-2 text-[13px] font-semibold text-white hover:bg-[#A96500] disabled:cursor-not-allowed disabled:bg-[#D5DAE2]"
+            className="rounded bg-[#C77700] px-5 py-2 text-[14px] font-semibold text-white hover:bg-[#A96500] disabled:cursor-not-allowed disabled:bg-[#D5DAE2]"
           >
             {saving ? '발행 중…' : '발행'}
           </button>

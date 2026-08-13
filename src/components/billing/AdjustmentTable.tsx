@@ -31,14 +31,14 @@ export default function AdjustmentTable({ rows }: AdjustmentTableProps) {
       <section className="rounded-lg border border-[#E8EBF0] bg-white px-5 py-4">
         <div className="flex items-baseline gap-2">
           <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">사유별</h2>
-          <span className="text-[12px] text-[#98A2B3]">{rows.length}건</span>
-          <span className="ml-auto text-[13px] font-bold tabular-nums text-[#1A2130]">
+          <span className="text-[13px] text-[#98A2B3]">{rows.length}건</span>
+          <span className="ml-auto text-[14px] font-bold tabular-nums text-[#1A2130]">
             합계 {won(total)}
           </span>
         </div>
 
         {groups.length === 0 ? (
-          <p className="py-10 text-center text-[13px] text-[#98A2B3]">조정된 건이 없습니다.</p>
+          <p className="py-10 text-center text-[14px] text-[#98A2B3]">조정된 건이 없습니다.</p>
         ) : (
           <ul className="mt-3 space-y-1">
             {groups.map((group) => {
@@ -49,7 +49,7 @@ export default function AdjustmentTable({ rows }: AdjustmentTableProps) {
                 <li key={group.reason} className="flex items-center gap-3 py-1">
                   <span
                     className={
-                      'w-[140px] shrink-0 truncate text-[12.5px] ' +
+                      'w-[140px] shrink-0 truncate text-[13.5px] ' +
                       (blank ? 'font-semibold text-[#C77700]' : 'text-[#4A5567]')
                     }
                     title={group.reason}
@@ -65,10 +65,10 @@ export default function AdjustmentTable({ rows }: AdjustmentTableProps) {
                     />
                   </span>
 
-                  <span className="w-[52px] shrink-0 text-right text-[12px] tabular-nums text-[#98A2B3]">
+                  <span className="w-[52px] shrink-0 text-right text-[13px] tabular-nums text-[#98A2B3]">
                     {group.count}건
                   </span>
-                  <span className="w-[110px] shrink-0 text-right text-[12.5px] font-semibold tabular-nums text-[#1A2130]">
+                  <span className="w-[110px] shrink-0 text-right text-[13.5px] font-semibold tabular-nums text-[#1A2130]">
                     {won(group.amount)}
                   </span>
                 </li>
@@ -80,9 +80,9 @@ export default function AdjustmentTable({ rows }: AdjustmentTableProps) {
 
       {/* ---------- 줄 하나하나 ---------- */}
       <div className="overflow-x-auto rounded-lg border border-[#E8EBF0] bg-white">
-        <table className="w-full min-w-[760px] text-[12.5px]">
+        <table className="w-full min-w-[760px] text-[13.5px]">
           <thead>
-            <tr className="border-b border-[#E8EBF0] text-left text-[12px] text-[#98A2B3]">
+            <tr className="border-b border-[#E8EBF0] text-left text-[13px] text-[#98A2B3]">
               <th className="px-4 py-3 font-medium">No.</th>
               <th className="px-4 py-3 font-medium">청구 번호</th>
               <th className="px-4 py-3 font-medium">거래처</th>
@@ -96,7 +96,7 @@ export default function AdjustmentTable({ rows }: AdjustmentTableProps) {
           <tbody className="divide-y divide-[#F0F2F5]">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-20 text-center text-[13px] text-[#98A2B3]">
+                <td colSpan={7} className="px-4 py-20 text-center text-[14px] text-[#98A2B3]">
                   이 기간에 조정된 건이 없습니다.
                 </td>
               </tr>
@@ -110,7 +110,7 @@ export default function AdjustmentTable({ rows }: AdjustmentTableProps) {
                       <span className="text-[#1A2130]">{row.invoiceNo}</span>
                     ) : (
                       // 아직 청구서에 안 실린 조정 — 다음 마감에 실립니다
-                      <span className="text-[11.5px] text-[#C77700]">마감 전</span>
+                      <span className="text-[12.5px] text-[#C77700]">마감 전</span>
                     )}
                   </td>
 

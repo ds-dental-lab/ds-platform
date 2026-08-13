@@ -247,7 +247,7 @@ export default function RemakeRequest({
                   onToggle={toggleTooth}
                 />
 
-                <p className="mt-2 text-[12.5px] text-[#4A5567]">
+                <p className="mt-2 text-[13.5px] text-[#4A5567]">
                   {chosen.length === 0 ? (
                     <span className="text-[#C4383A]">치식을 하나 이상 골라 주세요</span>
                   ) : (
@@ -282,12 +282,12 @@ export default function RemakeRequest({
                           key={item.id}
                           className="flex flex-wrap items-end gap-3 rounded-lg border border-[#E8EBF0] px-4 py-3"
                         >
-                          <span className="grid h-[38px] w-[46px] shrink-0 place-items-center rounded-md bg-[#F4F6F9] text-[13px] font-bold tabular-nums text-[#1A2130]">
+                          <span className="grid h-[38px] w-[46px] shrink-0 place-items-center rounded-md bg-[#F4F6F9] text-[14px] font-bold tabular-nums text-[#1A2130]">
                             {item.tooth_number}
                           </span>
 
                           <label className="min-w-[220px] flex-1">
-                            <span className="mb-1 block text-[11.5px] font-semibold text-[#98A2B3]">
+                            <span className="mb-1 block text-[12.5px] font-semibold text-[#98A2B3]">
                               보철
                             </span>
                             <select
@@ -310,7 +310,7 @@ export default function RemakeRequest({
                                 const [t, m] = e.target.value.split('|');
                                 patch(item.id, { typeCode: t, materialCode: m });
                               }}
-                              className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#1279E8]"
+                              className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#1279E8]"
                             >
                               {/*
                                 ★ '그대로' 옆에 **지금 무엇인지**를 적습니다
@@ -340,13 +340,13 @@ export default function RemakeRequest({
                           </label>
 
                           <label className="min-w-[180px] flex-1">
-                            <span className="mb-1 block text-[11.5px] font-semibold text-[#98A2B3]">
+                            <span className="mb-1 block text-[12.5px] font-semibold text-[#98A2B3]">
                               쉐이드
                             </span>
                             <button
                               type="button"
                               onClick={() => setShadeFor(item)}
-                              className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-left text-[13px] hover:border-[#1279E8]"
+                              className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-left text-[14px] hover:border-[#1279E8]"
                             >
                               {d.shade ? (
                                 <b className="font-semibold text-[#1279E8]">{shadeText}</b>
@@ -363,7 +363,7 @@ export default function RemakeRequest({
 
                 {/* ★ 사양을 올리면 리메이크라도 그 차이는 받습니다 */}
                 {specChanged && (
-                  <p className="mt-2.5 rounded-md border border-[#F5D9A8] bg-[#FDF6E8] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#8A5A00]">
+                  <p className="mt-2.5 rounded-md border border-[#F5D9A8] bg-[#FDF6E8] px-3.5 py-2.5 text-[13.5px] font-semibold text-[#8A5A00]">
                     보철을 바꾸면 원래 주문과의 <b>차액이 청구</b>됩니다. 리메이크 자체는 청구되지
                     않습니다.
                   </p>
@@ -374,7 +374,7 @@ export default function RemakeRequest({
               <section>
                 <SectionTitle no="②">요청시한</SectionTitle>
                 <DueDatePicker value={dueDate} today={today} holidays={holidays} onChange={setDueDate} />
-                <p className="mt-2 text-[12.5px] text-[#98A2B3]">
+                <p className="mt-2 text-[13.5px] text-[#98A2B3]">
                   일반 주문과 같은 기준입니다. 기본값은 주문일 포함 워킹데이 5일째입니다.
                 </p>
               </section>
@@ -413,7 +413,7 @@ export default function RemakeRequest({
                 )}
 
                 {!hasFiles && (
-                  <p className="mt-2 text-[12px] text-[#C4383A]">
+                  <p className="mt-2 text-[13px] text-[#C4383A]">
                     이전 스캔을 쓰거나 새 파일을 올려주세요.
                   </p>
                 )}
@@ -427,12 +427,12 @@ export default function RemakeRequest({
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                   placeholder="예) 컨택이 너무 강해 들어가지 않습니다. 근심측을 줄여 주세요."
-                  className="w-full rounded-md border border-[#DDE2EA] px-3 py-2 text-[13px] outline-none focus:border-[#1279E8]"
+                  className="w-full rounded-md border border-[#DDE2EA] px-3 py-2 text-[14px] outline-none focus:border-[#1279E8]"
                 />
               </section>
 
-              {progress && <p className="text-[12.5px] text-[#1279E8]">{progress}</p>}
-              {error && <p className="text-[12.5px] text-[#D8453F]">{error}</p>}
+              {progress && <p className="text-[13.5px] text-[#1279E8]">{progress}</p>}
+              {error && <p className="text-[13.5px] text-[#D8453F]">{error}</p>}
             </div>
 
             <div className="flex justify-end gap-2 border-t border-[#E8EBF0] px-6 py-4">
@@ -531,8 +531,8 @@ function ScanCard({
       </span>
 
       <span className="min-w-0">
-        <b className="block text-[13px] font-bold text-[#1A2130]">{title}</b>
-        <span className="block text-[11.5px] text-[#98A2B3]">{desc}</span>
+        <b className="block text-[14px] font-bold text-[#1A2130]">{title}</b>
+        <span className="block text-[12.5px] text-[#98A2B3]">{desc}</span>
       </span>
     </button>
   );

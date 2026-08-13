@@ -74,14 +74,14 @@ export default async function ClinicInvoicePage({
       <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
         <Link
           href={`/clinic/billing?ym=${yearMonth}`}
-          className="h-9 rounded-md border border-[#DDE2EA] bg-white px-3.5 text-[12.5px] font-semibold leading-9 text-[#4A5567] hover:bg-[#F4F6F9]"
+          className="h-9 rounded-md border border-[#DDE2EA] bg-white px-3.5 text-[13.5px] font-semibold leading-9 text-[#4A5567] hover:bg-[#F4F6F9]"
         >
           ← 정산으로
         </Link>
 
         <PrintButton />
 
-        <span className="text-[12px] text-[#98A2B3]">
+        <span className="text-[13px] text-[#98A2B3]">
           금액이 다르면 디자인센터에 알려 주세요.
         </span>
       </div>

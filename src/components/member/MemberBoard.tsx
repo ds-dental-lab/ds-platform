@@ -89,7 +89,7 @@ export default function MemberBoard({ board }: { board: Board }) {
   return (
     <div className="space-y-3">
       {error && (
-        <p className="rounded-md bg-[#FDECEA] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#B3312C]">
+        <p className="rounded-md bg-[#FDECEA] px-3.5 py-2.5 text-[13.5px] font-semibold text-[#B3312C]">
           {error}
         </p>
       )}
@@ -97,7 +97,7 @@ export default function MemberBoard({ board }: { board: Board }) {
       <section className="rounded-lg border border-[#E8EBF0] bg-white">
         <header className="flex flex-wrap items-center gap-2 border-b border-[#E8EBF0] px-5 py-3.5">
           <h1 className="text-[15px] font-bold tracking-tight text-[#1A2130]">사용자</h1>
-          <span className="text-[12.5px] text-[#98A2B3]">
+          <span className="text-[13.5px] text-[#98A2B3]">
             {board.members.filter((m) => m.isActive).length}명
           </span>
 
@@ -106,7 +106,7 @@ export default function MemberBoard({ board }: { board: Board }) {
               type="button"
               onClick={() => setAdding(true)}
               disabled={working}
-              className="ml-auto h-8 rounded-md bg-[#1279E8] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#0F68C9] disabled:opacity-60"
+              className="ml-auto h-8 rounded-md bg-[#1279E8] px-3.5 text-[13.5px] font-bold text-white hover:bg-[#0F68C9] disabled:opacity-60"
             >
               사용자 추가
             </button>
@@ -114,7 +114,7 @@ export default function MemberBoard({ board }: { board: Board }) {
         </header>
 
         {/* ★ 자리가 둘뿐이라, 그 차이를 한 줄로 적어 둡니다 */}
-        <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-5 py-2.5 text-[12px] text-[#98A2B3]">
+        <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-5 py-2.5 text-[13px] text-[#98A2B3]">
           <b className="font-semibold text-[#4A5567]">관리자</b>는 금액과 정산까지 봅니다.{' '}
           <b className="font-semibold text-[#4A5567]">사용자</b>는 주문·배송·파일만 보고 금액은
           안 보입니다.
@@ -146,7 +146,7 @@ export default function MemberBoard({ board }: { board: Board }) {
                       나
                     </span>
                   )}
-                  <span className="block truncate text-[12px] text-[#98A2B3]">{m.email}</span>
+                  <span className="block truncate text-[13px] text-[#98A2B3]">{m.email}</span>
                 </div>
 
                 {board.canManage ? (
@@ -161,7 +161,7 @@ export default function MemberBoard({ board }: { board: Board }) {
                         ? '관리자가 한 명뿐입니다. 다른 사람을 먼저 관리자로 올려 주세요'
                         : ROLE_HINT[normalizeRole(m.role)]
                     }
-                    className="h-8 rounded-md border border-[#DDE2EA] px-2 text-[12.5px] outline-none focus:border-[#1279E8] disabled:bg-[#F8F9FB] disabled:text-[#98A2B3]"
+                    className="h-8 rounded-md border border-[#DDE2EA] px-2 text-[13.5px] outline-none focus:border-[#1279E8] disabled:bg-[#F8F9FB] disabled:text-[#98A2B3]"
                   >
                     {ROLE_OPTIONS.map((r) => (
                       <option key={r} value={r}>
@@ -170,7 +170,7 @@ export default function MemberBoard({ board }: { board: Board }) {
                     ))}
                   </select>
                 ) : (
-                  <span className="text-[12.5px] text-[#4A5567]">{ROLE_LABEL[m.role]}</span>
+                  <span className="text-[13.5px] text-[#4A5567]">{ROLE_LABEL[m.role]}</span>
                 )}
 
                 {board.canManage && (
@@ -180,7 +180,7 @@ export default function MemberBoard({ board }: { board: Board }) {
                       onClick={() => resetPassword(m.userId, m.email)}
                       disabled={working || !m.isActive}
                       title="새 임시 비밀번호를 만들어 알려 줍니다"
-                      className="h-8 rounded-md border border-[#DDE2EA] px-2.5 text-[12px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:opacity-40"
+                      className="h-8 rounded-md border border-[#DDE2EA] px-2.5 text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:opacity-40"
                     >
                       비밀번호
                     </button>
@@ -197,7 +197,7 @@ export default function MemberBoard({ board }: { board: Board }) {
                             : '다시 켭니다'
                       }
                       className={
-                        'h-8 w-[58px] rounded-md border text-[12px] font-semibold disabled:opacity-40 ' +
+                        'h-8 w-[58px] rounded-md border text-[13px] font-semibold disabled:opacity-40 ' +
                         (m.isActive
                           ? 'border-[#DDE2EA] text-[#4A5567] hover:bg-[#FDECEA] hover:text-[#D8453F]'
                           : 'border-[#1279E8] text-[#1279E8] hover:bg-[#E7EEFA]')
@@ -213,7 +213,7 @@ export default function MemberBoard({ board }: { board: Board }) {
         </ul>
 
         {owners === 1 && board.canManage && (
-          <p className="border-t border-[#E8EBF0] bg-[#FBFCFD] px-5 py-2.5 text-[12px] text-[#98A2B3]">
+          <p className="border-t border-[#E8EBF0] bg-[#FBFCFD] px-5 py-2.5 text-[13px] text-[#98A2B3]">
             관리자가 한 명뿐입니다. 그 사람의 자리는 바꿀 수 없습니다 — 조직에 주인이 없어지면
             아무도 사용자를 늘리지 못합니다.
           </p>
@@ -276,7 +276,7 @@ function AddDialog({
 
         <div className="space-y-3.5 px-5 py-4">
           <label className="block">
-            <span className="text-[12.5px] font-semibold text-[#4A5567]">이름</span>
+            <span className="text-[13.5px] font-semibold text-[#4A5567]">이름</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -286,20 +286,20 @@ function AddDialog({
           </label>
 
           <label className="block">
-            <span className="text-[12.5px] font-semibold text-[#4A5567]">이메일</span>
+            <span className="text-[13.5px] font-semibold text-[#4A5567]">이메일</span>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="kim@example.com"
               className="mt-1 h-10 w-full rounded-md border border-[#DDE2EA] px-3 text-[13.5px] outline-none focus:border-[#1279E8]"
             />
-            <span className="mt-1 block text-[11.5px] text-[#98A2B3]">
+            <span className="mt-1 block text-[12.5px] text-[#98A2B3]">
               이 주소로 로그인합니다. 메일은 안 나갑니다.
             </span>
           </label>
 
           <div>
-            <span className="mb-1 block text-[12.5px] font-semibold text-[#4A5567]">자리</span>
+            <span className="mb-1 block text-[13.5px] font-semibold text-[#4A5567]">자리</span>
             <div className="grid grid-cols-2 gap-1.5">
               {ROLE_OPTIONS.map((r) => (
                 <button
@@ -316,7 +316,7 @@ function AddDialog({
                 >
                   <b
                     className={
-                      'block text-[12.5px] font-bold ' +
+                      'block text-[13.5px] font-bold ' +
                       (role === r ? 'text-[#1279E8]' : 'text-[#1A2130]')
                     }
                   >
@@ -331,7 +331,7 @@ function AddDialog({
           </div>
 
           {error && (
-            <p className="whitespace-pre-line text-[12.5px] font-semibold text-[#D8453F]">
+            <p className="whitespace-pre-line text-[13.5px] font-semibold text-[#D8453F]">
               {error}
             </p>
           )}
@@ -342,7 +342,7 @@ function AddDialog({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="ml-auto h-10 rounded-md px-4 text-[13px] font-semibold text-[#98A2B3] hover:text-[#4A5567]"
+            className="ml-auto h-10 rounded-md px-4 text-[14px] font-semibold text-[#98A2B3] hover:text-[#4A5567]"
           >
             취소
           </button>
@@ -350,7 +350,7 @@ function AddDialog({
             type="button"
             onClick={save}
             disabled={saving || !name.trim() || !email.trim()}
-            className="h-10 rounded-md bg-[#1279E8] px-5 text-[13px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#C4CBD6]"
+            className="h-10 rounded-md bg-[#1279E8] px-5 text-[14px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#C4CBD6]"
           >
             {saving ? '만드는 중…' : '만들기'}
           </button>
@@ -380,14 +380,14 @@ function SecretDialog({
           <h2 className="text-[15px] font-bold tracking-tight text-[#1A2130]">
             이 비밀번호를 알려 주세요
           </h2>
-          <p className="mt-1 text-[12.5px] text-[#98A2B3]">{email}</p>
+          <p className="mt-1 text-[13.5px] text-[#98A2B3]">{email}</p>
 
           <p className="mt-4 select-all rounded-md bg-[#F4F6F9] px-3 py-3 text-[19px] font-bold tracking-[0.06em] text-[#1A2130]">
             {password}
           </p>
 
           {/* ★ 어딘가에 남겨 두면 그 목록이 곧 열쇠 꾸러미가 됩니다 */}
-          <p className="mt-3 text-[12px] leading-relaxed text-[#8A6320]">
+          <p className="mt-3 text-[13px] leading-relaxed text-[#8A6320]">
             이 창을 닫으면 <b className="font-bold">다시 볼 수 없습니다.</b>
             <br />
             잃어버리면 목록에서 &lsquo;비밀번호&rsquo; 를 눌러 새로 만들면 됩니다.
@@ -401,14 +401,14 @@ function SecretDialog({
               navigator.clipboard?.writeText(password);
               setCopied(true);
             }}
-            className="h-10 flex-1 rounded-md border border-[#DDE2EA] text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+            className="h-10 flex-1 rounded-md border border-[#DDE2EA] text-[14px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
           >
             {copied ? '복사했습니다' : '복사'}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="h-10 flex-1 rounded-md bg-[#1279E8] text-[13px] font-bold text-white hover:bg-[#0F68C9]"
+            className="h-10 flex-1 rounded-md bg-[#1279E8] text-[14px] font-bold text-white hover:bg-[#0F68C9]"
           >
             알려 줬습니다
           </button>

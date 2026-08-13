@@ -23,7 +23,7 @@ export default function OrderHistory({ rows }: { rows: OrderHistoryRow[] }) {
         <ul className="divide-y divide-gray-100">
           {rows.map((row) => (
             <li key={row.id} className="px-5 py-3">
-              <div className="flex flex-wrap items-center gap-2 text-[13px]">
+              <div className="flex flex-wrap items-center gap-2 text-[14px]">
                 <span className="text-gray-400">
                   {row.from_status ? STATUS_LABEL[row.from_status] : '등록'}
                 </span>
@@ -39,7 +39,7 @@ export default function OrderHistory({ rows }: { rows: OrderHistoryRow[] }) {
               </div>
 
               {row.reason && (
-                <p className="mt-1.5 whitespace-pre-wrap rounded bg-gray-50 px-3 py-2 text-[13px] text-gray-700">
+                <p className="mt-1.5 whitespace-pre-wrap rounded bg-gray-50 px-3 py-2 text-[14px] text-gray-700">
                   {row.reason}
                 </p>
               )}

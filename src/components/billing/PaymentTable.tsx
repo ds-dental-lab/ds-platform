@@ -41,15 +41,15 @@ export default function PaymentTable({ rows }: { rows: PaymentRow[] }) {
   return (
     <>
       {error && (
-        <p className="mb-2 rounded-md bg-[#FDECEA] px-3 py-2 text-[12.5px] font-semibold text-[#B3312C]">
+        <p className="mb-2 rounded-md bg-[#FDECEA] px-3 py-2 text-[13.5px] font-semibold text-[#B3312C]">
           {error}
         </p>
       )}
 
       <div className="overflow-x-auto rounded-lg border border-[#E8EBF0] bg-white">
-        <table className="w-full min-w-[760px] text-[12.5px]">
+        <table className="w-full min-w-[760px] text-[13.5px]">
           <thead>
-            <tr className="border-b border-[#E8EBF0] text-left text-[12px] text-[#98A2B3]">
+            <tr className="border-b border-[#E8EBF0] text-left text-[13px] text-[#98A2B3]">
               <th className="px-4 py-3 font-medium">입금일</th>
               <th className="px-4 py-3 font-medium">청구 번호</th>
               <th className="px-4 py-3 font-medium">거래처</th>
@@ -63,7 +63,7 @@ export default function PaymentTable({ rows }: { rows: PaymentRow[] }) {
           <tbody className="divide-y divide-[#F0F2F5]">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-20 text-center text-[13px] text-[#98A2B3]">
+                <td colSpan={7} className="px-4 py-20 text-center text-[14px] text-[#98A2B3]">
                   적힌 입금이 없습니다. 청구 내역에서 정산을 누르면 여기 쌓입니다.
                 </td>
               </tr>
@@ -90,7 +90,7 @@ export default function PaymentTable({ rows }: { rows: PaymentRow[] }) {
                         type="button"
                         onClick={() => undo(row)}
                         disabled={busyId === row.id || refreshing}
-                        className="rounded px-2 py-1 text-[12px] font-semibold text-[#4A5567] hover:bg-[#FDECEA] hover:text-[#D8453F] disabled:opacity-40"
+                        className="rounded px-2 py-1 text-[13px] font-semibold text-[#4A5567] hover:bg-[#FDECEA] hover:text-[#D8453F] disabled:opacity-40"
                       >
                         되돌리기
                       </button>
@@ -104,7 +104,7 @@ export default function PaymentTable({ rows }: { rows: PaymentRow[] }) {
 
         {rows.length > 0 && (
           <div className="flex items-baseline border-t border-[#E8EBF0] px-4 py-3">
-            <span className="text-[12.5px] font-semibold text-[#4A5567]">합계</span>
+            <span className="text-[13.5px] font-semibold text-[#4A5567]">합계</span>
             <span className="ml-auto text-[14px] font-bold tabular-nums text-[#1A2130]">
               ₩{total.toLocaleString('ko-KR')}
             </span>

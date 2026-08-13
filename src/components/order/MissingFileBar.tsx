@@ -74,14 +74,14 @@ export default function MissingFileBar({ orderId, missing, editable }: MissingFi
     <div className="mb-2 rounded-md border border-[#F3C6C6] bg-[#FDECEA] px-[11px] py-[9px]">
       <UploadToast state={upload} onClose={() => setUpload(null)} />
 
-      <p className="text-[11.5px] font-bold leading-relaxed text-[#C4383A]">
+      <p className="text-[12.5px] font-bold leading-relaxed text-[#C4383A]">
         ⚠ 파일 {missing.length}개가 올라오지 못했습니다. 올리는 중에 창을 닫았거나 연결이 끊긴
         것입니다.
       </p>
 
       <ul className="mt-1 space-y-0.5">
         {missing.map((file) => (
-          <li key={file.id} className="truncate text-[11.5px] text-[#8C4A48]" title={file.fileName}>
+          <li key={file.id} className="truncate text-[12.5px] text-[#8C4A48]" title={file.fileName}>
             · {file.fileName}
           </li>
         ))}
@@ -102,7 +102,7 @@ export default function MissingFileBar({ orderId, missing, editable }: MissingFi
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={busy}
-            className="mt-2 h-8 rounded-md bg-[#D8453F] px-3.5 text-[12px] font-bold text-white hover:bg-[#C13B36] disabled:opacity-60"
+            className="mt-2 h-8 rounded-md bg-[#D8453F] px-3.5 text-[13px] font-bold text-white hover:bg-[#C13B36] disabled:opacity-60"
           >
             {busy ? '올리는 중…' : '빠진 파일 다시 올리기'}
           </button>
@@ -117,7 +117,7 @@ export default function MissingFileBar({ orderId, missing, editable }: MissingFi
         </p>
       )}
 
-      {error && <p className="mt-1.5 text-[11.5px] font-semibold text-[#B3312C]">{error}</p>}
+      {error && <p className="mt-1.5 text-[12.5px] font-semibold text-[#B3312C]">{error}</p>}
     </div>
   );
 }

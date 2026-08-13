@@ -68,18 +68,18 @@ export default function SignupBoard({ pending, handled }: SignupBoardProps) {
               {pending.length}
             </span>
           )}
-          {refreshing && <span className="text-[12px] text-[#98A2B3]">새로고침 중…</span>}
+          {refreshing && <span className="text-[13px] text-[#98A2B3]">새로고침 중…</span>}
         </header>
 
         {pending.length === 0 ? (
-          <p className="px-[18px] py-8 text-center text-[13px] text-[#98A2B3]">
+          <p className="px-[18px] py-8 text-center text-[14px] text-[#98A2B3]">
             기다리는 신청이 없습니다.
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-max text-[13px]">
+            <table className="w-full min-w-max text-[14px]">
               <thead>
-                <tr className="border-b border-[#E8EBF0] text-left text-[12px] font-semibold text-[#7C8595]">
+                <tr className="border-b border-[#E8EBF0] text-left text-[13px] font-semibold text-[#7C8595]">
                   <Th>신청일</Th>
                   <Th>구분</Th>
                   <Th>기관 이름</Th>
@@ -95,7 +95,7 @@ export default function SignupBoard({ pending, handled }: SignupBoardProps) {
                     <Td>
                       <span
                         className={
-                          'rounded px-1.5 py-0.5 text-[11.5px] font-bold ' +
+                          'rounded px-1.5 py-0.5 text-[12.5px] font-bold ' +
                           (row.orgType === 'clinic'
                             ? 'bg-[#EAF2FE] text-[#1279E8]'
                             : 'bg-[#FDF1E7] text-[#C67717]')
@@ -115,7 +115,7 @@ export default function SignupBoard({ pending, handled }: SignupBoardProps) {
                             setReason('');
                             setAsking({ row, mode: 'reject' });
                           }}
-                          className="rounded-md border border-[#DDE2EA] px-3 py-1.5 text-[12.5px] font-semibold text-[#4A5567] hover:border-[#D8453F] hover:text-[#D8453F]"
+                          className="rounded-md border border-[#DDE2EA] px-3 py-1.5 text-[13.5px] font-semibold text-[#4A5567] hover:border-[#D8453F] hover:text-[#D8453F]"
                         >
                           반려
                         </button>
@@ -124,7 +124,7 @@ export default function SignupBoard({ pending, handled }: SignupBoardProps) {
                             setError('');
                             setAsking({ row, mode: 'approve' });
                           }}
-                          className="rounded-md bg-[#1279E8] px-3.5 py-1.5 text-[12.5px] font-bold text-white hover:bg-[#1554C8]"
+                          className="rounded-md bg-[#1279E8] px-3.5 py-1.5 text-[13.5px] font-bold text-white hover:bg-[#1554C8]"
                         >
                           승인
                         </button>
@@ -144,14 +144,14 @@ export default function SignupBoard({ pending, handled }: SignupBoardProps) {
         </header>
 
         {handled.length === 0 ? (
-          <p className="px-[18px] py-8 text-center text-[13px] text-[#98A2B3]">
+          <p className="px-[18px] py-8 text-center text-[14px] text-[#98A2B3]">
             아직 처리한 신청이 없습니다.
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-max text-[13px]">
+            <table className="w-full min-w-max text-[14px]">
               <thead>
-                <tr className="border-b border-[#E8EBF0] text-left text-[12px] font-semibold text-[#7C8595]">
+                <tr className="border-b border-[#E8EBF0] text-left text-[13px] font-semibold text-[#7C8595]">
                   <Th>처리일</Th>
                   <Th>구분</Th>
                   <Th>기관 이름</Th>
@@ -196,20 +196,20 @@ export default function SignupBoard({ pending, handled }: SignupBoardProps) {
               {asking.mode === 'approve' ? '가입을 승인합니다' : '가입을 반려합니다'}
             </h3>
 
-            <p className="mt-1.5 text-[13px] leading-relaxed text-[#4A5567]">
+            <p className="mt-1.5 text-[14px] leading-relaxed text-[#4A5567]">
               <b className="font-bold text-[#1A2130]">{asking.row.orgName}</b> (
               {SECTOR_LABEL[asking.row.orgType]}) · {asking.row.name}
             </p>
 
             {asking.mode === 'approve' ? (
               /* ★ 무슨 일이 벌어지는지 미리 적습니다. 되돌릴 수 없습니다 */
-              <p className="mt-4 rounded border border-[#DDE7F7] bg-[#F5F9FF] px-3 py-2.5 text-[12.5px] leading-relaxed text-[#31517E]">
+              <p className="mt-4 rounded border border-[#DDE7F7] bg-[#F5F9FF] px-3 py-2.5 text-[13.5px] leading-relaxed text-[#31517E]">
                 승인하면 <b>{asking.row.orgName}</b> 이(가) 거래처로 등록되고, {asking.row.name}{' '}
                 님이 그 기관의 <b>관리자</b>가 됩니다. 되돌릴 수 없습니다.
               </p>
             ) : (
               <>
-                <label className="mb-1.5 mt-4 block text-[13px] font-semibold text-[#4A5567]">
+                <label className="mb-1.5 mt-4 block text-[14px] font-semibold text-[#4A5567]">
                   반려 사유
                 </label>
                 <textarea
@@ -223,7 +223,7 @@ export default function SignupBoard({ pending, handled }: SignupBoardProps) {
               </>
             )}
 
-            {error && <p className="mt-2 text-[13px] text-[#D8453F]">{error}</p>}
+            {error && <p className="mt-2 text-[14px] text-[#D8453F]">{error}</p>}
 
             <div className="mt-5 flex justify-end gap-2">
               <button

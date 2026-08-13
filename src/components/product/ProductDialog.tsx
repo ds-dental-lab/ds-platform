@@ -105,7 +105,7 @@ export default function ProductDialog({ types, row, onClose, onSaved }: ProductD
                 disabled={editing}
                 onChange={(e) => setTypeId(e.target.value)}
                 title={editing ? '만든 뒤에는 종류를 옮길 수 없습니다' : undefined}
-                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#5546C8] disabled:bg-[#F4F6F9] disabled:text-[#98A2B3]"
+                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#5546C8] disabled:bg-[#F4F6F9] disabled:text-[#98A2B3]"
               >
                 {types.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -121,7 +121,7 @@ export default function ProductDialog({ types, row, onClose, onSaved }: ProductD
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value.replace(/[^\d]/g, ''))}
                 inputMode="numeric"
-                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#5546C8]"
+                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#5546C8]"
               />
             </Field>
           </div>
@@ -132,7 +132,7 @@ export default function ProductDialog({ types, row, onClose, onSaved }: ProductD
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="예) 지르코니아"
-                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#5546C8]"
+                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#5546C8]"
               />
             </Field>
 
@@ -141,14 +141,14 @@ export default function ProductDialog({ types, row, onClose, onSaved }: ProductD
                 value={abbr}
                 onChange={(e) => setAbbr(e.target.value)}
                 placeholder="예) Zir"
-                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#5546C8]"
+                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#5546C8]"
               />
             </Field>
           </div>
 
           {/* ---------- 성질 ---------- */}
           <div>
-            <p className="mb-2 text-[12.5px] font-bold text-[#1A2130]">이 제품이 되는 것</p>
+            <p className="mb-2 text-[13.5px] font-bold text-[#1A2130]">이 제품이 되는 것</p>
 
             <div className="space-y-1.5">
               <Check on={hasShade} onChange={setHasShade} label="쉐이드">
@@ -165,7 +165,7 @@ export default function ProductDialog({ types, row, onClose, onSaved }: ProductD
 
           {/* ---------- 가격 ---------- */}
           <div>
-            <p className="mb-2 text-[12.5px] font-bold text-[#1A2130]">
+            <p className="mb-2 text-[13.5px] font-bold text-[#1A2130]">
               가격
               <span className="ml-1.5 font-normal text-[#98A2B3]">
                 비워 두면 아직 안 정한 것, 0 은 무료입니다
@@ -195,7 +195,7 @@ export default function ProductDialog({ types, row, onClose, onSaved }: ProductD
             끄면 치과 주문등록 목록에서 빠집니다. 지난 주문은 그대로입니다
           </Check>
 
-          {error && <p className="text-[12.5px] text-[#D8453F]">{error}</p>}
+          {error && <p className="text-[13.5px] text-[#D8453F]">{error}</p>}
         </div>
 
         <div className="flex justify-end gap-2 border-t border-[#E8EBF0] px-6 py-4">
@@ -203,7 +203,7 @@ export default function ProductDialog({ types, row, onClose, onSaved }: ProductD
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="h-10 rounded-md border border-[#DDE2EA] px-5 text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+            className="h-10 rounded-md border border-[#DDE2EA] px-5 text-[14px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
           >
             취소
           </button>
@@ -211,7 +211,7 @@ export default function ProductDialog({ types, row, onClose, onSaved }: ProductD
             type="button"
             onClick={handleSubmit}
             disabled={saving || !name.trim() || !abbr.trim()}
-            className="h-10 rounded-md bg-[#5546C8] px-6 text-[13px] font-bold text-white hover:bg-[#4536B8] disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
+            className="h-10 rounded-md bg-[#5546C8] px-6 text-[14px] font-bold text-white hover:bg-[#4536B8] disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
           >
             {saving ? '저장 중…' : editing ? '수정' : '등록'}
           </button>
@@ -244,7 +244,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[12px] font-semibold text-[#4A5567]">
+      <span className="mb-1 block text-[13px] font-semibold text-[#4A5567]">
         {label}
         {hint && <span className="ml-1 font-normal text-[#98A2B3]">{hint}</span>}
       </span>
@@ -261,9 +261,9 @@ function Won({ value, onChange }: { value: string; onChange: (v: string) => void
         onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ''))}
         inputMode="numeric"
         placeholder="미정"
-        className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-right text-[13px] tabular-nums outline-none focus:border-[#5546C8]"
+        className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-right text-[14px] tabular-nums outline-none focus:border-[#5546C8]"
       />
-      <span className="shrink-0 text-[12px] text-[#98A2B3]">원</span>
+      <span className="shrink-0 text-[13px] text-[#98A2B3]">원</span>
     </span>
   );
 }
@@ -288,9 +288,9 @@ function Check({
         className="mt-0.5 h-4 w-4"
       />
       <span className="min-w-0">
-        <b className="text-[13px] font-semibold text-[#1A2130]">{label}</b>
+        <b className="text-[14px] font-semibold text-[#1A2130]">{label}</b>
         {children && (
-          <span className="block text-[11.5px] text-[#98A2B3]">{children}</span>
+          <span className="block text-[12.5px] text-[#98A2B3]">{children}</span>
         )}
       </span>
     </label>

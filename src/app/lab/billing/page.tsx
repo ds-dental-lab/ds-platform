@@ -45,7 +45,7 @@ export default async function LabBillingPage({
   const me = await getPartner(session.orgId!);
   if (!me) {
     return (
-      <p className="rounded-lg border border-[#E8EBF0] bg-white px-5 py-16 text-center text-[13px] text-[#98A2B3]">
+      <p className="rounded-lg border border-[#E8EBF0] bg-white px-5 py-16 text-center text-[14px] text-[#98A2B3]">
         정산 정보를 읽지 못했습니다.
       </p>
     );

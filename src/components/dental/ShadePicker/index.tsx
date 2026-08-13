@@ -113,7 +113,7 @@ export default function ShadePicker({
               <button
                 key={code}
                 onClick={() => handleShadeClick(code)}
-                className={`h-9 min-w-[46px] rounded border px-2 text-[13px] transition-colors ${
+                className={`h-9 min-w-[46px] rounded border px-2 text-[14px] transition-colors ${
                   isActive(active, code)
                     ? 'border-blue-600 bg-blue-50 font-semibold text-blue-700'
                     : 'border-gray-200 text-gray-600 hover:border-gray-400'
@@ -125,7 +125,7 @@ export default function ShadePicker({
           </div>
 
           {!isEmpty(shade) && active && (
-            <p className="mt-4 text-[13px] text-gray-500">
+            <p className="mt-4 text-[14px] text-gray-500">
               치아 그림의 위쪽을 누르면 치경부, 아래쪽을 누르면 절단부에
               <b className="text-gray-800"> {active}</b> 가 적용됩니다.
             </p>
@@ -135,7 +135,7 @@ export default function ShadePicker({
         {/* ---------- 치아 미리보기 ---------- */}
         <div className="shrink-0">
           <ToothPreview shade={shade} onPartClick={handlePartClick} />
-          <p className="mt-2 text-center text-[13px] font-semibold text-gray-700">
+          <p className="mt-2 text-center text-[14px] font-semibold text-gray-700">
             {formatShade(shade) || '선택 없음'}
           </p>
         </div>

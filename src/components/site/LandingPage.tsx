@@ -99,7 +99,7 @@ function Hero() {
   return (
     <section className="relative overflow-hidden border-b border-[#E8EBF0] bg-gradient-to-b from-[#F7FAFF] to-white">
       <div className="mx-auto max-w-[1080px] px-6 py-20 sm:py-28">
-        <p className="text-[13px] font-bold tracking-[0.14em] text-[#1279E8]">{SITE.tagline.toUpperCase()}</p>
+        <p className="text-[14px] font-bold tracking-[0.14em] text-[#1279E8]">{SITE.tagline.toUpperCase()}</p>
 
         <h1 className="mt-4 text-[34px] font-extrabold leading-[1.25] tracking-[-0.045em] sm:text-[46px]">
           모델을 뜨지 않습니다.
@@ -187,9 +187,9 @@ function Flow() {
       <div className="mt-10 grid gap-px overflow-hidden rounded-xl bg-[#2A3550] sm:grid-cols-4">
         {STEPS.map((s) => (
           <div key={s.step} className="bg-[#1B2438] p-6">
-            <span className="text-[12px] font-extrabold tracking-[0.1em] text-[#5B8DE8]">{s.step}</span>
+            <span className="text-[13px] font-extrabold tracking-[0.1em] text-[#5B8DE8]">{s.step}</span>
             <h3 className="mt-3 text-[16px] font-extrabold tracking-[-0.02em] text-white">{s.title}</h3>
-            <p className="mt-2.5 text-[13px] leading-relaxed text-[#9FADC7]">{s.body}</p>
+            <p className="mt-2.5 text-[14px] leading-relaxed text-[#9FADC7]">{s.body}</p>
           </div>
         ))}
       </div>
@@ -212,7 +212,7 @@ function Products() {
         {PRODUCTS.map((p) => (
           <div key={p.name} className="rounded-xl border border-[#E8EBF0] p-6">
             <span
-              className="inline-block rounded-md px-2.5 py-1 text-[13px] font-extrabold"
+              className="inline-block rounded-md px-2.5 py-1 text-[14px] font-extrabold"
               style={{ background: p.soft, color: p.color }}
             >
               {p.name}
@@ -229,7 +229,7 @@ function Products() {
         ))}
       </div>
 
-      <p className="mt-6 text-[13px] text-[#98A2B3]">
+      <p className="mt-6 text-[14px] text-[#98A2B3]">
         브리지·폰틱, 치은 포셀린, 중복 등록까지 주문 화면에서 그대로 지정하실 수 있습니다.
       </p>
     </Section>
@@ -286,7 +286,7 @@ function Contact() {
       <div className="mx-auto max-w-[1080px] px-6 py-18 sm:py-24">
         <div className="grid gap-10 sm:grid-cols-[0.9fr_1.1fr] sm:items-start">
           <div className="sm:sticky sm:top-24">
-            <p className="text-[12px] font-bold tracking-[0.14em] text-[#1279E8]">CONTACT</p>
+            <p className="text-[13px] font-bold tracking-[0.14em] text-[#1279E8]">CONTACT</p>
             <h2 className="mt-3 text-[26px] font-extrabold leading-[1.3] tracking-[-0.035em] sm:text-[30px]">
               수가표부터
               <br />
@@ -298,7 +298,7 @@ function Contact() {
             </p>
 
             <div className="mt-7 rounded-xl border border-[#DDE7F7] bg-white p-5">
-              <p className="text-[12.5px] font-bold text-[#7C8595]">바로 통화를 원하시면</p>
+              <p className="text-[13.5px] font-bold text-[#7C8595]">바로 통화를 원하시면</p>
               <a
                 href={`tel:${SITE.tel.replace(/-/g, '')}`}
                 className="mt-1.5 block text-[21px] font-extrabold tracking-[-0.03em] text-[#1A2130] hover:text-[#1279E8]"
@@ -353,16 +353,16 @@ function Footer() {
       <div className="mx-auto flex max-w-[1080px] flex-col gap-4 px-6 py-9 sm:flex-row sm:items-center">
         <div>
           <Logo />
-          <p className="mt-2.5 text-[12.5px] text-[#98A2B3]">
+          <p className="mt-2.5 text-[13.5px] text-[#98A2B3]">
             {SITE.tagline} · {SITE.tel}
           </p>
         </div>
 
         <div className="flex gap-4 sm:ml-auto">
-          <Link href="/privacy" className="text-[12.5px] font-semibold text-[#4A5567] hover:text-[#1279E8]">
+          <Link href="/privacy" className="text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8]">
             개인정보 처리방침
           </Link>
-          <Link href="/login" className="text-[12.5px] font-semibold text-[#4A5567] hover:text-[#1279E8]">
+          <Link href="/login" className="text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8]">
             로그인
           </Link>
         </div>
@@ -389,7 +389,7 @@ function Section({
   return (
     <section id={id} className={dark ? 'bg-[#141B2B]' : 'bg-white'}>
       <div className="mx-auto max-w-[1080px] px-6 py-18 sm:py-24">
-        <p className="text-[12px] font-bold tracking-[0.14em] text-[#1279E8]">{eyebrow}</p>
+        <p className="text-[13px] font-bold tracking-[0.14em] text-[#1279E8]">{eyebrow}</p>
         <h2
           className={
             'mt-3 text-[26px] font-extrabold tracking-[-0.035em] sm:text-[30px] ' +

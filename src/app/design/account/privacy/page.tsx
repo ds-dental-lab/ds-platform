@@ -37,7 +37,7 @@ export default async function PrivacySettingsPage() {
         <h1 className="text-[19px] font-extrabold tracking-[-0.03em] text-[#1A2130]">
           개인정보 처리방침
         </h1>
-        <p className="mt-1 text-[13px] text-[#7C8595]">
+        <p className="mt-1 text-[14px] text-[#7C8595]">
           공개 화면(/privacy)에 나갈 값을 정합니다. 숫자와 상호는 다른 화면에서 읽어 옵니다.
         </p>
       </header>

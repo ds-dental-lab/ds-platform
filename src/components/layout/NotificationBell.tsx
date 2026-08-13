@@ -92,7 +92,7 @@ export default function NotificationBell({
 
           <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-lg border border-[#E8EBF0] bg-white shadow-lg">
             <div className="flex items-center gap-3 border-b border-[#E8EBF0] px-4 py-2.5">
-              <span className="text-[13px] font-bold text-[#1A2130]">알림</span>
+              <span className="text-[14px] font-bold text-[#1A2130]">알림</span>
 
               {/*
                 ★ 못 끄는 소리는 결국 스피커를 끄게 만듭니다.
@@ -101,7 +101,7 @@ export default function NotificationBell({
               <button
                 onClick={() => setPingSound(!sound)}
                 title={sound ? '새 알림에 소리가 납니다' : '소리가 꺼져 있습니다'}
-                className="ml-auto text-[12px] text-[#98A2B3] hover:text-[#4A5567]"
+                className="ml-auto text-[13px] text-[#98A2B3] hover:text-[#4A5567]"
               >
                 소리 {sound ? '켬' : '끔'}
               </button>
@@ -114,7 +114,7 @@ export default function NotificationBell({
                       setOpen(false);
                     })
                   }
-                  className="shrink-0 text-[12px] text-[#98A2B3] hover:text-[#4A5567]"
+                  className="shrink-0 text-[13px] text-[#98A2B3] hover:text-[#4A5567]"
                 >
                   전부 읽음
                 </button>
@@ -122,7 +122,7 @@ export default function NotificationBell({
             </div>
 
             {notifications.length === 0 ? (
-              <p className="px-4 py-8 text-center text-[13px] text-gray-400">
+              <p className="px-4 py-8 text-center text-[14px] text-gray-400">
                 아직 알림이 없습니다.
               </p>
             ) : (
@@ -141,11 +141,11 @@ export default function NotificationBell({
                           <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-semibold text-[#1A2130]">
+                          <p className="text-[14px] font-semibold text-[#1A2130]">
                             {notification.title}
                           </p>
                           {notification.body && (
-                            <p className="mt-0.5 whitespace-pre-wrap text-[12px] text-[#4A5567]">
+                            <p className="mt-0.5 whitespace-pre-wrap text-[13px] text-[#4A5567]">
                               {notification.body}
                             </p>
                           )}

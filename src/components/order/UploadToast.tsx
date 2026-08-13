@@ -103,7 +103,7 @@ export default function UploadToast({ state, onClose }: UploadToastProps) {
           </div>
 
           <p
-            className="mt-2.5 truncate text-[12.5px] text-[#4A5567]"
+            className="mt-2.5 truncate text-[13.5px] text-[#4A5567]"
             title={state.progress.fileName}
           >
             {state.progress.fileName}
@@ -121,12 +121,12 @@ export default function UploadToast({ state, onClose }: UploadToastProps) {
             />
           </div>
 
-          <p className="mt-1.5 text-[11.5px] text-[#98A2B3]">
+          <p className="mt-1.5 text-[12.5px] text-[#98A2B3]">
             이 파일 {state.progress.percent}%
           </p>
 
           {/* ★ 여기가 이 창의 본론입니다 */}
-          <p className="mt-4 rounded-md border border-[#F5D9A8] bg-[#FEF7EA] px-3 py-2.5 text-[12.5px] font-semibold leading-relaxed text-[#8A5A12]">
+          <p className="mt-4 rounded-md border border-[#F5D9A8] bg-[#FEF7EA] px-3 py-2.5 text-[13.5px] font-semibold leading-relaxed text-[#8A5A12]">
             창을 닫거나 뒤로 가지 마세요.
             <span className="mt-0.5 block font-normal text-[#A07636]">
               중간에 나가면 파일이 덜 올라가고, 디자인센터가 작업을 시작할 수 없습니다.
@@ -146,7 +146,7 @@ export default function UploadToast({ state, onClose }: UploadToastProps) {
     >
       {state.phase === 'done' ? (
         <Line tone="ok" onClose={onClose} title={`파일 ${state.total}개를 모두 올렸습니다`}>
-          <span className="text-[12px] text-[#98A2B3]">
+          <span className="text-[13px] text-[#98A2B3]">
             디자인센터에서 바로 열어 볼 수 있습니다.
           </span>
         </Line>
@@ -156,10 +156,10 @@ export default function UploadToast({ state, onClose }: UploadToastProps) {
           onClose={onClose}
           title={`${state.total - state.failed.length} / ${state.total} 만 올라갔습니다`}
         >
-          <span className="block text-[12px] text-[#B3312C]">
+          <span className="block text-[13px] text-[#B3312C]">
             못 올린 파일: {state.failed.join(', ')}
           </span>
-          <span className="mt-1 block text-[12px] text-[#98A2B3]">
+          <span className="mt-1 block text-[13px] text-[#98A2B3]">
             주문은 등록됐습니다. 다시 시도를 눌러 주세요.
           </span>
         </Line>
@@ -184,14 +184,14 @@ function Line({
       <div className="flex items-start gap-2">
         <span
           className={
-            'mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[12px] font-bold text-white ' +
+            'mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[13px] font-bold text-white ' +
             (tone === 'ok' ? 'bg-[#12855B]' : 'bg-[#D8453F]')
           }
         >
           {tone === 'ok' ? '✓' : '!'}
         </span>
 
-        <b className="text-[13px] font-bold leading-snug text-[#1A2130]">{title}</b>
+        <b className="text-[14px] font-bold leading-snug text-[#1A2130]">{title}</b>
 
         <button
           type="button"

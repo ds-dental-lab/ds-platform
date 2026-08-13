@@ -56,7 +56,7 @@ export default function ClinicSelect({ clinics, value, dirty, problem }: ClinicS
         value={value}
         onChange={(e) => handleChange(e.target.value)}
         className={
-          'h-11 w-full rounded border px-3 text-[13px] outline-none focus:border-[#1279E8] ' +
+          'h-11 w-full rounded border px-3 text-[14px] outline-none focus:border-[#1279E8] ' +
           (problem ? 'border-[#D8453F] bg-[#FDF2F2]' : 'border-[#DDE2EA]')
         }
       >
@@ -79,7 +79,7 @@ export default function ClinicSelect({ clinics, value, dirty, problem }: ClinicS
               <h3 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A2130]">
                 치과를 바꿀까요?
               </h3>
-              <p className="mt-2 text-[12.5px] text-[#98A2B3]">
+              <p className="mt-2 text-[13.5px] text-[#98A2B3]">
                 지금까지 적은 내용은 사라집니다.
               </p>
             </div>

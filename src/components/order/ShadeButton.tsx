@@ -80,7 +80,7 @@ export default function ShadeButton({
           </text>
         </svg>
 
-        <span className="whitespace-nowrap text-[11.5px] font-semibold text-[#1B63E8]">
+        <span className="whitespace-nowrap text-[12.5px] font-semibold text-[#1B63E8]">
           {picked ? `${systemName} · ${picked}` : systemName}
         </span>
       </button>

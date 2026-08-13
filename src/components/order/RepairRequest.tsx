@@ -160,7 +160,7 @@ export default function RepairRequest({
             </p>
 
             <div className="mt-4">
-              <p className="mb-2 text-[13px] font-semibold text-gray-600">
+              <p className="mb-2 text-[14px] font-semibold text-gray-600">
                 고칠 보철물
                 {selected.length > 0 && (
                   <span className="ml-2 font-normal text-gray-400">
@@ -170,7 +170,7 @@ export default function RepairRequest({
               </p>
 
               {items.length === 0 ? (
-                <p className="rounded border border-gray-200 px-3 py-4 text-center text-[13px] text-gray-400">
+                <p className="rounded border border-gray-200 px-3 py-4 text-center text-[14px] text-gray-400">
                   보철물이 없습니다.
                 </p>
               ) : (
@@ -200,11 +200,11 @@ export default function RepairRequest({
                             {checked ? '✓' : ''}
                           </span>
 
-                          <span className="font-mono text-[13px] font-semibold text-gray-900">
+                          <span className="font-mono text-[14px] font-semibold text-gray-900">
                             {item.is_pontic ? 'X' : item.tooth_number}
                           </span>
 
-                          <span className="text-[13px] text-gray-600">
+                          <span className="text-[14px] text-gray-600">
                             {buildAbbr(prosthesisCatalog, item.type_code, item.material_code)}
                           </span>
 
@@ -228,7 +228,7 @@ export default function RepairRequest({
                 버튼으로 두면 기공소가 바로 알아보고 나중에 세어 볼 수도 있습니다.
             */}
             <div className="mt-4">
-              <p className="mb-2 text-[13px] font-semibold text-gray-600">
+              <p className="mb-2 text-[14px] font-semibold text-gray-600">
                 증상
                 <span className="ml-2 font-normal text-gray-400">여러 개 고를 수 있습니다</span>
               </p>
@@ -243,7 +243,7 @@ export default function RepairRequest({
                       type="button"
                       onClick={() => toggleReason(reason.code)}
                       className={
-                        'rounded-md border px-3 py-2 text-[13px] font-semibold ' +
+                        'rounded-md border px-3 py-2 text-[14px] font-semibold ' +
                         (on
                           ? 'border-amber-500 bg-amber-50 text-amber-800'
                           : 'border-gray-200 text-gray-600 hover:border-gray-400')
@@ -259,7 +259,7 @@ export default function RepairRequest({
             {/* '기타' 를 골랐을 때만 손으로 적습니다 */}
             {reasons.includes('etc') && (
               <div className="mt-3">
-                <label className="mb-1.5 block text-[13px] font-semibold text-gray-600">
+                <label className="mb-1.5 block text-[14px] font-semibold text-gray-600">
                   기타 내용
                 </label>
                 <textarea
@@ -278,7 +278,7 @@ export default function RepairRequest({
                 급합니다 — 환자가 다시 오는 날이 정해져 있습니다.
             */}
             <div className="mt-4">
-              <label className="mb-1.5 block text-[13px] font-semibold text-gray-600">
+              <label className="mb-1.5 block text-[14px] font-semibold text-gray-600">
                 요청시한
               </label>
               <DueDatePicker
@@ -292,12 +292,12 @@ export default function RepairRequest({
 
             {/* ★ 기공소가 알림을 받고 택배사에 수동 접수하는 구조라,
                 치과에게 실제 수거 시점을 미리 알려 줍니다 */}
-            <p className="mt-4 rounded border border-blue-200 bg-blue-50 px-4 py-2.5 text-[13px] text-blue-800">
+            <p className="mt-4 rounded border border-blue-200 bg-blue-50 px-4 py-2.5 text-[14px] text-blue-800">
               {PICKUP_NOTICE}
             </p>
 
             {error && (
-              <p className="mt-3 rounded border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] text-red-700">
+              <p className="mt-3 rounded border border-red-200 bg-red-50 px-4 py-2.5 text-[14px] text-red-700">
                 {error}
               </p>
             )}

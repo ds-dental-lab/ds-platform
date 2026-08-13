@@ -57,7 +57,7 @@ export default function OrderAdjustPanel({ money, patientLabel }: OrderAdjustPan
         type="button"
         onClick={() => setOpen(true)}
         title="금액 조정 (관리자만)"
-        className="mt-3 flex items-center gap-1.5 rounded-md border border-[#E8EBF0] bg-white px-3 py-2 text-[12.5px] font-semibold text-[#7C8595] hover:border-[#B6C6DC] hover:text-[#1279E8]"
+        className="mt-3 flex items-center gap-1.5 rounded-md border border-[#E8EBF0] bg-white px-3 py-2 text-[13.5px] font-semibold text-[#7C8595] hover:border-[#B6C6DC] hover:text-[#1279E8]"
       >
         <WrenchIcon />
         금액 조정
@@ -72,11 +72,11 @@ export default function OrderAdjustPanel({ money, patientLabel }: OrderAdjustPan
           <WrenchIcon />
           금액 조정
         </h3>
-        <span className="text-[11.5px] text-[#98A2B3]">관리자만 보입니다</span>
+        <span className="text-[12.5px] text-[#98A2B3]">관리자만 보입니다</span>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="ml-auto rounded px-2 py-1 text-[12px] font-semibold text-[#98A2B3] hover:bg-[#F4F6F9]"
+          className="ml-auto rounded px-2 py-1 text-[13px] font-semibold text-[#98A2B3] hover:bg-[#F4F6F9]"
         >
           접기
         </button>
@@ -84,28 +84,28 @@ export default function OrderAdjustPanel({ money, patientLabel }: OrderAdjustPan
 
       {/* ★ 자사 제작은 지급이 없습니다 (설계서 Q-6) — 자기가 자기에게 주는 돈입니다 */}
       {money.inHouse && (
-        <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-4 py-2.5 text-[12px] text-[#98A2B3]">
+        <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-4 py-2.5 text-[13px] text-[#98A2B3]">
           자사 제작이라 기공소에 지급할 금액이 없습니다. 치과 청구액만 조정합니다.
         </p>
       )}
 
       {/* ★ 리메이크·리페어는 0원입니다. 조정할 것이 없다고 먼저 말합니다 */}
       {!money.billable && (
-        <p className="border-b border-[#E8EBF0] bg-[#FEF8EC] px-4 py-2.5 text-[12px] text-[#8A6320]">
+        <p className="border-b border-[#E8EBF0] bg-[#FEF8EC] px-4 py-2.5 text-[13px] text-[#8A6320]">
           리메이크·리페어라 청구하지 않는 주문입니다. 조정해도 금액이 안 잡힙니다.
         </p>
       )}
 
       {error && (
-        <p className="border-b border-[#F3C6C6] bg-[#FDECEA] px-4 py-2.5 text-[12px] font-semibold text-[#B3312C]">
+        <p className="border-b border-[#F3C6C6] bg-[#FDECEA] px-4 py-2.5 text-[13px] font-semibold text-[#B3312C]">
           {error}
         </p>
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-[12px]">
+        <table className="w-full min-w-[560px] text-[13px]">
           <thead>
-            <tr className="border-b border-[#E8EBF0] text-left text-[11.5px] text-[#98A2B3]">
+            <tr className="border-b border-[#E8EBF0] text-left text-[12.5px] text-[#98A2B3]">
               <th className="px-4 py-2 font-medium">치식</th>
               <th className="px-2 py-2 font-medium">제품</th>
               <th className="px-2 py-2 text-right font-medium">
@@ -159,7 +159,7 @@ export default function OrderAdjustPanel({ money, patientLabel }: OrderAdjustPan
           </tbody>
 
           <tfoot>
-            <tr className="border-t border-[#E8EBF0] text-[12.5px] font-bold">
+            <tr className="border-t border-[#E8EBF0] text-[13.5px] font-bold">
               <td className="px-4 py-2.5 text-[#4A5567]" colSpan={2}>
                 합계
               </td>
@@ -174,7 +174,7 @@ export default function OrderAdjustPanel({ money, patientLabel }: OrderAdjustPan
         </table>
       </div>
 
-      <p className="border-t border-[#E8EBF0] px-4 py-2.5 text-[11.5px] leading-relaxed text-[#98A2B3]">
+      <p className="border-t border-[#E8EBF0] px-4 py-2.5 text-[12.5px] leading-relaxed text-[#98A2B3]">
         금액을 눌러 깎거나 더합니다. 원금액은 그대로 두고 차액 한 줄이 붙습니다 — 사유는 청구서에
         그대로 실립니다.
         {/*
@@ -233,7 +233,7 @@ function Cell({
     >
       {/* ★ 안 정한 단가는 0원이 아니라 '미정' 입니다 */}
       {unpriced ? (
-        <span className="text-[11.5px] font-bold text-[#B3312C]">미정</span>
+        <span className="text-[12.5px] font-bold text-[#B3312C]">미정</span>
       ) : (
         <span className="font-semibold tabular-nums text-[#1A2130]">{won(amount + adjust)}</span>
       )}
@@ -331,13 +331,13 @@ function AdjustDialog({
           <h2 className="text-[14.5px] font-bold tracking-tight text-[#1A2130]">
             {side === 'clinic' ? '치과 청구액' : '기공소 지급액'} 조정
           </h2>
-          <p className="mt-0.5 text-[12px] text-[#98A2B3]">
+          <p className="mt-0.5 text-[13px] text-[#98A2B3]">
             {partyName} · {patientLabel} · {item.toothNumber}번 {item.label}
           </p>
         </header>
 
         <div className="space-y-3.5 px-5 py-4">
-          <p className="rounded-md bg-[#F8F9FB] px-3 py-2 text-[12.5px] text-[#4A5567]">
+          <p className="rounded-md bg-[#F8F9FB] px-3 py-2 text-[13.5px] text-[#4A5567]">
             지금 {won(base)}
             {already !== 0 && (
               <span className="text-[#C2721B]">
@@ -356,7 +356,7 @@ function AdjustDialog({
                 onClick={() => setSign(s)}
                 aria-pressed={sign === s}
                 className={
-                  'h-10 flex-1 rounded-md border text-[13px] font-bold ' +
+                  'h-10 flex-1 rounded-md border text-[14px] font-bold ' +
                   (sign === s
                     ? s === 'minus'
                       ? 'border-[#D8453F] bg-[#FDECEA] text-[#D8453F]'
@@ -381,7 +381,7 @@ function AdjustDialog({
             ★ 누르기 전에 알아야 합니다 (사용자 신고 2026-08-13).
               저장하고 정산을 열어 봤는데 없으면 "안 먹었다" 로 읽습니다.
           */}
-          <p className="rounded-md bg-[#F4F6F9] px-3 py-2 text-[11.5px] leading-relaxed text-[#4A5567]">
+          <p className="rounded-md bg-[#F4F6F9] px-3 py-2 text-[12.5px] leading-relaxed text-[#4A5567]">
             {timingNote}
           </p>
 
@@ -390,17 +390,17 @@ function AdjustDialog({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="사유 (청구서에 그대로 실립니다) — 예) 우수고객할인"
-            className="h-10 w-full rounded-md border border-[#DDE2EA] px-3 text-[13px] outline-none focus:border-[#1279E8]"
+            className="h-10 w-full rounded-md border border-[#DDE2EA] px-3 text-[14px] outline-none focus:border-[#1279E8]"
           />
 
           {valid && (
-            <p className="text-[12px] text-[#98A2B3]">
+            <p className="text-[13px] text-[#98A2B3]">
               넣으면 <b className="font-bold text-[#1A2130]">{won(base + already + delta)}</b> 가
               됩니다
             </p>
           )}
 
-          {error && <p className="text-[12.5px] font-semibold text-[#D8453F]">{error}</p>}
+          {error && <p className="text-[13.5px] font-semibold text-[#D8453F]">{error}</p>}
         </div>
 
         <footer className="flex gap-2 border-t border-[#E8EBF0] px-5 py-3.5">
@@ -410,13 +410,13 @@ function AdjustDialog({
               type="button"
               onClick={removeAll}
               disabled={saving || busy}
-              className="h-10 rounded-md border border-[#DDE2EA] px-3 text-[12.5px] font-semibold text-[#4A5567] hover:bg-[#FDECEA] hover:text-[#D8453F] disabled:opacity-60"
+              className="h-10 rounded-md border border-[#DDE2EA] px-3 text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#FDECEA] hover:text-[#D8453F] disabled:opacity-60"
             >
               조정 지우기
             </button>
           )}
           {posted && (
-            <span className="self-center text-[11.5px] text-[#98A2B3]">
+            <span className="self-center text-[12.5px] text-[#98A2B3]">
               청구서에 실려 못 지웁니다
             </span>
           )}
@@ -425,7 +425,7 @@ function AdjustDialog({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="ml-auto h-10 rounded-md px-4 text-[13px] font-semibold text-[#98A2B3] hover:text-[#4A5567]"
+            className="ml-auto h-10 rounded-md px-4 text-[14px] font-semibold text-[#98A2B3] hover:text-[#4A5567]"
           >
             취소
           </button>
@@ -433,7 +433,7 @@ function AdjustDialog({
             type="button"
             onClick={save}
             disabled={saving || busy || !valid}
-            className="h-10 rounded-md bg-[#1279E8] px-5 text-[13px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#C4CBD6]"
+            className="h-10 rounded-md bg-[#1279E8] px-5 text-[14px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#C4CBD6]"
           >
             {saving ? '저장 중…' : '저장'}
           </button>

@@ -87,7 +87,7 @@ export default function FavoriteDistribution({
   return (
     <div>
       <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <label className="mb-1.5 block text-[13px] font-semibold text-gray-600">치과</label>
+        <label className="mb-1.5 block text-[14px] font-semibold text-gray-600">치과</label>
         <select
           value={selectedClinicId ?? ''}
           onChange={(e) => selectClinic(e.target.value)}
@@ -102,7 +102,7 @@ export default function FavoriteDistribution({
         </select>
 
         {clinics.length === 0 && (
-          <p className="mt-2 text-[13px] text-gray-400">거래 중인 치과가 없습니다.</p>
+          <p className="mt-2 text-[14px] text-gray-400">거래 중인 치과가 없습니다.</p>
         )}
       </div>
 
@@ -121,7 +121,7 @@ export default function FavoriteDistribution({
                     setSizeCode('');
                     setScrewCode('');
                   }}
-                  className="w-full rounded border border-gray-300 px-2 py-2 text-[13px]"
+                  className="w-full rounded border border-gray-300 px-2 py-2 text-[14px]"
                 >
                   <option value="">선택</option>
                   {catalog.map((m) => (
@@ -141,7 +141,7 @@ export default function FavoriteDistribution({
                     setScrewCode('');
                   }}
                   disabled={!makerCode}
-                  className="w-full rounded border border-gray-300 px-2 py-2 text-[13px] disabled:bg-gray-100"
+                  className="w-full rounded border border-gray-300 px-2 py-2 text-[14px] disabled:bg-gray-100"
                 >
                   <option value="">선택</option>
                   {types.map((t) => (
@@ -157,7 +157,7 @@ export default function FavoriteDistribution({
                   value={sizeCode}
                   onChange={(e) => setSizeCode(e.target.value)}
                   disabled={!typeCode || sizes.length === 0}
-                  className="w-full rounded border border-gray-300 px-2 py-2 text-[13px] disabled:bg-gray-100"
+                  className="w-full rounded border border-gray-300 px-2 py-2 text-[14px] disabled:bg-gray-100"
                 >
                   <option value="">{sizes.length === 0 ? '구분 없음' : '선택'}</option>
                   {sizes.map((s) => (
@@ -173,7 +173,7 @@ export default function FavoriteDistribution({
                   value={screwCode}
                   onChange={(e) => setScrewCode(e.target.value)}
                   disabled={!typeCode || screws.length === 0}
-                  className="w-full rounded border border-gray-300 px-2 py-2 text-[13px] disabled:bg-gray-100"
+                  className="w-full rounded border border-gray-300 px-2 py-2 text-[14px] disabled:bg-gray-100"
                 >
                   <option value="">{screws.length === 0 ? '구분 없음' : '선택'}</option>
                   {screws.map((s) => (
@@ -212,7 +212,7 @@ export default function FavoriteDistribution({
               {busy ? '처리 중…' : '이 치과에 배포'}
             </button>
 
-            {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}
+            {error && <p className="mt-3 text-[14px] text-red-600">{error}</p>}
           </div>
 
           <div className="mt-4 rounded-lg border border-gray-200 bg-white">
@@ -227,7 +227,7 @@ export default function FavoriteDistribution({
                 {favorites.map((favorite) => (
                   <li
                     key={favorite.id}
-                    className="flex flex-wrap items-center gap-3 px-5 py-3 text-[13px]"
+                    className="flex flex-wrap items-center gap-3 px-5 py-3 text-[14px]"
                   >
                     <span className="font-mono text-gray-900">{favorite.label}</span>
 
@@ -254,7 +254,7 @@ export default function FavoriteDistribution({
                     <button
                       onClick={() => setRemoving(favorite)}
                       disabled={busy}
-                      className="ml-auto text-[12px] text-gray-400 hover:text-red-600"
+                      className="ml-auto text-[13px] text-gray-400 hover:text-red-600"
                     >
                       {favorite.pushed ? '회수' : '삭제'}
                     </button>
@@ -273,7 +273,7 @@ export default function FavoriteDistribution({
               {removing.pushed ? '이 배포를 거둘까요?' : '이 조합을 지울까요?'}
             </h3>
 
-            <p className="mt-2 rounded-md bg-[#F4F6F9] px-3 py-2 font-mono text-[12.5px] text-[#4A5567]">
+            <p className="mt-2 rounded-md bg-[#F4F6F9] px-3 py-2 font-mono text-[13.5px] text-[#4A5567]">
               {removing.label}
             </p>
 
@@ -281,7 +281,7 @@ export default function FavoriteDistribution({
               ★ 치과가 담은 것은 남의 자료입니다. 지우면 그 치과 화면에서
                 사라지고 다시 담아야 합니다 — 그 사실을 적어 둡니다.
             */}
-            <p className="mt-2 text-[12.5px] leading-relaxed text-[#4A5567]">
+            <p className="mt-2 text-[13.5px] leading-relaxed text-[#4A5567]">
               {removing.pushed
                 ? '이 치과의 목록에서 빠집니다. 필요하면 다시 배포할 수 있습니다.'
                 : '치과가 직접 담은 조합입니다. 지우면 그 치과가 다시 담아야 합니다.'}
@@ -291,7 +291,7 @@ export default function FavoriteDistribution({
               <button
                 type="button"
                 onClick={() => setRemoving(null)}
-                className="h-10 flex-1 rounded-md border border-[#DDE2EA] text-[13px] text-[#4A5567] hover:bg-[#F4F6F9]"
+                className="h-10 flex-1 rounded-md border border-[#DDE2EA] text-[14px] text-[#4A5567] hover:bg-[#F4F6F9]"
               >
                 취소
               </button>
@@ -302,7 +302,7 @@ export default function FavoriteDistribution({
                   await run(() => submitRemoveImplantFavorite(removing.id));
                   setRemoving(null);
                 }}
-                className="h-10 flex-1 rounded-md bg-[#D8453F] text-[13px] font-bold text-white hover:bg-[#C13B36] disabled:bg-[#D5DAE2]"
+                className="h-10 flex-1 rounded-md bg-[#D8453F] text-[14px] font-bold text-white hover:bg-[#C13B36] disabled:bg-[#D5DAE2]"
               >
                 {removing.pushed ? '회수' : '삭제'}
               </button>
@@ -317,7 +317,7 @@ export default function FavoriteDistribution({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-[12px] font-semibold text-gray-500">{label}</label>
+      <label className="mb-1 block text-[13px] font-semibold text-gray-500">{label}</label>
       {children}
     </div>
   );

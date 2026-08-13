@@ -91,7 +91,7 @@ export default function PrivacyBoard({ facts, officerUserId, seats }: PrivacyBoa
       {/* ★ 지금 공개 상태가 어떤지를 맨 위에 둡니다 */}
       <div
         className={
-          'rounded-lg border px-4 py-3.5 text-[13px] leading-relaxed ' +
+          'rounded-lg border px-4 py-3.5 text-[14px] leading-relaxed ' +
           (draft
             ? 'border-[#F0D9A8] bg-[#FEF8EC] text-[#8A6320]'
             : 'border-[#BFE3D2] bg-[#EAF7F1] text-[#12664A]')
@@ -112,7 +112,7 @@ export default function PrivacyBoard({ facts, officerUserId, seats }: PrivacyBoa
       </div>
 
       {missing.length > 0 && (
-        <p className="rounded-lg border border-[#F3C6C6] bg-[#FDECEA] px-4 py-3 text-[12.5px] font-semibold text-[#B3312C]">
+        <p className="rounded-lg border border-[#F3C6C6] bg-[#FDECEA] px-4 py-3 text-[13.5px] font-semibold text-[#B3312C]">
           아직 빈 칸: {missing.join(' · ')}
         </p>
       )}
@@ -123,7 +123,7 @@ export default function PrivacyBoard({ facts, officerUserId, seats }: PrivacyBoa
           <Link
             href="/privacy"
             target="_blank"
-            className="ml-auto text-[12.5px] font-semibold text-[#1279E8] hover:underline"
+            className="ml-auto text-[13.5px] font-semibold text-[#1279E8] hover:underline"
           >
             공개 화면 보기 ↗
           </Link>
@@ -183,18 +183,18 @@ export default function PrivacyBoard({ facts, officerUserId, seats }: PrivacyBoa
               type="button"
               onClick={save}
               disabled={saving || refreshing}
-              className="h-9 rounded-md bg-[#1279E8] px-4 text-[12.5px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#D5DAE2]"
+              className="h-9 rounded-md bg-[#1279E8] px-4 text-[13.5px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#D5DAE2]"
             >
               {saving ? '저장 중…' : '저장'}
             </button>
 
-            {note && <span className="text-[12.5px] font-semibold text-[#12855B]">{note}</span>}
-            {error && <span className="text-[12.5px] font-semibold text-[#B3312C]">{error}</span>}
+            {note && <span className="text-[13.5px] font-semibold text-[#12855B]">{note}</span>}
+            {error && <span className="text-[13.5px] font-semibold text-[#B3312C]">{error}</span>}
           </div>
         </div>
       </section>
 
-      <p className="px-1 text-[12px] leading-relaxed text-[#98A2B3]">
+      <p className="px-1 text-[13px] leading-relaxed text-[#98A2B3]">
         보관기간·수탁자·사업자 정보는 여기서 따로 적지 않습니다. 각각{' '}
         <b className="font-semibold text-[#7C8595]">보관기간·파기</b>,{' '}
         <b className="font-semibold text-[#7C8595]">사용자</b>,{' '}
@@ -208,7 +208,7 @@ export default function PrivacyBoard({ facts, officerUserId, seats }: PrivacyBoa
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[12.5px] font-semibold text-[#4A5567]">{label}</span>
+      <span className="mb-1.5 block text-[13.5px] font-semibold text-[#4A5567]">{label}</span>
       {children}
     </label>
   );
@@ -234,5 +234,5 @@ function Input({
 }
 
 function Hint({ children }: { children: React.ReactNode }) {
-  return <span className="mt-1.5 block text-[11.5px] leading-relaxed text-[#98A2B3]">{children}</span>;
+  return <span className="mt-1.5 block text-[12.5px] leading-relaxed text-[#98A2B3]">{children}</span>;
 }

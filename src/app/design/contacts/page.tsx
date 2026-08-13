@@ -21,7 +21,7 @@ export default async function ContactsPage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-1">
       <header>
         <h1 className="text-[19px] font-extrabold tracking-[-0.03em] text-[#1A2130]">수가표 요청</h1>
-        <p className="mt-1 text-[13px] text-[#7C8595]">
+        <p className="mt-1 text-[14px] text-[#7C8595]">
           홈페이지에서 남긴 문의입니다. 연락한 뒤 처리로 표시해 주세요.
         </p>
       </header>

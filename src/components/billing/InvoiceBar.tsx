@@ -70,13 +70,13 @@ export default function InvoiceBar({ partyOrgId, yearMonth, issued, paid }: Invo
       <button
         type="button"
         onClick={() => window.print()}
-        className="h-9 rounded-md border border-[#DDE2EA] bg-white px-3.5 text-[12.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+        className="h-9 rounded-md border border-[#DDE2EA] bg-white px-3.5 text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
       >
         인쇄 / PDF
       </button>
 
       {issued ? (
-        <span className="rounded-md bg-[#EFEDFB] px-3 py-1.5 text-[12.5px] font-bold text-[#5546C8]">
+        <span className="rounded-md bg-[#EFEDFB] px-3 py-1.5 text-[13.5px] font-bold text-[#5546C8]">
           발행됨
         </span>
       ) : (
@@ -84,7 +84,7 @@ export default function InvoiceBar({ partyOrgId, yearMonth, issued, paid }: Invo
           type="button"
           onClick={() => setAsking(true)}
           disabled={busy}
-          className="h-9 rounded-md bg-[#5546C8] px-4 text-[12.5px] font-bold text-white hover:bg-[#4536B8] disabled:opacity-60"
+          className="h-9 rounded-md bg-[#5546C8] px-4 text-[13.5px] font-bold text-white hover:bg-[#4536B8] disabled:opacity-60"
         >
           발행
         </button>
@@ -96,7 +96,7 @@ export default function InvoiceBar({ partyOrgId, yearMonth, issued, paid }: Invo
         disabled={busy || !issued}
         title={issued ? undefined : '발행한 뒤에 표시할 수 있습니다'}
         className={
-          'h-9 rounded-md px-3.5 text-[12.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ' +
+          'h-9 rounded-md px-3.5 text-[13.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ' +
           (paid
             ? 'bg-[#E6F4EE] text-[#12855B] hover:bg-[#D6EDE3]'
             : 'border border-[#DDE2EA] bg-white text-[#4A5567] hover:bg-[#F4F6F9]')
@@ -105,7 +105,7 @@ export default function InvoiceBar({ partyOrgId, yearMonth, issued, paid }: Invo
         {paid ? '입금 완료' : '입금 표시'}
       </button>
 
-      {error && <span className="text-[12px] font-semibold text-[#D8453F]">{error}</span>}
+      {error && <span className="text-[13px] font-semibold text-[#D8453F]">{error}</span>}
 
       {asking && (
         <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-6">
@@ -114,7 +114,7 @@ export default function InvoiceBar({ partyOrgId, yearMonth, issued, paid }: Invo
               <h3 className="text-[15px] font-bold tracking-tight text-[#1A2130]">
                 청구서를 발행할까요?
               </h3>
-              <p className="mt-2 text-[12.5px] leading-relaxed text-[#98A2B3]">
+              <p className="mt-2 text-[13.5px] leading-relaxed text-[#98A2B3]">
                 발행하면 이 기간의 마감을 되돌릴 수 없습니다. 한 번 나간 문서의 숫자가
                 달라지면 안 되기 때문입니다.
               </p>

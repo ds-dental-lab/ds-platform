@@ -84,7 +84,7 @@ export default function LabAssignSelect({
 
   return (
     <span className="ml-auto flex items-center gap-2">
-      {error && <span className="text-[11.5px] text-[#D8453F]">{error}</span>}
+      {error && <span className="text-[12.5px] text-[#D8453F]">{error}</span>}
 
       <label className="flex items-center gap-2">
         기공소
@@ -92,7 +92,7 @@ export default function LabAssignSelect({
           value={value}
           disabled={saving || refreshing || labs.length === 0}
           onChange={(e) => change(e.target.value)}
-          className="h-8 rounded-md border border-[#DDE2EA] bg-white px-2 text-[12.5px] font-semibold text-[#1A2130] outline-none focus:border-[#5546C8] disabled:text-[#98A2B3]"
+          className="h-8 rounded-md border border-[#DDE2EA] bg-white px-2 text-[13.5px] font-semibold text-[#1A2130] outline-none focus:border-[#5546C8] disabled:text-[#98A2B3]"
         >
           {labs.length === 0 && <option value="">거래 기공소가 없습니다</option>}
           {labs.map((lab) => (

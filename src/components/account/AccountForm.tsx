@@ -53,7 +53,7 @@ export interface AccountFormProps {
 
 /** 아래줄에 나란히 서는 곁길 단추들 */
 const SUB_LINK =
-  'h-10 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold leading-10 text-[#4A5567] hover:bg-[#F4F6F9]';
+  'h-10 rounded-md border border-[#DDE2EA] px-3.5 text-[13.5px] font-semibold leading-10 text-[#4A5567] hover:bg-[#F4F6F9]';
 
 const TYPE_LABEL = {
   clinic: '치과',
@@ -127,11 +127,11 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
           </span>
 
           {org.code && (
-            <span className="text-[12px] tabular-nums text-[#98A2B3]">{org.code}</span>
+            <span className="text-[13px] tabular-nums text-[#98A2B3]">{org.code}</span>
           )}
 
           {saved && (
-            <span className="ml-auto text-[12.5px] font-semibold text-[#12855B]">
+            <span className="ml-auto text-[13.5px] font-semibold text-[#12855B]">
               저장했습니다
             </span>
           )}
@@ -139,7 +139,7 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
 
         {/* ---------- 안내 ---------- */}
         {emptyForInvoice > 0 && (
-          <p className="border-b border-[#E8EBF0] bg-[#FEF7EA] px-6 py-3 text-[12.5px] leading-relaxed text-[#8A5A12]">
+          <p className="border-b border-[#E8EBF0] bg-[#FEF7EA] px-6 py-3 text-[13.5px] leading-relaxed text-[#8A5A12]">
             청구서에 들어가는 칸 <b className="font-bold">{emptyForInvoice}개</b>가 비어 있습니다.
             지금은 문서에 &lsquo;-&rsquo; 로 찍힙니다 — 개설한 뒤에 채워 주세요.
           </p>
@@ -193,7 +193,7 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
               뒤에야 "안 왔다" 는 전화를 받습니다.
           */}
           <div>
-            <span className="mb-1 block text-[12px] font-semibold text-[#4A5567]">
+            <span className="mb-1 block text-[13px] font-semibold text-[#4A5567]">
               정산서 받을 곳
             </span>
             <div className="flex gap-1.5">
@@ -205,7 +205,7 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
                   disabled={!editable}
                   aria-pressed={form.invoiceMethod === method}
                   className={
-                    'h-10 flex-1 rounded-md border text-[13px] font-semibold disabled:opacity-60 ' +
+                    'h-10 flex-1 rounded-md border text-[14px] font-semibold disabled:opacity-60 ' +
                     (form.invoiceMethod === method
                       ? 'border-[#12855B] bg-[#E6F4EE] text-[#12855B]'
                       : 'border-[#DDE2EA] text-[#4A5567] hover:bg-[#F4F6F9]')
@@ -262,14 +262,14 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
           */}
           {org.orgType !== 'design_center' && (
             <Field label="정산 기준일">
-              <span className="flex h-10 items-center rounded-md bg-[#F8F9FB] px-3 text-[13px] text-[#4A5567]">
+              <span className="flex h-10 items-center rounded-md bg-[#F8F9FB] px-3 text-[14px] text-[#4A5567]">
                 매월 {org.closingDay}일
               </span>
             </Field>
           )}
         </div>
 
-        {error && <p className="px-6 pb-2 text-[12.5px] text-[#D8453F]">{error}</p>}
+        {error && <p className="px-6 pb-2 text-[13.5px] text-[#D8453F]">{error}</p>}
 
         {/* ---------- 아래줄 ---------- */}
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#E8EBF0] px-6 py-4">
@@ -308,7 +308,7 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
             )}
 
             {!editable && (
-              <span className="text-[12px] text-[#98A2B3]">관리자만 고칠 수 있습니다.</span>
+              <span className="text-[13px] text-[#98A2B3]">관리자만 고칠 수 있습니다.</span>
             )}
           </div>
 
@@ -351,7 +351,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-[#4A5567]">
+      <span className="mb-1 flex items-center gap-1.5 text-[13px] font-semibold text-[#4A5567]">
         {label}
         {required && <b className="font-bold text-[#D8453F]">*</b>}
         {invoice && (
@@ -390,7 +390,7 @@ function Text({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
-      className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#1279E8] disabled:bg-[#F8F9FB] disabled:text-[#98A2B3]"
+      className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#1279E8] disabled:bg-[#F8F9FB] disabled:text-[#98A2B3]"
     />
   );
 }

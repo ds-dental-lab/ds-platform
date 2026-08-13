@@ -109,7 +109,7 @@ export default function ProductionOptionPanel({
                 type="button"
                 onClick={() => onChange({ ...value, ...preset.selections })}
                 className={
-                  'py-1.5 pl-3.5 pr-2 text-[12.5px] font-semibold ' +
+                  'py-1.5 pl-3.5 pr-2 text-[13.5px] font-semibold ' +
                   (on ? 'text-[#1279E8]' : 'text-[#4A5567]')
                 }
               >
@@ -146,7 +146,7 @@ export default function ProductionOptionPanel({
                 aria-label={`${preset.name} 지우기`}
                 disabled={busy}
                 onClick={() => run(() => submitDeleteOptionPreset(preset.id))}
-                className="py-1.5 pl-1 pr-3 text-[12px] text-[#C4CBD6] hover:text-[#D8453F]"
+                className="py-1.5 pl-1 pr-3 text-[13px] text-[#C4CBD6] hover:text-[#D8453F]"
               >
                 ✕
               </button>
@@ -158,7 +158,7 @@ export default function ProductionOptionPanel({
           type="button"
           onClick={() => openNaming('new', '')}
           disabled={groups.length === 0}
-          className="inline-flex items-center gap-1 rounded-full border border-dashed border-[#C4CBD6] px-3.5 py-1.5 text-[12.5px] font-semibold text-[#4A5567] hover:border-[#1279E8] hover:text-[#1279E8] disabled:cursor-not-allowed disabled:text-[#C4CBD6]"
+          className="inline-flex items-center gap-1 rounded-full border border-dashed border-[#C4CBD6] px-3.5 py-1.5 text-[13.5px] font-semibold text-[#4A5567] hover:border-[#1279E8] hover:text-[#1279E8] disabled:cursor-not-allowed disabled:text-[#C4CBD6]"
         >
           + 현재 설정 저장
         </button>
@@ -167,7 +167,7 @@ export default function ProductionOptionPanel({
       {/* 이름 입력 — 팝업까지 갈 일이 아니라 그 자리에서 받습니다 */}
       {naming && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-[#DDE2EA] bg-[#F8F9FB] px-3 py-2.5">
-          <span className="text-[12.5px] font-bold text-[#1A2130]">
+          <span className="text-[13.5px] font-bold text-[#1A2130]">
             {naming === 'new' ? '이 설정의 이름' : '이름 바꾸기'}
           </span>
 
@@ -181,14 +181,14 @@ export default function ProductionOptionPanel({
             }}
             placeholder="예) A원장"
             maxLength={20}
-            className="h-9 w-40 rounded border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#1279E8]"
+            className="h-9 w-40 rounded border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#1279E8]"
           />
 
           <button
             type="button"
             onClick={confirmNaming}
             disabled={busy || !draftName.trim()}
-            className="h-9 rounded bg-[#1279E8] px-4 text-[12.5px] font-bold text-white disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
+            className="h-9 rounded bg-[#1279E8] px-4 text-[13.5px] font-bold text-white disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
           >
             저장
           </button>
@@ -196,26 +196,26 @@ export default function ProductionOptionPanel({
           <button
             type="button"
             onClick={() => setNaming(null)}
-            className="h-9 rounded border border-[#DDE2EA] bg-white px-3 text-[12.5px] text-[#4A5567]"
+            className="h-9 rounded border border-[#DDE2EA] bg-white px-3 text-[13.5px] text-[#4A5567]"
           >
             취소
           </button>
         </div>
       )}
 
-      {error && <p className="mb-3 text-[12.5px] text-[#D8453F]">{error}</p>}
+      {error && <p className="mb-3 text-[13.5px] text-[#D8453F]">{error}</p>}
 
       {/* ---------- 옵션 본체 ---------- */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {groups.map((group) => (
           <div key={group.id}>
-            <label className="mb-1.5 block text-[13px] font-bold text-[#1A2130]">
+            <label className="mb-1.5 block text-[14px] font-bold text-[#1A2130]">
               {group.name}
             </label>
             <select
               value={value[group.id] ?? ''}
               onChange={(e) => onChange({ ...value, [group.id]: e.target.value })}
-              className="h-11 w-full rounded border border-[#DDE2EA] px-3 text-[13px] outline-none focus:border-[#1279E8]"
+              className="h-11 w-full rounded border border-[#DDE2EA] px-3 text-[14px] outline-none focus:border-[#1279E8]"
             >
               {group.values.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -227,7 +227,7 @@ export default function ProductionOptionPanel({
         ))}
 
         {groups.length === 0 && (
-          <p className="text-[13px] text-[#98A2B3]">등록된 제작옵션이 없습니다.</p>
+          <p className="text-[14px] text-[#98A2B3]">등록된 제작옵션이 없습니다.</p>
         )}
       </div>
     </OrderSection>

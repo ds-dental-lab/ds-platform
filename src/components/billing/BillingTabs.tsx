@@ -33,7 +33,7 @@ export default function BillingTabs({ active }: { active: string }) {
             href={tab.href}
             aria-current={on ? 'page' : undefined}
             className={
-              '-mb-px border-b-2 px-4 py-2.5 text-[13px] font-semibold ' +
+              '-mb-px border-b-2 px-4 py-2.5 text-[14px] font-semibold ' +
               (on
                 ? 'border-[#1279E8] text-[#1279E8]'
                 : 'border-transparent text-[#98A2B3] hover:text-[#4A5567]')

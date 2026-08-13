@@ -103,7 +103,7 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
       <button
         type="button"
         onClick={openDialog}
-        className="mb-3.5 flex w-full items-center justify-between gap-2.5 rounded-[7px] border border-[#F3C6C6] bg-[#FDECEA] px-[13px] py-[11px] text-[12.5px] font-bold text-[#C4383A] hover:bg-[#FBE0DC]"
+        className="mb-3.5 flex w-full items-center justify-between gap-2.5 rounded-[7px] border border-[#F3C6C6] bg-[#FDECEA] px-[13px] py-[11px] text-[13.5px] font-bold text-[#C4383A] hover:bg-[#FBE0DC]"
       >
         <span className="flex items-center gap-[7px]">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6}>
@@ -147,7 +147,7 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
             <div className="px-[22px] pt-1">
               <label
                 className={
-                  'mb-3.5 flex items-center gap-2.5 text-[13px] ' +
+                  'mb-3.5 flex items-center gap-2.5 text-[14px] ' +
                   (scanFiles.length === 0
                     ? 'cursor-not-allowed text-[#C4CBD6]'
                     : 'cursor-pointer text-[#1A2130]')
@@ -163,7 +163,7 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
                 />
                 이전 스캔 데이터 그대로 사용
                 {scanFiles.length > 0 && (
-                  <span className="text-[11.5px] text-[#98A2B3]">
+                  <span className="text-[12.5px] text-[#98A2B3]">
                     {scanFiles.length}개
                   </span>
                 )}
@@ -173,7 +173,7 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
 
               <p
                 className={
-                  'mt-2.5 text-[12px] ' + (ready ? 'text-[#98A2B3]' : 'text-[#C4383A]')
+                  'mt-2.5 text-[13px] ' + (ready ? 'text-[#98A2B3]' : 'text-[#C4383A]')
                 }
               >
                 {ready
@@ -183,8 +183,8 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
                   : '이전 스캔을 사용하거나 새 파일을 올려주세요.'}
               </p>
 
-              {progress && <p className="mt-2 text-[12.5px] text-[#1279E8]">{progress}</p>}
-              {error && <p className="mt-2 text-[12.5px] text-[#D8453F]">{error}</p>}
+              {progress && <p className="mt-2 text-[13.5px] text-[#1279E8]">{progress}</p>}
+              {error && <p className="mt-2 text-[13.5px] text-[#D8453F]">{error}</p>}
             </div>
 
             <div className="flex justify-end gap-2 px-[22px] pb-5 pt-4">
@@ -192,7 +192,7 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
                 type="button"
                 onClick={() => setOpen(false)}
                 disabled={busy}
-                className="h-[34px] rounded-[7px] border border-[#DDE2EA] px-4 text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+                className="h-[34px] rounded-[7px] border border-[#DDE2EA] px-4 text-[14px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
               >
                 취소
               </button>
@@ -200,7 +200,7 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
                 type="button"
                 onClick={handleSubmit}
                 disabled={busy || !ready}
-                className="h-[34px] rounded-[7px] bg-[#1279E8] px-6 text-[13px] font-bold text-white hover:bg-[#1554C8] disabled:cursor-not-allowed disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
+                className="h-[34px] rounded-[7px] bg-[#1279E8] px-6 text-[14px] font-bold text-white hover:bg-[#1554C8] disabled:cursor-not-allowed disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
               >
                 {busy ? '처리 중…' : '등록'}
               </button>

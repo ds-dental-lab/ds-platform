@@ -27,9 +27,9 @@ export default async function AuditPage({
 
   if (!isAdmin) {
     return (
-      <p className="mx-auto max-w-[900px] rounded-lg border border-[#E8EBF0] bg-white px-6 py-16 text-center text-[13px] text-[#98A2B3]">
+      <p className="mx-auto max-w-[900px] rounded-lg border border-[#E8EBF0] bg-white px-6 py-16 text-center text-[14px] text-[#98A2B3]">
         열람 기록은 관리자만 볼 수 있습니다.
-        <span className="mt-1 block text-[12px]">
+        <span className="mt-1 block text-[13px]">
           누가 누구를 들여다봤는지가 보이는 자료라 범위를 좁혀 두었습니다.
         </span>
       </p>

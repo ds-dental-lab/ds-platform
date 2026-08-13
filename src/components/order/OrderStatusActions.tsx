@@ -141,13 +141,13 @@ export default function OrderStatusActions({
         ))}
 
         {forwardBlockedReason && (
-          <span className="text-[12.5px] text-[#98A2B3]">{forwardBlockedReason}</span>
+          <span className="text-[13.5px] text-[#98A2B3]">{forwardBlockedReason}</span>
         )}
 
-        {busy && <span className="text-[12.5px] text-[#98A2B3]">처리 중…</span>}
+        {busy && <span className="text-[13.5px] text-[#98A2B3]">처리 중…</span>}
 
         {error && !asking && (
-          <span className="text-[12.5px] font-semibold text-[#D8453F]">{error}</span>
+          <span className="text-[13.5px] font-semibold text-[#D8453F]">{error}</span>
         )}
       </div>
 
@@ -161,12 +161,12 @@ export default function OrderStatusActions({
 
             {asking.requiresLab && (
               <div className="mt-4">
-                <label className="mb-1.5 block text-[13px] font-semibold text-gray-600">
+                <label className="mb-1.5 block text-[14px] font-semibold text-gray-600">
                   제작을 맡길 기공소
                 </label>
 
                 {labs.length === 0 ? (
-                  <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-800">
+                  <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2.5 text-[14px] text-amber-800">
                     거래 중인 기공소가 없습니다. 설정에서 기공소를 먼저 연결해 주세요.
                   </p>
                 ) : (
@@ -197,7 +197,7 @@ export default function OrderStatusActions({
               />
             )}
 
-            {error && <p className="mt-2 text-[13px] text-red-600">{error}</p>}
+            {error && <p className="mt-2 text-[14px] text-red-600">{error}</p>}
 
             <div className="mt-5 flex justify-end gap-2">
               <button

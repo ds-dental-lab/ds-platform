@@ -62,19 +62,19 @@ export default function DeliveryBoard({
         <div className="flex items-center gap-2">
           <Link
             href={`${basePath}?week=${shiftWeek(weekStart, -1)}`}
-            className="rounded border border-gray-300 px-3 py-1.5 text-[13px] hover:bg-gray-50"
+            className="rounded border border-gray-300 px-3 py-1.5 text-[14px] hover:bg-gray-50"
           >
             ← 이전 주
           </Link>
           <Link
             href={basePath}
-            className="rounded border border-gray-300 px-3 py-1.5 text-[13px] hover:bg-gray-50"
+            className="rounded border border-gray-300 px-3 py-1.5 text-[14px] hover:bg-gray-50"
           >
             이번 주
           </Link>
           <Link
             href={`${basePath}?week=${shiftWeek(weekStart, 1)}`}
-            className="rounded border border-gray-300 px-3 py-1.5 text-[13px] hover:bg-gray-50"
+            className="rounded border border-gray-300 px-3 py-1.5 text-[14px] hover:bg-gray-50"
           >
             다음 주 →
           </Link>
@@ -111,7 +111,7 @@ export default function DeliveryBoard({
               >
                 <span
                   className={
-                    'text-[13px] font-bold ' +
+                    'text-[14px] font-bold ' +
                     (isToday
                       ? 'text-blue-700'
                       : isWeekend(day)
@@ -131,7 +131,7 @@ export default function DeliveryBoard({
 
               <div className="flex flex-1 flex-col gap-1.5 p-2">
                 {dayOrders.length === 0 ? (
-                  <p className="py-4 text-center text-[12px] text-gray-300">-</p>
+                  <p className="py-4 text-center text-[13px] text-gray-300">-</p>
                 ) : (
                   dayOrders.map((order) => (
                     <Link
@@ -145,7 +145,7 @@ export default function DeliveryBoard({
                           번호가 아닙니다. 번호는 상세에 들어가면 있습니다.
                       */}
                       <div className="flex items-center justify-between gap-1">
-                        <span className="truncate text-[12.5px] font-bold text-[#1A2130]">
+                        <span className="truncate text-[13.5px] font-bold text-[#1A2130]">
                           {order.patient_label}
                         </span>
                         <OrderStatusBadge status={order.status} />

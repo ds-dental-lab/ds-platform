@@ -23,7 +23,7 @@ export default async function SignupApprovalPage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-1">
       <header>
         <h1 className="text-[19px] font-extrabold tracking-[-0.03em] text-[#1A2130]">가입승인</h1>
-        <p className="mt-1 text-[13px] text-[#7C8595]">
+        <p className="mt-1 text-[14px] text-[#7C8595]">
           치과·기공소가 스스로 가입하면 여기로 옵니다. 승인해야 이용할 수 있습니다.
         </p>
       </header>

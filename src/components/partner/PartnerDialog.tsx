@@ -121,7 +121,7 @@ export default function PartnerDialog({ row, onClose, onSaved }: PartnerDialogPr
               value={orgType}
               disabled={editing}
               onChange={(e) => setOrgType(e.target.value as PartnerType)}
-              className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#5546C8] disabled:bg-[#F4F6F9] disabled:text-[#98A2B3]"
+              className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#5546C8] disabled:bg-[#F4F6F9] disabled:text-[#98A2B3]"
             >
               <option value="clinic">치과</option>
               <option value="lab">기공소</option>
@@ -194,21 +194,21 @@ export default function PartnerDialog({ row, onClose, onSaved }: PartnerDialogPr
               className="h-4 w-4"
             />
             <span>
-              <b className="text-[13px] font-semibold text-[#1A2130]">거래중</b>
-              <span className="ml-2 text-[11.5px] text-[#98A2B3]">
+              <b className="text-[14px] font-semibold text-[#1A2130]">거래중</b>
+              <span className="ml-2 text-[12.5px] text-[#98A2B3]">
                 내리면 새 주문만 막힙니다. 지난 주문은 그대로입니다
               </span>
             </span>
           </label>
         </div>
 
-        {error && <p className="px-6 pb-1 text-[12.5px] text-[#D8453F]">{error}</p>}
+        {error && <p className="px-6 pb-1 text-[13.5px] text-[#D8453F]">{error}</p>}
 
         <div className="flex items-center justify-end gap-2 border-t border-[#E8EBF0] px-6 py-3.5">
           <button
             type="button"
             onClick={onClose}
-            className="h-9 rounded-md border border-[#DDE2EA] px-4 text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+            className="h-9 rounded-md border border-[#DDE2EA] px-4 text-[14px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
           >
             취소
           </button>
@@ -216,7 +216,7 @@ export default function PartnerDialog({ row, onClose, onSaved }: PartnerDialogPr
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="h-9 rounded-md bg-[#5546C8] px-5 text-[13px] font-bold text-white hover:bg-[#4536B8] disabled:opacity-60"
+            className="h-9 rounded-md bg-[#5546C8] px-5 text-[14px] font-bold text-white hover:bg-[#4536B8] disabled:opacity-60"
           >
             {saving ? '저장 중…' : '저장'}
           </button>
@@ -239,7 +239,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[12px] font-semibold text-[#4A5567]">
+      <span className="mb-1 block text-[13px] font-semibold text-[#4A5567]">
         {label}
         {hint && <span className="ml-1 font-normal text-[#98A2B3]">{hint}</span>}
       </span>
@@ -262,7 +262,7 @@ function Text({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#5546C8]"
+      className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#5546C8]"
     />
   );
 }
@@ -287,7 +287,7 @@ function Radios({
             type="button"
             onClick={() => onChange(o.value)}
             className={
-              'h-9 rounded-md border px-4 text-[13px] font-semibold ' +
+              'h-9 rounded-md border px-4 text-[14px] font-semibold ' +
               (on
                 ? 'border-[#5546C8] bg-[#EFEDFB] text-[#5546C8]'
                 : 'border-[#DDE2EA] text-[#4A5567] hover:bg-[#F4F6F9]')

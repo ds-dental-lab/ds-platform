@@ -102,7 +102,7 @@ export default async function InvoicePage({
       <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
         <Link
           href={`/design/billing?type=${partner.orgType}&party=${partner.id}&ym=${yearMonth}`}
-          className="h-9 rounded-md border border-[#DDE2EA] bg-white px-3.5 text-[12.5px] font-semibold leading-9 text-[#4A5567] hover:bg-[#F4F6F9]"
+          className="h-9 rounded-md border border-[#DDE2EA] bg-white px-3.5 text-[13.5px] font-semibold leading-9 text-[#4A5567] hover:bg-[#F4F6F9]"
         >
           ← 정산으로
         </Link>

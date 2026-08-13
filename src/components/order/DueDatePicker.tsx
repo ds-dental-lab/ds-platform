@@ -74,7 +74,7 @@ export default function DueDatePicker({
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex h-11 w-full items-center justify-between rounded border border-[#DDE2EA] bg-white px-3 text-[13px] outline-none hover:border-[#1279E8] focus:border-[#1279E8]"
+        className="flex h-11 w-full items-center justify-between rounded border border-[#DDE2EA] bg-white px-3 text-[14px] outline-none hover:border-[#1279E8] focus:border-[#1279E8]"
       >
         <span>{formatDueLabel(value)}</span>
         <svg
@@ -94,7 +94,7 @@ export default function DueDatePicker({
       </button>
 
       {selectedNote && (
-        <p className="mt-1.5 text-[11.5px] text-[#E09A1B]">{selectedNote}</p>
+        <p className="mt-1.5 text-[12.5px] text-[#E09A1B]">{selectedNote}</p>
       )}
 
       {open && (
@@ -111,7 +111,7 @@ export default function DueDatePicker({
               <CalNav onClick={() => shiftMonth(-1)} label="이전 달">
                 ‹
               </CalNav>
-              <span className="text-[13px] font-bold text-[#1A2130]">
+              <span className="text-[14px] font-bold text-[#1A2130]">
                 {formatMonthTitle(cursor.year, cursor.month)}
               </span>
               <CalNav onClick={() => shiftMonth(1)} label="다음 달">
@@ -142,7 +142,7 @@ export default function DueDatePicker({
                       setOpen(false);
                     }}
                     className={
-                      'relative grid h-8 place-items-center rounded text-[12.5px] tabular-nums transition-colors ' +
+                      'relative grid h-8 place-items-center rounded text-[13.5px] tabular-nums transition-colors ' +
                       (selected
                         ? 'bg-[#1279E8] font-bold text-white'
                         : cell.holiday

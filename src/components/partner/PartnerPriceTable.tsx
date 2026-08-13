@@ -138,14 +138,14 @@ export default function PartnerPriceTable({ partner, rows }: PartnerPriceTablePr
             {partner.name}
             <span
               className={
-                'ml-2 rounded px-2 py-0.5 align-middle text-[11.5px] font-bold ' +
+                'ml-2 rounded px-2 py-0.5 align-middle text-[12.5px] font-bold ' +
                 (isClinic ? 'bg-[#EDF3FE] text-[#1B63E8]' : 'bg-[#E6F4EE] text-[#12855B]')
               }
             >
               {isClinic ? '치과' : '기공소'}
             </span>
           </h2>
-          <p className="mt-0.5 text-[12px] text-[#98A2B3]">
+          <p className="mt-0.5 text-[13px] text-[#98A2B3]">
             {isClinic
               ? '이 치과에 청구할 값입니다. 비우면 제품 기본가를 씁니다'
               : '이 기공소에 지급할 값입니다. 치과에는 보이지 않습니다'}
@@ -154,14 +154,14 @@ export default function PartnerPriceTable({ partner, rows }: PartnerPriceTablePr
 
         <div className="ml-auto flex items-center gap-2">
           {saved && dirty.length === 0 && (
-            <span className="text-[12.5px] font-semibold text-[#12855B]">저장했습니다</span>
+            <span className="text-[13.5px] font-semibold text-[#12855B]">저장했습니다</span>
           )}
 
           <button
             type="button"
             onClick={handleReset}
             disabled={busy || dirty.length === 0}
-            className="h-9 rounded-md border border-[#DDE2EA] px-4 text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:opacity-50"
+            className="h-9 rounded-md border border-[#DDE2EA] px-4 text-[14px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:opacity-50"
           >
             되돌리기
           </button>
@@ -170,20 +170,20 @@ export default function PartnerPriceTable({ partner, rows }: PartnerPriceTablePr
             type="button"
             onClick={handleSave}
             disabled={busy || dirty.length === 0}
-            className="h-9 rounded-md bg-[#5546C8] px-5 text-[13px] font-bold text-white hover:bg-[#4536B8] disabled:opacity-50"
+            className="h-9 rounded-md bg-[#5546C8] px-5 text-[14px] font-bold text-white hover:bg-[#4536B8] disabled:opacity-50"
           >
             {saving ? '저장 중…' : dirty.length > 0 ? `저장 (${dirty.length})` : '저장'}
           </button>
         </div>
       </div>
 
-      {error && <p className="px-5 pb-2 text-[12.5px] text-[#D8453F]">{error}</p>}
+      {error && <p className="px-5 pb-2 text-[13.5px] text-[#D8453F]">{error}</p>}
 
       {/* ---------- 표 ---------- */}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[900px] border-collapse">
           <thead>
-            <tr className="border-y border-[#E8EBF0] text-[12.5px] text-[#4A5567]">
+            <tr className="border-y border-[#E8EBF0] text-[13.5px] text-[#4A5567]">
               <th className="whitespace-nowrap px-3 py-3 text-left font-semibold">보철물 종류</th>
               <th className="whitespace-nowrap px-3 py-3 text-left font-semibold">재료</th>
               <th className="whitespace-nowrap px-3 py-3 text-center font-semibold">{mainLabel}</th>
@@ -195,7 +195,7 @@ export default function PartnerPriceTable({ partner, rows }: PartnerPriceTablePr
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-16 text-center text-[13px] text-[#98A2B3]">
+                <td colSpan={5} className="py-16 text-center text-[14px] text-[#98A2B3]">
                   등록된 제품이 없습니다. 제품탭에서 먼저 만들어 주세요.
                 </td>
               </tr>
@@ -204,7 +204,7 @@ export default function PartnerPriceTable({ partner, rows }: PartnerPriceTablePr
                 <tr
                   key={row.materialId}
                   className={
-                    'border-b border-[#F0F2F5] text-[13px] ' + (row.isActive ? '' : 'opacity-55')
+                    'border-b border-[#F0F2F5] text-[14px] ' + (row.isActive ? '' : 'opacity-55')
                   }
                 >
                   <td className="whitespace-nowrap px-3 py-2.5">
@@ -237,7 +237,7 @@ export default function PartnerPriceTable({ partner, rows }: PartnerPriceTablePr
         </table>
       </div>
 
-      <p className="border-t border-[#E8EBF0] px-5 py-3 text-[12px] text-[#98A2B3]">
+      <p className="border-t border-[#E8EBF0] px-5 py-3 text-[13px] text-[#98A2B3]">
         비워 두면 제품 기본가(흐린 숫자)를 씁니다. <b className="font-semibold">0</b> 을 넣으면 이
         거래처에는 무료입니다.
       </p>
@@ -292,7 +292,7 @@ function Cell({
       placeholder={formatAmount(base)}
       title={base === null ? '제품 기본가가 아직 없습니다' : `기본가 ${formatAmount(base)}원`}
       className={
-        'h-9 w-[110px] rounded-md border px-2.5 text-right text-[13px] tabular-nums outline-none focus:border-[#5546C8] ' +
+        'h-9 w-[110px] rounded-md border px-2.5 text-right text-[14px] tabular-nums outline-none focus:border-[#5546C8] ' +
         (overridden
           ? 'border-[#5546C8] bg-[#F8F7FE] font-semibold text-[#1A2130]'
           : 'border-[#DDE2EA] text-[#4A5567] placeholder:text-[#C4CBD6]')

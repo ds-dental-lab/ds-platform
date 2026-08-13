@@ -42,11 +42,11 @@ export default async function PrivacyPolicyPage() {
   return (
     <main className="mx-auto max-w-[760px] px-6 py-12 text-[#1A2130]">
       <header className="border-b border-[#E8EBF0] pb-6">
-        <Link href="/login" className="text-[12.5px] font-semibold text-[#1279E8] hover:underline">
+        <Link href="/login" className="text-[13.5px] font-semibold text-[#1279E8] hover:underline">
           ← Den Flow
         </Link>
         <h1 className="mt-3 text-[26px] font-extrabold tracking-[-0.04em]">개인정보 처리방침</h1>
-        <p className="mt-2 text-[13px] text-[#7C8595]">
+        <p className="mt-2 text-[14px] text-[#7C8595]">
           {facts.effectiveOn
             ? `${facts.effectiveOn} 시행`
             : '시행일이 정해지지 않았습니다'}
@@ -55,7 +55,7 @@ export default async function PrivacyPolicyPage() {
 
       {/* ★ 검토 전이라는 것을 감추지 않습니다 */}
       {draft && (
-        <p className="mt-6 rounded-lg border border-[#F0D9A8] bg-[#FEF8EC] px-4 py-3.5 text-[13px] leading-relaxed text-[#8A6320]">
+        <p className="mt-6 rounded-lg border border-[#F0D9A8] bg-[#FEF8EC] px-4 py-3.5 text-[14px] leading-relaxed text-[#8A6320]">
           <b className="font-bold">초안입니다.</b> 아직 법률 검토를 거치지 않았고 시행일이
           정해지지 않았습니다. 이 문서는 시스템이 실제로 하는 일을 그대로 옮긴 것으로,
           공개 전에 검토를 받아야 합니다.
@@ -78,7 +78,7 @@ export default async function PrivacyPolicyPage() {
         <P>회사는 다음의 목적으로만 개인정보를 처리하며, 목적이 바뀌면 별도의 조치를 취합니다.</P>
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[520px] border-collapse text-[13px]">
+          <table className="w-full min-w-[520px] border-collapse text-[14px]">
             <thead>
               <tr className="border-y border-[#E8EBF0] bg-[#F8F9FB] text-left">
                 <Th>처리 목적</Th>
@@ -118,7 +118,7 @@ export default async function PrivacyPolicyPage() {
           <>
             <P>회사는 다음 기간이 지나면 해당 정보를 파기합니다.</P>
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[440px] border-collapse text-[13px]">
+              <table className="w-full min-w-[440px] border-collapse text-[14px]">
                 <thead>
                   <tr className="border-y border-[#E8EBF0] bg-[#F8F9FB] text-left">
                     <Th>대상</Th>
@@ -144,7 +144,7 @@ export default async function PrivacyPolicyPage() {
           다만 다른 법령이 더 긴 보존을 정한 경우에는 <B>그 기간을 따릅니다.</B>
         </P>
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[440px] border-collapse text-[13px]">
+          <table className="w-full min-w-[440px] border-collapse text-[14px]">
             <tbody>
               {LEGAL_KEEP.map((row) => (
                 <tr key={row.what} className="border-b border-[#F0F2F5]">
@@ -167,7 +167,7 @@ export default async function PrivacyPolicyPage() {
         </P>
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[440px] border-collapse text-[13px]">
+          <table className="w-full min-w-[440px] border-collapse text-[14px]">
             <thead>
               <tr className="border-y border-[#E8EBF0] bg-[#F8F9FB] text-left">
                 <Th>수탁자</Th>
@@ -281,7 +281,7 @@ export default async function PrivacyPolicyPage() {
         </P>
       </Section>
 
-      <footer className="mt-12 border-t border-[#E8EBF0] pt-6 text-[12.5px] leading-relaxed text-[#98A2B3]">
+      <footer className="mt-12 border-t border-[#E8EBF0] pt-6 text-[13.5px] leading-relaxed text-[#98A2B3]">
         <p>
           {facts.orgName && <span>{facts.orgName}</span>}
           {facts.bizNo && <span> · 사업자등록번호 {facts.bizNo}</span>}
@@ -326,7 +326,7 @@ function B({ children }: { children: React.ReactNode }) {
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th className="px-3 py-2.5 text-[12px] font-semibold text-[#7C8595]">{children}</th>;
+  return <th className="px-3 py-2.5 text-[13px] font-semibold text-[#7C8595]">{children}</th>;
 }
 
 function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {

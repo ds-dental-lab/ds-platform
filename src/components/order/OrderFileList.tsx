@@ -95,7 +95,7 @@ export default function OrderFileList({ files, deletable = false }: OrderFileLis
             <li
               key={file.id}
               className={
-                'group flex items-baseline gap-2 rounded px-2 py-1 text-[12.5px] ' +
+                'group flex items-baseline gap-2 rounded px-2 py-1 text-[13.5px] ' +
                 (missing ? 'bg-[#FDF2F2]' : 'bg-white hover:bg-[#F4F8FE]')
               }
             >
@@ -143,7 +143,7 @@ export default function OrderFileList({ files, deletable = false }: OrderFileLis
         })}
       </ul>
 
-      {error && <p className="mt-2 text-[12px] text-[#D8453F]">{error}</p>}
+      {error && <p className="mt-2 text-[13px] text-[#D8453F]">{error}</p>}
 
       {/* ★ 지우기는 되돌릴 수 없어 한 번 묻습니다 */}
       {asking && (
@@ -157,8 +157,8 @@ export default function OrderFileList({ files, deletable = false }: OrderFileLis
               <h3 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A2130]">
                 이 파일을 지울까요?
               </h3>
-              <p className="mt-2 break-all text-[12.5px] text-[#4A5567]">{asking.file_name}</p>
-              <p className="mt-1.5 text-[12px] text-[#98A2B3]">되돌릴 수 없습니다.</p>
+              <p className="mt-2 break-all text-[13.5px] text-[#4A5567]">{asking.file_name}</p>
+              <p className="mt-1.5 text-[13px] text-[#98A2B3]">되돌릴 수 없습니다.</p>
             </div>
 
             <div className="flex gap-2 px-4 pb-4">

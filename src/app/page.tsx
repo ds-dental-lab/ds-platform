@@ -52,7 +52,7 @@ export default async function Home() {
 
         <p className="mt-3 text-[13.5px] leading-relaxed text-[#4A5567]">{view.body}</p>
 
-        <p className="mt-4 text-[12.5px] text-[#98A2B3]">{session.email}</p>
+        <p className="mt-4 text-[13.5px] text-[#98A2B3]">{session.email}</p>
 
         {/* ★ 반려된 사람에게만 다시 가입할 길을 엽니다.
             기다리는 중인 사람에게 이 버튼을 주면 신청이 둘로 늘어납니다 */}

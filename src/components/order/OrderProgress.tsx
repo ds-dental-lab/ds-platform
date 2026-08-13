@@ -56,7 +56,7 @@ export default function OrderProgress({ steps }: { steps: ProgressStep[] }) {
 
               <span
                 className={
-                  'whitespace-nowrap text-[11.5px] ' +
+                  'whitespace-nowrap text-[12.5px] ' +
                   (step.state === 'current' ? 'font-bold' : 'font-semibold')
                 }
                 style={{ color: color.text }}
@@ -97,6 +97,6 @@ export function ProgressNote({ note }: { note: string }) {
   if (!note) return null;
 
   return (
-    <p className="mt-2.5 text-[12.5px] font-semibold text-[#1279E8]">{note}</p>
+    <p className="mt-2.5 text-[13.5px] font-semibold text-[#1279E8]">{note}</p>
   );
 }

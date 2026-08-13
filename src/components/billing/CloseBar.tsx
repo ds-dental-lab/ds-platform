@@ -79,11 +79,11 @@ export default function CloseBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {error && <span className="text-[12px] font-semibold text-[#D8453F]">{error}</span>}
+      {error && <span className="text-[13px] font-semibold text-[#D8453F]">{error}</span>}
 
       {closed ? (
         <>
-          <span className="rounded-md bg-[#E6F4EE] px-3 py-1.5 text-[12.5px] font-bold text-[#12855B]">
+          <span className="rounded-md bg-[#E6F4EE] px-3 py-1.5 text-[13.5px] font-bold text-[#12855B]">
             마감됨
           </span>
 
@@ -92,7 +92,7 @@ export default function CloseBar({
             onClick={() => setAsking('reopen')}
             disabled={busy || issued}
             title={issued ? '청구서를 이미 뽑아 되돌릴 수 없습니다' : '마감을 되돌립니다'}
-            className="h-9 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-9 rounded-md border border-[#DDE2EA] px-3.5 text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:cursor-not-allowed disabled:opacity-50"
           >
             마감 되돌리기
           </button>
@@ -103,14 +103,14 @@ export default function CloseBar({
           onClick={() => setAsking('close')}
           disabled={busy || Boolean(blockedReason)}
           title={blockedReason}
-          className="h-9 rounded-md bg-[#5546C8] px-5 text-[13px] font-bold text-white hover:bg-[#4536B8] disabled:cursor-not-allowed disabled:bg-[#C4CBD6]"
+          className="h-9 rounded-md bg-[#5546C8] px-5 text-[14px] font-bold text-white hover:bg-[#4536B8] disabled:cursor-not-allowed disabled:bg-[#C4CBD6]"
         >
           {saving ? '마감 중…' : '마감'}
         </button>
       )}
 
       {!closed && blockedReason && (
-        <span className="text-[11.5px] text-[#98A2B3]">{blockedReason}</span>
+        <span className="text-[12.5px] text-[#98A2B3]">{blockedReason}</span>
       )}
 
       {asking && (
@@ -138,7 +138,7 @@ export default function CloseBar({
               </h3>
 
               {asking === 'close' ? (
-                <dl className="mt-4 space-y-1.5 rounded-lg bg-[#F8F9FB] px-4 py-3 text-left text-[12.5px]">
+                <dl className="mt-4 space-y-1.5 rounded-lg bg-[#F8F9FB] px-4 py-3 text-left text-[13.5px]">
                   <Row label="거래처">{partnerName}</Row>
                   <Row label="정산 달">{yearMonth}</Row>
                   <Row label="이용기간">
@@ -150,20 +150,20 @@ export default function CloseBar({
                   </Row>
                 </dl>
               ) : (
-                <p className="mt-2 text-[12.5px] text-[#98A2B3]">
+                <p className="mt-2 text-[13.5px] text-[#98A2B3]">
                   굳어 있던 정산줄을 지우고 다시 셈합니다. 청구서를 뽑기 전에만 됩니다.
                 </p>
               )}
 
               {asking === 'close' && (
-                <p className="mt-3 text-[12px] leading-relaxed text-[#98A2B3]">
+                <p className="mt-3 text-[13px] leading-relaxed text-[#98A2B3]">
                   마감하면 이 기간의 금액이 굳습니다. 그 뒤에 단가를 고치거나 주문을 손대도
                   이 청구액은 달라지지 않습니다.
                 </p>
               )}
 
               {asking === 'close' && unpricedCount > 0 && (
-                <p className="mt-3 rounded-md border border-[#F5C6C4] bg-[#FDF2F2] px-3 py-2 text-[12px] font-semibold leading-relaxed text-[#B3312C]">
+                <p className="mt-3 rounded-md border border-[#F5C6C4] bg-[#FDF2F2] px-3 py-2 text-[13px] font-semibold leading-relaxed text-[#B3312C]">
                   단가를 안 정한 보철이 {unpricedCount}줄 있습니다. 지금 마감하면 0원으로 굳어
                   그대로 못 받습니다.
                 </p>

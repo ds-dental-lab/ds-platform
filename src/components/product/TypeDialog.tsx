@@ -82,24 +82,24 @@ export default function TypeDialog({ nextSortOrder, onClose, onSaved }: TypeDial
         </div>
 
         <div className="space-y-4 px-6 py-3">
-          <p className="rounded-md bg-[#F4F6F9] px-3.5 py-2.5 text-[12px] leading-relaxed text-[#4A5567]">
+          <p className="rounded-md bg-[#F4F6F9] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#4A5567]">
             종류를 만든 뒤 <b className="font-semibold">제품 등록</b>에서 재료를 붙이면 치과
             주문등록에 나타납니다.
           </p>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-[12px] font-semibold text-[#4A5567]">이름</span>
+              <span className="mb-1 block text-[13px] font-semibold text-[#4A5567]">이름</span>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="예) 덴쳐"
-                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#5546C8]"
+                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#5546C8]"
               />
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-[12px] font-semibold text-[#4A5567]">
+              <span className="mb-1 block text-[13px] font-semibold text-[#4A5567]">
                 약칭
                 <span className="ml-1 font-normal text-[#98A2B3]">요약에 씁니다</span>
               </span>
@@ -107,13 +107,13 @@ export default function TypeDialog({ nextSortOrder, onClose, onSaved }: TypeDial
                 value={abbr}
                 onChange={(e) => setAbbr(e.target.value)}
                 placeholder="예) Dn"
-                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#5546C8]"
+                className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#5546C8]"
               />
             </label>
           </div>
 
           <div>
-            <span className="mb-1.5 block text-[12px] font-semibold text-[#4A5567]">
+            <span className="mb-1.5 block text-[13px] font-semibold text-[#4A5567]">
               색
               <span className="ml-1 font-normal text-[#98A2B3]">치식도와 칩에 쓰입니다</span>
             </span>
@@ -140,7 +140,7 @@ export default function TypeDialog({ nextSortOrder, onClose, onSaved }: TypeDial
           </div>
 
           <div>
-            <p className="mb-2 text-[12.5px] font-bold text-[#1A2130]">이 종류의 규칙</p>
+            <p className="mb-2 text-[13.5px] font-bold text-[#1A2130]">이 종류의 규칙</p>
 
             <label className="flex cursor-pointer items-start gap-2.5 rounded-md px-1 py-1 hover:bg-[#F8F9FB]">
               <input
@@ -150,8 +150,8 @@ export default function TypeDialog({ nextSortOrder, onClose, onSaved }: TypeDial
                 className="mt-0.5 h-4 w-4"
               />
               <span>
-                <b className="text-[13px] font-semibold text-[#1A2130]">모델 선택 필수</b>
-                <span className="block text-[11.5px] text-[#98A2B3]">
+                <b className="text-[14px] font-semibold text-[#1A2130]">모델 선택 필수</b>
+                <span className="block text-[12.5px] text-[#98A2B3]">
                   임플란트처럼 제조사·타입을 반드시 고르게 합니다
                 </span>
               </span>
@@ -165,15 +165,15 @@ export default function TypeDialog({ nextSortOrder, onClose, onSaved }: TypeDial
                 className="mt-0.5 h-4 w-4"
               />
               <span>
-                <b className="text-[13px] font-semibold text-[#1A2130]">약칭에 재료 이름만</b>
-                <span className="block text-[11.5px] text-[#98A2B3]">
+                <b className="text-[14px] font-semibold text-[#1A2130]">약칭에 재료 이름만</b>
+                <span className="block text-[12.5px] text-[#98A2B3]">
                   켜면 &lsquo;Zir-Cr&rsquo; 이 아니라 &lsquo;Abut+Zir(SCRP)&rsquo; 처럼 나옵니다
                 </span>
               </span>
             </label>
           </div>
 
-          {error && <p className="text-[12.5px] text-[#D8453F]">{error}</p>}
+          {error && <p className="text-[13.5px] text-[#D8453F]">{error}</p>}
         </div>
 
         <div className="flex justify-end gap-2 border-t border-[#E8EBF0] px-6 py-4">
@@ -181,7 +181,7 @@ export default function TypeDialog({ nextSortOrder, onClose, onSaved }: TypeDial
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="h-10 rounded-md border border-[#DDE2EA] px-5 text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+            className="h-10 rounded-md border border-[#DDE2EA] px-5 text-[14px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
           >
             취소
           </button>
@@ -189,7 +189,7 @@ export default function TypeDialog({ nextSortOrder, onClose, onSaved }: TypeDial
             type="button"
             onClick={handleSubmit}
             disabled={saving || !name.trim() || !abbr.trim()}
-            className="h-10 rounded-md bg-[#5546C8] px-6 text-[13px] font-bold text-white hover:bg-[#4536B8] disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
+            className="h-10 rounded-md bg-[#5546C8] px-6 text-[14px] font-bold text-white hover:bg-[#4536B8] disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
           >
             {saving ? '저장 중…' : '등록'}
           </button>

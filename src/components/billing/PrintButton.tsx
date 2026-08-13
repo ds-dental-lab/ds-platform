@@ -12,7 +12,7 @@ export default function PrintButton() {
     <button
       type="button"
       onClick={() => window.print()}
-      className="h-9 rounded-md border border-[#DDE2EA] bg-white px-3.5 text-[12.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+      className="h-9 rounded-md border border-[#DDE2EA] bg-white px-3.5 text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
     >
       인쇄 / PDF
     </button>

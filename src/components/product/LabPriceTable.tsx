@@ -26,32 +26,32 @@ export default function LabPriceTable({ board }: { board: LabPriceBoard }) {
     <section className="rounded-lg border border-[#E8EBF0] bg-white">
       <header className="flex flex-wrap items-baseline gap-2 border-b border-[#E8EBF0] px-5 py-3.5">
         <h1 className="text-[15px] font-bold tracking-tight text-[#1A2130]">제품 단가</h1>
-        <span className="text-[12.5px] text-[#98A2B3]">{rows.length}개</span>
+        <span className="text-[13.5px] text-[#98A2B3]">{rows.length}개</span>
       </header>
 
       {/* ★ 고칠 수 없는 화면입니다. 어디로 말해야 하는지를 적어 둡니다 */}
-      <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-5 py-2.5 text-[12px] leading-relaxed text-[#98A2B3]">
+      <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-5 py-2.5 text-[13px] leading-relaxed text-[#98A2B3]">
         디자인센터에서 정한 <b className="font-semibold text-[#4A5567]">기공원가</b>입니다.
         정산에 이 값이 그대로 쓰입니다. 다른 값이 적혀 있으면 디자인센터에 알려 주세요 —
         여기서는 고칠 수 없습니다.
       </p>
 
       {unsetCount > 0 && (
-        <p className="border-b border-[#F3C6C6] bg-[#FDECEA] px-5 py-2.5 text-[12px] font-semibold text-[#B3312C]">
+        <p className="border-b border-[#F3C6C6] bg-[#FDECEA] px-5 py-2.5 text-[13px] font-semibold text-[#B3312C]">
           단가를 안 정한 칸이 {unsetCount}개 있습니다. 그 제품은 정산에서 금액이 안 잡힙니다 —
           만들기 전에 디자인센터와 맞춰 주세요.
         </p>
       )}
 
       {rows.length === 0 ? (
-        <p className="py-20 text-center text-[13px] text-[#98A2B3]">
+        <p className="py-20 text-center text-[14px] text-[#98A2B3]">
           아직 단가를 받은 제품이 없습니다.
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[620px] text-[12.5px]">
+          <table className="w-full min-w-[620px] text-[13.5px]">
             <thead>
-              <tr className="border-b border-[#E8EBF0] text-left text-[12px] text-[#98A2B3]">
+              <tr className="border-b border-[#E8EBF0] text-left text-[13px] text-[#98A2B3]">
                 <th className="px-5 py-3 font-medium">보철 종류</th>
                 <th className="px-3 py-3 font-medium">재료</th>
                 <th className="px-3 py-3 text-right font-medium">기공원가</th>
@@ -105,7 +105,7 @@ function Money({ value, usable = true }: { value: number | null; usable?: boolea
   if (!usable) return <span className="text-[#DDE2EA]">—</span>;
 
   if (value === null) {
-    return <span className="text-[11.5px] font-bold text-[#B3312C]">미정</span>;
+    return <span className="text-[12.5px] font-bold text-[#B3312C]">미정</span>;
   }
 
   return (

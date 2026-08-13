@@ -138,7 +138,7 @@ export default function OrderActions({
       )}
 
       {error && !asking && (
-        <span className="text-[12.5px] font-semibold text-[#D8453F]">{error}</span>
+        <span className="text-[13.5px] font-semibold text-[#D8453F]">{error}</span>
       )}
 
       {asking && (
@@ -153,26 +153,26 @@ export default function OrderActions({
             </h3>
 
             {warnings.length === 0 ? (
-              <p className="mt-2 text-[12.5px] text-[#98A2B3]">
+              <p className="mt-2 text-[13.5px] text-[#98A2B3]">
                 목록에서 사라집니다. 되돌리려면 관리자에게 문의해야 합니다.
               </p>
             ) : (
               <>
                 <ul className="mt-3 space-y-1.5 rounded-lg bg-[#FDF0E0] px-4 py-3 text-left">
                   {warnings.map((line) => (
-                    <li key={line} className="flex gap-1.5 text-[12.5px] leading-relaxed text-[#8A5A18]">
+                    <li key={line} className="flex gap-1.5 text-[13.5px] leading-relaxed text-[#8A5A18]">
                       <span aria-hidden="true">·</span>
                       {line}
                     </li>
                   ))}
                 </ul>
-                <p className="mt-2.5 text-[12px] font-semibold text-[#D8453F]">
+                <p className="mt-2.5 text-[13px] font-semibold text-[#D8453F]">
                   화면에서 되돌릴 수 없습니다.
                 </p>
               </>
             )}
 
-            {error && <p className="mt-3 text-[12.5px] text-[#D8453F]">{error}</p>}
+            {error && <p className="mt-3 text-[13.5px] text-[#D8453F]">{error}</p>}
 
             <div className="mt-5 flex gap-2">
               <button

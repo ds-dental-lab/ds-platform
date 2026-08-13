@@ -181,7 +181,7 @@ function ArchRow({
                     onClick={() => onSeverLink?.(gapKey!)}
                     aria-label={`${prev!.teeth[prev!.teeth.length - 1]}번과 ${chunk.teeth[0]}번 다시 연결`}
                     title="다시 연결"
-                    className="grid h-[17px] w-[17px] place-items-center rounded-full border-[1.6px] border-[#1B63E8] bg-white p-0 text-[12px] font-extrabold leading-none text-[#1B63E8] opacity-40 transition hover:scale-110 hover:opacity-100"
+                    className="grid h-[17px] w-[17px] place-items-center rounded-full border-[1.6px] border-[#1B63E8] bg-white p-0 text-[13px] font-extrabold leading-none text-[#1B63E8] opacity-40 transition hover:scale-110 hover:opacity-100"
                   >
                     +
                   </button>
@@ -272,7 +272,7 @@ function BridgeBox({
                     aria-label={`${prev}번과 ${tooth}번 연결 끊기`}
                     title="연결 끊기"
                     className={
-                      'absolute left-1/2 grid h-5 w-5 -translate-x-1/2 place-items-center rounded-full border-2 border-white bg-[#5C6779] p-0 text-[13px] font-extrabold leading-none text-white shadow transition hover:scale-110 hover:bg-[#C4383A] ' +
+                      'absolute left-1/2 grid h-5 w-5 -translate-x-1/2 place-items-center rounded-full border-2 border-white bg-[#5C6779] p-0 text-[14px] font-extrabold leading-none text-white shadow transition hover:scale-110 hover:bg-[#C4383A] ' +
                       (lower ? '-bottom-[19px]' : '-top-[19px]')
                     }
                   >
@@ -395,7 +395,7 @@ function Tooth({
       <span
         className={
           'pointer-events-none absolute tabular-nums tracking-[-0.02em] ' +
-          (isPontic ? 'text-[14px] font-extrabold tracking-normal' : 'text-[12px] font-semibold')
+          (isPontic ? 'text-[14px] font-extrabold tracking-normal' : 'text-[13px] font-semibold')
         }
         style={{
           color: color ? color.line : '#1E3A6E',

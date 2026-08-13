@@ -90,7 +90,7 @@ export default function PickupCard({ pickups, canComplete }: PickupCardProps) {
 
               <span
                 className={
-                  'rounded-full px-2.5 py-[3px] text-[11.5px] font-bold ' +
+                  'rounded-full px-2.5 py-[3px] text-[12.5px] font-bold ' +
                   (open ? 'bg-white text-[#C77700]' : 'bg-[#F0F2F5] text-[#98A2B3]')
                 }
               >
@@ -101,7 +101,7 @@ export default function PickupCard({ pickups, canComplete }: PickupCardProps) {
               {pickup.memo && (
                 <span
                   title={pickup.memo}
-                  className="min-w-0 flex-1 truncate text-[12.5px] text-[#4A5567]"
+                  className="min-w-0 flex-1 truncate text-[13.5px] text-[#4A5567]"
                 >
                   {pickup.memo}
                 </span>
@@ -113,7 +113,7 @@ export default function PickupCard({ pickups, canComplete }: PickupCardProps) {
                 <button
                   onClick={() => handleComplete(pickup.id)}
                   disabled={busy}
-                  className="shrink-0 rounded-md bg-[#C77700] px-4 py-[7px] text-[12.5px] font-bold text-white hover:bg-[#A96400] disabled:cursor-not-allowed disabled:bg-[#D5DAE2]"
+                  className="shrink-0 rounded-md bg-[#C77700] px-4 py-[7px] text-[13.5px] font-bold text-white hover:bg-[#A96400] disabled:cursor-not-allowed disabled:bg-[#D5DAE2]"
                 >
                   {savingId === pickup.id ? '처리 중…' : '수거완료'}
                 </button>
@@ -125,7 +125,7 @@ export default function PickupCard({ pickups, canComplete }: PickupCardProps) {
 
       {/* ---------- 안내 한 줄 ---------- */}
       {waiting.length > 0 && (
-        <p className="border-t border-[#00000010] px-4 py-2 text-[11.5px] leading-relaxed text-[#8A6212]">
+        <p className="border-t border-[#00000010] px-4 py-2 text-[12.5px] leading-relaxed text-[#8A6212]">
           {canComplete ? (
             <>
               택배사에 수거를 접수해 주세요 — 공휴일·일요일을 뺀 다음날 오전이 기준입니다.
@@ -143,7 +143,7 @@ export default function PickupCard({ pickups, canComplete }: PickupCardProps) {
       )}
 
       {error && (
-        <p className="border-t border-[#00000010] px-4 py-2 text-[12px] font-semibold text-[#D8453F]">
+        <p className="border-t border-[#00000010] px-4 py-2 text-[13px] font-semibold text-[#D8453F]">
           {error}
         </p>
       )}

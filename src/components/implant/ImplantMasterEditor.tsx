@@ -70,7 +70,7 @@ export default function ImplantMasterEditor({ catalog }: { catalog: ImplantCatal
   return (
     <div>
       {error && (
-        <p className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] text-red-700">
+        <p className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2.5 text-[14px] text-red-700">
           {error}
         </p>
       )}
@@ -168,15 +168,15 @@ function Column({
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4">
-      <h2 className="mb-3 text-[13px] font-bold text-gray-800">{title}</h2>
+      <h2 className="mb-3 text-[14px] font-bold text-gray-800">{title}</h2>
 
       {hint ? (
-        <p className="py-6 text-center text-[12px] text-gray-400">{hint}</p>
+        <p className="py-6 text-center text-[13px] text-gray-400">{hint}</p>
       ) : (
         <>
           <ul className="mb-3 flex flex-col gap-1.5">
             {items.length === 0 && (
-              <li className="py-3 text-center text-[12px] text-gray-400">아직 없습니다</li>
+              <li className="py-3 text-center text-[13px] text-gray-400">아직 없습니다</li>
             )}
 
             {items.map((item) => (
@@ -188,25 +188,25 @@ function Column({
                       onChange={(e) => setEditName(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleRename(item.code)}
                       autoFocus
-                      className="min-w-0 flex-1 rounded border border-blue-400 px-2 py-1.5 text-[13px] outline-none"
+                      className="min-w-0 flex-1 rounded border border-blue-400 px-2 py-1.5 text-[14px] outline-none"
                     />
                     <button
                       onClick={() => handleRename(item.code)}
                       disabled={busy}
-                      className="rounded bg-blue-600 px-2 py-1 text-[12px] font-semibold text-white"
+                      className="rounded bg-blue-600 px-2 py-1 text-[13px] font-semibold text-white"
                     >
                       저장
                     </button>
                     <button
                       onClick={() => setEditing(null)}
-                      className="rounded border border-gray-300 px-2 py-1 text-[12px] text-gray-600"
+                      className="rounded border border-gray-300 px-2 py-1 text-[13px] text-gray-600"
                     >
                       취소
                     </button>
                   </div>
                 ) : confirming === item.code ? (
                   <div className="rounded-md border border-red-200 bg-red-50 p-2">
-                    <p className="text-[12px] text-red-800">
+                    <p className="text-[13px] text-red-800">
                       목록에서 내립니다. 이미 이 값으로 등록된 주문은 그대로 남습니다.
                     </p>
                     <div className="mt-2 flex gap-1">
@@ -215,13 +215,13 @@ function Column({
                           if (await onDeactivate(item.code)) setConfirming(null);
                         }}
                         disabled={busy}
-                        className="rounded bg-red-600 px-2.5 py-1 text-[12px] font-semibold text-white"
+                        className="rounded bg-red-600 px-2.5 py-1 text-[13px] font-semibold text-white"
                       >
                         내리기
                       </button>
                       <button
                         onClick={() => setConfirming(null)}
-                        className="rounded border border-gray-300 bg-white px-2.5 py-1 text-[12px] text-gray-600"
+                        className="rounded border border-gray-300 bg-white px-2.5 py-1 text-[13px] text-gray-600"
                       >
                         취소
                       </button>
@@ -241,7 +241,7 @@ function Column({
                       disabled={!onSelect}
                       className="min-w-0 flex-1 text-left disabled:cursor-default"
                     >
-                      <span className="block truncate text-[13px] font-semibold text-gray-900">
+                      <span className="block truncate text-[14px] font-semibold text-gray-900">
                         {item.name}
                       </span>
                       <span className="block truncate font-mono text-[10px] text-gray-400">
@@ -278,12 +278,12 @@ function Column({
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
               placeholder="새 이름"
-              className="min-w-0 flex-1 rounded border border-gray-300 px-2 py-1.5 text-[13px] outline-none focus:border-blue-500"
+              className="min-w-0 flex-1 rounded border border-gray-300 px-2 py-1.5 text-[14px] outline-none focus:border-blue-500"
             />
             <button
               onClick={handleAdd}
               disabled={busy || !draft.trim()}
-              className="shrink-0 rounded bg-gray-800 px-3 py-1.5 text-[12px] font-semibold text-white disabled:bg-gray-300"
+              className="shrink-0 rounded bg-gray-800 px-3 py-1.5 text-[13px] font-semibold text-white disabled:bg-gray-300"
             >
               추가
             </button>

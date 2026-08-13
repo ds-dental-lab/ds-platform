@@ -142,7 +142,7 @@ export default function HomePlayground() {
     <div className="min-h-screen bg-[#F4F6F9] p-6">
       {CASES.map((c) => (
         <section key={c.key} className="mb-10">
-          <h1 className="mb-2 text-[13px] font-bold text-[#4A5567]">{c.label}</h1>
+          <h1 className="mb-2 text-[14px] font-bold text-[#4A5567]">{c.label}</h1>
           <HomeScreen
             sector={c.sector}
             summary={c.summary}

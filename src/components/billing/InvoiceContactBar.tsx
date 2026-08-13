@@ -88,7 +88,7 @@ export default function InvoiceContactBar({
   return (
     <div className="rounded-md border border-[#E8EBF0] bg-[#FBFCFD] px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[12px] font-semibold text-[#4A5567]">정산서 받을 곳</span>
+        <span className="text-[13px] font-semibold text-[#4A5567]">정산서 받을 곳</span>
 
         <div className="flex gap-1">
           {INVOICE_METHODS.map((m) => (
@@ -101,7 +101,7 @@ export default function InvoiceContactBar({
               }}
               aria-pressed={form.method === m}
               className={
-                'h-7 rounded px-2.5 text-[12px] font-semibold ' +
+                'h-7 rounded px-2.5 text-[13px] font-semibold ' +
                 (form.method === m
                   ? 'bg-[#E6F4EE] text-[#12855B]'
                   : 'text-[#98A2B3] hover:bg-[#F0F3F7]')
@@ -114,7 +114,7 @@ export default function InvoiceContactBar({
         </div>
 
         {missing.length > 0 && (
-          <span className="text-[11.5px] font-semibold text-[#D8453F]">
+          <span className="text-[12.5px] font-semibold text-[#D8453F]">
             {missing.includes('email') && '이메일'}
             {missing.length === 2 && '·'}
             {missing.includes('fax') && '팩스'} 가 비어 정산서가 갈 데가 없습니다
@@ -122,14 +122,14 @@ export default function InvoiceContactBar({
         )}
 
         {saved && !dirty && (
-          <span className="text-[11.5px] font-semibold text-[#12855B]">저장했습니다</span>
+          <span className="text-[12.5px] font-semibold text-[#12855B]">저장했습니다</span>
         )}
 
         <button
           type="button"
           onClick={save}
           disabled={!dirty || saving || refreshing}
-          className="ml-auto h-7 rounded bg-[#1279E8] px-3 text-[12px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#C4CBD6]"
+          className="ml-auto h-7 rounded bg-[#1279E8] px-3 text-[13px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#C4CBD6]"
         >
           {saving ? '저장 중…' : '저장'}
         </button>
@@ -144,7 +144,7 @@ export default function InvoiceContactBar({
               setForm((prev) => ({ ...prev, email: e.target.value }));
             }}
             placeholder="invoice@example.com"
-            className="h-9 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#1279E8]"
+            className="h-9 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#1279E8]"
           />
         </Field>
 
@@ -156,12 +156,12 @@ export default function InvoiceContactBar({
               setForm((prev) => ({ ...prev, fax: e.target.value }));
             }}
             placeholder="02-000-0000"
-            className="h-9 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#1279E8]"
+            className="h-9 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#1279E8]"
           />
         </Field>
       </div>
 
-      {error && <p className="mt-2 text-[12px] font-semibold text-[#D8453F]">{error}</p>}
+      {error && <p className="mt-2 text-[13px] font-semibold text-[#D8453F]">{error}</p>}
     </div>
   );
 }
@@ -178,7 +178,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 flex items-center gap-1 text-[12px] font-semibold text-[#4A5567]">
+      <span className="mb-1 flex items-center gap-1 text-[13px] font-semibold text-[#4A5567]">
         {label}
         {want && (
           <span className="font-bold text-[#12855B]" title="이 거래처가 여기로 받겠다고 한 곳입니다">

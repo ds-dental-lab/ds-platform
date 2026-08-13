@@ -95,7 +95,7 @@ export default function NoticeDialog({ notice, onClose, onSaved }: NoticeDialogP
 
         <div className="space-y-3.5 px-5 py-4">
           <label className="block">
-            <span className="text-[12.5px] font-semibold text-[#4A5567]">제목</span>
+            <span className="text-[13.5px] font-semibold text-[#4A5567]">제목</span>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -107,8 +107,8 @@ export default function NoticeDialog({ notice, onClose, onSaved }: NoticeDialogP
 
           <label className="block">
             <div className="flex items-baseline">
-              <span className="text-[12.5px] font-semibold text-[#4A5567]">내용</span>
-              <span className="ml-auto text-[11.5px] tabular-nums text-[#98A2B3]">
+              <span className="text-[13.5px] font-semibold text-[#4A5567]">내용</span>
+              <span className="ml-auto text-[12.5px] tabular-nums text-[#98A2B3]">
                 {body.length} / {MAX_BODY}
               </span>
             </div>
@@ -124,7 +124,7 @@ export default function NoticeDialog({ notice, onClose, onSaved }: NoticeDialogP
 
           {/* ★ 받는 쪽을 고릅니다. 모두에게 보내는 버릇이 들면 아무도 안 읽습니다 */}
           <div>
-            <span className="text-[12.5px] font-semibold text-[#4A5567]">받는 곳</span>
+            <span className="text-[13.5px] font-semibold text-[#4A5567]">받는 곳</span>
             <div className="mt-1.5 flex gap-1.5">
               {AUDIENCE_OPTIONS.map((option) => (
                 <button
@@ -133,7 +133,7 @@ export default function NoticeDialog({ notice, onClose, onSaved }: NoticeDialogP
                   onClick={() => setAudience(option)}
                   aria-pressed={audience === option}
                   className={
-                    'h-9 flex-1 rounded-md border text-[12.5px] font-semibold ' +
+                    'h-9 flex-1 rounded-md border text-[13.5px] font-semibold ' +
                     (audience === option
                       ? 'border-[#1279E8] bg-[#E7EEFA] text-[#1279E8]'
                       : 'border-[#DDE2EA] text-[#4A5567] hover:bg-[#F4F6F9]')
@@ -152,12 +152,12 @@ export default function NoticeDialog({ notice, onClose, onSaved }: NoticeDialogP
               onChange={(e) => setIsPinned(e.target.checked)}
               className="h-4 w-4 accent-[#1279E8]"
             />
-            <span className="text-[12.5px] text-[#4A5567]">
+            <span className="text-[13.5px] text-[#4A5567]">
               목록 맨 위에 고정합니다
             </span>
           </label>
 
-          {error && <p className="text-[12.5px] font-semibold text-[#D8453F]">{error}</p>}
+          {error && <p className="text-[13.5px] font-semibold text-[#D8453F]">{error}</p>}
         </div>
 
         <footer className="flex gap-2 border-t border-[#E8EBF0] px-5 py-3.5">
@@ -166,7 +166,7 @@ export default function NoticeDialog({ notice, onClose, onSaved }: NoticeDialogP
             type="button"
             onClick={() => save(false)}
             disabled={saving}
-            className="h-10 rounded-md border border-[#DDE2EA] px-4 text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:opacity-60"
+            className="h-10 rounded-md border border-[#DDE2EA] px-4 text-[14px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:opacity-60"
           >
             {wasPublished ? '내리기' : '임시저장'}
           </button>
@@ -175,7 +175,7 @@ export default function NoticeDialog({ notice, onClose, onSaved }: NoticeDialogP
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="ml-auto h-10 rounded-md px-4 text-[13px] font-semibold text-[#98A2B3] hover:text-[#4A5567] disabled:opacity-60"
+            className="ml-auto h-10 rounded-md px-4 text-[14px] font-semibold text-[#98A2B3] hover:text-[#4A5567] disabled:opacity-60"
           >
             취소
           </button>
@@ -184,7 +184,7 @@ export default function NoticeDialog({ notice, onClose, onSaved }: NoticeDialogP
             type="button"
             onClick={() => save(true)}
             disabled={saving}
-            className="h-10 rounded-md bg-[#1279E8] px-5 text-[13px] font-bold text-white hover:bg-[#0F68C9] disabled:opacity-60"
+            className="h-10 rounded-md bg-[#1279E8] px-5 text-[14px] font-bold text-white hover:bg-[#0F68C9] disabled:opacity-60"
           >
             {saving ? '저장 중…' : wasPublished ? '저장' : '게시'}
           </button>

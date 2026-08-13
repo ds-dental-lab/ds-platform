@@ -264,7 +264,7 @@ export default function OrderDetailScreen({
           </b>
 
           {showClinic && order.clinic_name && (
-            <span className="text-[13px] text-[#4A5567]">{order.clinic_name}</span>
+            <span className="text-[14px] text-[#4A5567]">{order.clinic_name}</span>
           )}
 
           <b className="text-[15.5px] font-extrabold tracking-[-0.03em] text-[#1A2130]">
@@ -272,10 +272,10 @@ export default function OrderDetailScreen({
           </b>
 
           <div className="ml-auto flex flex-wrap items-center gap-[9px]">
-            <span className="text-[12.5px] text-[#4A5567]">요청시한: {order.due_date}</span>
+            <span className="text-[13.5px] text-[#4A5567]">요청시한: {order.due_date}</span>
 
             <span
-              className="rounded-md border px-2.5 py-1 text-[12.5px] font-bold"
+              className="rounded-md border px-2.5 py-1 text-[13.5px] font-bold"
               style={{
                 borderColor: dday.urgent ? '#F3C6C6' : '#BFD5F5',
                 color: dday.urgent ? '#C4383A' : '#1279E8',
@@ -315,14 +315,14 @@ export default function OrderDetailScreen({
             title="제작보철"
             right={
               hasPontic ? (
-                <span className="ml-auto text-[12.5px] font-semibold text-[#4A5567]">
+                <span className="ml-auto text-[13.5px] font-semibold text-[#4A5567]">
                   <b className="mr-[3px] font-bold text-[#98A2B3]">✕</b>Pontic
                 </span>
               ) : null
             }
           >
             {lines.length === 0 ? (
-              <p className="text-[12.5px] text-[#98A2B3]">등록된 보철 정보가 없습니다.</p>
+              <p className="text-[13.5px] text-[#98A2B3]">등록된 보철 정보가 없습니다.</p>
             ) : (
               <div className="flex flex-col items-start gap-2">
                 {lines.map((line) => {
@@ -334,11 +334,11 @@ export default function OrderDetailScreen({
                       className="inline-flex max-w-full items-center gap-[34px] rounded-[20px] bg-white px-[22px] py-[9px]"
                       style={{ border: `1.5px solid ${color.line}` }}
                     >
-                      <span className="whitespace-nowrap text-[13px] font-semibold text-[#1A2130]">
+                      <span className="whitespace-nowrap text-[14px] font-semibold text-[#1A2130]">
                         {line.abbr}
                       </span>
 
-                      <span className="ml-auto whitespace-nowrap text-[13px] font-semibold tabular-nums text-[#4A5567]">
+                      <span className="ml-auto whitespace-nowrap text-[14px] font-semibold tabular-nums text-[#4A5567]">
                         {line.teethLabel}
                         {line.shadeLabel && ` (${line.shadeLabel})`}
                       </span>
@@ -370,7 +370,7 @@ export default function OrderDetailScreen({
               */
               <span
                 className={
-                  'ml-auto flex items-center gap-1.5 text-[12.5px] font-semibold ' +
+                  'ml-auto flex items-center gap-1.5 text-[13.5px] font-semibold ' +
                   (scanMissing > 0 ? 'text-[#B3312C]' : 'text-[#4A5567]')
                 }
                 title={
@@ -399,7 +399,7 @@ export default function OrderDetailScreen({
 
             <div className="flex max-h-[260px] min-h-[172px] flex-col overflow-y-auto">
               {scanFiles.length === 0 ? (
-                <p className="m-auto py-6 text-[12.5px] text-[#98A2B3]">
+                <p className="m-auto py-6 text-[13.5px] text-[#98A2B3]">
                   업로드된 스캔 파일이 없습니다.
                 </p>
               ) : (
@@ -417,7 +417,7 @@ export default function OrderDetailScreen({
           >
             <Card icon={ICON.gear} title="제작옵션">
               {order.options.length === 0 ? (
-                <p className="text-[12.5px] text-[#98A2B3]">고른 제작옵션이 없습니다.</p>
+                <p className="text-[13.5px] text-[#98A2B3]">고른 제작옵션이 없습니다.</p>
               ) : (
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   {order.options.map((option) => (
@@ -426,7 +426,7 @@ export default function OrderDetailScreen({
                       <label className="absolute -top-[7px] left-[10px] z-10 bg-[#F5F8FE] px-[5px] text-[11px] font-semibold text-[#98A2B3]">
                         {option.groupName}
                       </label>
-                      <div className="grid h-11 place-items-center rounded-md border border-[#DDE2EA] bg-white text-[13px] font-medium text-[#1A2130]">
+                      <div className="grid h-11 place-items-center rounded-md border border-[#DDE2EA] bg-white text-[14px] font-medium text-[#1A2130]">
                         {option.value}
                       </div>
                     </div>
@@ -439,12 +439,12 @@ export default function OrderDetailScreen({
               <Card icon={ICON.implant} title="임플란트 모델">
                 <div className="flex max-h-[190px] flex-col gap-2 overflow-y-auto">
                   {implantRows.length === 0 ? (
-                    <p className="px-0.5 py-1.5 text-[12.5px] text-[#98A2B3]">
+                    <p className="px-0.5 py-1.5 text-[13.5px] text-[#98A2B3]">
                       등록된 모델 정보가 없습니다.
                     </p>
                   ) : (
                     implantRows.map((row) => (
-                      <div key={row.tooth} className="flex items-center gap-2.5 text-[12.5px]">
+                      <div key={row.tooth} className="flex items-center gap-2.5 text-[13.5px]">
                         <span className="min-w-[30px] shrink-0 rounded-[5px] border border-[#DDE2EA] bg-white py-[3px] text-center font-bold tabular-nums">
                           {row.tooth}
                         </span>
@@ -461,7 +461,7 @@ export default function OrderDetailScreen({
                     정작 "모델이 없다" 를 알려야 할 주문일수록 줄이 많습니다.
                 */}
                 {missingModels > 0 && (
-                  <p className="mt-2 rounded-md border border-[#F3C6C6] bg-[#FDECEA] px-[11px] py-[9px] text-[11.5px] font-bold leading-relaxed text-[#C4383A]">
+                  <p className="mt-2 rounded-md border border-[#F3C6C6] bg-[#FDECEA] px-[11px] py-[9px] text-[12.5px] font-bold leading-relaxed text-[#C4383A]">
                     ⚠ 모델이 지정되지 않은 치아가 {missingModels}개 있습니다. 제작을 진행할 수
                     없습니다.
                   </p>
@@ -484,7 +484,7 @@ export default function OrderDetailScreen({
           >
             <div className="flex max-h-[260px] min-h-[172px] flex-col overflow-y-auto">
               {designFiles.length === 0 ? (
-                <p className="m-auto py-6 text-[12.5px] text-[#98A2B3]">
+                <p className="m-auto py-6 text-[13.5px] text-[#98A2B3]">
                   아직 디자인 파일이 없습니다.
                 </p>
               ) : (
@@ -495,8 +495,8 @@ export default function OrderDetailScreen({
 
           {/* g-e — 기타 요청사항 */}
           <div className="min-h-[104px] rounded-[9px] border border-[#E8EBF0] bg-white px-4 py-[13px] lg:col-start-1 lg:row-start-3">
-            <p className="mb-[7px] text-[13px] font-bold text-[#1A2130]">기타 요청사항</p>
-            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[#1279E8]">
+            <p className="mb-[7px] text-[14px] font-bold text-[#1A2130]">기타 요청사항</p>
+            <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#1279E8]">
               {order.notes || <span className="text-[#C4CBD6]">적힌 내용이 없습니다.</span>}
             </p>
           </div>
@@ -504,12 +504,12 @@ export default function OrderDetailScreen({
           {/* g-f · g-g — 담당자 · 기공소 (치과에는 감춥니다) */}
           {showCost && (
             <>
-              <div className="flex flex-wrap items-center gap-3.5 px-1 py-0.5 text-[12.5px] text-[#4A5567] lg:col-start-1 lg:row-start-4">
+              <div className="flex flex-wrap items-center gap-3.5 px-1 py-0.5 text-[13.5px] text-[#4A5567] lg:col-start-1 lg:row-start-4">
                 {designerSlot}
                 {costLine}
               </div>
 
-              <div className="flex items-center gap-3.5 px-1 py-0.5 text-[12.5px] text-[#4A5567] lg:col-start-2 lg:row-start-4">
+              <div className="flex items-center gap-3.5 px-1 py-0.5 text-[13.5px] text-[#4A5567] lg:col-start-2 lg:row-start-4">
                 <LabAssignSelect
                   orderId={order.id}
                   labs={labs.map((l) => ({ id: l.id, name: l.name, inHouse: Boolean(l.inHouse) }))}
@@ -553,7 +553,7 @@ export default function OrderDetailScreen({
 
           <Link
             href={home.href}
-            className="ml-auto grid h-[34px] place-items-center rounded-[7px] bg-[#1279E8] px-5 text-[13px] font-bold text-white hover:bg-[#1554C8]"
+            className="ml-auto grid h-[34px] place-items-center rounded-[7px] bg-[#1279E8] px-5 text-[14px] font-bold text-white hover:bg-[#1554C8]"
           >
             {home.label}
           </Link>

@@ -70,7 +70,7 @@ export default function AuditLogTable({ rows, summary, days, action }: AuditLogT
         {/* ---------- 머리 ---------- */}
         <div className="border-b border-[#E8EBF0] px-6 py-4">
           <h2 className="text-[15px] font-bold tracking-tight text-[#1A2130]">열람 기록</h2>
-          <p className="mt-0.5 text-[12px] leading-relaxed text-[#98A2B3]">
+          <p className="mt-0.5 text-[13px] leading-relaxed text-[#98A2B3]">
             우리 직원이 환자 정보를 언제 열어 봤는지 남습니다. 고치거나 지울 수 없습니다.
           </p>
         </div>
@@ -96,7 +96,7 @@ export default function AuditLogTable({ rows, summary, days, action }: AuditLogT
           <select
             value={action}
             onChange={(e) => go({ action: e.target.value })}
-            className="ml-auto h-9 rounded-md border border-[#DDE2EA] px-2.5 text-[12.5px] outline-none focus:border-[#1279E8]"
+            className="ml-auto h-9 rounded-md border border-[#DDE2EA] px-2.5 text-[13.5px] outline-none focus:border-[#1279E8]"
           >
             <option value="all">전체</option>
             {Object.entries(ACTION_LABEL).map(([code, label]) => (
@@ -111,7 +111,7 @@ export default function AuditLogTable({ rows, summary, days, action }: AuditLogT
         <div className="overflow-x-auto">
           <table className="w-full min-w-[620px] border-collapse">
             <thead>
-              <tr className="border-y border-[#E8EBF0] text-[12.5px] text-[#4A5567]">
+              <tr className="border-y border-[#E8EBF0] text-[13.5px] text-[#4A5567]">
                 <Th>일시</Th>
                 <Th>담당자</Th>
                 <Th>한 일</Th>
@@ -122,13 +122,13 @@ export default function AuditLogTable({ rows, summary, days, action }: AuditLogT
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-16 text-center text-[13px] text-[#98A2B3]">
+                  <td colSpan={5} className="py-16 text-center text-[14px] text-[#98A2B3]">
                     {busy ? '읽는 중…' : '이 기간에 열람 기록이 없습니다.'}
                   </td>
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.id} className="border-b border-[#F0F2F5] text-[13px]">
+                  <tr key={row.id} className="border-b border-[#F0F2F5] text-[14px]">
                     <Td>
                       <span className="tabular-nums text-[#4A5567]">{stamp(row.createdAt)}</span>
                     </Td>
@@ -141,7 +141,7 @@ export default function AuditLogTable({ rows, summary, days, action }: AuditLogT
                         {ACTION_LABEL[row.action] ?? row.action}
                       </span>
                       {row.detail && (
-                        <span className="ml-1.5 text-[11.5px] text-[#98A2B3]">{row.detail}</span>
+                        <span className="ml-1.5 text-[12.5px] text-[#98A2B3]">{row.detail}</span>
                       )}
                     </Td>
                     <Td>
@@ -163,7 +163,7 @@ export default function AuditLogTable({ rows, summary, days, action }: AuditLogT
           </table>
         </div>
 
-        <p className="border-t border-[#E8EBF0] px-6 py-3 text-[11.5px] leading-relaxed text-[#98A2B3]">
+        <p className="border-t border-[#E8EBF0] px-6 py-3 text-[12.5px] leading-relaxed text-[#98A2B3]">
           환자 이름은 이 기록에 담지 않습니다 — 무엇을 봤는지는 주문번호로만 가리킵니다.
           기록 자체가 또 하나의 명단이 되면 안 되기 때문입니다.
         </p>
@@ -179,7 +179,7 @@ export default function AuditLogTable({ rows, summary, days, action }: AuditLogT
 function Stat({ label, value, hint }: { label: string; value: number; hint?: string }) {
   return (
     <div className="bg-white px-5 py-3.5">
-      <p className="text-[11.5px] text-[#98A2B3]">
+      <p className="text-[12.5px] text-[#98A2B3]">
         {label}
         {hint && <span className="ml-1 text-[10.5px] text-[#C4CBD6]">{hint}</span>}
       </p>
@@ -204,7 +204,7 @@ function Chip({
       type="button"
       onClick={onClick}
       className={
-        'h-9 rounded-md border px-3.5 text-[12.5px] font-semibold ' +
+        'h-9 rounded-md border px-3.5 text-[13.5px] font-semibold ' +
         (on
           ? 'border-[#1279E8] bg-[#EDF3FE] text-[#1279E8]'
           : 'border-[#DDE2EA] text-[#4A5567] hover:bg-[#F4F6F9]')

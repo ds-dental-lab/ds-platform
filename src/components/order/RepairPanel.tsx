@@ -56,13 +56,13 @@ export default function RepairPanel({
             <>
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className="rounded px-2 py-[2px] text-[11.5px] font-bold"
+                  className="rounded px-2 py-[2px] text-[12.5px] font-bold"
                   style={{ background: meta.bg, color: meta.fg }}
                 >
                   {meta.label}
                 </span>
 
-                <span className="text-[12px] text-[#98A2B3]">
+                <span className="text-[13px] text-[#98A2B3]">
                   {requester ? '요청하신 내용' : '고쳐 달라고 들어온 건입니다'}
                   {repair.openedAt && ` · ${repair.openedAt.slice(0, 10)}`}
                 </span>
@@ -70,7 +70,7 @@ export default function RepairPanel({
                 {repair.parent && (
                   <Link
                     href={`${orderPath}/${repair.parent.id}`}
-                    className="ml-auto shrink-0 text-[12px] font-semibold text-[#1279E8] hover:underline"
+                    className="ml-auto shrink-0 text-[13px] font-semibold text-[#1279E8] hover:underline"
                   >
                     원주문 {repair.parent.orderNo} ›
                   </Link>
@@ -91,7 +91,7 @@ export default function RepairPanel({
           {/* ★ 갈라져 나간 리페어 목록은 일하는 쪽에만 폅니다 */}
           {!requester && repair.children.length > 0 && (
             <div className={isRepair ? 'mt-3 border-t border-[#F0F2F5] pt-2.5' : ''}>
-              <p className="text-[12px] font-bold" style={{ color: meta.fg }}>
+              <p className="text-[13px] font-bold" style={{ color: meta.fg }}>
                 이 주문에서 나간 리페어 {repair.children.length}건
               </p>
 
@@ -100,7 +100,7 @@ export default function RepairPanel({
                   <li key={child.id}>
                     <Link
                       href={`${orderPath}/${child.id}`}
-                      className="flex flex-wrap items-baseline gap-2 rounded py-1 text-[12.5px] hover:bg-[#F8F9FB]"
+                      className="flex flex-wrap items-baseline gap-2 rounded py-1 text-[13.5px] hover:bg-[#F8F9FB]"
                     >
                       <span className="tabular-nums font-semibold text-[#4A5567]">
                         {child.createdAt.slice(0, 10)}
@@ -124,9 +124,9 @@ export default function RepairPanel({
               무엇인지는 이미 압니다.
           */}
           {requester && !isRepair && repair.children.length > 0 && (
-            <p className="text-[12.5px] text-[#4A5567]">
+            <p className="text-[13.5px] text-[#4A5567]">
               <span
-                className="mr-2 rounded px-2 py-[2px] text-[11.5px] font-bold"
+                className="mr-2 rounded px-2 py-[2px] text-[12.5px] font-bold"
                 style={{ background: meta.bg, color: meta.fg }}
               >
                 {meta.label}

@@ -107,7 +107,7 @@ export default function DesignerAssignSelect({
           value={value}
           disabled={saving || refreshing}
           onChange={(e) => change(e.target.value)}
-          className="h-8 rounded-md border border-[#DDE2EA] bg-white px-2 text-[12.5px] font-semibold text-[#1A2130] outline-none focus:border-[#5546C8] disabled:text-[#98A2B3]"
+          className="h-8 rounded-md border border-[#DDE2EA] bg-white px-2 text-[13.5px] font-semibold text-[#1A2130] outline-none focus:border-[#5546C8] disabled:text-[#98A2B3]"
         >
           <option value="">미지정</option>
           {seats.map((seat) => (
@@ -118,8 +118,8 @@ export default function DesignerAssignSelect({
         </select>
       </label>
 
-      {isMine && !saving && <span className="text-[11.5px] text-[#5546C8]">내가 맡은 주문</span>}
-      {error && <span className="text-[11.5px] text-[#D8453F]">{error}</span>}
+      {isMine && !saving && <span className="text-[12.5px] text-[#5546C8]">내가 맡은 주문</span>}
+      {error && <span className="text-[12.5px] text-[#D8453F]">{error}</span>}
     </span>
   );
 }

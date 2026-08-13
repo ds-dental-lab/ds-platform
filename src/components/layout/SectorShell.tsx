@@ -270,7 +270,7 @@ export default function SectorShell({
             </svg>
           </Link>
 
-          <div className="flex items-center gap-3 px-1.5 text-[13px] font-semibold text-[#4A5567]">
+          <div className="flex items-center gap-3 px-1.5 text-[14px] font-semibold text-[#4A5567]">
             <span>{orgName}</span>
             <span className="text-[#DDE2EA]">|</span>
             <span>{userName}</span>
@@ -285,7 +285,7 @@ export default function SectorShell({
 
           <button
             onClick={handleLogout}
-            className="ml-1 rounded border border-[#DDE2EA] px-3 py-1 text-[12px] text-[#4A5567] hover:bg-[#F4F6F9]"
+            className="ml-1 rounded border border-[#DDE2EA] px-3 py-1 text-[13px] text-[#4A5567] hover:bg-[#F4F6F9]"
           >
             로그아웃
           </button>

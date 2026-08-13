@@ -162,7 +162,7 @@ export default function ImplantPicker({
             onChange={(e) => update({ ...selection, option: e.target.value })}
             className="w-full rounded border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
-          <p className="mt-2 text-[12px] text-gray-400">
+          <p className="mt-2 text-[13px] text-gray-400">
             목록 없이 매번 직접 적습니다.
           </p>
         </Column>
@@ -174,7 +174,7 @@ export default function ImplantPicker({
           {formatSelection(catalog, selection) || '선택 없음'}
         </span>
         <span
-          className={`text-[13px] ${complete ? 'font-semibold text-green-700' : 'text-gray-400'}`}
+          className={`text-[14px] ${complete ? 'font-semibold text-green-700' : 'text-gray-400'}`}
         >
           {complete ? '선택 완료' : `${missing} 를 골라 주세요`}
         </span>
@@ -234,10 +234,10 @@ function FavoriteBar({
   return (
     <div className="border-b border-gray-200 px-5 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[12px] font-bold text-gray-500">자주 쓰는 조합</span>
+        <span className="text-[13px] font-bold text-gray-500">자주 쓰는 조합</span>
 
         {favorites.length === 0 && (
-          <span className="text-[12px] text-gray-400">
+          <span className="text-[13px] text-gray-400">
             아직 없습니다. 아래에서 고른 뒤 담아 두면 다음부터 한 번에 선택됩니다.
           </span>
         )}
@@ -246,7 +246,7 @@ function FavoriteBar({
           <span
             key={favorite.id}
             className={
-              'inline-flex items-center gap-1 rounded-full border py-1 pl-3 text-[12px] ' +
+              'inline-flex items-center gap-1 rounded-full border py-1 pl-3 text-[13px] ' +
               (favorite.pushed
                 ? 'border-purple-300 bg-purple-50 pr-3'
                 : 'border-gray-300 bg-white pr-1')
@@ -290,14 +290,14 @@ function FavoriteBar({
               )
             }
             disabled={busy}
-            className="rounded-full border border-blue-500 px-3 py-1 text-[12px] font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+            className="rounded-full border border-blue-500 px-3 py-1 text-[13px] font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-50"
           >
             + 지금 조합 담기
           </button>
         )}
       </div>
 
-      {error && <p className="mt-2 text-[12px] text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-[13px] text-red-600">{error}</p>}
     </div>
   );
 }
@@ -315,9 +315,9 @@ function Column({
 }) {
   return (
     <div className="min-w-0 p-4">
-      <h3 className="mb-3 text-center text-[13px] font-bold text-gray-800">{title}</h3>
+      <h3 className="mb-3 text-center text-[14px] font-bold text-gray-800">{title}</h3>
       <div className="flex flex-col gap-2">
-        {hint ? <p className="py-3 text-center text-[12px] text-gray-400">{hint}</p> : children}
+        {hint ? <p className="py-3 text-center text-[13px] text-gray-400">{hint}</p> : children}
       </div>
     </div>
   );
@@ -345,7 +345,7 @@ function Card({
           : 'border-gray-200 bg-white hover:border-gray-400'
       }`}
     >
-      <div className="text-[13px]">
+      <div className="text-[14px]">
         <span className="text-gray-400">이름 : </span>
         <span className="font-semibold text-gray-900">{name}</span>
       </div>

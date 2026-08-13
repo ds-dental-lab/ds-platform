@@ -64,14 +64,14 @@ export default async function LabInvoicePage({
       <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
         <Link
           href={`/lab/billing?ym=${yearMonth}`}
-          className="h-9 rounded-md border border-[#DDE2EA] bg-white px-3.5 text-[12.5px] font-semibold leading-9 text-[#4A5567] hover:bg-[#F4F6F9]"
+          className="h-9 rounded-md border border-[#DDE2EA] bg-white px-3.5 text-[13.5px] font-semibold leading-9 text-[#4A5567] hover:bg-[#F4F6F9]"
         >
           ← 정산으로
         </Link>
 
         <PrintButton />
 
-        <span className="text-[12px] text-[#98A2B3]">
+        <span className="text-[13px] text-[#98A2B3]">
           발행은 디자인센터가 표시합니다. 이 종이는 언제든 뽑을 수 있습니다.
         </span>
       </div>

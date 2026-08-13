@@ -233,7 +233,7 @@ function IconButton({
       </span>
 
       <span
-        className={'whitespace-nowrap text-[12px] font-semibold ' + (faded ? 'opacity-45' : '')}
+        className={'whitespace-nowrap text-[13px] font-semibold ' + (faded ? 'opacity-45' : '')}
         style={{ color: active ? color : '#4A5567' }}
       >
         {label}

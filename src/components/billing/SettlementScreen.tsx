@@ -79,7 +79,7 @@ export default function SettlementScreen({
             <select
               value={type}
               onChange={(e) => go({ type: e.target.value })}
-              className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#5546C8]"
+              className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#5546C8]"
             >
               <option value="clinic">치과</option>
               <option value="lab">기공소</option>
@@ -90,7 +90,7 @@ export default function SettlementScreen({
             <select
               value={partner?.id ?? ''}
               onChange={(e) => go({ party: e.target.value })}
-              className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[13px] outline-none focus:border-[#5546C8]"
+              className="h-10 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#5546C8]"
             >
               <option value="">선택해 주세요</option>
               {shown.map((p) => (
@@ -105,7 +105,7 @@ export default function SettlementScreen({
       </section>
 
       {!partner ? (
-        <p className="rounded-lg border border-[#E8EBF0] bg-white px-5 py-16 text-center text-[13px] text-[#98A2B3]">
+        <p className="rounded-lg border border-[#E8EBF0] bg-white px-5 py-16 text-center text-[14px] text-[#98A2B3]">
           거래처를 고르면 그 기간의 정산이 나옵니다.
         </p>
       ) : (
@@ -142,7 +142,7 @@ export default function SettlementScreen({
               <Field label="청구서 상태">
                 <span
                   className={
-                    'inline-flex h-10 items-center rounded-md px-3 text-[13px] font-semibold ' +
+                    'inline-flex h-10 items-center rounded-md px-3 text-[14px] font-semibold ' +
                     (paid
                       ? 'bg-[#E6F4EE] text-[#12855B]'
                       : closed
@@ -157,7 +157,7 @@ export default function SettlementScreen({
 
             {/* ★ 기준일이 기간을 정합니다. 화면에서 다시 고르지 않습니다 */}
             <div className="flex flex-wrap items-center gap-3 border-t border-[#F0F2F5] pt-4">
-              <span className="text-[12px] font-semibold text-[#4A5567]">이용기간</span>
+              <span className="text-[13px] font-semibold text-[#4A5567]">이용기간</span>
 
               <span className="flex items-center gap-1">
                 <Arrow label="이전 달" onClick={() => go({ ym: shiftMonth(yearMonth, -1) })}>
@@ -171,11 +171,11 @@ export default function SettlementScreen({
                 </Arrow>
               </span>
 
-              <span className="rounded-md bg-[#F4F6F9] px-3 py-1.5 text-[13px] tabular-nums text-[#4A5567]">
+              <span className="rounded-md bg-[#F4F6F9] px-3 py-1.5 text-[14px] tabular-nums text-[#4A5567]">
                 {settlement?.from} ~ {settlement?.to}
               </span>
 
-              <span className="text-[12px] text-[#98A2B3]">
+              <span className="text-[13px] text-[#98A2B3]">
                 {partner.closingDay}일 기준 · 배송일로 가릅니다
               </span>
 
@@ -197,7 +197,7 @@ export default function SettlementScreen({
                 {closed && (
                   <Link
                     href={`/design/billing/${partner.id}/${yearMonth}`}
-                    className="h-9 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold leading-9 text-[#4A5567] hover:border-[#5546C8] hover:text-[#5546C8]"
+                    className="h-9 rounded-md border border-[#DDE2EA] px-3.5 text-[13.5px] font-semibold leading-9 text-[#4A5567] hover:border-[#5546C8] hover:text-[#5546C8]"
                   >
                     청구서 보기
                   </Link>
@@ -208,7 +208,7 @@ export default function SettlementScreen({
 
           {/* ---------- 굳은 기간 안내 ---------- */}
           {closed && (
-            <p className="rounded-lg border border-[#CDE6DA] bg-[#F2FAF6] px-5 py-3 text-[13px] text-[#0F6B4A]">
+            <p className="rounded-lg border border-[#CDE6DA] bg-[#F2FAF6] px-5 py-3 text-[14px] text-[#0F6B4A]">
               마감된 기간입니다. 아래 금액은 마감할 때 굳은 값이라, 그 뒤에 단가를 고치거나
               주문을 손대도 달라지지 않습니다.
             </p>
@@ -216,7 +216,7 @@ export default function SettlementScreen({
 
           {/* ---------- 단가 미정 경고 ---------- */}
           {!closed && settlement && settlement.unpricedCount > 0 && (
-            <p className="rounded-lg border border-[#F5C6C4] bg-[#FDF2F2] px-5 py-3 text-[13px] text-[#B3312C]">
+            <p className="rounded-lg border border-[#F5C6C4] bg-[#FDF2F2] px-5 py-3 text-[14px] text-[#B3312C]">
               단가를 안 정한 보철이 <b className="font-bold">{settlement.unpricedCount}줄</b>{' '}
               있습니다. 지금은 0원으로 잡혀 있어 그대로 마감하면 못 받습니다 — 사용자탭에서 이
               거래처 단가를 채워 주세요.
@@ -231,7 +231,7 @@ export default function SettlementScreen({
               </TabButton>
               <TabButton on={tab === 'items'} onClick={() => setTab('items')}>
                 보철 세부내역
-                <span className="ml-1.5 text-[11.5px] text-[#98A2B3]">
+                <span className="ml-1.5 text-[12.5px] text-[#98A2B3]">
                   {settlement?.items.length ?? 0}
                 </span>
               </TabButton>
@@ -250,7 +250,7 @@ export default function SettlementScreen({
 
             {/* ---------- 합계 ---------- */}
             <div className="flex justify-end border-t border-[#E8EBF0] px-5 py-4">
-              <dl className="w-[280px] space-y-1.5 text-[13px]">
+              <dl className="w-[280px] space-y-1.5 text-[14px]">
                 <Row label={type === 'clinic' ? '보철 금액' : '기공 원가'}>
                   {won(settlement?.subtotal ?? 0)}
                 </Row>
@@ -277,7 +277,7 @@ function ProductTable({ settlement }: { settlement: Settlement | null }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] border-collapse">
         <thead>
-          <tr className="border-b border-[#E8EBF0] text-[12.5px] text-[#4A5567]">
+          <tr className="border-b border-[#E8EBF0] text-[13.5px] text-[#4A5567]">
             <Th className="w-[60px] text-center">#</Th>
             <Th>제품</Th>
             <Th className="text-right">수량</Th>
@@ -289,7 +289,7 @@ function ProductTable({ settlement }: { settlement: Settlement | null }) {
             <Empty colSpan={4} />
           ) : (
             rows.map((row, i) => (
-              <tr key={row.key} className="border-b border-[#F0F2F5] text-[13px]">
+              <tr key={row.key} className="border-b border-[#F0F2F5] text-[14px]">
                 <Td className="text-center text-[#98A2B3]">{i + 1}</Td>
                 <Td>
                   <b className="font-semibold text-[#1A2130]">{row.label}</b>
@@ -323,7 +323,7 @@ function ItemTable({
     <div className="overflow-x-auto">
       <table className="w-full min-w-[900px] border-collapse">
         <thead>
-          <tr className="border-b border-[#E8EBF0] text-[12.5px] text-[#4A5567]">
+          <tr className="border-b border-[#E8EBF0] text-[13.5px] text-[#4A5567]">
             <Th>접수일</Th>
             <Th>배송일</Th>
             <Th>환자명</Th>
@@ -341,7 +341,7 @@ function ItemTable({
               <tr
                 key={row.itemId}
                 className={
-                  'border-b border-[#F0F2F5] text-[13px] ' + (row.billable ? '' : 'bg-[#FFFBF4]')
+                  'border-b border-[#F0F2F5] text-[14px] ' + (row.billable ? '' : 'bg-[#FFFBF4]')
                 }
               >
                 <Td className="tabular-nums">{day(row.receivedAt)}</Td>
@@ -350,7 +350,7 @@ function ItemTable({
                   {row.patientLabel}
                   {/* 리메이크 표기는 (다)안 — 리메이크는 'N차' */}
                   {row.isRemake && (
-                    <span className="ml-1.5 text-[11.5px] font-semibold text-[#C2721B]">
+                    <span className="ml-1.5 text-[12.5px] font-semibold text-[#C2721B]">
                       {row.remakeSeq}차
                     </span>
                   )}
@@ -419,7 +419,7 @@ function Unpriced() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[12px] font-semibold text-[#4A5567]">{label}</span>
+      <span className="mb-1 block text-[13px] font-semibold text-[#4A5567]">{label}</span>
       {children}
     </label>
   );
@@ -427,7 +427,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function ReadOnly({ value }: { value: string | null }) {
   return (
-    <span className="flex h-10 items-center rounded-md bg-[#F8F9FB] px-2.5 text-[13px] text-[#4A5567]">
+    <span className="flex h-10 items-center rounded-md bg-[#F8F9FB] px-2.5 text-[14px] text-[#4A5567]">
       {value || <span className="text-[#C4CBD6]">-</span>}
     </span>
   );
@@ -494,7 +494,7 @@ function Td({ children, className = '' }: { children: React.ReactNode; className
 function Empty({ colSpan }: { colSpan: number }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="py-16 text-center text-[13px] text-[#98A2B3]">
+      <td colSpan={colSpan} className="py-16 text-center text-[14px] text-[#98A2B3]">
         이 기간에 배송된 건이 없습니다.
       </td>
     </tr>

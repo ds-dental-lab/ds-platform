@@ -86,7 +86,7 @@ export default function HolidayTable({ year, rows, years }: HolidayTableProps) {
           value={year}
           onChange={(e) => router.push(`/design/holidays?year=${e.target.value}`)}
           aria-label="연도"
-          className="h-8 rounded-md border border-[#DDE2EA] px-2 text-[12.5px] outline-none focus:border-[#1279E8]"
+          className="h-8 rounded-md border border-[#DDE2EA] px-2 text-[13.5px] outline-none focus:border-[#1279E8]"
         >
           {years.map((y) => (
             <option key={y} value={y}>
@@ -95,14 +95,14 @@ export default function HolidayTable({ year, rows, years }: HolidayTableProps) {
           ))}
         </select>
 
-        <span className="text-[12.5px] text-[#98A2B3]">{rows.length}일</span>
+        <span className="text-[13.5px] text-[#98A2B3]">{rows.length}일</span>
 
         <div className="ml-auto flex gap-2">
           <button
             type="button"
             onClick={fill}
             disabled={working || busy}
-            className="h-8 rounded-md border border-[#DDE2EA] px-3 text-[12.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:opacity-60"
+            className="h-8 rounded-md border border-[#DDE2EA] px-3 text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:opacity-60"
           >
             {working ? '채우는 중…' : `${year}년 빨간날 채우기`}
           </button>
@@ -111,7 +111,7 @@ export default function HolidayTable({ year, rows, years }: HolidayTableProps) {
             type="button"
             onClick={() => setEditing('new')}
             disabled={busy}
-            className="h-8 rounded-md bg-[#1279E8] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#0F68C9] disabled:opacity-60"
+            className="h-8 rounded-md bg-[#1279E8] px-3.5 text-[13.5px] font-bold text-white hover:bg-[#0F68C9] disabled:opacity-60"
           >
             휴일 추가
           </button>
@@ -120,25 +120,25 @@ export default function HolidayTable({ year, rows, years }: HolidayTableProps) {
 
       {/* ★ 음력을 모르는 해는 그렇다고 말합니다. 없는 날짜를 지어내는 것보다 낫습니다 */}
       {!lunar && (
-        <p className="border-b border-[#F3E3C6] bg-[#FEF8EC] px-5 py-2.5 text-[12px] text-[#8A6320]">
+        <p className="border-b border-[#F3E3C6] bg-[#FEF8EC] px-5 py-2.5 text-[13px] text-[#8A6320]">
           {year}년은 <b className="font-bold">설날·추석·부처님오신날을 자동으로 못 채웁니다</b> —
           음력이라 표가 필요합니다 (지금은 {LUNAR_YEARS[0]}~{LUNAR_YEARS[LUNAR_YEARS.length - 1]}
           년까지). 양력 공휴일은 채워집니다. 명절은 직접 넣어 주세요.
         </p>
       )}
 
-      <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-5 py-2.5 text-[12px] text-[#98A2B3]">
+      <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-5 py-2.5 text-[13px] text-[#98A2B3]">
         여기 있는 날은 요청시한에서 빠집니다. 자동으로 채운 날도 고치고 지울 수 있습니다 —
         대체공휴일 규칙은 법이 바뀌니 한 번 훑어봐 주세요.
       </p>
 
       {message && (
-        <p className="px-5 pt-3 text-[12.5px] font-semibold text-[#1279E8]">{message}</p>
+        <p className="px-5 pt-3 text-[13.5px] font-semibold text-[#1279E8]">{message}</p>
       )}
-      {error && <p className="px-5 pt-3 text-[12.5px] font-semibold text-[#D8453F]">{error}</p>}
+      {error && <p className="px-5 pt-3 text-[13.5px] font-semibold text-[#D8453F]">{error}</p>}
 
       {rows.length === 0 ? (
-        <p className="py-24 text-center text-[13px] text-[#98A2B3]">
+        <p className="py-24 text-center text-[14px] text-[#98A2B3]">
           {year}년에 들어 있는 휴일이 없습니다. 오른쪽 위에서 채워 보세요.
         </p>
       ) : (
@@ -151,14 +151,14 @@ export default function HolidayTable({ year, rows, years }: HolidayTableProps) {
               <li key={row.id} className="flex items-center gap-3 px-5 py-2.5">
                 <span
                   className={
-                    'w-[110px] shrink-0 text-[13px] tabular-nums ' +
+                    'w-[110px] shrink-0 text-[14px] tabular-nums ' +
                     (sunday ? 'text-[#D8453F]' : 'text-[#4A5567]')
                   }
                 >
                   {row.date.slice(5)} ({weekday})
                 </span>
 
-                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#1A2130]">
+                <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-[#1A2130]">
                   {row.name}
                 </span>
 
@@ -172,7 +172,7 @@ export default function HolidayTable({ year, rows, years }: HolidayTableProps) {
                   type="button"
                   onClick={() => setEditing(row)}
                   disabled={busy}
-                  className="shrink-0 rounded px-2 py-1 text-[12px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:opacity-60"
+                  className="shrink-0 rounded px-2 py-1 text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9] disabled:opacity-60"
                 >
                   고치기
                 </button>
@@ -181,7 +181,7 @@ export default function HolidayTable({ year, rows, years }: HolidayTableProps) {
                   onClick={() => remove(row)}
                   disabled={busy}
                   aria-label={`${row.name} 지우기`}
-                  className="shrink-0 rounded px-2 py-1 text-[12px] font-semibold text-[#C4CBD6] hover:bg-[#FDECEA] hover:text-[#D8453F] disabled:opacity-60"
+                  className="shrink-0 rounded px-2 py-1 text-[13px] font-semibold text-[#C4CBD6] hover:bg-[#FDECEA] hover:text-[#D8453F] disabled:opacity-60"
                 >
                   지우기
                 </button>
@@ -251,7 +251,7 @@ function HolidayDialog({
 
         <div className="space-y-3.5 px-5 py-4">
           <label className="block">
-            <span className="text-[12.5px] font-semibold text-[#4A5567]">날짜</span>
+            <span className="text-[13.5px] font-semibold text-[#4A5567]">날짜</span>
             <input
               type="date"
               value={date}
@@ -261,7 +261,7 @@ function HolidayDialog({
           </label>
 
           <label className="block">
-            <span className="text-[12.5px] font-semibold text-[#4A5567]">무슨 날인가요</span>
+            <span className="text-[13.5px] font-semibold text-[#4A5567]">무슨 날인가요</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -271,7 +271,7 @@ function HolidayDialog({
             />
           </label>
 
-          {error && <p className="text-[12.5px] font-semibold text-[#D8453F]">{error}</p>}
+          {error && <p className="text-[13.5px] font-semibold text-[#D8453F]">{error}</p>}
         </div>
 
         <footer className="flex gap-2 border-t border-[#E8EBF0] px-5 py-3.5">
@@ -279,7 +279,7 @@ function HolidayDialog({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="ml-auto h-10 rounded-md px-4 text-[13px] font-semibold text-[#98A2B3] hover:text-[#4A5567] disabled:opacity-60"
+            className="ml-auto h-10 rounded-md px-4 text-[14px] font-semibold text-[#98A2B3] hover:text-[#4A5567] disabled:opacity-60"
           >
             취소
           </button>
@@ -287,7 +287,7 @@ function HolidayDialog({
             type="button"
             onClick={save}
             disabled={saving}
-            className="h-10 rounded-md bg-[#1279E8] px-5 text-[13px] font-bold text-white hover:bg-[#0F68C9] disabled:opacity-60"
+            className="h-10 rounded-md bg-[#1279E8] px-5 text-[14px] font-bold text-white hover:bg-[#0F68C9] disabled:opacity-60"
           >
             {saving ? '저장 중…' : '저장'}
           </button>

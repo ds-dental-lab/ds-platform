@@ -18,8 +18,18 @@ export interface OrderSearchBarProps {
   basePath: string;
   params: Record<string, string>;
   range: RangePreset;
+  /** 손으로 넣은 날짜. 프리셋으로 보고 있으면 빈 문자열입니다 */
   from: string;
   to: string;
+  /**
+   * 칸에 **보여 줄** 날짜 — 프리셋으로 보고 있을 때도 채웁니다.
+   *
+   * ★ from/to 와 나눠 받습니다. 이 둘을 합치면 '프리셋으로 보는 중' 과
+   *   '손으로 넣은 중' 을 구별할 수 없어, 아래 프리셋 단추가 늘 꺼진
+   *   것처럼 보입니다.
+   */
+  shownFrom: string;
+  shownTo: string;
   clinic: string;
   patient: string;
   /** 치과 계정은 자기 치과뿐이라 치과명 칸이 필요 없습니다 */
@@ -28,7 +38,7 @@ export interface OrderSearchBarProps {
 }
 
 const CTL =
-  'h-9 rounded border border-[#DDE2EA] px-3 text-[13px] outline-none focus:border-blue-500';
+  'h-9 rounded border border-[#DDE2EA] px-3 text-[14px] outline-none focus:border-blue-500';
 
 export default function OrderSearchBar({
   basePath,
@@ -36,6 +46,8 @@ export default function OrderSearchBar({
   range,
   from,
   to,
+  shownFrom,
+  shownTo,
   clinic,
   patient,
   showClinicSearch,
@@ -62,11 +74,21 @@ export default function OrderSearchBar({
         {params.sort && <input type="hidden" name="sort" value={params.sort} />}
         {params.dir && <input type="hidden" name="dir" value={params.dir} />}
 
-        <span className="text-[13px] font-bold text-[#4A5567]">기간</span>
+        <span className="text-[14px] font-bold text-[#4A5567]">기간</span>
 
-        <input type="date" name="from" defaultValue={from} className={`${CTL} w-[172px]`} />
+        {/*
+          ★ 프리셋으로 보고 있을 때도 **실제 날짜를 채워 둡니다**
+            (사용자 지적 2026-08-13 — "기간에 숫자가 전부 비워져 있다").
+            전에는 손으로 넣은 날짜가 있을 때만 채워서, '1년' 으로 보는
+            평소에는 두 칸이 늘 비어 있었습니다. 지금 어느 구간을 보고
+            있는지 화면 어디에도 안 적혀 있었던 셈입니다.
+
+          ★ '전체' 는 시작 칸이 빕니다. 시작이 없는 것이 사실입니다.
+            없는 날짜를 지어내면 그 날짜 이전 주문이 없는 것처럼 보입니다.
+        */}
+        <input type="date" name="from" defaultValue={shownFrom} className={`${CTL} w-[172px]`} />
         <span className="text-[#98A2B3]">~</span>
-        <input type="date" name="to" defaultValue={to} className={`${CTL} w-[172px]`} />
+        <input type="date" name="to" defaultValue={shownTo} className={`${CTL} w-[172px]`} />
 
         <div className="ml-1 flex items-center gap-1">
           {RANGE_PRESETS.map((preset) => {
@@ -77,7 +99,7 @@ export default function OrderSearchBar({
                 key={preset}
                 href={rangeHref(preset)}
                 className={
-                  'rounded px-3 py-1.5 text-[13px] transition-colors ' +
+                  'rounded px-3 py-1.5 text-[14px] transition-colors ' +
                   (on
                     ? 'bg-[#EDF3FE] font-semibold text-[#1279E8]'
                     : 'text-[#4A5567] hover:bg-[#F4F6F9]')
@@ -93,20 +115,20 @@ export default function OrderSearchBar({
         <div className="ml-auto flex flex-wrap items-center gap-2.5">
           {showClinicSearch && (
             <>
-              <span className="text-[13px] font-bold text-[#4A5567]">치과명</span>
+              <span className="text-[14px] font-bold text-[#4A5567]">치과명</span>
               <input name="clinic" defaultValue={clinic} className={`${CTL} w-[180px]`} />
             </>
           )}
 
-          <span className="text-[13px] font-bold text-[#4A5567]">환자명</span>
+          <span className="text-[14px] font-bold text-[#4A5567]">환자명</span>
           <input name="patient" defaultValue={patient} className={`${CTL} w-[180px]`} />
 
-          <button className="h-9 rounded bg-[#1279E8] px-5 text-[13px] font-semibold text-white hover:bg-[#0F68C9]">
+          <button className="h-9 rounded bg-[#1279E8] px-5 text-[14px] font-semibold text-white hover:bg-[#0F68C9]">
             검색
           </button>
 
           {(from || to || clinic || patient) && (
-            <Link href={basePath} className="text-[12px] text-[#98A2B3] hover:text-[#4A5567]">
+            <Link href={basePath} className="text-[13px] text-[#98A2B3] hover:text-[#4A5567]">
               지우기
             </Link>
           )}

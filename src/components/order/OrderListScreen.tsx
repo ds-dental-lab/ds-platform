@@ -77,6 +77,8 @@ export default async function OrderListScreen({
           range={q.range}
           from={q.rawFrom}
           to={q.rawTo}
+          shownFrom={q.from ?? ''}
+          shownTo={q.to ?? today}
           clinic={q.clinic}
           patient={q.patient}
           showClinicSearch={showClinicSearch}
@@ -96,7 +98,7 @@ export default async function OrderListScreen({
       </div>
 
       {result.truncated && (
-        <p className="mt-4 rounded border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-800">
+        <p className="mt-4 rounded border border-amber-200 bg-amber-50 px-4 py-2.5 text-[14px] text-amber-800">
           주문이 많아 최근 것부터 일부만 불러왔습니다. 기간을 좁혀 주세요.
         </p>
       )}

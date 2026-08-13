@@ -64,14 +64,14 @@ export default function MoneyTrend({
       <div className="flex items-baseline gap-2">
         <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">{title}</h2>
         {!nothing && (
-          <span className="ml-auto shrink-0 text-[11.5px] text-[#98A2B3]">
+          <span className="ml-auto shrink-0 text-[12.5px] text-[#98A2B3]">
             가장 많은 달 {compactWon(max)}
           </span>
         )}
       </div>
 
       {nothing ? (
-        <p className="grid flex-1 place-items-center py-10 text-center text-[13px] text-[#98A2B3]">
+        <p className="grid flex-1 place-items-center py-10 text-center text-[14px] text-[#98A2B3]">
           {empty}
         </p>
       ) : (
@@ -93,7 +93,7 @@ export default function MoneyTrend({
                 >
                   <span
                     className={
-                      'text-[11.5px] tabular-nums ' +
+                      'text-[12.5px] tabular-nums ' +
                       (last ? 'font-bold text-[#1279E8]' : 'text-[#98A2B3]')
                     }
                   >
@@ -114,7 +114,7 @@ export default function MoneyTrend({
 
                   <span
                     className={
-                      'text-right text-[11.5px] tabular-nums ' +
+                      'text-right text-[12.5px] tabular-nums ' +
                       (last ? 'font-bold text-[#1279E8]' : 'font-semibold text-[#4A5567]')
                     }
                   >

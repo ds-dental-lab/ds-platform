@@ -19,7 +19,7 @@ const STATUS_STYLE: Record<OrderStatus, string> = {
 
 export default function OrderStatusBadge({ status }: { status: OrderStatus }) {
   return (
-    <span className={'rounded px-2 py-0.5 text-[12px] font-semibold ' + STATUS_STYLE[status]}>
+    <span className={'rounded px-2 py-0.5 text-[13px] font-semibold ' + STATUS_STYLE[status]}>
       {STATUS_LABEL[status]}
     </span>
   );

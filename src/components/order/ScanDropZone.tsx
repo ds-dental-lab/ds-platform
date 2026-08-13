@@ -89,10 +89,10 @@ export default function ScanDropZone({ files, onChange, disabled }: ScanDropZone
           <path d="M23 33V22M18.5 26.5 23 22l4.5 4.5" />
         </svg>
 
-        <p className="mt-3 text-[13px] text-[#4A5567]">
+        <p className="mt-3 text-[14px] text-[#4A5567]">
           파일을 끌어 넣거나 여기를 클릭해주세요
         </p>
-        <p className="mt-2 text-[11.5px] text-[#98A2B3]">지원 되는 파일형식</p>
+        <p className="mt-2 text-[12.5px] text-[#98A2B3]">지원 되는 파일형식</p>
 
         <div className="mt-2 flex flex-wrap justify-center gap-1.5">
           {EXTS.map((ext) => (
@@ -116,17 +116,17 @@ export default function ScanDropZone({ files, onChange, disabled }: ScanDropZone
         />
       </label>
 
-      {error && <p className="mt-2 text-[12px] text-[#D8453F]">{error}</p>}
+      {error && <p className="mt-2 text-[13px] text-[#D8453F]">{error}</p>}
 
       {files.length > 0 && (
         <ul className="mt-3 space-y-1.5">
           {files.map((file, i) => (
             <li
               key={`${file.name}-${i}`}
-              className="flex items-center gap-3 rounded border border-[#E8EBF0] bg-white px-3 py-2 text-[13px]"
+              className="flex items-center gap-3 rounded border border-[#E8EBF0] bg-white px-3 py-2 text-[14px]"
             >
               <span className="min-w-0 flex-1 truncate text-[#1A2130]">{file.name}</span>
-              <span className="shrink-0 text-[11.5px] text-[#98A2B3]">
+              <span className="shrink-0 text-[12.5px] text-[#98A2B3]">
                 {formatSize(file.size)}
               </span>
               <button

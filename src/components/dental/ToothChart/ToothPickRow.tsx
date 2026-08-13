@@ -103,7 +103,7 @@ function PickTooth({
       </svg>
 
       <span
-        className="pointer-events-none absolute text-[12px] font-semibold tabular-nums"
+        className="pointer-events-none absolute text-[13px] font-semibold tabular-nums"
         style={{
           color: on ? '#C43A7E' : enabled ? '#4A5567' : '#B6BECC',
           textShadow: '0 0 3px #fff, 0 0 3px #fff',

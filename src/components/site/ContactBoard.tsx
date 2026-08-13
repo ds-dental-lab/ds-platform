@@ -53,11 +53,11 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
               {fresh.length}
             </span>
           )}
-          {refreshing && <span className="text-[12px] text-[#98A2B3]">새로고침 중…</span>}
+          {refreshing && <span className="text-[13px] text-[#98A2B3]">새로고침 중…</span>}
         </header>
 
         {fresh.length === 0 ? (
-          <p className="px-[18px] py-10 text-center text-[13px] text-[#98A2B3]">
+          <p className="px-[18px] py-10 text-center text-[14px] text-[#98A2B3]">
             아직 들어온 문의가 없습니다.
           </p>
         ) : (
@@ -66,10 +66,10 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
               <li key={row.id} className="px-[18px] py-4">
                 <div className="flex flex-wrap items-baseline gap-2">
                   <b className="text-[14.5px] font-extrabold text-[#1A2130]">{row.clinicName}</b>
-                  <span className="text-[13px] text-[#4A5567]">{row.personName}</span>
+                  <span className="text-[14px] text-[#4A5567]">{row.personName}</span>
                   <span
                     className={
-                      'rounded px-1.5 py-0.5 text-[11.5px] font-bold ' +
+                      'rounded px-1.5 py-0.5 text-[12.5px] font-bold ' +
                       (row.kind === 'visit'
                         ? 'bg-[#FDF1E7] text-[#C67717]'
                         : 'bg-[#EAF2FE] text-[#1279E8]')
@@ -77,12 +77,12 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
                   >
                     {KIND_LABEL[row.kind]}
                   </span>
-                  <span className="ml-auto text-[12px] tabular-nums text-[#98A2B3]">
+                  <span className="ml-auto text-[13px] tabular-nums text-[#98A2B3]">
                     {row.createdAt.slice(0, 10)}
                   </span>
                 </div>
 
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[14px]">
                   {/* ★ 눌러서 바로 걸립니다 */}
                   <a
                     href={`tel:${row.tel.replace(/\D/g, '')}`}
@@ -96,7 +96,7 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
                 </div>
 
                 {row.message && (
-                  <p className="mt-2.5 whitespace-pre-wrap rounded-md bg-[#F8F9FB] px-3 py-2.5 text-[12.5px] leading-relaxed text-[#4A5567]">
+                  <p className="mt-2.5 whitespace-pre-wrap rounded-md bg-[#F8F9FB] px-3 py-2.5 text-[13.5px] leading-relaxed text-[#4A5567]">
                     {row.message}
                   </p>
                 )}
@@ -107,7 +107,7 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
                     setMemo('');
                     setAsking(row);
                   }}
-                  className="mt-3 h-8 rounded-md border border-[#DDE2EA] px-3 text-[12.5px] font-semibold text-[#4A5567] hover:border-[#12855B] hover:text-[#12855B]"
+                  className="mt-3 h-8 rounded-md border border-[#DDE2EA] px-3 text-[13.5px] font-semibold text-[#4A5567] hover:border-[#12855B] hover:text-[#12855B]"
                 >
                   연락 완료로 표시
                 </button>
@@ -123,18 +123,18 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
         </header>
 
         {done.length === 0 ? (
-          <p className="px-[18px] py-10 text-center text-[13px] text-[#98A2B3]">
+          <p className="px-[18px] py-10 text-center text-[14px] text-[#98A2B3]">
             아직 없습니다.
           </p>
         ) : (
           <ul className="divide-y divide-[#F0F2F5]">
             {done.map((row) => (
-              <li key={row.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-[18px] py-3 text-[13px]">
+              <li key={row.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-[18px] py-3 text-[14px]">
                 <b className="font-semibold text-[#1A2130]">{row.clinicName}</b>
                 <span className="text-[#7C8595]">{row.personName}</span>
                 <span className="tabular-nums text-[#98A2B3]">{row.tel}</span>
                 {row.memo && <span className="text-[#7C8595]">— {row.memo}</span>}
-                <span className="ml-auto text-[12px] tabular-nums text-[#98A2B3]">
+                <span className="ml-auto text-[13px] tabular-nums text-[#98A2B3]">
                   {(row.handledAt ?? row.createdAt).slice(0, 10)}
                 </span>
               </li>
@@ -147,11 +147,11 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-6">
           <div className="w-full max-w-md rounded-lg bg-white p-6">
             <h3 className="text-base font-bold text-[#1A2130]">연락 완료로 표시</h3>
-            <p className="mt-1.5 text-[13px] text-[#4A5567]">
+            <p className="mt-1.5 text-[14px] text-[#4A5567]">
               {asking.clinicName} · {asking.personName}
             </p>
 
-            <label className="mb-1.5 mt-4 block text-[13px] font-semibold text-[#4A5567]">
+            <label className="mb-1.5 mt-4 block text-[14px] font-semibold text-[#4A5567]">
               메모 (선택)
             </label>
             <input
@@ -162,7 +162,7 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
               className="w-full rounded border border-[#DDE2EA] px-3 py-2 text-sm outline-none focus:border-[#1279E8]"
             />
 
-            {error && <p className="mt-2 text-[13px] text-[#D8453F]">{error}</p>}
+            {error && <p className="mt-2 text-[14px] text-[#D8453F]">{error}</p>}
 
             <div className="mt-5 flex justify-end gap-2">
               <button

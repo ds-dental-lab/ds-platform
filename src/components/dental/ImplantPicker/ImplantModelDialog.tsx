@@ -138,9 +138,9 @@ export default function ImplantModelDialog({
               value={draft.option}
               onChange={(e) => setDraft({ ...draft, option: e.target.value })}
               placeholder="직접 입력"
-              className="w-full rounded-md border border-[#DDE2EA] px-3 py-2 text-[13px] outline-none focus:border-[#1B63E8]"
+              className="w-full rounded-md border border-[#DDE2EA] px-3 py-2 text-[14px] outline-none focus:border-[#1B63E8]"
             />
-            <p className="mt-2 text-[11.5px] text-[#98A2B3]">
+            <p className="mt-2 text-[12.5px] text-[#98A2B3]">
               목록 없이 매번 직접 적습니다.
             </p>
           </Column>
@@ -149,14 +149,14 @@ export default function ImplantModelDialog({
         <div className="flex items-center gap-3 px-6 py-4">
           <span
             className={
-              'font-mono text-[13px] ' + (complete ? 'text-[#1A2130]' : 'text-[#98A2B3]')
+              'font-mono text-[14px] ' + (complete ? 'text-[#1A2130]' : 'text-[#98A2B3]')
             }
           >
             {formatSelection(catalog, draft) || '선택 없음'}
           </span>
 
           {!complete && missing && (
-            <span className="text-[12.5px] text-[#E09A1B]">{missing} 를 골라 주세요</span>
+            <span className="text-[13.5px] text-[#E09A1B]">{missing} 를 골라 주세요</span>
           )}
 
           <button
@@ -187,13 +187,13 @@ function Column({
 }) {
   return (
     <div className="flex min-w-0 flex-col border-r border-[#E8EBF0] last:border-r-0">
-      <h4 className="border-b border-[#E8EBF0] py-3.5 text-center text-[13px] font-bold text-[#1A2130]">
+      <h4 className="border-b border-[#E8EBF0] py-3.5 text-center text-[14px] font-bold text-[#1A2130]">
         {title}
       </h4>
 
       <div className="flex min-h-[320px] flex-col gap-2 overflow-y-auto p-3">
         {hint ? (
-          <p className="py-6 text-center text-[12px] text-[#98A2B3]">{hint}</p>
+          <p className="py-6 text-center text-[13px] text-[#98A2B3]">{hint}</p>
         ) : (
           children
         )}
@@ -216,7 +216,7 @@ function Card({
       type="button"
       onClick={onClick}
       className={
-        'truncate rounded-full border px-3 py-2 text-center text-[13px] transition-colors ' +
+        'truncate rounded-full border px-3 py-2 text-center text-[14px] transition-colors ' +
         (on
           ? 'border-[#1B63E8] bg-[#EDF3FE] font-bold text-[#1B63E8]'
           : 'border-[#E8EBF0] bg-white text-[#4A5567] hover:border-[#98A2B3]')

@@ -55,24 +55,24 @@ export default function NoticeBoard({ rows, canWrite }: NoticeBoardProps) {
     <section className="rounded-lg border border-[#E8EBF0] bg-white">
       <header className="flex items-center gap-2 border-b border-[#E8EBF0] px-5 py-3.5">
         <h1 className="text-[15px] font-bold tracking-tight text-[#1A2130]">공지사항</h1>
-        <span className="text-[12.5px] text-[#98A2B3]">{rows.length}건</span>
+        <span className="text-[13.5px] text-[#98A2B3]">{rows.length}건</span>
 
         {canWrite && (
           <button
             type="button"
             onClick={() => setOpen('new')}
             disabled={refreshing}
-            className="ml-auto h-8 rounded-md bg-[#1279E8] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#0F68C9] disabled:opacity-60"
+            className="ml-auto h-8 rounded-md bg-[#1279E8] px-3.5 text-[13.5px] font-bold text-white hover:bg-[#0F68C9] disabled:opacity-60"
           >
             공지 쓰기
           </button>
         )}
       </header>
 
-      {error && <p className="px-5 pt-3 text-[12.5px] text-[#D8453F]">{error}</p>}
+      {error && <p className="px-5 pt-3 text-[13.5px] text-[#D8453F]">{error}</p>}
 
       {rows.length === 0 ? (
-        <p className="py-24 text-center text-[13px] text-[#98A2B3]">
+        <p className="py-24 text-center text-[14px] text-[#98A2B3]">
           {canWrite ? '아직 쓴 공지가 없습니다. 오른쪽 위에서 첫 공지를 써 보세요.' : '등록된 공지가 없습니다.'}
         </p>
       ) : (
@@ -115,7 +115,7 @@ export default function NoticeBoard({ rows, canWrite }: NoticeBoardProps) {
                     {notice.title}
                   </span>
 
-                  <span className="shrink-0 text-[12px] tabular-nums text-[#98A2B3]">
+                  <span className="shrink-0 text-[13px] tabular-nums text-[#98A2B3]">
                     {shortDate(notice.publishedAt ?? notice.createdAt)}
                   </span>
                 </button>
@@ -123,11 +123,11 @@ export default function NoticeBoard({ rows, canWrite }: NoticeBoardProps) {
                 {isOpen && (
                   <div className="bg-[#FBFCFD] px-5 pb-4 pt-1">
                     {/* 줄바꿈을 그대로 살립니다 — 쓴 사람이 나눠 놓은 대로 읽힙니다 */}
-                    <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#4A5567]">
+                    <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed text-[#4A5567]">
                       {notice.body}
                     </p>
 
-                    <p className="mt-3 text-[11.5px] text-[#98A2B3]">
+                    <p className="mt-3 text-[12.5px] text-[#98A2B3]">
                       {notice.authorName}
                       {draft && ' · 아직 안 나갔습니다'}
                     </p>
@@ -138,7 +138,7 @@ export default function NoticeBoard({ rows, canWrite }: NoticeBoardProps) {
                           type="button"
                           onClick={() => setOpen(notice)}
                           disabled={refreshing}
-                          className="h-8 rounded-md border border-[#DDE2EA] px-3 text-[12px] font-semibold text-[#4A5567] hover:bg-white disabled:opacity-60"
+                          className="h-8 rounded-md border border-[#DDE2EA] px-3 text-[13px] font-semibold text-[#4A5567] hover:bg-white disabled:opacity-60"
                         >
                           고치기
                         </button>
@@ -146,7 +146,7 @@ export default function NoticeBoard({ rows, canWrite }: NoticeBoardProps) {
                           type="button"
                           onClick={() => setAsking(notice)}
                           disabled={refreshing}
-                          className="h-8 rounded-md border border-[#F3C6C6] px-3 text-[12px] font-semibold text-[#D8453F] hover:bg-[#FDECEA] disabled:opacity-60"
+                          className="h-8 rounded-md border border-[#F3C6C6] px-3 text-[13px] font-semibold text-[#D8453F] hover:bg-[#FDECEA] disabled:opacity-60"
                         >
                           지우기
                         </button>
@@ -179,8 +179,8 @@ export default function NoticeBoard({ rows, canWrite }: NoticeBoardProps) {
               <h3 className="text-[15px] font-bold tracking-tight text-[#1A2130]">
                 이 공지를 지울까요?
               </h3>
-              <p className="mt-2 break-words text-[12.5px] text-[#4A5567]">{asking.title}</p>
-              <p className="mt-1.5 text-[12px] text-[#98A2B3]">
+              <p className="mt-2 break-words text-[13.5px] text-[#4A5567]">{asking.title}</p>
+              <p className="mt-1.5 text-[13px] text-[#98A2B3]">
                 치과·기공소 화면에서도 사라집니다.
               </p>
             </div>

@@ -95,7 +95,7 @@ export default function ProductTable({ rows, types }: ProductTableProps) {
                 setPage(1);
               }}
               placeholder="전체 검색..."
-              className="h-9 w-[240px] rounded-md border border-[#DDE2EA] pl-8 pr-3 text-[13px] outline-none focus:border-[#1279E8]"
+              className="h-9 w-[240px] rounded-md border border-[#DDE2EA] pl-8 pr-3 text-[14px] outline-none focus:border-[#1279E8]"
             />
           </div>
 
@@ -111,7 +111,7 @@ export default function ProductTable({ rows, types }: ProductTableProps) {
           <button
             type="button"
             onClick={() => setTypeDialog(true)}
-            className="h-9 rounded-md border border-[#DDE2EA] px-4 text-[13px] font-semibold text-[#4A5567] hover:border-[#5546C8] hover:text-[#5546C8]"
+            className="h-9 rounded-md border border-[#DDE2EA] px-4 text-[14px] font-semibold text-[#4A5567] hover:border-[#5546C8] hover:text-[#5546C8]"
           >
             + 종류 등록
           </button>
@@ -119,20 +119,20 @@ export default function ProductTable({ rows, types }: ProductTableProps) {
           <button
             type="button"
             onClick={() => setEditing('new')}
-            className="h-9 rounded-md bg-[#5546C8] px-4 text-[13px] font-bold text-white hover:bg-[#4536B8]"
+            className="h-9 rounded-md bg-[#5546C8] px-4 text-[14px] font-bold text-white hover:bg-[#4536B8]"
           >
             + 제품 등록
           </button>
         </div>
       </div>
 
-      {error && <p className="px-5 pb-2 text-[12.5px] text-[#D8453F]">{error}</p>}
+      {error && <p className="px-5 pb-2 text-[13.5px] text-[#D8453F]">{error}</p>}
 
       {/* ---------- 표 ---------- */}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1040px] border-collapse">
           <thead>
-            <tr className="border-y border-[#E8EBF0] text-[12.5px] text-[#4A5567]">
+            <tr className="border-y border-[#E8EBF0] text-[13.5px] text-[#4A5567]">
               <Th>보철물 종류</Th>
               <Th>재료</Th>
               <Th center>SHADE</Th>
@@ -148,7 +148,7 @@ export default function ProductTable({ rows, types }: ProductTableProps) {
           <tbody>
             {shown.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-16 text-center text-[13px] text-[#98A2B3]">
+                <td colSpan={9} className="py-16 text-center text-[14px] text-[#98A2B3]">
                   {keyword ? '찾는 제품이 없습니다.' : '등록된 제품이 없습니다.'}
                 </td>
               </tr>
@@ -158,7 +158,7 @@ export default function ProductTable({ rows, types }: ProductTableProps) {
                   key={row.materialId}
                   onClick={() => setEditing(row)}
                   className={
-                    'cursor-pointer border-b border-[#F0F2F5] text-[13px] hover:bg-[#F8F9FB] ' +
+                    'cursor-pointer border-b border-[#F0F2F5] text-[14px] hover:bg-[#F8F9FB] ' +
                     (row.isActive ? '' : 'opacity-55')
                   }
                 >
@@ -193,7 +193,7 @@ export default function ProductTable({ rows, types }: ProductTableProps) {
                       }}
                       title={row.isActive ? '누르면 판매중지' : '누르면 판매중'}
                       className={
-                        'rounded-full px-2.5 py-1 text-[12px] font-semibold ' +
+                        'rounded-full px-2.5 py-1 text-[13px] font-semibold ' +
                         (row.isActive
                           ? 'text-[#12855B] hover:bg-[#E6F4EE]'
                           : 'text-[#98A2B3] hover:bg-[#F4F6F9]')
@@ -210,7 +210,7 @@ export default function ProductTable({ rows, types }: ProductTableProps) {
       </div>
 
       {/* ---------- 페이징 ---------- */}
-      <div className="flex items-center justify-end gap-4 px-5 py-3.5 text-[12.5px] text-[#4A5567]">
+      <div className="flex items-center justify-end gap-4 px-5 py-3.5 text-[13.5px] text-[#4A5567]">
         <span>
           페이지당 행 수: <b className="font-semibold">{PER_PAGE}</b>
         </span>

@@ -66,17 +66,17 @@ export default function PartySettlement({
             </Arrow>
           </span>
 
-          <span className="rounded-md bg-[#F4F6F9] px-3 py-1.5 text-[13px] tabular-nums text-[#4A5567]">
+          <span className="rounded-md bg-[#F4F6F9] px-3 py-1.5 text-[14px] tabular-nums text-[#4A5567]">
             {settlement.from} ~ {settlement.to}
           </span>
 
-          <span className="text-[12px] text-[#98A2B3]">
+          <span className="text-[13px] text-[#98A2B3]">
             매월 {me.closingDay}일 기준 · 배송일로 가릅니다
           </span>
 
           <span
             className={
-              'ml-auto rounded-md px-3 py-1.5 text-[12.5px] font-bold ' +
+              'ml-auto rounded-md px-3 py-1.5 text-[13.5px] font-bold ' +
               (paid
                 ? 'bg-[#E6F4EE] text-[#12855B]'
                 : closed
@@ -91,19 +91,19 @@ export default function PartySettlement({
 
       {/* ---------- 아직 움직이는 값인가 ---------- */}
       {closed ? (
-        <p className="rounded-lg border border-[#CDE6DA] bg-[#F2FAF6] px-5 py-3 text-[13px] text-[#0F6B4A]">
+        <p className="rounded-lg border border-[#CDE6DA] bg-[#F2FAF6] px-5 py-3 text-[14px] text-[#0F6B4A]">
           마감된 기간입니다. 아래 금액은 확정된 값입니다. 다른 곳이 있으면 디자인센터에
           알려 주세요.
         </p>
       ) : (
-        <p className="rounded-lg border border-[#E2EAF7] bg-[#F5F8FE] px-5 py-3 text-[13px] text-[#2E5AA8]">
+        <p className="rounded-lg border border-[#E2EAF7] bg-[#F5F8FE] px-5 py-3 text-[14px] text-[#2E5AA8]">
           아직 집계 중입니다. {settlement.to} 까지 나가는 건이 더해지고, 마감해야 확정됩니다.
         </p>
       )}
 
       {/* ---------- 단가 미정 ---------- */}
       {settlement.unpricedCount > 0 && (
-        <p className="rounded-lg border border-[#F5C6C4] bg-[#FDF2F2] px-5 py-3 text-[13px] text-[#B3312C]">
+        <p className="rounded-lg border border-[#F5C6C4] bg-[#FDF2F2] px-5 py-3 text-[14px] text-[#B3312C]">
           단가가 안 정해진 보철이 <b className="font-bold">{settlement.unpricedCount}줄</b>{' '}
           있어 0원으로 잡혀 있습니다. 디자인센터에 단가를 정해 달라고 알려 주세요.
         </p>
@@ -114,7 +114,7 @@ export default function PartySettlement({
         <div className="flex gap-1 border-b border-[#E8EBF0] px-4">
           <TabButton accent={accent} on={tab === 'items'} onClick={() => setTab('items')}>
             보철 세부내역
-            <span className="ml-1.5 text-[11.5px] text-[#98A2B3]">{settlement.items.length}</span>
+            <span className="ml-1.5 text-[12.5px] text-[#98A2B3]">{settlement.items.length}</span>
           </TabButton>
           <TabButton accent={accent} on={tab === 'products'} onClick={() => setTab('products')}>
             제품별
@@ -125,7 +125,7 @@ export default function PartySettlement({
           {tab === 'items' ? (
             <table className="w-full min-w-[820px] border-collapse">
               <thead>
-                <tr className="border-b border-[#E8EBF0] text-[12.5px] text-[#4A5567]">
+                <tr className="border-b border-[#E8EBF0] text-[13.5px] text-[#4A5567]">
                   <Th>접수일</Th>
                   <Th>배송일</Th>
                   <Th>환자명</Th>
@@ -143,7 +143,7 @@ export default function PartySettlement({
                     <tr
                       key={row.itemId}
                       className={
-                        'border-b border-[#F0F2F5] text-[13px] ' +
+                        'border-b border-[#F0F2F5] text-[14px] ' +
                         (row.billable ? '' : 'bg-[#FFFBF4]')
                       }
                     >
@@ -152,7 +152,7 @@ export default function PartySettlement({
                       <Td>
                         {row.patientLabel}
                         {row.isRemake && (
-                          <span className="ml-1.5 text-[11.5px] font-semibold text-[#C2721B]">
+                          <span className="ml-1.5 text-[12.5px] font-semibold text-[#C2721B]">
                             {row.remakeSeq}차
                           </span>
                         )}
@@ -192,7 +192,7 @@ export default function PartySettlement({
           ) : (
             <table className="w-full min-w-[520px] border-collapse">
               <thead>
-                <tr className="border-b border-[#E8EBF0] text-[12.5px] text-[#4A5567]">
+                <tr className="border-b border-[#E8EBF0] text-[13.5px] text-[#4A5567]">
                   <Th>제품</Th>
                   <Th right>수량</Th>
                   <Th right>금액</Th>
@@ -203,7 +203,7 @@ export default function PartySettlement({
                   <Empty colSpan={3} />
                 ) : (
                   settlement.products.map((row) => (
-                    <tr key={row.key} className="border-b border-[#F0F2F5] text-[13px]">
+                    <tr key={row.key} className="border-b border-[#F0F2F5] text-[14px]">
                       <Td>
                         <b className="font-semibold text-[#1A2130]">{row.label}</b>
                       </Td>
@@ -222,13 +222,13 @@ export default function PartySettlement({
           {closed && (
             <Link
               href={`${basePath}/${yearMonth}`}
-              className="mr-auto h-9 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold leading-9 text-[#4A5567] hover:opacity-80"
+              className="mr-auto h-9 rounded-md border border-[#DDE2EA] px-3.5 text-[13.5px] font-semibold leading-9 text-[#4A5567] hover:opacity-80"
             >
               청구서 보기
             </Link>
           )}
 
-          <dl className="w-[280px] space-y-1.5 text-[13px]">
+          <dl className="w-[280px] space-y-1.5 text-[14px]">
             <Row label="보철 금액">{won(settlement.subtotal)}</Row>
             <Row label="조정 금액">{won(settlement.adjustment)}</Row>
             <div
@@ -355,7 +355,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function Empty({ colSpan }: { colSpan: number }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="py-16 text-center text-[13px] text-[#98A2B3]">
+      <td colSpan={colSpan} className="py-16 text-center text-[14px] text-[#98A2B3]">
         이 기간에 배송된 건이 없습니다.
       </td>
     </tr>

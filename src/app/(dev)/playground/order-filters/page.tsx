@@ -55,7 +55,7 @@ export default async function FilterPlayground({ searchParams }: PageProps) {
     <div className="min-h-screen bg-[#F4F6F9] p-6">
       {(['design_center', 'clinic', 'lab'] as const).map((sector) => (
         <section key={sector} className="mb-6 rounded-lg bg-white p-4">
-          <h1 className="mb-2 text-[13px] font-bold text-[#4A5567]">{sector}</h1>
+          <h1 className="mb-2 text-[14px] font-bold text-[#4A5567]">{sector}</h1>
           <OrderQuickFilters
             basePath={BASE}
             params={params}
@@ -68,7 +68,7 @@ export default async function FilterPlayground({ searchParams }: PageProps) {
         </section>
       ))}
 
-      <pre className="rounded-lg bg-white p-4 text-[12px] text-[#4A5567]">
+      <pre className="rounded-lg bg-white p-4 text-[13px] text-[#4A5567]">
         {JSON.stringify({ statuses, issues, params }, null, 2)}
       </pre>
     </div>

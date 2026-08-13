@@ -173,7 +173,7 @@ export default function ShadeDialog({
                       type="button"
                       onClick={() => pickShade(cell)}
                       className={
-                        'h-8 rounded-md border text-[12.5px] font-semibold transition-colors ' +
+                        'h-8 rounded-md border text-[13.5px] font-semibold transition-colors ' +
                         (on
                           ? 'border-[#1279E8] bg-[#1279E8] text-white'
                           : 'border-[#DDE2EA] bg-white text-[#4A5567] hover:border-[#1279E8] hover:text-[#1279E8]')
@@ -189,7 +189,7 @@ export default function ShadeDialog({
               {layout.columnLabels?.map((label, c) => (
                 <span
                   key={`label-${c}`}
-                  className="pt-1 text-center text-[13px] font-bold text-[#1A2130]"
+                  className="pt-1 text-center text-[14px] font-bold text-[#1A2130]"
                 >
                   {label ?? ''}
                 </span>
@@ -274,7 +274,7 @@ export default function ShadeDialog({
 
         {/* 아래 — 안내와 확인 */}
         <div className="flex items-center gap-3 px-7 pb-5">
-          <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-[#98A2B3]">
+          <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-[#98A2B3]">
             {message ||
               '색조를 누르면 치아 전체에 들어갑니다. 위아래를 다르게 주려면 색조를 누른 뒤 치아의 부위를 클릭하세요.'}
           </p>
@@ -292,7 +292,7 @@ export default function ShadeDialog({
               setArmed(null);
               setMessage('');
             }}
-            className="h-9 shrink-0 rounded-md border border-[#DDE2EA] px-4 text-[12.5px] text-[#4A5567] hover:bg-[#F4F6F9]"
+            className="h-9 shrink-0 rounded-md border border-[#DDE2EA] px-4 text-[13.5px] text-[#4A5567] hover:bg-[#F4F6F9]"
           >
             {keepLabel}
           </button>

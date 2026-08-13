@@ -113,7 +113,7 @@ export default function LeaveGuard({
           <h3 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A2130]">
             {ask.kind === 'restart' ? '작성 중인 주문이 있습니다. 새로 시작할까요?' : title}
           </h3>
-          <p className="mt-2 text-[12.5px] text-[#98A2B3]">{description}</p>
+          <p className="mt-2 text-[13.5px] text-[#98A2B3]">{description}</p>
         </div>
 
         <div className="flex gap-2 px-4 pb-4">

@@ -71,14 +71,14 @@ export default function OrderUnavailable({ reason, ordersPath }: OrderUnavailabl
           {message.title}
         </h1>
 
-        <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-[#4A5567]">
+        <p className="mt-2 whitespace-pre-line text-[14px] leading-relaxed text-[#4A5567]">
           {message.body}
         </p>
 
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Link
             href={ordersPath}
-            className="grid h-[38px] place-items-center rounded-[7px] bg-[#1279E8] px-6 text-[13px] font-bold text-white hover:bg-[#1554C8]"
+            className="grid h-[38px] place-items-center rounded-[7px] bg-[#1279E8] px-6 text-[14px] font-bold text-white hover:bg-[#1554C8]"
           >
             주문목록으로
           </Link>
@@ -90,7 +90,7 @@ export default function OrderUnavailable({ reason, ordersPath }: OrderUnavailabl
           {reason === 'hidden' && (
             <Link
               href="/login"
-              className="grid h-[38px] place-items-center rounded-[7px] border border-[#DDE2EA] bg-white px-5 text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+              className="grid h-[38px] place-items-center rounded-[7px] border border-[#DDE2EA] bg-white px-5 text-[14px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
             >
               다른 계정으로 로그인
             </Link>

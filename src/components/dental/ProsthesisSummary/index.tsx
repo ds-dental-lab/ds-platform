@@ -87,14 +87,14 @@ export default function ProsthesisSummary({
         <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">{title}</h2>
 
         {placements.length > 0 && (
-          <span className="text-[12px] text-[#98A2B3]">
+          <span className="text-[13px] text-[#98A2B3]">
             치아 {countTeeth(placements)}개 · {lines.length}건
           </span>
         )}
 
         {/* X 가 무슨 뜻인지 늘 붙여 둡니다 */}
         {hasPontic && (
-          <span className="ml-auto text-[12px] text-[#8E98A8]">
+          <span className="ml-auto text-[13px] text-[#8E98A8]">
             <b className="font-semibold text-[#4A5567]">✕</b> Pontic
           </span>
         )}
@@ -106,8 +106,8 @@ export default function ProsthesisSummary({
             className={
               (hasPontic ? 'ml-3 ' : 'ml-auto ') +
               (highlight
-                ? 'rounded border border-[#D8453F] px-3 py-1 text-[12.5px] font-semibold text-[#D8453F] hover:bg-[#FDE7E7]'
-                : 'cursor-not-allowed rounded border border-[#E8EBF0] px-3 py-1 text-[12.5px] text-[#C4CBD6]')
+                ? 'rounded border border-[#D8453F] px-3 py-1 text-[13.5px] font-semibold text-[#D8453F] hover:bg-[#FDE7E7]'
+                : 'cursor-not-allowed rounded border border-[#E8EBF0] px-3 py-1 text-[13.5px] text-[#C4CBD6]')
             }
           >
             초기화
@@ -117,7 +117,7 @@ export default function ProsthesisSummary({
 
       {/* ---------- 줄 ---------- */}
       {lines.length === 0 ? (
-        <p className="py-6 text-center text-[13px] text-[#98A2B3]">
+        <p className="py-6 text-center text-[14px] text-[#98A2B3]">
           치식도에서 치아를 선택하세요.
         </p>
       ) : (
@@ -145,7 +145,7 @@ export default function ProsthesisSummary({
                       <span className="ml-1.5 text-[#4A5567]">({line.shadeLabel})</span>
                     )}
                     {line.implantLabel && (
-                      <span className="ml-2 text-[12px] text-[#8E98A8]">
+                      <span className="ml-2 text-[13px] text-[#8E98A8]">
                         {line.implantLabel}
                       </span>
                     )}

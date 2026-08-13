@@ -66,7 +66,7 @@ export default function BulkClosePanel({ yearMonth, groups }: BulkClosePanelProp
         <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">
           {yearMonth} 마감
         </h2>
-        <p className="mt-0.5 text-[12px] text-[#98A2B3]">
+        <p className="mt-0.5 text-[13px] text-[#98A2B3]">
           정산 기준일이 같은 거래처를 한 번에 마감합니다.
         </p>
       </div>
@@ -82,11 +82,11 @@ export default function BulkClosePanel({ yearMonth, groups }: BulkClosePanelProp
                 매월 {group.closingDay}일
               </b>
 
-              <span className="rounded-md bg-[#F4F6F9] px-2.5 py-1 text-[12.5px] tabular-nums text-[#4A5567]">
+              <span className="rounded-md bg-[#F4F6F9] px-2.5 py-1 text-[13.5px] tabular-nums text-[#4A5567]">
                 {group.from} ~ {group.to}
               </span>
 
-              <span className="text-[12.5px] text-[#4A5567]">
+              <span className="text-[13.5px] text-[#4A5567]">
                 거래처 <b className="font-bold tabular-nums text-[#1A2130]">{group.total}</b>곳
                 {group.closed > 0 && (
                   <span className="ml-2 text-[#12855B]">
@@ -97,11 +97,11 @@ export default function BulkClosePanel({ yearMonth, groups }: BulkClosePanelProp
 
               <span className="ml-auto flex items-center gap-2">
                 {group.blockedReason && !done && (
-                  <span className="text-[11.5px] text-[#98A2B3]">{group.blockedReason}</span>
+                  <span className="text-[12.5px] text-[#98A2B3]">{group.blockedReason}</span>
                 )}
 
                 {done ? (
-                  <span className="rounded-md bg-[#E6F4EE] px-3 py-1.5 text-[12.5px] font-bold text-[#12855B]">
+                  <span className="rounded-md bg-[#E6F4EE] px-3 py-1.5 text-[13.5px] font-bold text-[#12855B]">
                     모두 마감
                   </span>
                 ) : (
@@ -109,7 +109,7 @@ export default function BulkClosePanel({ yearMonth, groups }: BulkClosePanelProp
                     type="button"
                     onClick={() => run(group.closingDay)}
                     disabled={busy || Boolean(group.blockedReason)}
-                    className="h-9 rounded-md bg-[#5546C8] px-4 text-[12.5px] font-bold text-white hover:bg-[#4536B8] disabled:cursor-not-allowed disabled:bg-[#C4CBD6]"
+                    className="h-9 rounded-md bg-[#5546C8] px-4 text-[13.5px] font-bold text-white hover:bg-[#4536B8] disabled:cursor-not-allowed disabled:bg-[#C4CBD6]"
                   >
                     {running === group.closingDay ? '마감 중…' : `${left}곳 마감`}
                   </button>
@@ -123,7 +123,7 @@ export default function BulkClosePanel({ yearMonth, groups }: BulkClosePanelProp
       {/* ---------- 결과 ---------- */}
       {result && (
         <div className="border-t border-[#E8EBF0] px-5 py-3.5">
-          <p className="text-[12.5px] font-semibold text-[#4A5567]">
+          <p className="text-[13.5px] font-semibold text-[#4A5567]">
             마감 {result.filter((r) => r.ok).length}곳 성공
             {result.some((r) => !r.ok) && (
               <span className="ml-2 text-[#D8453F]">
@@ -136,7 +136,7 @@ export default function BulkClosePanel({ yearMonth, groups }: BulkClosePanelProp
             {result.map((row) => (
               <li
                 key={row.partyOrgId}
-                className="flex items-center gap-2 rounded px-1.5 py-1 text-[12.5px]"
+                className="flex items-center gap-2 rounded px-1.5 py-1 text-[13.5px]"
               >
                 <span className={row.ok ? 'text-[#12855B]' : 'text-[#D8453F]'}>
                   {row.ok ? '✓' : '✕'}

@@ -700,7 +700,7 @@ function OrderFormBody({
             <select
               value={orderType}
               onChange={(e) => setOrderType(e.target.value)}
-              className="h-11 w-full rounded border border-[#DDE2EA] px-3 text-[13px] outline-none focus:border-[#1279E8]"
+              className="h-11 w-full rounded border border-[#DDE2EA] px-3 text-[14px] outline-none focus:border-[#1279E8]"
             >
               {ORDER_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -719,7 +719,7 @@ function OrderFormBody({
                 problem={showProblems && !clinicOrgId}
               />
             ) : (
-              <div className="flex h-11 items-center rounded border border-[#E8EBF0] bg-[#F8F9FB] px-3 text-[13px] text-[#4A5567]">
+              <div className="flex h-11 items-center rounded border border-[#E8EBF0] bg-[#F8F9FB] px-3 text-[14px] text-[#4A5567]">
                 {clinicName}
               </div>
             )}
@@ -806,7 +806,7 @@ function OrderFormBody({
               <button
                 type="button"
                 onClick={() => setModelDialog('pick')}
-                className="ml-auto rounded border border-[#DDE2EA] px-3 py-1.5 text-[12.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+                className="ml-auto rounded border border-[#DDE2EA] px-3 py-1.5 text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
               >
                 모델 선택
               </button>
@@ -814,7 +814,7 @@ function OrderFormBody({
               <button
                 type="button"
                 onClick={() => setModelDialog('favorite')}
-                className="rounded border border-[#1B63E8] px-3 py-1.5 text-[12.5px] font-semibold text-[#1B63E8] hover:bg-[#EDF3FE]"
+                className="rounded border border-[#1B63E8] px-3 py-1.5 text-[13.5px] font-semibold text-[#1B63E8] hover:bg-[#EDF3FE]"
               >
                 자주쓰는 모델등록
               </button>
@@ -853,7 +853,7 @@ function OrderFormBody({
                           setHint('');
                         }}
                         className={
-                          'inline-flex items-center gap-1.5 py-1.5 pl-3.5 pr-2 text-[12.5px] font-semibold ' +
+                          'inline-flex items-center gap-1.5 py-1.5 pl-3.5 pr-2 text-[13.5px] font-semibold ' +
                           (on ? 'text-[#1B63E8]' : 'text-[#4A5567]')
                         }
                       >
@@ -874,7 +874,7 @@ function OrderFormBody({
                             if (!result.ok) setError(result.error);
                             else router.refresh();
                           }}
-                          className="py-1.5 pl-1 pr-3 text-[12px] text-[#C4CBD6] hover:text-[#D8453F]"
+                          className="py-1.5 pl-1 pr-3 text-[13px] text-[#C4CBD6] hover:text-[#D8453F]"
                         >
                           ✕
                         </button>
@@ -909,7 +909,7 @@ function OrderFormBody({
               onClick={handleReset}
               disabled={entries.length === 0}
               className={
-                'flex items-center gap-1 rounded px-2.5 py-1.5 text-[12.5px] ' +
+                'flex items-center gap-1 rounded px-2.5 py-1.5 text-[13.5px] ' +
                 (entries.length > 0
                   ? 'font-semibold text-[#D8453F] hover:bg-[#FDE7E7]'
                   : 'cursor-not-allowed text-[#C4CBD6]')
@@ -950,7 +950,7 @@ function OrderFormBody({
           />
 
           {/* 시안의 arch-hint — 지금 무엇을 찍고 있는지와 조작을 늘 보여 줍니다 */}
-          <p className="mt-3.5 text-center text-[12px] text-[#98A2B3]">
+          <p className="mt-3.5 text-center text-[13px] text-[#98A2B3]">
             {hint ? (
               <span className="text-[#E09A1B]">{hint}</span>
             ) : (
@@ -958,7 +958,7 @@ function OrderFormBody({
                 지금 찍는 조건{' '}
                 <b className="font-bold text-[#1A2130]">{brushLabel}</b> — 적용할 치아를 계속
                 눌러주세요{' '}
-                <span className="text-[11.5px] text-[#B6BECC]">
+                <span className="text-[12.5px] text-[#B6BECC]">
                   (우클릭 = 폰틱 · 휠클릭 = 치은포셀린)
                 </span>
               </>
@@ -995,7 +995,7 @@ function OrderFormBody({
             onChange={(e) => setNotes(e.target.value)}
             rows={4}
             placeholder="기타 사항이나 주의사항에 대해서 기록해 주세요"
-            className="w-full rounded border border-[#DDE2EA] px-3 py-2 text-[13px] outline-none focus:border-[#1279E8]"
+            className="w-full rounded border border-[#DDE2EA] px-3 py-2 text-[14px] outline-none focus:border-[#1279E8]"
           />
         </OrderSection>
       </div>
@@ -1005,7 +1005,7 @@ function OrderFormBody({
         <OrderSection icon={SECTION_ICON.file} title="스캔/쉐이드 파일">
           <ScanDropZone files={pendingFiles} onChange={setPendingFiles} disabled={saving} />
           {showProblems && pendingFiles.length === 0 && !editing && (
-            <p className="mt-2 text-[12px] text-[#D8453F]">
+            <p className="mt-2 text-[13px] text-[#D8453F]">
               스캔 파일이 있어야 주문을 넣을 수 있습니다.
             </p>
           )}
@@ -1013,13 +1013,13 @@ function OrderFormBody({
       </div>
 
       {progress && (
-        <p className="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-[13px] text-blue-700">
+        <p className="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-[14px] text-blue-700">
           {progress}
         </p>
       )}
 
       {error && (
-        <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+        <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700">
           {error}
         </p>
       )}
@@ -1031,7 +1031,7 @@ function OrderFormBody({
             <h3 className="text-[16px] font-bold tracking-tight text-[#1A2130]">
               아직 채우지 못한 항목이 있습니다
             </h3>
-            <p className="mt-1.5 text-[13px] text-[#98A2B3]">
+            <p className="mt-1.5 text-[14px] text-[#98A2B3]">
               누르면 해당 칸으로 이동합니다.
             </p>
 
@@ -1098,7 +1098,7 @@ function OrderFormBody({
               {patientText.trim() || '환자'} · {entries.length}개 보철
             </p>
 
-            <p className="mt-2.5 text-[12.5px] text-[#98A2B3]" title={done.orderNo}>
+            <p className="mt-2.5 text-[13.5px] text-[#98A2B3]" title={done.orderNo}>
               디자인센터에 접수 알림이 갔습니다.
             </p>
 
@@ -1159,7 +1159,7 @@ function OrderFormBody({
       {/* ---------- ⑤ 주문완료 ---------- */}
       {/* 한 번 눌러 본 뒤에만, 그것도 한 줄로 조용히 남겨 둡니다 */}
       {showProblems && missingFields.length > 0 && (
-        <p className="text-[12.5px] text-[#D8453F]">
+        <p className="text-[13.5px] text-[#D8453F]">
           아직 {missingFields.length}가지가 비어 있습니다 —{' '}
           <button
             type="button"
@@ -1217,7 +1217,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1.5 flex items-center gap-1 text-[13px] font-bold text-[#1A2130]">
+      <label className="mb-1.5 flex items-center gap-1 text-[14px] font-bold text-[#1A2130]">
         {label}
         {problem && <span className="text-[#D8453F]">*</span>}
         {hint && (
@@ -1230,7 +1230,7 @@ function Field({
         )}
       </label>
       {children}
-      {problem && <p className="mt-1 text-[11.5px] text-[#D8453F]">비어 있습니다</p>}
+      {problem && <p className="mt-1 text-[12.5px] text-[#D8453F]">비어 있습니다</p>}
     </div>
   );
 }
@@ -1258,7 +1258,7 @@ function ImplantModelLabel({
 
   if (!label) {
     return (
-      <span className="text-[13px] font-semibold text-[#D8453F]">모델을 선택해 주세요</span>
+      <span className="text-[14px] font-semibold text-[#D8453F]">모델을 선택해 주세요</span>
     );
   }
 
@@ -1266,7 +1266,7 @@ function ImplantModelLabel({
     <span className="inline-flex items-center gap-1.5">
       <b className="text-[13.5px] font-bold tracking-tight text-[#1A2130]">{label}</b>
       {!implantComplete(catalog, selection) && (
-        <span className="text-[12px] font-semibold text-[#E09A1B]">· 미완성</span>
+        <span className="text-[13px] font-semibold text-[#E09A1B]">· 미완성</span>
       )}
     </span>
   );
@@ -1315,7 +1315,7 @@ function Toggle({
   return (
     <label
       className={
-        'flex items-center gap-2 text-[12.5px] font-semibold ' +
+        'flex items-center gap-2 text-[13.5px] font-semibold ' +
         (disabled ? 'cursor-not-allowed text-[#C4CBD6]' : 'cursor-pointer text-[#4A5567]')
       }
       title={disabled ? '이 제품은 폰틱이 될 수 없습니다' : undefined}

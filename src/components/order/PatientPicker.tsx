@@ -99,7 +99,7 @@ export default function PatientPicker({
         list={listId}
         placeholder="이름 / 차트번호"
         autoComplete="off"
-        className="h-11 w-full rounded border border-[#DDE2EA] px-3 text-[13px] outline-none focus:border-[#1B63E8]"
+        className="h-11 w-full rounded border border-[#DDE2EA] px-3 text-[14px] outline-none focus:border-[#1B63E8]"
       />
 
       <datalist id={listId}>
@@ -110,7 +110,7 @@ export default function PatientPicker({
 
       {/* 이어 붙었는지만 조용히 알려 줍니다 — 안 붙어도 주문은 나갑니다 */}
       {patient && (
-        <p className="mt-1 text-[11.5px] text-[#12855B]">등록된 환자와 연결되었습니다</p>
+        <p className="mt-1 text-[12.5px] text-[#12855B]">등록된 환자와 연결되었습니다</p>
       )}
     </div>
   );

@@ -128,7 +128,7 @@ export default function ContactForm() {
           onChange={(e) => setAgreed(e.target.checked)}
           className="mt-0.5 h-[17px] w-[17px] shrink-0 accent-[#1279E8]"
         />
-        <span className="text-[12.5px] leading-relaxed text-[#4A5567]">
+        <span className="text-[13.5px] leading-relaxed text-[#4A5567]">
           <b className="font-bold text-[#1A2130]">개인정보 수집·이용에 동의합니다</b> (필수)
           <br />
           수집 항목 {CONSENT.items} · 목적 {CONSENT.purpose} · {CONSENT.keep}.{' '}
@@ -138,7 +138,7 @@ export default function ContactForm() {
         </span>
       </label>
 
-      {error && <p className="mt-3 text-[13px] font-semibold text-[#D8453F]">{error}</p>}
+      {error && <p className="mt-3 text-[14px] font-semibold text-[#D8453F]">{error}</p>}
 
       <button
         type="button"
@@ -169,14 +169,14 @@ function Field({
     <label className="block">
       <Label required={required}>{label}</Label>
       <div className="mt-2">{children}</div>
-      {hint && <span className="mt-1.5 block text-[11.5px] text-[#98A2B3]">{hint}</span>}
+      {hint && <span className="mt-1.5 block text-[12.5px] text-[#98A2B3]">{hint}</span>}
     </label>
   );
 }
 
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
-    <span className="block text-[12.5px] font-bold text-[#4A5567]">
+    <span className="block text-[13.5px] font-bold text-[#4A5567]">
       {children}
       {required && <span className="ml-1 text-[#D8453F]">*</span>}
     </span>

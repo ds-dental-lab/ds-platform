@@ -68,7 +68,7 @@ export default function RetentionBoard({ board }: { board: Board }) {
         </header>
 
         {/* ★ 왜 이 화면이 있는지 먼저 말합니다 */}
-        <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-5 py-3 text-[12px] leading-relaxed text-[#98A2B3]">
+        <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-5 py-3 text-[13px] leading-relaxed text-[#98A2B3]">
           여태 <b className="font-semibold text-[#4A5567]">아무것도 진짜로 지워지지 않았습니다</b> —
           지웠다고 표시만 하고 저장소의 덩어리와 열람 기록은 그대로 쌓입니다. 여기서 기간을
           정하고 직접 누르면 그때 지워집니다. <b className="font-semibold text-[#B3312C]">저절로
@@ -76,12 +76,12 @@ export default function RetentionBoard({ board }: { board: Board }) {
         </p>
 
         {error && (
-          <p className="border-b border-[#F3C6C6] bg-[#FDECEA] px-5 py-2.5 text-[12.5px] font-semibold text-[#B3312C]">
+          <p className="border-b border-[#F3C6C6] bg-[#FDECEA] px-5 py-2.5 text-[13.5px] font-semibold text-[#B3312C]">
             {error}
           </p>
         )}
         {note && (
-          <p className="border-b border-[#E8EBF0] bg-[#E7EEFA] px-5 py-2.5 text-[12.5px] font-semibold text-[#1279E8]">
+          <p className="border-b border-[#E8EBF0] bg-[#E7EEFA] px-5 py-2.5 text-[13.5px] font-semibold text-[#1279E8]">
             {note}
           </p>
         )}
@@ -104,17 +104,17 @@ export default function RetentionBoard({ board }: { board: Board }) {
       <section className="rounded-lg border border-[#E8EBF0] bg-white">
         <header className="flex items-baseline gap-2 border-b border-[#E8EBF0] px-5 py-3.5">
           <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">파기 기록</h2>
-          <span className="text-[11.5px] text-[#98A2B3]">
+          <span className="text-[12.5px] text-[#98A2B3]">
             고치거나 지울 수 없습니다
           </span>
         </header>
 
         {board.runs.length === 0 ? (
-          <p className="py-14 text-center text-[13px] text-[#98A2B3]">아직 파기한 적이 없습니다.</p>
+          <p className="py-14 text-center text-[14px] text-[#98A2B3]">아직 파기한 적이 없습니다.</p>
         ) : (
           <ul className="divide-y divide-[#F0F2F5]">
             {board.runs.map((run) => (
-              <li key={run.id} className="flex flex-wrap items-baseline gap-2 px-5 py-2.5 text-[12.5px]">
+              <li key={run.id} className="flex flex-wrap items-baseline gap-2 px-5 py-2.5 text-[13.5px]">
                 <span className="tabular-nums text-[#98A2B3]">{run.ranAt.slice(0, 16).replace('T', ' ')}</span>
                 <span className="font-semibold text-[#1A2130]">
                   {RETENTION_META[run.target].label}
@@ -122,7 +122,7 @@ export default function RetentionBoard({ board }: { board: Board }) {
                 <span className="text-[#4A5567]">
                   {run.removed}건 · {formatDays(run.keepDays)} 지난 것
                 </span>
-                <span className="ml-auto text-[11.5px] text-[#98A2B3]">{run.ranByName}</span>
+                <span className="ml-auto text-[12.5px] text-[#98A2B3]">{run.ranByName}</span>
               </li>
             ))}
           </ul>
@@ -141,7 +141,7 @@ export default function RetentionBoard({ board }: { board: Board }) {
               <h3 className="mt-4 text-[15px] font-bold tracking-tight text-[#1A2130]">
                 {RETENTION_META[asking.target].label} {asking.due}건을 지울까요?
               </h3>
-              <p className="mt-2 text-[12.5px] leading-relaxed text-[#4A5567]">
+              <p className="mt-2 text-[13.5px] leading-relaxed text-[#4A5567]">
                 {formatDays(asking.keepDays)}이 지난 것입니다.
                 <br />
                 저장소에서도 사라지고 <b className="font-bold text-[#D8453F]">되돌릴 수 없습니다.</b>
@@ -213,15 +213,15 @@ function Row({
     <li className="px-5 py-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <h3 className="text-[13.5px] font-bold text-[#1A2130]">{meta.label}</h3>
-        <span className="text-[12px] text-[#98A2B3]">{meta.what}</span>
+        <span className="text-[13px] text-[#98A2B3]">{meta.what}</span>
       </div>
 
-      <p className="mt-1 text-[11.5px] text-[#98A2B3]">
+      <p className="mt-1 text-[12.5px] text-[#98A2B3]">
         <b className="font-semibold text-[#4A5567]">{meta.from}</b>부터 셉니다
       </p>
 
       {/* ★ 정하기 전에 알아야 할 것. 안 적으면 아무 숫자나 넣습니다 */}
-      <p className="mt-2 rounded-md bg-[#FEF8EC] px-3 py-2 text-[11.5px] leading-relaxed text-[#8A6320]">
+      <p className="mt-2 rounded-md bg-[#FEF8EC] px-3 py-2 text-[12.5px] leading-relaxed text-[#8A6320]">
         {meta.caution}
       </p>
 
@@ -231,16 +231,16 @@ function Row({
           onChange={(e) => setValue(e.target.value)}
           inputMode="numeric"
           placeholder="비우면 안 지움"
-          className="h-9 w-[130px] rounded-md border border-[#DDE2EA] px-2.5 text-[13px] tabular-nums outline-none focus:border-[#1279E8]"
+          className="h-9 w-[130px] rounded-md border border-[#DDE2EA] px-2.5 text-[14px] tabular-nums outline-none focus:border-[#1279E8]"
         />
-        <span className="text-[12.5px] text-[#4A5567]">일 지나면 파기</span>
+        <span className="text-[13.5px] text-[#4A5567]">일 지나면 파기</span>
 
         <button
           type="button"
           onClick={() => setValue(String(meta.suggestedDays))}
           disabled={disabled || saving}
           title={meta.suggestedWhy}
-          className="h-9 rounded-md border border-[#DDE2EA] px-2.5 text-[12px] font-semibold text-[#98A2B3] hover:bg-[#F4F6F9] disabled:opacity-50"
+          className="h-9 rounded-md border border-[#DDE2EA] px-2.5 text-[13px] font-semibold text-[#98A2B3] hover:bg-[#F4F6F9] disabled:opacity-50"
         >
           제안 {formatDays(meta.suggestedDays)}
         </button>
@@ -256,14 +256,14 @@ function Row({
           type="button"
           onClick={save}
           disabled={disabled || saving || !dirty}
-          className="h-9 rounded-md bg-[#1279E8] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
+          className="h-9 rounded-md bg-[#1279E8] px-3.5 text-[13.5px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
         >
           {saving ? '저장 중…' : '저장'}
         </button>
 
         {/* ★ 안 눌렀다는 것을 글자로도 말합니다. 회색 버튼만으로는 약합니다 */}
         {dirty && !saving && (
-          <span className="text-[12px] font-bold text-[#C77700]">← 아직 저장 안 됐습니다</span>
+          <span className="text-[13px] font-bold text-[#C77700]">← 아직 저장 안 됐습니다</span>
         )}
       </div>
 
@@ -272,7 +272,7 @@ function Row({
           칸 안의 숫자는 '내가 친 것' 이고 이건 '표에 든 것' 입니다.
           둘을 같이 보여 줘야 저장이 됐는지 눈으로 확인됩니다.
       */}
-      <p className="mt-2 text-[12px] text-[#7C8595]">
+      <p className="mt-2 text-[13px] text-[#7C8595]">
         지금 설정{' '}
         <b
           className={
@@ -286,15 +286,15 @@ function Row({
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#F0F2F5] pt-3">
         {plan.keepDays === null ? (
-          <span className="text-[12px] text-[#98A2B3]">보관기간을 정해야 파기할 수 있습니다.</span>
+          <span className="text-[13px] text-[#98A2B3]">보관기간을 정해야 파기할 수 있습니다.</span>
         ) : (
-          <span className="text-[12.5px] text-[#4A5567]">
+          <span className="text-[13.5px] text-[#4A5567]">
             지금 지울 것{' '}
             <b className={plan.due > 0 ? 'font-bold text-[#B3312C]' : 'font-bold text-[#98A2B3]'}>
               {plan.due}건
             </b>
             {plan.cutoff && (
-              <span className="ml-1 text-[11.5px] text-[#98A2B3]">
+              <span className="ml-1 text-[12.5px] text-[#98A2B3]">
                 ({plan.cutoff.slice(0, 10)} 이전)
               </span>
             )}
@@ -305,7 +305,7 @@ function Row({
           type="button"
           onClick={onPurge}
           disabled={disabled || !canPurge(plan)}
-          className="ml-auto h-9 rounded-md border border-[#F3C6C6] px-3.5 text-[12.5px] font-bold text-[#D8453F] hover:bg-[#FDECEA] disabled:border-[#DDE2EA] disabled:text-[#C4CBD6]"
+          className="ml-auto h-9 rounded-md border border-[#F3C6C6] px-3.5 text-[13.5px] font-bold text-[#D8453F] hover:bg-[#FDECEA] disabled:border-[#DDE2EA] disabled:text-[#C4CBD6]"
         >
           지금 파기
         </button>

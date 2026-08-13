@@ -31,7 +31,7 @@ export default function ImplantPlayground({ catalog }: { catalog: ImplantCatalog
 
       <div className="mt-6 rounded-lg border bg-gray-50 p-5 text-sm">
         <h2 className="font-semibold">저장될 값</h2>
-        <pre className="mt-2 font-mono text-[13px] text-gray-700">
+        <pre className="mt-2 font-mono text-[14px] text-gray-700">
 {JSON.stringify(selection, null, 2)}
         </pre>
         <p className="mt-2">

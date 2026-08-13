@@ -185,7 +185,7 @@ export default function HomeScreen({
           {/* ★ 구간과 건수를 같이 적습니다.
               금액만 있으면 '무엇을 센 건지' 를 물어보러 전화가 옵니다.
               구간이 07.26~08.25 로 보이면 정산일이 26일이라는 것도 같이 압니다 */}
-          <p className="mt-1 text-[12px] text-[#98A2B3]">
+          <p className="mt-1 text-[13px] text-[#98A2B3]">
             {summary.money.current.from ? (
               <>
                 {shortDate(summary.money.current.from)} ~ {shortDate(summary.money.current.to)}
@@ -199,7 +199,7 @@ export default function HomeScreen({
 
           {/* 단가를 안 정한 제품은 0원이 아니라 '미정' 입니다 — 조용히 빠지면 안 됩니다 */}
           {summary.money.current.unpricedCount > 0 && (
-            <p className="mt-1.5 text-[11.5px] font-semibold text-[#B3312C]">
+            <p className="mt-1.5 text-[12.5px] font-semibold text-[#B3312C]">
               단가를 안 정한 {summary.money.current.unpricedCount}건은 이 금액에 안 들어 있습니다.
             </p>
           )}
@@ -219,7 +219,7 @@ export default function HomeScreen({
                 <li key={status}>
                   <Link
                     href={`${path.orders}?status=${status}`}
-                    className="flex items-center rounded-md px-1.5 py-1.5 text-[13px] hover:bg-[#F4F6F9]"
+                    className="flex items-center rounded-md px-1.5 py-1.5 text-[14px] hover:bg-[#F4F6F9]"
                   >
                     {/* 기공소의 제작대기는 '수거대기' 가 앞에 오지만 지금은 같은 이름을 씁니다 */}
                     <span className="text-[#4A5567]">{STATUS_LABEL[status]}</span>
@@ -245,10 +245,10 @@ export default function HomeScreen({
                     /* ★ 옆 칸(진행중 상태)과 같은 py 를 씁니다.
                        이슈는 줄 수가 적어 카드가 먼저 끝나는데, 여백까지
                        좁으면 그 차이가 더 벌어집니다 */
-                    className="flex items-center rounded-md px-1.5 py-1.5 text-[13px] hover:bg-[#F4F6F9]"
+                    className="flex items-center rounded-md px-1.5 py-1.5 text-[14px] hover:bg-[#F4F6F9]"
                   >
                     <span
-                      className="rounded-full px-2.5 py-1 text-[12px] font-semibold"
+                      className="rounded-full px-2.5 py-1 text-[13px] font-semibold"
                       style={{ background: ISSUE_META[issue].bg, color: ISSUE_META[issue].fg }}
                     >
                       {ISSUE_META[issue].label}
@@ -286,7 +286,7 @@ export default function HomeScreen({
           <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">오늘 배송 예정</h2>
           <Link
             href={path.deliveries}
-            className="ml-auto text-[12.5px] text-[#4A5567] hover:text-[#1279E8]"
+            className="ml-auto text-[13.5px] text-[#4A5567] hover:text-[#1279E8]"
           >
             배송 일정확인하러 가기 ›
           </Link>
@@ -300,11 +300,11 @@ export default function HomeScreen({
               <li key={row.id}>
                 <Link
                   href={`${path.orders}/${row.id}`}
-                  className="flex items-center gap-3 py-2.5 text-[13px] hover:bg-[#F8F9FB]"
+                  className="flex items-center gap-3 py-2.5 text-[14px] hover:bg-[#F8F9FB]"
                 >
                   <span className="text-[#98A2B3]">{row.clinicName}</span>
                   <b className="font-semibold text-[#1A2130]">{row.patientLabel}</b>
-                  <span className="ml-auto text-[12px] text-[#4A5567]">
+                  <span className="ml-auto text-[13px] text-[#4A5567]">
                     {STATUS_LABEL[row.status]}
                   </span>
                 </Link>
@@ -321,7 +321,7 @@ export default function HomeScreen({
             <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">공지사항</h2>
             <Link
               href={path.notices}
-              className="ml-auto text-[12.5px] text-[#4A5567] hover:text-[#1279E8]"
+              className="ml-auto text-[13.5px] text-[#4A5567] hover:text-[#1279E8]"
             >
               전체보기 ›
             </Link>
@@ -345,7 +345,7 @@ export default function HomeScreen({
                     {notice.publishedAt === null && (
                       <span className="shrink-0 text-[11px] font-bold text-[#98A2B3]">임시</span>
                     )}
-                    <span className="min-w-0 flex-1 truncate text-[12.5px] text-[#1A2130]">
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#1A2130]">
                       {notice.title}
                     </span>
                     <span className="shrink-0 text-[11px] tabular-nums text-[#C4CBD6]">
@@ -361,7 +361,7 @@ export default function HomeScreen({
         <Card className="flex-1">
           <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">수거요청</h2>
 
-          <div className="mt-3.5 grid shrink-0 grid-cols-[1fr_0.72fr_0.72fr] gap-2 border-b border-[#E8EBF0] pb-2.5 text-[12px] text-[#98A2B3]">
+          <div className="mt-3.5 grid shrink-0 grid-cols-[1fr_0.72fr_0.72fr] gap-2 border-b border-[#E8EBF0] pb-2.5 text-[13px] text-[#98A2B3]">
             <span>치과명</span>
             <span>요청시한</span>
             <span>상태</span>
@@ -411,7 +411,7 @@ function PickupRow({ row, href }: { row: HomePickup; href: string | null }) {
       <span className="tabular-nums text-[#4A5567]">{row.dueDate}</span>
       <span
         className={
-          'truncate text-[11.5px] font-semibold ' +
+          'truncate text-[12.5px] font-semibold ' +
           (row.waiting ? 'text-[#C77700]' : 'text-[#98A2B3]')
         }
       >
@@ -421,7 +421,7 @@ function PickupRow({ row, href }: { row: HomePickup; href: string | null }) {
   );
 
   const shape =
-    'grid grid-cols-[1fr_0.72fr_0.72fr] items-center gap-2 rounded px-1.5 py-2.5 text-[12.5px]';
+    'grid grid-cols-[1fr_0.72fr_0.72fr] items-center gap-2 rounded px-1.5 py-2.5 text-[13.5px]';
 
   if (!href) {
     return (
@@ -464,10 +464,10 @@ function Worklist({ rows, ordersPath }: { rows: HomeWork[]; ordersPath: string }
     <Card className="shrink-0">
       <div className="flex items-center">
         <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">작업 리스트</h2>
-        <span className="ml-auto text-[12px] text-[#98A2B3]">{rows.length}건</span>
+        <span className="ml-auto text-[13px] text-[#98A2B3]">{rows.length}건</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-[1fr_1.2fr_0.9fr_0.6fr] gap-2 border-b border-[#E8EBF0] pb-2 text-[12px] text-[#98A2B3]">
+      <div className="mt-3 grid grid-cols-[1fr_1.2fr_0.9fr_0.6fr] gap-2 border-b border-[#E8EBF0] pb-2 text-[13px] text-[#98A2B3]">
         <span>치과명</span>
         <span>환자정보</span>
         <span>디자이너</span>
@@ -483,7 +483,7 @@ function Worklist({ rows, ordersPath }: { rows: HomeWork[]; ordersPath: string }
               <Link
                 href={`${ordersPath}/${row.id}`}
                 title={`${row.startedOn || '?'} 에 잡음 · 요청시한 ${row.dueDate}`}
-                className="grid grid-cols-[1fr_1.2fr_0.9fr_0.6fr] items-center gap-2 rounded px-1.5 py-[7px] text-[12.5px] hover:bg-[#F4F8FE]"
+                className="grid grid-cols-[1fr_1.2fr_0.9fr_0.6fr] items-center gap-2 rounded px-1.5 py-[7px] text-[13.5px] hover:bg-[#F4F8FE]"
               >
                 <span className="truncate text-[#4A5567]">{row.clinicName}</span>
                 <span className="truncate font-semibold text-[#1A2130]">{row.patientLabel}</span>
@@ -514,7 +514,7 @@ function Worklist({ rows, ordersPath }: { rows: HomeWork[]; ordersPath: string }
       {rows.length > shown.length && (
         <Link
           href={ordersPath}
-          className="mt-1.5 block text-[12px] text-[#4A5567] hover:text-[#1279E8]"
+          className="mt-1.5 block text-[13px] text-[#4A5567] hover:text-[#1279E8]"
         >
           외 {rows.length - shown.length}건 더 보기 ›
         </Link>
@@ -560,7 +560,7 @@ function Card({
  */
 function Empty({ className = '', children }: { className?: string; children: React.ReactNode }) {
   return (
-    <p className={'grid flex-1 place-items-center text-center text-[13px] text-[#98A2B3] ' + className}>
+    <p className={'grid flex-1 place-items-center text-center text-[14px] text-[#98A2B3] ' + className}>
       {children}
     </p>
   );

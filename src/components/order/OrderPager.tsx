@@ -45,7 +45,7 @@ export default function OrderPager({
           href={href(n)}
           aria-current={n === page ? 'page' : undefined}
           className={
-            'grid h-[31px] min-w-[31px] place-items-center rounded-full px-2 text-[13px] ' +
+            'grid h-[31px] min-w-[31px] place-items-center rounded-full px-2 text-[14px] ' +
             (n === page
               ? 'bg-[#1279E8] font-bold text-white'
               : 'font-semibold text-[#4A5567] hover:bg-[#F4F6F9]')
@@ -58,7 +58,7 @@ export default function OrderPager({
       <Step href={href(page + 1)} disabled={page === pages} label="›" title="다음 쪽" />
       <Step href={href(pages)} disabled={page === pages} label="»" title="마지막 쪽" />
 
-      <span className="absolute right-4 text-[12px] text-[#98A2B3]">전체 {total}건</span>
+      <span className="absolute right-4 text-[13px] text-[#98A2B3]">전체 {total}건</span>
     </div>
   );
 }
@@ -78,7 +78,7 @@ function Step({
     return (
       <span
         aria-hidden="true"
-        className="grid h-[31px] min-w-[31px] place-items-center rounded-full px-2 text-[13px] text-[#CDD4DE]"
+        className="grid h-[31px] min-w-[31px] place-items-center rounded-full px-2 text-[14px] text-[#CDD4DE]"
       >
         {label}
       </span>
@@ -89,7 +89,7 @@ function Step({
     <Link
       href={href}
       title={title}
-      className="grid h-[31px] min-w-[31px] place-items-center rounded-full px-2 text-[13px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+      className="grid h-[31px] min-w-[31px] place-items-center rounded-full px-2 text-[14px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
     >
       {label}
     </Link>

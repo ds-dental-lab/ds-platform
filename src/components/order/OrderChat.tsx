@@ -83,7 +83,7 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
       <div className="flex items-center border-b border-[#E8EBF0] px-4 py-3">
         <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">대화</h2>
         {messages.length > 0 && (
-          <span className="ml-2 text-[12px] text-[#98A2B3]">{messages.length}</span>
+          <span className="ml-2 text-[13px] text-[#98A2B3]">{messages.length}</span>
         )}
       </div>
 
@@ -99,7 +99,7 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
         className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#F7F8FA] px-4 py-4"
       >
         {messages.length === 0 ? (
-          <p className="py-16 text-center text-[13px] text-[#98A2B3]">아직 대화가 없습니다.</p>
+          <p className="py-16 text-center text-[14px] text-[#98A2B3]">아직 대화가 없습니다.</p>
         ) : (
           messages.map((message) => {
             const meta = SECTOR_META[message.authorSector];
@@ -123,7 +123,7 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
                     >
                       {meta.label}
                     </span>
-                    <span className="text-[11.5px] font-semibold text-[#4A5567]">
+                    <span className="text-[12.5px] font-semibold text-[#4A5567]">
                       {message.authorName}
                     </span>
                   </div>
@@ -137,13 +137,13 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
                       maxLength={MAX_LENGTH}
                       onChange={(e) => setEditDraft(e.target.value)}
                       rows={3}
-                      className="w-full rounded-md border border-[#1279E8] px-3 py-2 text-[13px] outline-none"
+                      className="w-full rounded-md border border-[#1279E8] px-3 py-2 text-[14px] outline-none"
                     />
                     <div className="mt-1.5 flex justify-end gap-1.5">
                       <button
                         type="button"
                         onClick={() => setEditing(null)}
-                        className="rounded border border-[#DDE2EA] px-3 py-1 text-[12px] text-[#4A5567]"
+                        className="rounded border border-[#DDE2EA] px-3 py-1 text-[13px] text-[#4A5567]"
                       >
                         취소
                       </button>
@@ -156,7 +156,7 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
                           );
                           if (ok) setEditing(null);
                         }}
-                        className="rounded bg-[#1279E8] px-3 py-1 text-[12px] font-bold text-white disabled:bg-[#D5DAE2]"
+                        className="rounded bg-[#1279E8] px-3 py-1 text-[13px] font-bold text-white disabled:bg-[#D5DAE2]"
                       >
                         저장
                       </button>
@@ -182,7 +182,7 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
 
                     <div
                       className={
-                        'min-w-0 whitespace-pre-wrap px-3.5 py-2.5 text-[13px] leading-relaxed ' +
+                        'min-w-0 whitespace-pre-wrap px-3.5 py-2.5 text-[14px] leading-relaxed ' +
                         (message.mine
                           ? 'rounded-2xl rounded-br-[4px] bg-[#1279E8] text-white'
                           : 'rounded-2xl rounded-tl-[4px] border border-[#E3E7ED] bg-white text-[#1A2130]')
@@ -202,14 +202,14 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
                         setEditDraft(message.body);
                         setError('');
                       }}
-                      className="text-[11.5px] text-[#98A2B3] hover:text-[#1279E8]"
+                      className="text-[12.5px] text-[#98A2B3] hover:text-[#1279E8]"
                     >
                       수정
                     </button>
                     <button
                       type="button"
                       onClick={() => setRemoving(message)}
-                      className="text-[11.5px] text-[#98A2B3] hover:text-[#D8453F]"
+                      className="text-[12.5px] text-[#98A2B3] hover:text-[#D8453F]"
                     >
                       삭제
                     </button>
@@ -221,7 +221,7 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
         )}
       </div>
 
-      {error && <p className="px-4 pb-2 text-[12px] text-[#D8453F]">{error}</p>}
+      {error && <p className="px-4 pb-2 text-[13px] text-[#D8453F]">{error}</p>}
 
       {/* ---------- 쓰기 ---------- */}
       <div className="border-t border-[#E8EBF0] p-3">
@@ -238,7 +238,7 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
           rows={3}
           maxLength={MAX_LENGTH}
           placeholder="메시지를 입력하세요"
-          className="w-full resize-none rounded-md border border-[#DDE2EA] px-3 py-2 text-[13px] outline-none focus:border-[#1279E8]"
+          className="w-full resize-none rounded-md border border-[#DDE2EA] px-3 py-2 text-[14px] outline-none focus:border-[#1279E8]"
         />
 
         <div className="mt-1.5 flex items-center gap-2">
@@ -255,7 +255,7 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
             type="button"
             onClick={send}
             disabled={busy || !draft.trim()}
-            className="shrink-0 rounded-md bg-[#1279E8] px-5 py-2 text-[13px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
+            className="shrink-0 rounded-md bg-[#1279E8] px-5 py-2 text-[14px] font-bold text-white hover:bg-[#0F68C9] disabled:bg-[#D5DAE2] disabled:text-[#8E98A8]"
           >
             전송
           </button>
@@ -267,7 +267,7 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-6">
           <div className="w-full max-w-[360px] rounded-xl bg-white p-6">
             <h3 className="text-[15px] font-bold text-[#1A2130]">이 글을 지울까요?</h3>
-            <p className="mt-2 line-clamp-3 rounded-md bg-[#F4F6F9] px-3 py-2 text-[12.5px] text-[#4A5567]">
+            <p className="mt-2 line-clamp-3 rounded-md bg-[#F4F6F9] px-3 py-2 text-[13.5px] text-[#4A5567]">
               {removing.body}
             </p>
 
@@ -275,7 +275,7 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
               <button
                 type="button"
                 onClick={() => setRemoving(null)}
-                className="h-10 flex-1 rounded-md border border-[#DDE2EA] text-[13px] text-[#4A5567] hover:bg-[#F4F6F9]"
+                className="h-10 flex-1 rounded-md border border-[#DDE2EA] text-[14px] text-[#4A5567] hover:bg-[#F4F6F9]"
               >
                 취소
               </button>
@@ -286,7 +286,7 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
                   const ok = await run(() => submitDeleteOrderMessage(removing.id));
                   if (ok) setRemoving(null);
                 }}
-                className="h-10 flex-1 rounded-md bg-[#D8453F] text-[13px] font-bold text-white hover:bg-[#C13B36] disabled:bg-[#D5DAE2]"
+                className="h-10 flex-1 rounded-md bg-[#D8453F] text-[14px] font-bold text-white hover:bg-[#C13B36] disabled:bg-[#D5DAE2]"
               >
                 삭제
               </button>
