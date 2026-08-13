@@ -105,7 +105,7 @@ export default function OrderTable({
                 <th
                   key={c.key}
                   className={
-                    'whitespace-nowrap border-b border-gray-200 px-3 py-3.5 text-[13.5px] font-bold text-[#4A5567] ' +
+                    'whitespace-nowrap border-b border-gray-200 px-3 py-2.5 text-[13.5px] font-bold text-[#4A5567] ' +
                     (c.align === 'left' ? 'text-left' : 'text-center')
                   }
                 >
@@ -167,14 +167,14 @@ export default function OrderTable({
                 >
                   {/* 주문상태 — 담당 섹터 색 */}
                   <td
-                    className="truncate px-3 py-3 text-center text-[14px] font-bold"
+                    className="truncate px-3 py-2 text-center text-[14px] font-bold"
                     style={{ color: colorOfStatus(row.status) }}
                   >
                     {STATUS_LABEL[row.status]}
                   </td>
 
                   {/* D-Day — 큰 글씨 아래 요청시한 */}
-                  <td className="whitespace-nowrap px-3 py-3 text-center leading-[1.35]">
+                  <td className="whitespace-nowrap px-3 py-2 text-center leading-[1.2]">
                     <b
                       className={
                         'block text-[14px] font-bold tabular-nums ' +
@@ -193,30 +193,30 @@ export default function OrderTable({
                     </span>
                   </td>
 
-                  <td className="truncate px-3 py-3 text-center text-[14px] tabular-nums text-[#4A5567]">
+                  <td className="truncate px-3 py-2 text-center text-[14px] tabular-nums text-[#4A5567]">
                     {(row.received_at ?? '').slice(0, 10) || '-'}
                   </td>
 
-                  <td className="truncate px-3 py-3 text-center text-[14px] text-[#4A5567]">
+                  <td className="truncate px-3 py-2 text-center text-[14px] text-[#4A5567]">
                     {row.clinic_name}
                   </td>
 
                   {/* 환자명 — 시안에서 유일하게 굵은 열입니다 */}
-                  <td className="truncate px-3 py-3 text-center text-[14px] font-bold text-[#1A2130]">
+                  <td className="truncate px-3 py-2 text-center text-[14px] font-bold text-[#1A2130]">
                     {row.patient_label}
                   </td>
 
-                  <td className="truncate px-3 py-3 text-center text-[14px] tabular-nums text-[#4A5567]">
+                  <td className="truncate px-3 py-2 text-center text-[14px] tabular-nums text-[#4A5567]">
                     {formatToothList(row.teeth)}
                   </td>
 
                   {showLab && (
-                    <td className="truncate px-3 py-3 text-center text-[14px] text-[#4A5567]">
+                    <td className="truncate px-3 py-2 text-center text-[14px] text-[#4A5567]">
                       {row.lab_name || <span className="text-gray-300">미배정</span>}
                     </td>
                   )}
 
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-3 py-2 text-center">
                     {issue && (
                       <span
                         className="inline-block rounded-full px-[9px] py-[3px] text-[11px] font-bold"
@@ -243,7 +243,7 @@ export default function OrderTable({
                       <td
                         title={cell.title}
                         className={
-                          'px-3 py-3 text-center text-[14px] tabular-nums ' +
+                          'px-3 py-2 text-center text-[14px] tabular-nums ' +
                           (cell.isSelf
                             ? 'font-bold text-[#C4383A]'
                             : cell.text === '0'
