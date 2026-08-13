@@ -24,6 +24,9 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { canRequestRepair, type OrderStatus, type Sector } from '@/server/domain/order-status';
 import { publishRepairRequested } from '@/server/events';
+import { todayInKst } from '@/server/domain/week';
+import { defaultDueDate, checkDueDate } from '@/server/domain/due-date';
+import { getHolidayMap } from '@/server/repositories/holiday';
 
 export interface RepairInput {
   orderId: string;
@@ -149,6 +152,28 @@ export async function requestRepair(input: RepairInput): Promise<RepairResult> {
 
   const items = itemRows as unknown as CopyableItem[];
 
+  /*
+    ★ 요청시한을 여기서도 검사합니다 (사용자 신고 2026-08-13 —
+      "요칭일자가 당일로 온 경우").
+
+      주문등록과 리메이크는 checkDueDate 를 지나는데 **리페어만
+      안 지났습니다.** 화면이 보낸 날짜를 그대로 저장했습니다 —
+      당일이든 지난 날이든 들어왔습니다.
+
+    ★ 기본값도 도메인 것을 씁니다.
+      전에는 이 파일 안에서 `+7일` 을 세었습니다. 달력으로 세니
+      일요일·공휴일에 걸릴 수 있었습니다. 다른 화면과 같은 규칙이어야
+      "왜 여기만 다르냐" 가 안 생깁니다.
+  */
+  const today = todayInKst();
+  const holidays = await getHolidayMap();
+  const dueDate = input.dueDate || defaultDueDate(today, holidays);
+
+  const verdict = checkDueDate(dueDate, today, 'standard', holidays);
+  if (!verdict.selectable) {
+    return { ok: false, error: verdict.reason ?? '고를 수 없는 요청시한입니다' };
+  }
+
   const { data: orderNo, error: noError } = await supabase.rpc('next_order_no');
   if (noError || !orderNo) {
     return { ok: false, error: '주문번호를 만들지 못했습니다' };
@@ -168,7 +193,7 @@ export async function requestRepair(input: RepairInput): Promise<RepairResult> {
       order_type: 'repair',
       status: 'production_wait',
       // 안 주면 기본값으로 버팁니다 — 시한 없는 주문은 만들지 않습니다
-      due_date: input.dueDate || defaultDueDate(),
+      due_date: dueDate,
       notes: input.notes.trim(),
       is_repair: true,
       is_billable: false,                 // 청구 제외 (§4.5)
@@ -265,13 +290,3 @@ export async function requestRepair(input: RepairInput): Promise<RepairResult> {
   return { ok: true, orderId: repair.id, orderNo: repair.order_no };
 }
 
-/**
- * 리페어의 요청시한.
- * 원주문 시한은 이미 지났으므로 다시 잡습니다.
- * 수거가 다음날 오전이라 넉넉히 일주일을 둡니다.
- */
-function defaultDueDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 7);
-  return d.toISOString().slice(0, 10);
-}

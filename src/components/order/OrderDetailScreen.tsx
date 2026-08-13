@@ -397,7 +397,7 @@ export default function OrderDetailScreen({
               editable={sector === 'clinic' && canAddFiles}
             />
 
-            <div className="flex min-h-[172px] flex-col">
+            <div className="flex max-h-[260px] min-h-[172px] flex-col overflow-y-auto">
               {scanFiles.length === 0 ? (
                 <p className="m-auto py-6 text-[12.5px] text-[#98A2B3]">
                   업로드된 스캔 파일이 없습니다.
@@ -453,13 +453,19 @@ export default function OrderDetailScreen({
                     ))
                   )}
 
-                  {missingModels > 0 && (
-                    <p className="mt-1 rounded-md border border-[#F3C6C6] bg-[#FDECEA] px-[11px] py-[9px] text-[11.5px] font-bold leading-relaxed text-[#C4383A]">
-                      ⚠ 모델이 지정되지 않은 치아가 {missingModels}개 있습니다. 제작을 진행할 수
-                      없습니다.
-                    </p>
-                  )}
                 </div>
+
+                {/*
+                  ★ 경고는 스크롤 상자 **밖**에 둡니다 (2026-08-13).
+                    안에 있으면 치아가 여럿일 때 아래로 밀려 안 보입니다 —
+                    정작 "모델이 없다" 를 알려야 할 주문일수록 줄이 많습니다.
+                */}
+                {missingModels > 0 && (
+                  <p className="mt-2 rounded-md border border-[#F3C6C6] bg-[#FDECEA] px-[11px] py-[9px] text-[11.5px] font-bold leading-relaxed text-[#C4383A]">
+                    ⚠ 모델이 지정되지 않은 치아가 {missingModels}개 있습니다. 제작을 진행할 수
+                    없습니다.
+                  </p>
+                )}
               </Card>
             )}
           </div>
@@ -476,7 +482,7 @@ export default function OrderDetailScreen({
               </span>
             }
           >
-            <div className="flex min-h-[172px] flex-col">
+            <div className="flex max-h-[260px] min-h-[172px] flex-col overflow-y-auto">
               {designFiles.length === 0 ? (
                 <p className="m-auto py-6 text-[12.5px] text-[#98A2B3]">
                   아직 디자인 파일이 없습니다.

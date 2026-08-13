@@ -117,21 +117,50 @@ function summarizeShades(
   return unique.length === 1 ? unique[0] : unique.join(', ');
 }
 
-/** 임플란트 모델도 같은 방식으로 정리합니다 */
+/**
+ * 임플란트 모델.
+ *
+ * ★ 쉐이드와 달리 **치식을 붙여야 합니다** (사용자 신고 2026-08-13 —
+ *   "Osstem 으로 넣어주셨는데 디자인센터에서는 Neo로 나오는 경우").
+ *
+ *   전에는 쉐이드와 똑같이 서로 다르면 그냥 이어 붙였습니다 —
+ *     `Osstem TS Regular Hex / Neo IS-III Regular Hex`
+ *   어느 치아가 어느 회사인지가 **글에서 사라집니다.** 읽는 사람은
+ *   앞의 것을 그 줄 전체로 읽고, 그대로 다른 회사 픽스처로 만듭니다.
+ *
+ * ★ 쉐이드는 틀려도 색이 조금 다를 뿐이지만, 임플란트는 **안 맞으면
+ *   물리적으로 안 들어갑니다.** 같은 규칙을 쓰면 안 되는 자리였습니다.
+ *
+ * ★ 하나뿐이면 예전 그대로 모델만 적습니다. 치식은 이미 줄 앞에
+ *   있어서 두 번 적으면 군더더기입니다.
+ */
 function summarizeImplants(
   placements: ToothPlacement[],
   implants: Record<number, ImplantSelection>,
   catalog: ImplantCatalog,
 ): string {
-  const labels = placements
-    .filter((p) => !p.isPontic && implants[p.tooth])
-    .map((p) => formatSelection(catalog, implants[p.tooth]))
-    .filter(Boolean);
+  // 모델별로 치아를 모읍니다. 먼저 나온 차례를 지킵니다
+  const byLabel = new Map<string, number[]>();
 
-  if (labels.length === 0) return '';
+  for (const placement of placements) {
+    if (placement.isPontic) continue;
 
-  const unique = [...new Set(labels)];
-  return unique.length === 1 ? unique[0] : unique.join(' / ');
+    const selection = implants[placement.tooth];
+    if (!selection) continue;
+
+    const label = formatSelection(catalog, selection);
+    if (!label) continue;
+
+    if (!byLabel.has(label)) byLabel.set(label, []);
+    byLabel.get(label)!.push(placement.tooth);
+  }
+
+  if (byLabel.size === 0) return '';
+
+  const entries = [...byLabel.entries()];
+  if (entries.length === 1) return entries[0][0];
+
+  return entries.map(([label, teeth]) => `${teeth.join(', ')} ${label}`).join(' / ');
 }
 
 /** 초기화 버튼을 빨간색으로 강조할지 (명세서 §4.2.5) */
