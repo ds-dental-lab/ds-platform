@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!--
+    놓을 위치: src/app/icon.svg  (Next 앱 라우터 규약 — 브라우저 탭 아이콘)
+
+    ★ 탭 아이콘은 로그인 화면의 마크와 **일부러 다릅니다.**
+      원래 마크는 가로로 긴 선 그림입니다. 탭은 16px 정사각형이라,
+      그대로 넣으면 세로가 10px 로 눌려 흐린 실오라기가 됩니다.
+      16/32/64px 를 나란히 찍어 보고 정한 것이 이 형태입니다.
+
+    ★ 바뀐 것 둘.
+      ① 배경을 그라디언트 타일로 깔고 그림을 흰색으로 뒤집었습니다.
+         작은 자리에서는 **덩어리**가 있어야 눈에 걸립니다.
+      ② 왼쪽 점 셋(스캔)을 뺐습니다. 16px 에서는 점이 뭉쳐 얼룩이 됩니다.
+         모이는 몸짓만 남겨도 같은 그림으로 읽힙니다.
+
+    ★ 가운데 맞춤은 점을 뺀 뒤의 폭을 기준으로 합니다.
+      남은 그림의 가로 한가운데는 60 이지 51 이 아닙니다.
+      원래 중심(51)으로 맞추면 오른쪽 여백이 왼쪽의 절반이 됩니다.
+  -->
+  <defs>
+    <linearGradient id="denflow-icon" gradientUnits="userSpaceOnUse" x1="8" y1="72" x2="94" y2="28">
+      <stop offset="0%" stop-color="#16D6D1"/>
+      <stop offset="55%" stop-color="#2D7BF4"/>
+      <stop offset="100%" stop-color="#7159F7"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="100" height="100" rx="22" fill="url(#denflow-icon)"/>
+
+  <g fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round"
+     transform="translate(50 50) scale(0.95) translate(-60 -50)">
+    <path d="M33 28 C50 33, 65 43, 76 50"/>
+    <path d="M28 50 H76"/>
+    <path d="M33 72 C50 67, 65 57, 76 50"/>
+    <path d="M76 50 H92"/>
+  </g>
+</svg>
