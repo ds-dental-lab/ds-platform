@@ -49,20 +49,45 @@
 
 ---
 
-## 2. 제가 이어받을 것
+## 2. ✅ 끝났습니다 (2026-08-14)
 
-4번까지 되면 알려만 주세요.
+프로젝트 `denflow-staging` · ref `imljbdlapdcleabrvqxz` · 서울 리전.
 
-- [ ] 마이그레이션 **66건** 을 staging 에 적용 (`supabase db push`)
-- [ ] 저장소 버킷 `order-files` 만들기 (마이그레이션에 없습니다)
-- [ ] 시험 계정 셋 만들기 — `clinic@test.kr` · `design@test.kr` · `lab@test.kr`
-- [ ] `supabase/seed.sql` 로 조직·거래관계·제품·단가 심기
-- [ ] `.env.local` 을 staging 으로 돌리기 → **제 localhost 가 운영을 못 건드림**
-- [ ] 띠가 뜨는지 확인 (`NEXT_PUBLIC_ENV_LABEL=staging`)
+- [x] 마이그레이션 **67건** 적용
+- [x] 저장소 버킷 `order-files` (비공개)
+- [x] 시험 계정 셋 — `clinic@test.kr` · `design@test.kr` · `lab@test.kr`
+      / 비밀번호 `test1234`
+- [x] `supabase/seed.sql` — 조직 셋 · 거래관계 · 재료 8개
+- [x] `.env.local` 을 staging 으로 돌림 (운영 값은 `.env.production.local.bak`)
+- [x] 주황 띠 `staging` 확인
+
+다시 심을 일이 있으면:
+
+```bash
+npm run seed-staging     # 버킷 + 계정 (운영이면 스스로 멈춥니다)
+npx supabase db push --include-seed
+```
+
+### ★ 이 과정에서 찾은 것 — 마이그레이션만으로는 다시 못 세웠습니다
+
+빈 프로젝트에 올리니 63번째에서 멈췄습니다.
+
+```
+ERROR: function can_access_order(uuid) does not exist
+```
+
+두 마이그레이션이 이 함수를 쓰는데 **만드는 마이그레이션이 없었습니다.**
+운영에는 예전에 손으로 만들어 둔 것이 남아 있어 안 터졌던 것입니다.
+
+정의는 지어내지 않고 **운영에 물어서** 맞췄습니다 — 치과 계정의 진짜
+JWT 로 운영의 함수를 불러 내 주문은 true, 남의 주문은 false 를 확인하고
+`20260813165000_can_access_order.sql` 로 못박았습니다.
+
+**시험 서버를 나눈 첫 소득입니다.**
 
 ---
 
-## 3. Vercel 환경변수 가르기
+## 3. ⬜ 남은 것 — Vercel 환경변수 가르기
 
 대시보드 작업이라 사장님이 하셔야 합니다. **Settings → Environment Variables** 에서
 같은 이름의 값을 환경별로 다르게 넣습니다.
