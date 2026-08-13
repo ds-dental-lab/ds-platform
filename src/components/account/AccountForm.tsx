@@ -51,6 +51,10 @@ export interface AccountFormProps {
   editable: boolean;
 }
 
+/** 아래줄에 나란히 서는 곁길 단추들 */
+const SUB_LINK =
+  'h-10 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold leading-10 text-[#4A5567] hover:bg-[#F4F6F9]';
+
 const TYPE_LABEL = {
   clinic: '치과',
   design_center: '디자인센터',
@@ -269,23 +273,43 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
 
         {/* ---------- 아래줄 ---------- */}
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#E8EBF0] px-6 py-4">
-          {/* ★ '열람 기록 보기' 는 뺐습니다 (사용자 요청 2026-08-12).
-              화면과 기록은 그대로 있고 계정정보에서 가는 길만 없앴습니다.
-              보관기간은 남깁니다 — 여기 말고는 갈 데가 없습니다 */}
-          {editable && (
-            <Link
-              href={`${basePath}/account/retention`}
-              className="mr-auto h-10 rounded-md border border-[#DDE2EA] px-3.5 text-[12.5px] font-semibold leading-10 text-[#4A5567] hover:bg-[#F4F6F9]"
-            >
-              보관기간·파기
-            </Link>
-          )}
+          {/*
+            ★ 여기 말고는 갈 데가 없는 화면들입니다 (사용자 요청 2026-08-13).
+              사이드바에 자리가 없어 주소를 직접 쳐야만 열렸습니다.
 
-          {!editable && (
-            <span className="mr-auto text-[12px] text-[#98A2B3]">
-              관리자만 고칠 수 있습니다.
-            </span>
-          )}
+              ① **직원 계정은 디자인센터에만** 답니다.
+                 치과·기공소는 사이드바 '사용자' 탭이 곧 직원 계정입니다.
+                 디자인센터만 그 탭을 거래처(치과·기공소) 관리가 쓰고 있어,
+                 우리 직원 계정이 계정정보 밑으로 밀려나 있었습니다.
+                 관리자만 열립니다 (`requireManagerSector`).
+
+              ② 열람 기록은 **2026-08-12 에 사용자 요청으로 뺐던 것**을
+                 다시 답니다 (2026-08-13 재요청). 처리방침에 "열람 기록을
+                 남긴다" 고 적어 두고 정작 볼 길이 없었습니다.
+                 관리자 전용이 아닙니다 — 화면 자체가 `requireSession` 이고,
+                 자기 조직 기록만 보입니다.
+          */}
+          <div className="mr-auto flex flex-wrap items-center gap-2">
+            {editable && (
+              <Link href={`${basePath}/account/retention`} className={SUB_LINK}>
+                보관기간·파기
+              </Link>
+            )}
+
+            {editable && org.orgType === 'design_center' && (
+              <Link href={`${basePath}/account/members`} className={SUB_LINK}>
+                직원 계정
+              </Link>
+            )}
+
+            <Link href={`${basePath}/account/audit`} className={SUB_LINK}>
+              열람 기록
+            </Link>
+
+            {!editable && (
+              <span className="text-[12px] text-[#98A2B3]">관리자만 고칠 수 있습니다.</span>
+            )}
+          </div>
 
           <button
             type="button"

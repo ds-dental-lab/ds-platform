@@ -46,8 +46,14 @@ export interface OrderListQuery {
   to?: string | null;
   clinic?: string;
   patient?: string;
-  status?: OrderStatus | null;
-  issue?: IssueType | null;
+  /**
+   * 고른 상태들. **빈 배열이면 안 거릅니다** (전체).
+   * 여러 개를 고를 수 있습니다 — 서로 OR 입니다
+   * (사용자 요청 2026-08-13, domain/order-list 의 parseFilterList).
+   */
+  statuses?: readonly OrderStatus[];
+  /** 고른 이슈들. 상태와는 AND, 이슈끼리는 OR 입니다 */
+  issues?: readonly IssueType[];
   sort?: SortColumn;
   dir?: 1 | -1;
   page?: number;
@@ -178,8 +184,16 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
   }
 
   // ---------- 상태 · 이슈 좁히기 ----------
-  if (query.status) rows = rows.filter((r) => r.status === query.status);
-  if (query.issue) rows = rows.filter((r) => r.issue === query.issue);
+  //
+  // ★ 같은 줄 안에서는 OR, 상태와 이슈 사이는 AND 입니다.
+  //   '접수 또는 디자인' 이면서 '리페어' — 이렇게 읽힙니다.
+  //   빈 배열은 '안 거름' 입니다. 하나도 안 고른 것과 전부 고른 것을
+  //   똑같이 다루면, 마지막 아이콘을 끄는 순간 목록이 비어 버립니다.
+  const statuses = query.statuses ?? [];
+  const issues = query.issues ?? [];
+
+  if (statuses.length > 0) rows = rows.filter((r) => statuses.includes(r.status));
+  if (issues.length > 0) rows = rows.filter((r) => r.issue !== null && issues.includes(r.issue));
 
   // ---------- 정렬 ----------
   const sort = query.sort ?? 'received_at';

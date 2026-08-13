@@ -158,6 +158,54 @@ export function rangeStart(preset: RangePreset, today: IsoDate): IsoDate | null 
   return dt.toISOString().slice(0, 10);
 }
 
+// ---------- 아이콘 필터 (여러 개 고르기) ----------
+//
+// 사용자 요청 2026-08-13 — "중복으로 필터가 되게 해줘".
+// 전에는 하나만 켜졌습니다. 아이콘을 누르면 앞의 것이 꺼져서,
+// '제작대기 + 제작' 처럼 **지금 기공소에 가 있는 것 전부**를 한 번에
+// 볼 수가 없었습니다.
+//
+// 주소에는 쉼표로 담습니다 — `?status=production_wait,production`.
+// 같은 이름을 여러 번 붙이는 방식(`?status=a&status=b`)이 아닙니다.
+// 링크를 만들 때 URLSearchParams.set 한 번으로 끝나고, 주소를 눈으로
+// 읽을 수 있습니다. **값 하나짜리 옛 주소도 그대로 동작합니다** —
+// HOME 카드가 `?status=received` 로 보내고 있습니다.
+
+/**
+ * 쉼표로 이어진 값을 허용 목록으로 거릅니다.
+ *
+ * ★ 주소는 사용자가 직접 고칠 수 있습니다. 모르는 값은 조용히 버립니다.
+ * ★ 중복은 한 번만 남깁니다 — `a,a` 를 두 번 세면 개수가 어긋납니다.
+ * ★ **차례는 허용 목록의 차례**입니다. 누른 순서로 두면 같은 조합인데
+ *   주소가 달라져 뒤로가기·즐겨찾기가 서로 다른 것처럼 보입니다.
+ */
+export function parseFilterList<T extends string>(raw: string, allowed: readonly T[]): T[] {
+  if (!raw) return [];
+
+  const picked = new Set(raw.split(',').map((s) => s.trim()));
+
+  return allowed.filter((a) => picked.has(a));
+}
+
+/** 켜져 있으면 빼고, 아니면 더합니다. 차례는 허용 목록을 따릅니다 */
+export function toggleFilter<T extends string>(
+  current: readonly T[],
+  value: T,
+  allowed: readonly T[],
+): T[] {
+  const next = new Set<string>(current);
+
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+
+  return allowed.filter((a) => next.has(a));
+}
+
+/** 주소에 실을 값. 비어 있으면 빈 문자열 — 그러면 파라미터를 지웁니다 */
+export function filterListToParam(list: readonly string[]): string {
+  return list.join(',');
+}
+
 // ---------- 정렬 ----------
 
 /** 명세서 §4.3 — 치식과 이슈를 뺀 나머지 열은 모두 정렬됩니다 */

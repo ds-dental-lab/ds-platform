@@ -13,12 +13,20 @@
 //
 // ★ 배지 숫자는 상태·이슈 선택을 뺀 나머지 조건으로 셉니다.
 //   고른 상태만 세면 다른 아이콘이 전부 0이 되어 옮겨 갈 수가 없습니다.
+//
+// ★ **여러 개를 켤 수 있습니다** (사용자 요청 2026-08-13).
+//   전에는 하나만 켜져서, 아이콘을 누르면 앞의 것이 꺼졌습니다.
+//   '제작대기 + 제작' 처럼 지금 기공소에 가 있는 것 전부를 한 번에
+//   볼 수가 없었습니다. 같은 줄끼리는 OR, 상태와 이슈 사이는 AND 입니다.
+//   고르고 끄는 규칙은 domain/order-list 에 있습니다(테스트로 잠금).
 // =========================================================
 
 import Link from 'next/link';
 import { STATUS_LABEL, type OrderStatus } from '@/server/domain/order-status';
 import {
   statusesForSector,
+  toggleFilter,
+  filterListToParam,
   SECTOR_COLOR,
   ISSUE_META,
   ISSUE_ORDER,
@@ -90,8 +98,10 @@ const ISSUE_ICON: Record<IssueType, React.ReactNode> = {
 export interface OrderQuickFiltersProps {
   basePath: string;
   params: Record<string, string>;
-  status: OrderStatus | null;
-  issue: IssueType | null;
+  /** 켜져 있는 상태들. 빈 배열이면 전체 */
+  statuses: readonly OrderStatus[];
+  /** 켜져 있는 이슈들 */
+  issues: readonly IssueType[];
   statusCounts: Record<string, number>;
   issueCounts: Record<string, number>;
   /** 어느 섹터의 목록인가. 기공소는 앞 단계 상태를 세우지 않습니다 */
@@ -101,56 +111,112 @@ export interface OrderQuickFiltersProps {
 export default function OrderQuickFilters({
   basePath,
   params,
-  status,
-  issue,
+  statuses,
+  issues,
   statusCounts,
   issueCounts,
   sector,
 }: OrderQuickFiltersProps) {
-  /** 아이콘을 눌렀을 때 갈 주소. 이미 켜져 있으면 끕니다 */
-  function hrefFor(key: 'status' | 'issue', value: string, active: boolean): string {
-    const next = new URLSearchParams(params);
+  const shownStatuses = statusesForSector(sector).map(({ status }) => status);
+  const on = statuses.length + issues.length;
 
-    if (active) next.delete(key);
-    else next.set(key, value);
+  /**
+   * 아이콘을 눌렀을 때 갈 주소.
+   *
+   * ★ 앞의 선택을 안 지웁니다 (사용자 요청 2026-08-13).
+   *   켜져 있으면 그것만 빼고, 아니면 더합니다. 하나도 안 남으면
+   *   파라미터를 통째로 지웁니다 — `?status=` 를 남기면 '전체'와
+   *   '아무것도 아님'이 주소에서 구분이 안 됩니다.
+   */
+  function hrefFor<T extends string>(
+    key: 'status' | 'issue',
+    value: T,
+    current: readonly T[],
+    allowed: readonly T[],
+  ): string {
+    const next = new URLSearchParams(params);
+    const picked = filterListToParam(toggleFilter(current, value, allowed));
+
+    if (picked) next.set(key, picked);
+    else next.delete(key);
 
     next.delete('page'); // 필터가 바뀌면 1쪽으로
     const qs = next.toString();
     return qs ? `${basePath}?${qs}` : basePath;
   }
 
+  /** 켜진 것을 한 번에 끄는 주소 */
+  function clearHref(): string {
+    const next = new URLSearchParams(params);
+    next.delete('status');
+    next.delete('issue');
+    next.delete('page');
+    const qs = next.toString();
+    return qs ? `${basePath}?${qs}` : basePath;
+  }
+
   return (
-    <div className="flex flex-wrap items-start gap-y-2 border-t border-gray-200 pt-3.5">
-      {/* 상태 — 왼쪽 */}
-      <div className="flex flex-wrap gap-0.5">
-        {statusesForSector(sector).map(({ status: s }) => (
-          <IconButton
-            key={s}
-            href={hrefFor('status', s, status === s)}
-            label={STATUS_LABEL[s]}
-            icon={STATUS_ICON[s]}
-            color={SECTOR_COLOR[sectorOfStatus(s)].color}
-            count={statusCounts[s] ?? 0}
-            active={status === s}
-            title={`${SECTOR_COLOR[sectorOfStatus(s)].label} 단계`}
-          />
-        ))}
+    <div className="border-t border-gray-200 pt-3.5">
+      <div className="flex flex-wrap items-start gap-y-2">
+        {/* 상태 — 왼쪽 */}
+        <div className="flex flex-wrap gap-0.5">
+          {shownStatuses.map((s) => (
+            <IconButton
+              key={s}
+              href={hrefFor('status', s, statuses, shownStatuses)}
+              label={STATUS_LABEL[s]}
+              icon={STATUS_ICON[s]}
+              color={SECTOR_COLOR[sectorOfStatus(s)].color}
+              count={statusCounts[s] ?? 0}
+              active={statuses.includes(s)}
+              title={`${SECTOR_COLOR[sectorOfStatus(s)].label} 단계`}
+            />
+          ))}
+        </div>
+
+        {/* 이슈 — 오른쪽 끝 (시안 .statfilter.issues) */}
+        <div className="ml-auto flex flex-wrap gap-0.5">
+          {ISSUE_ORDER.map((i) => (
+            <IconButton
+              key={i}
+              href={hrefFor('issue', i, issues, ISSUE_ORDER)}
+              label={ISSUE_META[i].label}
+              icon={ISSUE_ICON[i]}
+              color={ISSUE_META[i].fg}
+              count={issueCounts[i] ?? 0}
+              active={issues.includes(i)}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* 이슈 — 오른쪽 끝 (시안 .statfilter.issues) */}
-      <div className="ml-auto flex flex-wrap gap-0.5">
-        {ISSUE_ORDER.map((i) => (
-          <IconButton
-            key={i}
-            href={hrefFor('issue', i, issue === i)}
-            label={ISSUE_META[i].label}
-            icon={ISSUE_ICON[i]}
-            color={ISSUE_META[i].fg}
-            count={issueCounts[i] ?? 0}
-            active={issue === i}
-          />
-        ))}
-      </div>
+      {/*
+        ★ 몇 개를 켰는지 적고, 한 번에 끄는 길을 둡니다.
+          여러 개가 켜지면 "왜 이 건이 안 보이지" 가 생깁니다. 아이콘을
+          하나씩 다시 눌러 끄게 두면 그 물음이 안 풀립니다.
+          하나도 안 켜졌을 때는 줄이 아예 없습니다 — 늘 있으면 자리만 먹습니다.
+      */}
+      {on > 0 && (
+        <div className="mt-2 flex items-center gap-2 text-[12px] text-[#98A2B3]">
+          <span>
+            {[
+              statuses.length > 0
+                ? `상태 ${statuses.map((s) => STATUS_LABEL[s]).join(' · ')}`
+                : null,
+              issues.length > 0 ? `이슈 ${issues.map((i) => ISSUE_META[i].label).join(' · ')}` : null,
+            ]
+              .filter(Boolean)
+              .join('  |  ')}
+          </span>
+
+          <Link
+            href={clearHref()}
+            className="rounded border border-[#DDE2EA] px-2 py-[3px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+          >
+            필터 끄기
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

@@ -13,13 +13,14 @@ import { listOrderPage } from '@/server/repositories/order-list';
 import {
   rangeStart,
   isSortable,
+  parseFilterList,
+  filterListToParam,
+  statusesForSector,
   ISSUE_ORDER,
   RANGE_PRESETS,
-  type IssueType,
   type RangePreset,
   type SortColumn,
 } from '@/server/domain/order-list';
-import { STATUS_ORDER, type OrderStatus } from '@/server/domain/order-status';
 import { todayInKst, isValidIsoDate } from '@/server/domain/week';
 import OrderQuickFilters from '@/components/order/OrderQuickFilters';
 import OrderSearchBar from '@/components/order/OrderSearchBar';
@@ -49,15 +50,15 @@ export default async function OrderListScreen({
   searchParams,
 }: OrderListScreenProps) {
   const today = todayInKst();
-  const q = readParams(searchParams, today);
+  const q = readParams(searchParams, today, sector);
 
   const result = await listOrderPage({
     from: q.from,
     to: q.to,
     clinic: q.clinic,
     patient: q.patient,
-    status: q.status,
-    issue: q.issue,
+    statuses: q.statuses,
+    issues: q.issues,
     sort: q.sort,
     dir: q.dir,
     page: q.page,
@@ -84,8 +85,8 @@ export default async function OrderListScreen({
             <OrderQuickFilters
               basePath={basePath}
               params={q.raw}
-              status={q.status}
-              issue={q.issue}
+              statuses={q.statuses}
+              issues={q.issues}
               statusCounts={result.statusCounts}
               issueCounts={result.issueCounts}
               sector={sector}
@@ -135,6 +136,7 @@ export default async function OrderListScreen({
 function readParams(
   searchParams: Record<string, string | string[] | undefined>,
   today: string,
+  sector: 'clinic' | 'design_center' | 'lab',
 ) {
   const one = (key: string): string => {
     const v = searchParams[key];
@@ -160,15 +162,18 @@ function readParams(
 
   const to = hasCustom && isValidIsoDate(rawTo) ? rawTo : null;
 
-  const statusRaw = one('status');
-  const status: OrderStatus | null = (STATUS_ORDER as string[]).includes(statusRaw)
-    ? (statusRaw as OrderStatus)
-    : null;
+  /* ★ 여러 개를 고를 수 있습니다 (`?status=production_wait,production`).
+       값 하나짜리 옛 주소도 그대로 읽힙니다 — HOME 카드가 아직 그렇게 보냅니다.
 
-  const issueRaw = one('issue');
-  const issue: IssueType | null = (ISSUE_ORDER as string[]).includes(issueRaw)
-    ? (issueRaw as IssueType)
-    : null;
+     ★ **그 섹터의 아이콘에 있는 상태만** 받습니다.
+       기공소 목록에는 접수·디자인 아이콘이 없습니다. 주소로 `status=received`
+       가 들어오면 켤 수도 끌 수도 없는 필터가 걸려, 빈 목록을 보면서
+       왜 비었는지 알 길이 없습니다. **끌 수 있는 것만 켜집니다.** */
+  const statuses = parseFilterList(
+    one('status'),
+    statusesForSector(sector).map(({ status }) => status),
+  );
+  const issues = parseFilterList(one('issue'), ISSUE_ORDER);
 
   const sortRaw = one('sort');
   const sort: SortColumn = isSortable(sortRaw) ? sortRaw : 'received_at';
@@ -185,8 +190,8 @@ function readParams(
   if (isValidIsoDate(rawTo)) raw.to = rawTo;
   if (one('clinic')) raw.clinic = one('clinic');
   if (one('patient')) raw.patient = one('patient');
-  if (status) raw.status = status;
-  if (issue) raw.issue = issue;
+  if (statuses.length > 0) raw.status = filterListToParam(statuses);
+  if (issues.length > 0) raw.issue = filterListToParam(issues);
   if (sortRaw && isSortable(sortRaw)) raw.sort = sort;
   if (one('dir')) raw.dir = String(dir);
 
@@ -198,8 +203,8 @@ function readParams(
     rawTo: isValidIsoDate(rawTo) ? rawTo : '',
     clinic: one('clinic'),
     patient: one('patient'),
-    status,
-    issue,
+    statuses,
+    issues,
     sort,
     dir,
     page,
