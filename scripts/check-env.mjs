@@ -140,6 +140,31 @@ if (url && anon && problems.length === 0) {
   }
 }
 
+// ---------- 어느 DB 를 보고 있나 ----------
+//
+// ★ 2026-08-13 에 실제로 헷갈렸습니다.
+//   localhost 도 배포된 사이트도 **같은 운영 DB** 를 보고 있었는데
+//   'localhost = 시험' 이라고 여기고 청구서를 발행했습니다.
+//   번호는 진짜로 소모됐습니다(INV-26000011).
+//   그래서 점검 첫 줄에 **프로젝트 주소를 그대로 찍습니다** —
+//   열쇠가 아니라 주소라 로그에 남아도 됩니다.
+//
+// ★ 운영 ref 를 바꾸면 아래 상수도 같이 고쳐야 합니다.
+
+const PRODUCTION_REF = 'dzliwedyqkondvcwnvbh';
+
+const projectRef =
+  (found.get('NEXT_PUBLIC_SUPABASE_URL') ?? '').match(/https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1] ??
+  '(모름)';
+
+if (projectRef === PRODUCTION_REF) {
+  notes.unshift(
+    `지금 보는 DB: ${projectRef} — ★ **운영입니다.** 여기서 지우거나 발행한 것은 진짜입니다`,
+  );
+} else {
+  notes.unshift(`지금 보는 DB: ${projectRef} (운영이 아닙니다)`);
+}
+
 // ---------- 결과 ----------
 
 console.log(`\n${FILE}\n`);

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import EnvBadge from "@/components/layout/EnvBadge";
 
 /*
   ★ 웹폰트를 안 씁니다 (2026-08-13 — 화면이 느리다는 지적을 재 보고).
@@ -37,7 +38,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           블록으로 두면 페이지는 창 폭에 맞고, 넓은 것은 제자리에서
           가로로 스크롤합니다. 여기에 기대는 화면은 없습니다.
       */}
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {/* 시험 환경에서만 보이는 띠. 운영에서는 아무것도 안 그립니다 */}
+        <EnvBadge />
+        {children}
+      </body>
     </html>
   );
 }
