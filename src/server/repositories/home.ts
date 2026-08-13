@@ -23,6 +23,7 @@ import {
   sortWork,
   ownerOf,
   WORK_STATUSES,
+  WORK_SECTORS,
 } from '@/server/domain/worklist';
 import { listNotices, type NoticeRow } from '@/server/repositories/notice';
 import { pickupStillListed, pickupWaiting } from '@/server/domain/pickup';
@@ -136,7 +137,13 @@ export async function getHomeSummary(): Promise<HomeSummary> {
   */
   const me = await getSession();
   const sector = (me?.orgType ?? 'clinic') as Sector;
-  const workStatuses = WORK_STATUSES[sector];
+
+  /*
+    ★ 치과는 이 목록을 안 세웁니다 (사용자 요청 2026-08-13).
+      화면에서 감추는 것으로 끝내지 않고 **줄을 아예 안 만듭니다** —
+      안 쓰는 목록을 만들어 두면 이력 조회까지 딸려 옵니다.
+  */
+  const workStatuses = WORK_SECTORS.includes(sector) ? WORK_STATUSES[sector] : [];
 
   const money = getHomeMoney();
   const notices = listNotices(HOME_NOTICES);

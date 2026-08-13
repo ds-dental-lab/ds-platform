@@ -10,6 +10,7 @@ import {
   sortWork,
   ownerOf,
   WORK_STATUSES,
+  WORK_SECTORS,
   type WorklistRow,
 } from '@/server/domain/worklist';
 
@@ -149,5 +150,18 @@ describe('어떤 상태가 내 손에 있는 일인가', () => {
       expect(list).not.toContain('completed');
       expect(list).not.toContain('cancelled');
     }
+  });
+});
+
+describe('이 목록을 세우는 섹터', () => {
+  // ★ 치과는 만드는 쪽이 아니라 기다리는 쪽입니다 (사용자 요청 2026-08-13).
+  //   진행 상황은 '진행중 상태' 숫자와 주문목록으로 충분합니다.
+  it('★ 치과는 안 세웁니다', () => {
+    expect(WORK_SECTORS).not.toContain('clinic');
+  });
+
+  it('디자인센터와 기공소는 세웁니다', () => {
+    expect(WORK_SECTORS).toContain('design_center');
+    expect(WORK_SECTORS).toContain('lab');
   });
 });

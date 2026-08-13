@@ -39,7 +39,7 @@ import { STATUS_LABEL, type OrderStatus, type Sector } from '@/server/domain/ord
 import { ISSUE_META, type IssueType } from '@/server/domain/order-list';
 import MoneyTrend from '@/components/home/MoneyTrend';
 import { PICKUP_KIND_LABEL, PICKUP_STATUS_LABEL } from '@/lib/format/pickup';
-import { WORK_LABEL } from '@/server/domain/worklist';
+import { WORK_LABEL, WORK_SECTORS } from '@/server/domain/worklist';
 import type { HomeSummary, HomePickup, HomeWork } from '@/server/repositories/home';
 
 /** 섹터마다 세는 상태가 다릅니다 */
@@ -151,12 +151,23 @@ export default function HomeScreen({
   const path = HOME_PATH[sector];
 
   /*
-    ★ 왼쪽 칸에서 남는 높이를 누가 가져가나.
-      보통은 맨 아래 추이입니다. 금액을 못 보는 사용자에게는 추이가
-      아예 없으므로, 그때는 '내 일' 목록이 대신 늘어납니다.
-      아무도 안 늘어나면 그 칸만 짧게 끝나 다시 어긋납니다.
+    ★ 치과는 '내 일' 목록을 안 세웁니다 (사용자 요청 2026-08-13).
+      기다리는 쪽이라 진행중 상태 숫자와 주문목록으로 충분합니다.
   */
-  const workGrows = !canSeeMoney;
+  const showWork = WORK_SECTORS.includes(sector);
+
+  /*
+    ★ 왼쪽 칸에서 남는 높이를 누가 가져가나 — **하나는 반드시** 가져가야
+      세 칸이 같은 줄에서 끝납니다. 아무도 안 늘어나면 그 칸만 먼저
+      끝나 화면이 어긋납니다.
+
+        금액을 보는 사람      → 맨 아래 추이
+        목록이 있는 사용자    → 그 목록
+        둘 다 없는 사람       → 진행중 상태·이슈
+                                (치과 사용자가 여기입니다)
+  */
+  const workGrows = !canSeeMoney && showWork;
+  const statusGrows = !canSeeMoney && !showWork;
 
   return (
     <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
@@ -204,7 +215,7 @@ export default function HomeScreen({
         </Card>
         )}
 
-        <div className="grid shrink-0 grid-cols-2 gap-3.5">
+        <div className={'grid grid-cols-2 gap-3.5 ' + (statusGrows ? 'flex-1' : 'shrink-0')}>
           <Card>
             <h2 className="mb-3.5 text-[14px] font-bold tracking-tight text-[#1A2130]">
               진행중 상태
@@ -266,13 +277,15 @@ export default function HomeScreen({
             금액을 못 보는 사용자에게는 이 카드가 남는 높이를 가져갑니다 —
             그래야 왼쪽 칸이 다른 두 칸과 같은 줄에서 끝납니다.
         */}
-        <Worklist
-          rows={summary.worklist}
-          total={summary.worklist.length}
-          ordersPath={path.orders}
-          sector={sector}
-          grow={workGrows}
-        />
+        {showWork && (
+          <Worklist
+            rows={summary.worklist}
+            total={summary.worklist.length}
+            ordersPath={path.orders}
+            sector={sector}
+            grow={workGrows}
+          />
+        )}
 
         {/* ★ 금액 추이는 세 섹터 모두 봅니다.
             전에는 디자인센터 자리에 작업 리스트만 두어, 정작 이 화면을 매일
