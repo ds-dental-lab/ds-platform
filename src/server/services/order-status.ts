@@ -23,6 +23,7 @@ import {
   type Sector,
 } from '@/server/domain/order-status';
 import { needsSeat, checkSeat } from '@/server/domain/designer';
+import { PENDING_PICKUP } from '@/server/domain/pickup';
 import { canManageMembers, type MemberRole } from '@/server/domain/member';
 
 export type ChangeStatusResult =
@@ -187,11 +188,16 @@ export async function changeOrderStatus(
   //   리페어는 고칠 보철물이 기공소에 도착해야 손을 댈 수 있습니다.
   //   화면에서도 버튼을 가리지만, 여기서 한 번 더 막습니다.
   if (to === 'production') {
+    /*
+      ★ `assigned` 도 셉니다 (2026-08-13).
+        택배사에 접수만 해 둔 상태라 **물건은 아직 치과에 있습니다.**
+        open 만 세면 접수 직후에 제작을 시작할 수 있었습니다.
+    */
     const { count } = await supabase
       .from('pickup_requests')
       .select('id', { count: 'exact', head: true })
       .eq('order_id', orderId)
-      .eq('status', 'open');
+      .in('status', PENDING_PICKUP);
 
     if (count) {
       return {

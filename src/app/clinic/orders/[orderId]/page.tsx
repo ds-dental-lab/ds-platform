@@ -21,7 +21,9 @@ import RepairRequest from '@/components/order/RepairRequest';
 import RemakeRequest from '@/components/order/RemakeRequest';
 import RescanBar from '@/components/order/RescanBar';
 import RepairPanel from '@/components/order/RepairPanel';
+import PickupCard from '@/components/order/PickupCard';
 import { getRepairContext } from '@/server/repositories/repair';
+import { listPickupsForOrder } from '@/server/repositories/pickup';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,16 +44,24 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       안 쓰는데 줄을 세워 둔 셈이라, 왕복 하나가 고스란히 화면 뜨는
       시간에 더해졌습니다.
   */
-  const [implantCatalog, messages, prosthesisCatalog, holidays, repair] = await Promise.all([
-    getImplantCatalog(),
-    listOrderMessages(orderId),
-    // 지난 주문이 가리키는 조합은 꺼져도 이름을 잃지 않아야 합니다
-    getProsthesisCatalog({ includeInactive: true }),
-    // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
-    getHolidayMap(),
-    // 리페어 칸 — 여기 함께 넣어야 왕복이 안 늘어납니다
-    getRepairContext(order),
-  ]);
+  const [implantCatalog, messages, prosthesisCatalog, holidays, repair, pickups] =
+    await Promise.all([
+      getImplantCatalog(),
+      listOrderMessages(orderId),
+      // 지난 주문이 가리키는 조합은 꺼져도 이름을 잃지 않아야 합니다
+      getProsthesisCatalog({ includeInactive: true }),
+      // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
+      getHolidayMap(),
+      // 리페어 칸 — 여기 함께 넣어야 왕복이 안 늘어납니다
+      getRepairContext(order),
+      /*
+        ★ 치과도 수거가 어디쯤인지는 봐야 합니다 (사용자 결정 2026-08-13).
+          보철물·인상체를 내주고 나면 "가져갔나" 를 알 길이 없었습니다.
+          다만 **누르는 것은 못 합니다** — 보내는 쪽이 도착을 선언할 수는
+          없습니다. canComplete 를 안 줍니다.
+      */
+      listPickupsForOrder(orderId),
+    ]);
 
   return (
     <OrderDetailScreen
@@ -62,6 +72,9 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       prosthesisCatalog={prosthesisCatalog}
       messages={messages}
       showClinic={false}
+      extraSlot={
+        pickups.length > 0 ? <PickupCard pickups={pickups} canComplete={false} /> : null
+      }
       issueSlot={
         <RepairPanel repair={repair} isRepair={order.is_repair} orderPath="/clinic/orders" />
       }

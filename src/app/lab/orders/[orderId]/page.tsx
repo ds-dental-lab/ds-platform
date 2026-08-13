@@ -21,6 +21,7 @@ import OrderDetailScreen from '@/components/order/OrderDetailScreen';
 import PickupCard from '@/components/order/PickupCard';
 import RepairPanel from '@/components/order/RepairPanel';
 import { getRepairContext } from '@/server/repositories/repair';
+import { pickupWaiting } from '@/server/domain/pickup';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,11 +57,16 @@ export default async function LabOrderDetailPage({ params }: LabOrderDetailPageP
       prosthesisCatalog={prosthesisCatalog}
       messages={messages}
       forwardBlockedReason={
-        pickups.some((p) => p.status === 'open')
+        pickups.some((p) => pickupWaiting(p.status))
           ? '수거를 마친 뒤 제작을 시작할 수 있습니다'
           : undefined
       }
-      extraSlot={pickups.length > 0 ? <PickupCard pickups={pickups} /> : null}
+      extraSlot={
+        pickups.length > 0 ? (
+          // 기공소 화면입니다 — 물건이 여기로 옵니다
+          <PickupCard pickups={pickups} canComplete />
+        ) : null
+      }
       issueSlot={
         <RepairPanel repair={repair} isRepair={order.is_repair} orderPath="/lab/orders" />
       }

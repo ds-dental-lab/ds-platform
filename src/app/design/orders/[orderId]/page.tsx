@@ -11,7 +11,10 @@ import { getOrderDetail, listPartnerLabs } from '@/server/repositories/order';
 import { getImplantCatalog } from '@/server/repositories/implant';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { getRepairContext } from '@/server/repositories/repair';
+import { listPickupsForOrder } from '@/server/repositories/pickup';
+import { pickupWaiting } from '@/server/domain/pickup';
 import RepairPanel from '@/components/order/RepairPanel';
+import PickupCard from '@/components/order/PickupCard';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { getHolidayMap } from '@/server/repositories/holiday';
 import { todayInKst } from '@/server/domain/week';
@@ -45,17 +48,25 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       다른 것을 하나도 안 쓰는데 줄 맨 뒤에서 혼자 기다리고 있었습니다.
       주문등록·주문상세·수정 네 화면이 모두 같은 모양이었습니다.
   */
-  const [labs, implantCatalog, messages, prosthesisCatalog, holidays, repair] = await Promise.all([
-    listPartnerLabs(),
-    getImplantCatalog(),
-    listOrderMessages(orderId),
-    // 꺼진 제품도 함께 — 지난 주문이 그 조합을 가리킵니다
-    getProsthesisCatalog({ includeInactive: true }),
-    // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
-    getHolidayMap(),
-    // 리페어 칸 — 여기 함께 넣어야 왕복이 안 늘어납니다
-    getRepairContext(order),
-  ]);
+  const [labs, implantCatalog, messages, prosthesisCatalog, holidays, repair, pickups] =
+    await Promise.all([
+      listPartnerLabs(),
+      getImplantCatalog(),
+      listOrderMessages(orderId),
+      // 꺼진 제품도 함께 — 지난 주문이 그 조합을 가리킵니다
+      getProsthesisCatalog({ includeInactive: true }),
+      // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
+      getHolidayMap(),
+      // 리페어 칸 — 여기 함께 넣어야 왕복이 안 늘어납니다
+      getRepairContext(order),
+    /*
+      ★ 자사 제작이면 물건이 **여기로** 옵니다 (사용자 지적 2026-08-13).
+        디자인센터가 기공소 자리를 겸하는데 이 화면에 수거 줄이 아예
+        없어서, 자사 제작 건은 아무도 수거완료를 못 눌렀습니다.
+        수거가 안 닫히면 제작 시작도 막혀 그 주문은 그대로 굳습니다.
+    */
+      listPickupsForOrder(orderId),
+    ]);
 
   const today = todayInKst();
   const designFiles = order.files.filter((f) => f.kind === 'design');
@@ -113,7 +124,23 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       "디자인 파일을 올리세요" 라고 안내해 놓고 올리려 하면 막히는 것이
       제일 나쁩니다. 못 넘기는 진짜 이유를 먼저 적습니다.
   */
-  const forwardBlockedReason = mySeat.ok ? missingDesignFile : mySeat.reason;
+  /*
+    ★ 자사 제작이면 수거도 여기서 막습니다 (2026-08-13).
+      기공소 화면에만 있던 안내인데, 자사 제작은 그 화면을 안 지납니다 —
+      물건을 못 받았는데 제작 시작 버튼만 열려 있었습니다.
+  */
+  const waitingPickup =
+    order.roles.includes('lab') && pickups.some((p) => pickupWaiting(p.status))
+      ? '수거를 마친 뒤 제작을 시작할 수 있습니다'
+      : undefined;
+
+  const forwardBlockedReason = mySeat.ok
+    ? (missingDesignFile ?? waitingPickup)
+    : mySeat.reason;
+
+  // 수거 줄과 스패너가 같은 자리에 섭니다. 둘 다 없으면 자리도 안 냅니다
+  const showPickup = pickups.length > 0;
+  const hasExtra = showPickup || Boolean(money);
 
   return (
     <OrderDetailScreen
@@ -187,7 +214,19 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
           주문은 그대로 그 치과의 것이고, 넣은 사람만 created_by 에 남습니다.
       */
       extraSlot={
-        money ? <OrderAdjustPanel money={money} patientLabel={order.patient_label} /> : null
+        hasExtra ? (
+          <div className="space-y-3.5">
+            {/*
+              ★ 버튼은 **기공소 자리를 맡았을 때만** 붙습니다.
+                남의 기공소에 맡긴 건이면 여기서도 상태만 봅니다 —
+                물건은 그쪽으로 갔으니 받았다고 말할 사람은 그쪽입니다.
+            */}
+            {showPickup && (
+              <PickupCard pickups={pickups} canComplete={order.roles.includes('lab')} />
+            )}
+            {money && <OrderAdjustPanel money={money} patientLabel={order.patient_label} />}
+          </div>
+        ) : null
       }
       barSlot={
         <>

@@ -16,6 +16,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { changeOrderStatus } from '@/server/services/order-status';
+import { canCompletePickup, PENDING_PICKUP } from '@/server/domain/pickup';
 
 export type PickupResult =
   | { ok: true; movedToProduction: boolean }
@@ -30,8 +31,8 @@ export type PickupResult =
  */
 export async function completePickup(pickupId: string): Promise<PickupResult> {
   const session = await getSession();
-  if (session?.orgType !== 'lab' || !session.orgId) {
-    return { ok: false, error: '기공소만 수거를 처리할 수 있습니다' };
+  if (!session?.orgId) {
+    return { ok: false, error: '로그인이 필요합니다' };
   }
 
   const supabase = await createClient();
@@ -44,8 +45,32 @@ export async function completePickup(pickupId: string): Promise<PickupResult> {
 
   if (!pickup) return { ok: false, error: '수거요청을 찾을 수 없습니다' };
 
-  if (pickup.status !== 'open') {
-    return { ok: false, error: '이미 처리된 수거요청입니다' };
+  /*
+    ★ 조직의 종류가 아니라 **이 주문에서 맡은 자리**로 봅니다
+      (사용자 지적 2026-08-13).
+
+      전에는 `orgType === 'lab'` 이었습니다. 그런데 자사 제작이면
+      디자인센터가 기공소 자리를 겸합니다 — 물건은 디자인센터가 받는데
+      계정 종류 때문에 **아무도 수거완료를 못 눌렀습니다.** 수거가 안
+      닫히면 제작 시작도 막히므로 그 주문은 그대로 굳습니다.
+
+      치과는 여기서 걸립니다. 물건을 보내는 쪽이라 lab_org_id 가 될 일이
+      없습니다 — 보내는 쪽이 도착을 선언하면 그 기록은 값이 없습니다.
+  */
+  if (
+    !canCompletePickup({
+      viewerOrgId: session.orgId,
+      labOrgId: pickup.lab_org_id as string | null,
+      pickupStatus: pickup.status as string,
+    })
+  ) {
+    if (pickup.status !== 'open' && pickup.status !== 'assigned') {
+      return { ok: false, error: '이미 처리된 수거요청입니다' };
+    }
+    if (!pickup.lab_org_id) {
+      return { ok: false, error: '기공소가 배정되어야 수거를 처리할 수 있습니다' };
+    }
+    return { ok: false, error: '이 건을 받는 기공소만 수거를 처리할 수 있습니다' };
   }
 
   // status 를 조건에 넣어, 그 사이 남이 먼저 눌렀으면 아무것도 하지 않습니다
@@ -53,7 +78,7 @@ export async function completePickup(pickupId: string): Promise<PickupResult> {
     .from('pickup_requests')
     .update({ status: 'done', handled_at: new Date().toISOString() })
     .eq('id', pickupId)
-    .eq('status', 'open')
+    .in('status', PENDING_PICKUP)
     .select('id');
 
   if (updateError) {
@@ -71,7 +96,7 @@ export async function completePickup(pickupId: string): Promise<PickupResult> {
     .from('pickup_requests')
     .select('id', { count: 'exact', head: true })
     .eq('order_id', pickup.order_id)
-    .eq('status', 'open');
+    .in('status', PENDING_PICKUP);
 
   if (stillOpen) return { ok: true, movedToProduction: false };
 
