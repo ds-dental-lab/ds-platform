@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { loginProblem } from '@/server/domain/login';
+import DenFlowMark from '@/components/brand/DenFlowMark';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -77,11 +78,7 @@ export default function LoginPage() {
 
       <div className="auth-card">
         <div className="auth-logo">
-          <svg className="logo-mark" viewBox="0 0 142 100" fill="none" aria-label="Den Flow">
-            <path d="M10 8 H40 A42 42 0 0 1 40 92 H10 Z" stroke="#1B2A4A" strokeWidth="12" strokeLinejoin="miter" fill="none" />
-            <path d="M126 58 C126 78 108 92 88 92 C74 92 62 84 58 72 C54 60 62 50 74 46" stroke="#1B2A4A" strokeWidth="12" strokeLinecap="round" fill="none" />
-            <path d="M74 46 C86 42 100 40 108 34" stroke="#1B2A4A" strokeWidth="12" strokeLinecap="round" fill="none" />
-          </svg>
+          <DenFlowMark height={26} />
           <span className="logo-txt">
             <b>Den</b>
             <i>Flow</i>
@@ -173,7 +170,6 @@ const css = `
   box-shadow:0 1px 3px rgba(26,33,48,.04);
 }
 .auth-logo{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:30px}
-.logo-mark{width:46px; height:32px; flex-shrink:0}
 .logo-txt{display:inline-flex; align-items:baseline; gap:.30em; font-size:24px; font-weight:800; letter-spacing:-0.045em; line-height:1}
 .logo-txt b{color:#1B2A4A; font-weight:800}
 .logo-txt i{color:#9AA3AE; font-weight:600; font-style:normal; letter-spacing:.01em}

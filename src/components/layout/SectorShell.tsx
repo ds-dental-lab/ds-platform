@@ -19,6 +19,7 @@ import { visibleNav, type NavIcon } from '@/server/domain/nav';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import DenFlowMark from '@/components/brand/DenFlowMark';
 
 export type Sector = 'clinic' | 'design_center' | 'lab';
 
@@ -225,10 +226,19 @@ export default function SectorShell({
           </IconButton>
 
           {!collapsed && (
-            <span className="flex items-baseline gap-[.3em] whitespace-nowrap text-[17px] font-extrabold leading-none tracking-[-0.045em]">
-              <b className="text-[#1B2A4A]">Den</b>
-              <i className="font-semibold not-italic tracking-[.01em] text-[#9AA3AE]">Flow</i>
-            </span>
+            <>
+              {/*
+                ★ 접으면 마크도 같이 사라집니다.
+                  접힌 사이드바는 56px 이고 그 안에 메뉴 버튼(30px)만 겨우
+                  들어갑니다. 마크를 남기면 버튼을 밀어냅니다.
+              */}
+              <DenFlowMark height={19} className="ml-0.5 mr-1.5" />
+
+              <span className="flex items-baseline gap-[.3em] whitespace-nowrap text-[17px] font-extrabold leading-none tracking-[-0.045em]">
+                <b className="text-[#1B2A4A]">Den</b>
+                <i className="font-semibold not-italic tracking-[.01em] text-[#9AA3AE]">Flow</i>
+              </span>
+            </>
           )}
         </div>
 
