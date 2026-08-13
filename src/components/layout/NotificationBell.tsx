@@ -7,13 +7,19 @@
 
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useSyncExternalStore, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   markNotificationRead,
   markAllNotificationsRead,
 } from '@/server/actions/notification';
 import { formatDateTime } from '@/lib/format/date';
+import UnreadPing, {
+  isPingSoundOn,
+  pingSoundDefault,
+  setPingSound,
+  subscribePingSound,
+} from '@/components/layout/UnreadPing';
 import type { NotificationRow } from '@/server/repositories/notification';
 
 export interface NotificationBellProps {
@@ -29,6 +35,13 @@ export default function NotificationBell({
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();
 
+  // 서버에서는 localStorage 를 못 읽습니다 — 두 값을 갈라 받습니다
+  const sound = useSyncExternalStore(
+    subscribePingSound,
+    isPingSoundOn,
+    pingSoundDefault,
+  );
+
   function handleClick(notification: NotificationRow) {
     setOpen(false);
 
@@ -41,6 +54,9 @@ export default function NotificationBell({
 
   return (
     <div className="relative">
+      {/* 탭 제목과 소리. 그리는 것이 없습니다 */}
+      <UnreadPing unreadCount={unreadCount} />
+
       <button
         onClick={() => setOpen(!open)}
         aria-label={unreadCount > 0 ? `읽지 않은 알림 ${unreadCount}건` : '알림'}
@@ -75,8 +91,20 @@ export default function NotificationBell({
           />
 
           <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-lg border border-[#E8EBF0] bg-white shadow-lg">
-            <div className="flex items-center justify-between border-b border-[#E8EBF0] px-4 py-2.5">
+            <div className="flex items-center gap-3 border-b border-[#E8EBF0] px-4 py-2.5">
               <span className="text-[13px] font-bold text-[#1A2130]">알림</span>
+
+              {/*
+                ★ 못 끄는 소리는 결국 스피커를 끄게 만듭니다.
+                  그러면 정작 필요한 때 못 듣습니다. 여기서 끕니다.
+              */}
+              <button
+                onClick={() => setPingSound(!sound)}
+                title={sound ? '새 알림에 소리가 납니다' : '소리가 꺼져 있습니다'}
+                className="ml-auto text-[12px] text-[#98A2B3] hover:text-[#4A5567]"
+              >
+                소리 {sound ? '켬' : '끔'}
+              </button>
 
               {unreadCount > 0 && (
                 <button
@@ -86,7 +114,7 @@ export default function NotificationBell({
                       setOpen(false);
                     })
                   }
-                  className="text-[12px] text-[#98A2B3] hover:text-[#4A5567]"
+                  className="shrink-0 text-[12px] text-[#98A2B3] hover:text-[#4A5567]"
                 >
                   전부 읽음
                 </button>

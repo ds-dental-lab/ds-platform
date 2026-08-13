@@ -130,6 +130,14 @@ export async function publishOrderCreated(event: {
   orderId: string;
   actorOrgId: string;
   actorUserId: string;
+  /**
+   * 무슨 주문인가. (2026-08-13)
+   *
+   * ★ 리메이크는 **새 주문보다 급합니다.**
+   *   이미 한 번 만들어 보낸 것이 잘못됐다는 뜻이고, 환자는 이미
+   *   한 번 헛걸음했습니다. 같은 제목으로 오면 그 급함이 안 보입니다.
+   */
+  kind?: 'new' | 'remake';
 }): Promise<void> {
   try {
     const supabase = await createClient();
@@ -142,10 +150,13 @@ export async function publishOrderCreated(event: {
 
     if (!order?.design_org_id) return;
 
+    const remake = event.kind === 'remake';
+    const eventType = remake ? 'order.remake_requested' : 'order.created';
+
     const { data: saved } = await supabase
       .from('domain_events')
       .insert({
-        event_type: 'order.created',
+        event_type: eventType,
         aggregate_type: 'order',
         aggregate_id: event.orderId,
         actor_org_id: event.actorOrgId,
@@ -160,8 +171,8 @@ export async function publishOrderCreated(event: {
       event_id: saved?.id ?? null,
       channel: 'in_app',
       status: 'sent',
-      event_type: 'order.created',
-      title: '새 주문이 접수되었습니다',
+      event_type: eventType,
+      title: remake ? '리메이크가 접수되었습니다' : '새 주문이 접수되었습니다',
       body: `${order.order_no} · ${order.patient_label}`,
       link: `/design/orders/${event.orderId}`,
       payload: { orderId: event.orderId, intendedChannel: 'kakao' },

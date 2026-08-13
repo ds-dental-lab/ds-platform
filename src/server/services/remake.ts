@@ -35,6 +35,7 @@ import { isValidCombination } from '@/server/domain/prosthesis';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { getHolidayMap } from '@/server/repositories/holiday';
 import { isValidShade } from '@/server/domain/shade';
+import { publishOrderCreated } from '@/server/events';
 
 const BUCKET = 'order-files';
 
@@ -360,6 +361,24 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
     actor_org_id: session.orgId,
     actor_user_id: session.user.id,
     reason: input.notes.trim(),
+  });
+
+  /*
+    ★ 리메이크만 알림이 없었습니다 (2026-08-13 점검에서 발견).
+
+      새 주문은 publishOrderCreated, 리페어는 publishRepairRequested 로
+      알림이 갔는데 **리메이크만 아무 데도 안 알렸습니다.** 접수 칸의
+      숫자만 조용히 하나 늘었습니다.
+
+      리메이크는 새 주문보다 급합니다 — 이미 한 번 만들어 보낸 것이
+      잘못됐다는 뜻이고, 환자는 이미 헛걸음을 했습니다. 그런데 정작
+      그것만 종이 안 울리고 있었습니다.
+  */
+  await publishOrderCreated({
+    orderId: remake.id,
+    actorOrgId: session.orgId,
+    actorUserId: session.user.id,
+    kind: 'remake',
   });
 
   return { ok: true, orderId: remake.id, orderNo: remake.order_no };
