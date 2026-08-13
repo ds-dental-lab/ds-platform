@@ -30,6 +30,16 @@ function refresh() {
   revalidatePath('/design', 'layout');
 }
 
+/**
+ * 마감만 하기.
+ *
+ * ★ **화면에서 부르는 곳이 없습니다** (2026-08-13). 정산 화면의 마감
+ *   단추를 없애고 발행이 마감까지 하도록 바꿨습니다. 일괄 마감은
+ *   서비스(closeManyPeriods)를 직접 씁니다.
+ *   그래도 지우지 않고 둡니다 — 마감과 발행을 다시 갈라야 할 때
+ *   돌아올 자리이고, 규칙은 전부 서비스 쪽에 있어 이 함수 자체는
+ *   껍데기 세 줄입니다.
+ */
 export async function submitCloseBilling(
   partyOrgId: string,
   yearMonth: string,
@@ -204,6 +214,34 @@ export async function submitIssueInvoice(
   // 이메일이 먼저입니다 — 둘 다면 이메일로 갑니다
   const sentTo = wantsEmail(method) ? contact?.invoice_email : contact?.fax;
 
+  /*
+    ★ 아직 안 닫혔으면 **여기서 닫습니다** (사용자 요청 2026-08-13 —
+      "마감 > 청구서보기 > 발행, 너무 길다").
+      마감은 없어진 것이 아니라 발행 안으로 들어왔습니다. 금액을
+      billing_lines 로 굳히는 일은 그대로 일어납니다 — 그게 없으면
+      나중에 단가를 고쳤을 때 이미 나간 청구서의 숫자가 달라집니다.
+
+    ★ **받는 곳 검사 뒤에** 닫습니다.
+      먼저 닫고 나서 이메일이 없어 실패하면, 닫히기만 하고 안 나간
+      기간이 남습니다 — 바로 그 어정쩡한 상태를 없애려는 변경입니다.
+
+    ★ 닫는 데 실패하면 발행도 안 합니다.
+      기간이 안 끝났거나 · 청구할 건이 없거나 · 단가가 빈 줄이 있으면
+      closeBillingPeriod 가 막습니다. 그 판단을 여기서 다시 쓰지 않고
+      그대로 돌려줍니다 — 규칙이 두 곳에 생기면 언젠가 어긋납니다.
+  */
+  const { data: before } = await supabase
+    .from('billing_periods')
+    .select('closed_at')
+    .eq('party_org_id', partyOrgId)
+    .eq('year_month', yearMonth)
+    .maybeSingle();
+
+  if (!(before as { closed_at: string | null } | null)?.closed_at) {
+    const closed = await closeBillingPeriod(partyOrgId, yearMonth);
+    if (!closed.ok) return { ok: false, error: closed.error };
+  }
+
   const { data: no, error: noError } = await supabase.rpc('next_invoice_no');
   if (noError || !no) return { ok: false, error: '청구서 번호를 만들지 못했습니다' };
 
@@ -226,7 +264,9 @@ export async function submitIssueInvoice(
 
   if (error) return { ok: false, error: `발행하지 못했습니다: ${error.message}` };
   if (!data || data.length === 0) {
-    return { ok: false, error: '마감된 기간만 발행할 수 있습니다' };
+    /* 여기까지 왔는데 안 걸리는 경우는 '이미 발행됨' 뿐입니다 —
+       마감은 바로 위에서 해 놓았습니다 */
+    return { ok: false, error: '이미 발행한 기간입니다' };
   }
 
   refresh();
