@@ -23,6 +23,7 @@ import { getSettlement } from '@/server/repositories/billing';
 import {
   periodRange,
   canClosePeriod,
+  canFreezeAmounts,
   canReopenPeriod,
   splitItemLines,
   isValidYearMonth,
@@ -75,6 +76,19 @@ export async function closeBillingPeriod(
   const verdict = canClosePeriod(range, todayInKst(), Boolean(found?.closed_at));
   if (!verdict.ok) return { ok: false, error: verdict.reason };
 
+  /*
+    ★ 굳히기 전에 셈부터 해 봅니다 (2026-08-13).
+      단가를 안 정한 건이 섞여 있으면 그 건은 0원으로 굳고, 청구서에
+      0원으로 나갑니다. 한 번 발행하면 되돌릴 수도 없습니다.
+      그래서 **기간 줄을 만들기도 전에** 막습니다 — 열어 놓고 실패하면
+      빈 기간이 남습니다.
+  */
+  const catalog = await getProsthesisCatalog({ includeInactive: true });
+  const settlement = await getSettlement(partner, range.from, range.to, catalog);
+
+  const priced = canFreezeAmounts(settlement.unpricedCount);
+  if (!priced.ok) return { ok: false, error: priced.reason };
+
   // ---------- ① 기간 줄 ----------
   //
   // ★ 그때의 기준일과 날짜를 박아 둡니다.
@@ -106,9 +120,6 @@ export async function closeBillingPeriod(
   const openPeriodId = periodId as string;
 
   // ---------- ② 금액 줄 ----------
-  const catalog = await getProsthesisCatalog({ includeInactive: true });
-  const settlement = await getSettlement(partner, range.from, range.to, catalog);
-
   // 다시 눌렀을 때 겹치지 않게 비우고 새로 넣습니다 (아직 열려 있어 지울 수 있습니다)
   await supabase.from('billing_lines').delete().eq('period_id', openPeriodId);
 
