@@ -142,6 +142,25 @@ describe('화면에 쓰는 글', () => {
     expect(sentMessage('a@b.co')).toContain('링크');
   });
 
+  /*
+    ★ 인증 서버는 **가입 안 된 주소에도 성공을 돌려줍니다** (2026-08-13 확인:
+      /auth/v1/recover → 200 {}). 일부러 그렇습니다 — 오류를 내면 주소를
+      하나씩 넣어 보며 회원인지 알아낼 수 있습니다.
+
+      그래서 화면은 늘 다음 칸으로 넘어갑니다. "보냈습니다" 라고 적으면
+      오타 난 주소를 넣은 사람이 **오지 않을 메일을 기다립니다.**
+  */
+  it('★ "보냈습니다" 라고 딱 잘라 말하지 않습니다', () => {
+    const msg = sentMessage('typo@gmial.com');
+
+    expect(msg).toContain('가입된 주소라면');
+    expect(msg).not.toContain('보냈습니다');
+  });
+
+  it('★ 안 오면 주소부터 다시 보라고 합니다', () => {
+    expect(sentMessage('a@b.co')).toContain('주소를 다시 확인');
+  });
+
   it('재발송은 남은 초를 보여 줍니다', () => {
     expect(resendLabel(42)).toBe('재발송 (42초)');
     expect(resendLabel(0)).toBe('인증번호 다시 받기');
