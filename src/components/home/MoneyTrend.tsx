@@ -34,14 +34,33 @@ export interface MoneyTrendProps {
   buckets: MoneyBucket[];
   /** 건수 앞에 붙는 말 — '접수' · '배송' */
   countLabel: string;
+  /**
+   * 바깥에서 주는 자리 지정.
+   *
+   * ★ HOME 왼쪽 칸에서 **남는 높이를 가져가는 카드**가 이것입니다(`flex-1`).
+   *   그래서 높이를 여기에 박아 두지 않습니다 — 전에는 `min-h-[300px]`
+   *   이었는데, 막대가 여섯 줄이라 실제로는 그보다 짧고 값이 없으면
+   *   훨씬 짧습니다. 그 차이가 그대로 빈칸이 됐습니다.
+   */
+  className?: string;
 }
 
-export default function MoneyTrend({ title, empty, buckets, countLabel }: MoneyTrendProps) {
+export default function MoneyTrend({
+  title,
+  empty,
+  buckets,
+  countLabel,
+  className = '',
+}: MoneyTrendProps) {
   const max = Math.max(...buckets.map((b) => b.amount), 0);
   const nothing = buckets.length === 0 || max === 0;
 
   return (
-    <section className="min-h-[300px] rounded-lg border border-[#E8EBF0] bg-white px-5 py-4">
+    <section
+      className={
+        'flex flex-col rounded-lg border border-[#E8EBF0] bg-white px-5 py-4 ' + className
+      }
+    >
       <div className="flex items-baseline gap-2">
         <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">{title}</h2>
         {!nothing && (
@@ -52,7 +71,9 @@ export default function MoneyTrend({ title, empty, buckets, countLabel }: MoneyT
       </div>
 
       {nothing ? (
-        <p className="py-24 text-center text-[13px] text-[#98A2B3]">{empty}</p>
+        <p className="grid flex-1 place-items-center py-10 text-center text-[13px] text-[#98A2B3]">
+          {empty}
+        </p>
       ) : (
         <>
           <ul className="mt-4 space-y-1">

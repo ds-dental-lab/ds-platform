@@ -16,6 +16,22 @@
 // ★ 아직 값이 없는 칸은 빈 상태로 둡니다.
 //   금액은 정산(Sprint 8), 공지사항은 게시판(Sprint 9)이 서야 채워집니다.
 //   숫자를 지어내느니 "없습니다" 가 낫습니다.
+//
+// ★ 세 칸의 **아래끝을 맞춥니다** (사용자 지적 2026-08-13 — "빈공간이
+//   너무 많다, 열 맞춰줘"). 규칙이 둘입니다.
+//
+//   ① 카드에 `min-h-[…]` 를 박지 않습니다.
+//      전에는 배송예정 400 · 공지 230 · 수거요청 300 · 추이 300 이
+//      박혀 있었습니다. 값이 적은 치과에서는 그 숫자가 그대로 빈칸이
+//      됩니다. 실제로 치과 HOME 이 745px 인데 오른쪽 칸은 544 에서
+//      끝나 **201px 이 허공**이었습니다.
+//
+//   ② 칸마다 **늘어날 카드를 하나** 정해 남는 높이를 몰아 줍니다
+//      (`flex-1`). 왼쪽은 추이, 가운데는 배송예정, 오른쪽은 수거요청.
+//      그래야 카드 사이가 벌어지지 않고 세 칸이 같은 줄에서 끝납니다.
+//
+//   자리가 남는 것 자체는 못 없앱니다 — 오늘 나갈 게 세 건이면 그 카드는
+//   빕니다. 다만 **빈 곳이 한 군데로 모이고 테두리가 어긋나지 않습니다.**
 // =========================================================
 
 import Link from 'next/link';
@@ -136,10 +152,18 @@ export default function HomeScreen({
   const money = MONEY_LABEL[sector];
   const path = HOME_PATH[sector];
 
+  /*
+    ★ 왼쪽 칸에서 남는 높이를 누가 가져가나.
+      보통은 맨 아래 추이입니다. 금액을 못 보는 사용자에게는 추이가
+      아예 없으므로, 그때는 진행중 상태·이슈가 대신 늘어납니다.
+      아무도 안 늘어나면 그 칸만 짧게 끝나 다시 어긋납니다.
+  */
+  const statusGrows = !canSeeMoney;
+
   return (
     <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
       {/* ================= 왼쪽 ================= */}
-      <div className="space-y-3.5">
+      <div className="flex flex-col gap-3.5">
         {canSeeMoney && (
         <Card>
           <div className="flex items-center gap-1.5">
@@ -182,7 +206,7 @@ export default function HomeScreen({
         </Card>
         )}
 
-        <div className="grid grid-cols-2 gap-3.5">
+        <div className={'grid grid-cols-2 gap-3.5 ' + (statusGrows ? 'flex-1' : 'shrink-0')}>
           <Card>
             <h2 className="mb-3.5 text-[14px] font-bold tracking-tight text-[#1A2130]">
               진행중 상태
@@ -218,7 +242,10 @@ export default function HomeScreen({
                 <li key={issue}>
                   <Link
                     href={`${path.orders}?issue=${issue}`}
-                    className="flex items-center rounded-md px-1.5 py-1 text-[13px] hover:bg-[#F4F6F9]"
+                    /* ★ 옆 칸(진행중 상태)과 같은 py 를 씁니다.
+                       이슈는 줄 수가 적어 카드가 먼저 끝나는데, 여백까지
+                       좁으면 그 차이가 더 벌어집니다 */
+                    className="flex items-center rounded-md px-1.5 py-1.5 text-[13px] hover:bg-[#F4F6F9]"
                   >
                     <span
                       className="rounded-full px-2.5 py-1 text-[12px] font-semibold"
@@ -244,6 +271,7 @@ export default function HomeScreen({
             보는 사람이 자기 매출 흐름을 못 봤습니다. 둘 다 세웁니다 */}
         {canSeeMoney && (
           <MoneyTrend
+            className="flex-1"
             title={money.trend}
             empty={money.empty}
             buckets={summary.money.trend}
@@ -253,7 +281,7 @@ export default function HomeScreen({
       </div>
 
       {/* ================= 가운데 — 오늘 배송 예정 ================= */}
-      <Card className="min-h-[400px]">
+      <Card>
         <div className="flex items-center">
           <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">오늘 배송 예정</h2>
           <Link
@@ -265,7 +293,7 @@ export default function HomeScreen({
         </div>
 
         {summary.todayDeliveries.length === 0 ? (
-          <Empty className="py-16">오늘 배송 예정인 케이스가 없습니다.</Empty>
+          <Empty>오늘 배송 예정인 케이스가 없습니다.</Empty>
         ) : (
           <ul className="mt-3 divide-y divide-[#F0F2F5]">
             {summary.todayDeliveries.map((row) => (
@@ -287,8 +315,8 @@ export default function HomeScreen({
       </Card>
 
       {/* ================= 오른쪽 ================= */}
-      <div className="space-y-3.5">
-        <Card className="min-h-[230px]">
+      <div className="flex flex-col gap-3.5">
+        <Card className="shrink-0">
           <div className="flex items-center">
             <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">공지사항</h2>
             <Link
@@ -302,7 +330,7 @@ export default function HomeScreen({
           {/* ★ 제목만 보여 주고 본문은 게시판에서 읽습니다.
               카드에 본문까지 펴면 공지 두 건에 카드가 화면을 채웁니다 */}
           {summary.notices.length === 0 ? (
-            <Empty className="py-16">등록된 공지가 없습니다.</Empty>
+            <Empty className="py-9">등록된 공지가 없습니다.</Empty>
           ) : (
             <ul className="-mx-1.5 mt-2">
               {summary.notices.map((notice) => (
@@ -330,17 +358,17 @@ export default function HomeScreen({
           )}
         </Card>
 
-        <Card className="min-h-[300px]">
+        <Card className="flex-1">
           <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">수거요청</h2>
 
-          <div className="mt-3.5 grid grid-cols-[1fr_0.72fr_0.72fr] gap-2 border-b border-[#E8EBF0] pb-2.5 text-[12px] text-[#98A2B3]">
+          <div className="mt-3.5 grid shrink-0 grid-cols-[1fr_0.72fr_0.72fr] gap-2 border-b border-[#E8EBF0] pb-2.5 text-[12px] text-[#98A2B3]">
             <span>치과명</span>
             <span>요청시한</span>
             <span>상태</span>
           </div>
 
           {summary.pickups.length === 0 ? (
-            <Empty className="py-20">데이터가 없습니다.</Empty>
+            <Empty>데이터가 없습니다.</Empty>
           ) : (
             <ul className="-mx-1.5 divide-y divide-[#F0F2F5]">
               {summary.pickups.map((row) => (
@@ -433,7 +461,7 @@ function Worklist({ rows, ordersPath }: { rows: HomeWork[]; ordersPath: string }
   const shown = rows.slice(0, WORKLIST_SHOWN);
 
   return (
-    <Card className="min-h-[220px]">
+    <Card className="shrink-0">
       <div className="flex items-center">
         <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">작업 리스트</h2>
         <span className="ml-auto text-[12px] text-[#98A2B3]">{rows.length}건</span>
@@ -447,7 +475,7 @@ function Worklist({ rows, ordersPath }: { rows: HomeWork[]; ordersPath: string }
       </div>
 
       {shown.length === 0 ? (
-        <Empty className="py-14">진행 중인 작업이 없습니다.</Empty>
+        <Empty className="py-8">진행 중인 작업이 없습니다.</Empty>
       ) : (
         <ul className="-mx-1.5">
           {shown.map((row) => (
@@ -504,18 +532,37 @@ function Card({
   className?: string;
   children: React.ReactNode;
 }) {
+  /*
+    ★ 카드는 세로 flex 입니다.
+      그래야 카드 안에서 '남는 높이를 가져갈 것' 을 고를 수 있습니다.
+      목록은 위에 붙어 있고, 빈 상태만 가운데로 옵니다.
+  */
   return (
     <section
-      className={'rounded-lg border border-[#E8EBF0] bg-white px-5 py-4 ' + className}
+      className={
+        'flex flex-col rounded-lg border border-[#E8EBF0] bg-white px-5 py-4 ' + className
+      }
     >
       {children}
     </section>
   );
 }
 
+/**
+ * 값이 없을 때의 한 줄.
+ *
+ * ★ **남는 높이를 다 먹고 그 한가운데** 섭니다 (`flex-1` + `place-items-center`).
+ *   전에는 `py-16`·`py-20` 처럼 여백을 숫자로 박아 뒀는데, 카드가 그보다
+ *   커지면 글자가 위에 붙고 아래가 통째로 비었습니다.
+ *
+ * ★ 목록은 반대입니다 — 위에 붙습니다.
+ *   세 줄짜리 목록을 카드 한가운데 띄우면 읽는 자리가 매번 달라집니다.
+ */
 function Empty({ className = '', children }: { className?: string; children: React.ReactNode }) {
   return (
-    <p className={'text-center text-[13px] text-[#98A2B3] ' + className}>{children}</p>
+    <p className={'grid flex-1 place-items-center text-center text-[13px] text-[#98A2B3] ' + className}>
+      {children}
+    </p>
   );
 }
 
