@@ -29,11 +29,13 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { shouldRewind } from '@/server/domain/video';
 
 interface YTPlayer {
   mute(): void;
   playVideo(): void;
   seekTo(seconds: number, allowSeekAhead: boolean): void;
+  getCurrentTime(): number;
 }
 
 interface YTEvent {
@@ -58,14 +60,20 @@ declare global {
 /** 영상이 끝났다는 신호 */
 const ENDED = 0;
 
+/** 얼마나 자주 시각을 들여다보는가 */
+const WATCH_MS = 250;
+
 export default function YouTubeAmbient({
   id,
   className,
   title,
+  stopAt,
 }: {
   id: string;
   className?: string;
   title: string;
+  /** 여기까지만 틀고 처음으로 돌아갑니다 (초). 없으면 끝까지 */
+  stopAt?: number;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   // ★ 개발 중에는 효과가 두 번 돕니다. 플레이어를 두 개 만들면
@@ -77,23 +85,50 @@ export default function YouTubeAmbient({
     wired.current = true;
 
     let alive = true;
+    let watch: ReturnType<typeof setInterval> | undefined;
 
     loadPlayerApi()
       .then((YT) => {
         if (!alive || !ref.current) return;
-        new YT.Player(ref.current, {
+        const player = new YT.Player(ref.current, {
           events: {
             onReady(e) {
               e.target.mute();
               e.target.playVideo();
             },
             onStateChange(e) {
+              // 20초보다 짧은 영상이면 여기로 옵니다
               if (e.data !== ENDED) return;
               e.target.seekTo(0, true);
               e.target.playVideo();
             },
           },
         });
+
+        if (!stopAt) return;
+
+        /*
+          ★ `end=20` 을 주지 않고 **시각을 보고 되감습니다.**
+            (사용자 요청 2026-08-14 — "20초까지만 끊어주고 반복재생")
+
+            `end` 를 쓰면 유튜브가 그 지점에서 **정말로 멈춥니다.**
+            멈추는 순간 끝 화면이 잠깐 스치고, 그다음에야 되감깁니다.
+            배경처럼 도는 자리에서 그 깜빡임이 눈에 걸립니다.
+
+            재생을 멈추지 않고 흐르는 중에 자리만 옮기면 이어 붙은
+            것처럼 보입니다.
+
+          ★ getCurrentTime 이 가끔 던집니다 — 플레이어가 아직 준비되지
+            않았거나 다시 만들어지는 사이입니다. 그때는 그냥 넘깁니다.
+            여기서 터지면 되감기가 통째로 멎습니다.
+        */
+        watch = setInterval(() => {
+          try {
+            if (shouldRewind(player.getCurrentTime(), stopAt)) player.seekTo(0, true);
+          } catch {
+            /* 다음 차례에 다시 봅니다 */
+          }
+        }, WATCH_MS);
       })
       .catch(() => {
         // 반복만 못 겁니다. 영상은 주소에 걸어 둔 대로 이미 돌고 있습니다
@@ -101,8 +136,9 @@ export default function YouTubeAmbient({
 
     return () => {
       alive = false;
+      if (watch) clearInterval(watch);
     };
-  }, []);
+  }, [stopAt]);
 
   return (
     <iframe

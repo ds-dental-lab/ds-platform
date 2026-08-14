@@ -47,6 +47,15 @@ export interface MillingStageProps {
   src?: string;
   /** 영상이 뜨기 전에 보여 줄 정지 이미지 */
   poster?: string;
+  /**
+   * 여기까지만 틀고 처음으로 돌아갑니다 (초). 없으면 끝까지.
+   *
+   * ★ **유튜브에만 걸립니다.** 우리 서버 영상(`src`)에는 아직 안 걸어
+   *   뒀습니다 — 그러려면 이 조각이 클라이언트 컴포넌트가 되어야 하는데,
+   *   지금 안 쓰는 길 때문에 그러기는 아깝습니다. 우리 영상을 올릴 때는
+   *   애초에 20초로 잘라서 올리는 편이 낫습니다(파일도 작아집니다).
+   */
+  stopAt?: number;
   /** 남의 영상을 쓸 때 아래에 붙일 한 줄. 비우면 안 나옵니다 */
   credit?: string;
 }
@@ -54,7 +63,7 @@ export interface MillingStageProps {
 /** 그린 장면의 바탕과 똑같이. 영상이 없을 때 이어지는 곳이 안 보이게 합니다 */
 const CHAMBER = 'linear-gradient(160deg, #18233D 0%, #111A2E 55%, #0A101C 100%)';
 
-export default function MillingStage({ youtubeId, src, poster, credit }: MillingStageProps) {
+export default function MillingStage({ youtubeId, src, poster, stopAt, credit }: MillingStageProps) {
   return (
     <figure className="mx-auto w-full max-w-[330px]">
       <div
@@ -69,6 +78,7 @@ export default function MillingStage({ youtubeId, src, poster, credit }: Milling
           // -25.2% 는 그중 위쪽을 더 많이 버리려고 끌어올린 것입니다
           <YouTubeAmbient
             id={youtubeId}
+            stopAt={stopAt}
             title="지르코니아 밀링"
             className="pointer-events-none absolute left-1/2 top-[-25.2%] h-[148.1%] w-[125%] -translate-x-1/2 border-0"
           />

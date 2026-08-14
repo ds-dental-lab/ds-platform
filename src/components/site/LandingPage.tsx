@@ -45,6 +45,11 @@ const SITE = {
   heroYouTube: '1WDxkbn4LxQ',
   heroVideo: '',
   heroPoster: '',
+
+  // ★ 여기까지만 틀고 처음으로 돌아갑니다 (사용자 요청 2026-08-14).
+  //   0 으로 두면 영상 끝까지 갑니다.
+  heroStopAt: 20,
+
   videoCredit: '',
 };
 
@@ -160,6 +165,7 @@ function Hero() {
             youtubeId={SITE.heroYouTube || undefined}
             src={SITE.heroVideo || undefined}
             poster={SITE.heroPoster || undefined}
+            stopAt={SITE.heroStopAt || undefined}
             credit={SITE.videoCredit || undefined}
           />
           <p className="mt-3.5 text-center text-[12.5px] text-[#98A2B3]">
