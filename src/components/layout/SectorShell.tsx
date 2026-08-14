@@ -19,6 +19,7 @@ import { visibleNav, type NavIcon } from '@/server/domain/nav';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { clearedKeepCookies } from '@/server/domain/login';
 import DenFlowMark from '@/components/brand/DenFlowMark';
 
 export type Sector = 'clinic' | 'design_center' | 'lab';
@@ -188,6 +189,13 @@ export default function SectorShell({
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
+
+    // ★ '로그인 상태 유지' 표시도 같이 걷습니다. 남겨 두면 다음 사람이
+    //   앞사람의 선택을 물려받습니다
+    clearedKeepCookies(window.location.protocol === 'https:').forEach((c) => {
+      document.cookie = c;
+    });
+
     router.push('/login');
     router.refresh();
   }

@@ -10,7 +10,7 @@ import { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { loginProblem, rememberableEmail, REMEMBER_KEY } from '@/server/domain/login';
+import { loginProblem, rememberableEmail, REMEMBER_KEY, keepCookies } from '@/server/domain/login';
 import DenFlowMark from '@/components/brand/DenFlowMark';
 
 /* 다른 탭에서 지웠을 때도 따라옵니다 */
@@ -58,6 +58,22 @@ export default function LoginPage() {
    * ★ 비밀번호는 안 담습니다. 치과 데스크 컴퓨터는 여럿이 같이 씁니다.
    */
   const [remember, setRemember] = useState(true);
+
+  /**
+   * 로그인 상태 유지. (사용자 요청 2026-08-14)
+   *
+   * ★ 켜면 **로그아웃을 누를 때까지** 유지됩니다. 창을 닫아도, 컴퓨터를
+   *   껐다 켜도 그대로입니다. 기본은 켜짐 — 매일 같은 자리에서 같은
+   *   계정으로 들어오는 분들입니다.
+   *
+   * ★ 끄면 **창을 닫는 순간 풀립니다.** 치과 데스크 컴퓨터는 여럿이
+   *   같이 쓰기 때문에 이 선택지가 필요합니다.
+   *
+   * ★ 아이디 기억하기와 다릅니다. 저쪽은 **칸을 채워 두는 것**이고,
+   *   이쪽은 **다시 안 물어보는 것**입니다. 둘을 하나로 묶으면
+   *   "아이디만 채워 두고 비밀번호는 다시 받고 싶다" 가 불가능해집니다.
+   */
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
 
   /** 확인 메일을 다시 보낼 수 있는 상황인가 */
   const [canResend, setCanResend] = useState(false);
@@ -114,6 +130,15 @@ export default function LoginPage() {
     if (keep) window.localStorage.setItem(REMEMBER_KEY, keep);
     else window.localStorage.removeItem(REMEMBER_KEY);
 
+    /*
+      ★ 유지 여부를 표시 두 장으로 남깁니다 (규칙은 domain/login).
+        인증 쿠키 자체는 안 건드립니다 — 라이브러리가 우리 값을
+        덮어쓰고, 손으로 만들다 틀리면 아무도 로그인을 못 합니다.
+    */
+    keepCookies(keepSignedIn, window.location.protocol === 'https:').forEach((c) => {
+      document.cookie = c;
+    });
+
     router.push('/');
     router.refresh();
   }
@@ -166,21 +191,31 @@ export default function LoginPage() {
           </div>
 
           {/*
-            ★ 아이디만 기억합니다 (사용자 요청 2026-08-13).
-              '로그인 상태 유지' 는 안 답니다 — **이미 그렇게 돌고
-              있습니다.** 로그인하면 400일짜리 쿠키가 심기고, 만료된
-              토큰은 미들웨어가 조용히 새로 받아 옵니다. 체크칸을 달아
-              봐야 켜나 끄나 같아서, 거짓 스위치가 하나 느는 셈입니다.
-              (자세한 확인은 커밋 메시지에 적어 두었습니다.)
+            ★ 둘은 다른 것입니다.
+              '아이디 기억하기' 는 다음에 **칸을 채워 두는** 것이고,
+              '로그인 상태 유지' 는 다음에 **안 물어보는** 것입니다.
+              하나로 묶으면 "아이디는 채워 두되 비밀번호는 다시 받고
+              싶다" 를 못 하게 됩니다 — 데스크 컴퓨터에서 흔한 요구입니다.
           */}
-          <label className="keep">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-            />
-            <span>아이디 기억하기</span>
-          </label>
+          <div className="keeps">
+            <label className="keep">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              <span>아이디 기억하기</span>
+            </label>
+
+            <label className="keep">
+              <input
+                type="checkbox"
+                checked={keepSignedIn}
+                onChange={(e) => setKeepSignedIn(e.target.checked)}
+              />
+              <span>로그인 상태 유지</span>
+            </label>
+          </div>
         </div>
 
         {error && <p className="auth-err">{error}</p>}
@@ -281,7 +316,9 @@ const css = `
 .auth-join{margin:22px 0 0; text-align:center; font-size:13px; color:var(--ink-2)}
 .auth-links{white-space:nowrap}
 /* 아이디 기억하기 — 칸들 바로 아래, 왼쪽 맞춤 */
-.keep{display:flex; align-items:center; gap:7px; margin-top:3px; cursor:pointer;
+/* ★ 좁은 화면에서는 두 줄로 접힙니다. 한 줄에 우겨 넣으면 글씨가 잘립니다 */
+.keeps{display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:3px}
+.keep{display:flex; align-items:center; gap:7px; cursor:pointer;
   font-size:12.5px; color:var(--ink-2); user-select:none}
 .keep input{width:15px; height:15px; margin:0; cursor:pointer; accent-color:var(--brand)}
 .auth-legal{margin:10px 0 0; text-align:center; font-size:12px; color:#98A2B3}

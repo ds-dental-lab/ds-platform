@@ -95,3 +95,74 @@ export function rememberableEmail(raw: string | null | undefined): string | null
 
   return trimmed;
 }
+
+// ---------- 로그인 상태 유지 ----------
+//
+// 사용자 요청 2026-08-14 — "실제로 로그아웃 전까지 로그인 유지되게 해줘".
+//
+// ★ **인증 쿠키는 건드리지 않습니다.** `@supabase/ssr` 은 우리가 준
+//   maxAge 를 무시하고 자기 기본값(400일)으로 덮어씁니다
+//   (`cookies.js` 의 `setCookieOptions`). 그 자리를 직접 쓰려면 쿠키를
+//   손으로 만들어야 하는데, 거기서 한 글자를 틀리면 **모두가 로그인을
+//   못 합니다.** 그래서 옆에 표시 두 장을 두고 그것으로 판단합니다.
+//
+//     denflow.login.keep   '1' 또는 '0'  — 사람이 고른 것. 400일
+//     denflow.login.alive  '1'          — **세션 쿠키**. 창을 닫으면 사라짐
+//
+//   '유지 안 함' 을 골랐는데 alive 가 없다 = **브라우저가 닫혔다**.
+//   그때만 세션을 끊습니다.
+//
+// ★ 표시가 아예 없으면 **끊지 않습니다.** 이 기능이 생기기 전에 로그인해
+//   둔 사람들이 있습니다. 없는 것을 '유지 안 함' 으로 읽으면 그 사람들이
+//   한 번씩 튕깁니다.
+
+/** 사람이 고른 것 — 400일 */
+export const KEEP_KEY = 'denflow.login.keep';
+
+/** 창이 살아 있다는 표시 — 세션 쿠키 */
+export const ALIVE_KEY = 'denflow.login.alive';
+
+/** 브라우저가 허용하는 상한입니다. 더 길게 줘도 잘립니다 */
+export const KEEP_MAX_AGE = 400 * 24 * 60 * 60;
+
+/**
+ * 끊어야 하는가.
+ *
+ * ★ '유지 안 함' + '창이 닫혔음' 일 때만 true 입니다.
+ *   나머지는 전부 그대로 둡니다 — 애매하면 안 끊는 쪽이 맞습니다.
+ *   잘못 끊으면 일하던 사람이 로그인 화면으로 튕기고, 잘못 놔두면
+ *   다음에 창을 열었을 때 한 번 더 로그인하면 됩니다.
+ */
+export function shouldDropSession(
+  keep: string | null | undefined,
+  alive: string | null | undefined,
+): boolean {
+  return keep === '0' && !alive;
+}
+
+/**
+ * 심을 쿠키 두 장을 문자열로 만듭니다.
+ *
+ * ★ 순수 함수라 시험할 수 있습니다. `document.cookie` 를 함수 안에서
+ *   만지면 규칙이 화면 코드에 섞여 아무도 확인 못 합니다.
+ *
+ * ★ `secure` 는 https 일 때만 붙입니다. localhost(http)에서 Secure 를
+ *   붙이면 브라우저가 **조용히 버립니다** — 개발 중에만 안 되는,
+ *   찾기 어려운 종류의 고장이 됩니다.
+ */
+export function keepCookies(keep: boolean, secure: boolean): string[] {
+  const tail = `Path=/; SameSite=Lax${secure ? '; Secure' : ''}`;
+
+  return [
+    `${KEEP_KEY}=${keep ? '1' : '0'}; Max-Age=${KEEP_MAX_AGE}; ${tail}`,
+    // ★ Max-Age 를 안 붙입니다. 그래야 창을 닫을 때 같이 사라집니다
+    `${ALIVE_KEY}=1; ${tail}`,
+  ];
+}
+
+/** 로그아웃할 때 지웁니다 */
+export function clearedKeepCookies(secure: boolean): string[] {
+  const tail = `Path=/; SameSite=Lax${secure ? '; Secure' : ''}`;
+
+  return [KEEP_KEY, ALIVE_KEY].map((name) => `${name}=; Max-Age=0; ${tail}`);
+}

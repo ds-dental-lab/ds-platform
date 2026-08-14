@@ -10,7 +10,16 @@
 // =========================================================
 
 import { describe, it, expect } from 'vitest';
-import { loginProblem, rememberableEmail } from '@/server/domain/login';
+import {
+  loginProblem,
+  rememberableEmail,
+  shouldDropSession,
+  keepCookies,
+  clearedKeepCookies,
+  KEEP_KEY,
+  ALIVE_KEY,
+  KEEP_MAX_AGE,
+} from '@/server/domain/login';
 
 describe('원인마다 다른 말을 한다', () => {
   it('★ 메일 확인 전이면 그렇게 말한다 — 비밀번호 탓을 하면 안 됩니다', () => {
@@ -93,5 +102,56 @@ describe('rememberableEmail', () => {
   it('담고 읽은 값이 제자리로 돌아옵니다', () => {
     const once = rememberableEmail('clinic@test.kr');
     expect(rememberableEmail(once)).toBe(once);
+  });
+});
+
+describe('로그인 상태 유지', () => {
+  it('★ 유지를 골랐으면 창을 닫아도 안 끊습니다', () => {
+    expect(shouldDropSession('1', '1')).toBe(false);
+    expect(shouldDropSession('1', null)).toBe(false); // 창을 닫았다 다시 연 상황
+  });
+
+  it('★ 유지를 껐고 창이 살아 있으면 안 끊습니다 — 일하는 중입니다', () => {
+    expect(shouldDropSession('0', '1')).toBe(false);
+  });
+
+  it('★ 유지를 껐고 창이 닫혔으면 끊습니다 — 이것 하나뿐입니다', () => {
+    expect(shouldDropSession('0', null)).toBe(true);
+    expect(shouldDropSession('0', undefined)).toBe(true);
+    expect(shouldDropSession('0', '')).toBe(true);
+  });
+
+  it('★ 표시가 아예 없으면 안 끊습니다 — 이 기능 전에 로그인한 사람들', () => {
+    expect(shouldDropSession(null, null)).toBe(false);
+    expect(shouldDropSession(undefined, undefined)).toBe(false);
+    expect(shouldDropSession(null, '1')).toBe(false);
+  });
+
+  it('★ alive 에는 Max-Age 가 없습니다 — 있으면 창을 닫아도 안 사라집니다', () => {
+    const [keep, alive] = keepCookies(false, true);
+
+    expect(keep).toContain(`${KEEP_KEY}=0`);
+    expect(keep).toContain(`Max-Age=${KEEP_MAX_AGE}`);
+
+    expect(alive).toContain(`${ALIVE_KEY}=1`);
+    expect(alive).not.toContain('Max-Age');
+  });
+
+  it('유지를 켜면 keep 이 1 입니다', () => {
+    expect(keepCookies(true, true)[0]).toContain(`${KEEP_KEY}=1`);
+  });
+
+  it('★ http 에서는 Secure 를 안 붙입니다 — 붙이면 브라우저가 조용히 버립니다', () => {
+    keepCookies(true, false).forEach((c) => expect(c).not.toContain('Secure'));
+    keepCookies(true, true).forEach((c) => expect(c).toContain('Secure'));
+  });
+
+  it('로그아웃하면 둘 다 지웁니다', () => {
+    const cleared = clearedKeepCookies(true);
+
+    expect(cleared).toHaveLength(2);
+    cleared.forEach((c) => expect(c).toContain('Max-Age=0'));
+    expect(cleared.join(' ')).toContain(KEEP_KEY);
+    expect(cleared.join(' ')).toContain(ALIVE_KEY);
   });
 });
