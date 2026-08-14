@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import { compressImages } from '@/lib/compress-image';
 
 /** 올라간 파일 한 건. 화면이 진행 상황을 그리는 데 씁니다 */
 export interface UploadedFile {
@@ -54,13 +55,25 @@ export type UploadProgressHandler = (progress: UploadProgress) => void;
  */
 export async function uploadOrderFiles(
   orderId: string,
-  files: File[],
+  original: File[],
   onProgress?: UploadProgressHandler,
   kind: UploadKind = 'scan',
 ): Promise<UploadResult> {
   const supabase = createClient();
   const uploaded: UploadedFile[] = [];
   const failed: string[] = [];
+
+  /*
+    ★ 사진은 여기서 줄입니다 (사용자 요청 2026-08-14 — 저장소 아끼기).
+
+      **줄을 만들기 전**이어야 합니다. 아래에서 크기와 이름을 표에
+      적는데, 그 뒤에 줄이면 표에는 원본 크기가, 저장소에는 줄인
+      것이 남아 둘이 어긋납니다.
+
+      스캔·설계 파일은 안 건드립니다 — 규칙은 domain/upload 에 있고,
+      못 줄이면 원본이 그대로 옵니다. 여기서 실패로 끝나는 길은 없습니다.
+  */
+  const files = await compressImages(original);
 
   const [{ data: { user } }, { data: { session } }] = await Promise.all([
     supabase.auth.getUser(),

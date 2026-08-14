@@ -11,11 +11,15 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { tooBig, formatBytes, MAX_UPLOAD_BYTES } from '@/server/domain/upload';
 
 /** 명세서 §4.2.9 */
 const EXTS = ['PLY', 'OBJ', 'STL', 'DXD', 'ZIP', 'PNG', 'JPG'];
 const ACCEPT = '.ply,.obj,.stl,.dxd,.dcm,.zip,.png,.jpg,.jpeg';
-const MAX_SIZE = 100 * 1024 * 1024;
+
+// ★ 상한은 domain/upload 한 곳에 있습니다. 전에는 이 파일과
+//   DesignFileUpload 에 같은 값이 따로 적혀 있었습니다 —
+//   그런 것은 언젠가 한쪽만 고쳐집니다. 버킷에도 같은 값이 걸려 있습니다.
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -40,8 +44,8 @@ export default function ScanDropZone({ files, onChange, disabled }: ScanDropZone
 
     const next: File[] = [];
     for (const file of Array.from(list)) {
-      if (file.size > MAX_SIZE) {
-        setError(`${file.name} 은 100MB 를 넘어 올릴 수 없습니다`);
+      if (tooBig(file.size)) {
+        setError(`${file.name} 은 ${formatBytes(MAX_UPLOAD_BYTES)} 를 넘어 올릴 수 없습니다`);
         continue;
       }
       next.push(file);
