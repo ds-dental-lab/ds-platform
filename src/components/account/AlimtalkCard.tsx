@@ -33,9 +33,11 @@ export interface AlimtalkCardProps {
   on: boolean;
   /** 무슨 일에 오는지 보여 줄 목록 — 이 사람이 속한 자리 기준 */
   events: string[];
+  /** 나에게 갈 뻔했던 최근 것들 */
+  recent: { title: string; body: string | null; at: string }[];
 }
 
-export default function AlimtalkCard({ phone, on, events }: AlimtalkCardProps) {
+export default function AlimtalkCard({ phone, on, events, recent }: AlimtalkCardProps) {
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
 
@@ -138,6 +140,32 @@ export default function AlimtalkCard({ phone, on, events }: AlimtalkCardProps) {
       </div>
 
       {error && <p className="px-6 pb-4 text-[13.5px] text-[#D8453F]">{error}</p>}
+
+      {/*
+        ★ 쌓인 줄을 보여 줍니다.
+          아직 안 나가므로, **문구가 맞는지·나에게 오는 게 맞는지** 를
+          눈으로 볼 방법이 이것뿐입니다. 나중에 실제로 나가기 시작하면
+          이 목록이 그대로 '받은 내역' 이 됩니다.
+      */}
+      {recent.length > 0 && (
+        <div className="border-t border-[#E8EBF0] px-6 py-4">
+          <h3 className="text-[13px] font-bold text-[#4A5567]">
+            나에게 갈 뻔한 것 <span className="font-semibold text-[#98A2B3]">최근 {recent.length}건</span>
+          </h3>
+
+          <ul className="mt-2 divide-y divide-[#F0F2F5]">
+            {recent.map((r, i) => (
+              <li key={i} className="flex flex-wrap items-baseline gap-x-2 py-2 text-[13px]">
+                <b className="font-semibold text-[#1A2130]">{r.title}</b>
+                <span className="text-[#4A5567]">{r.body}</span>
+                <span className="ml-auto shrink-0 tabular-nums text-[12.5px] text-[#C4CBD6]">
+                  {r.at.slice(5, 16).replace('T', ' ')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* ★ 아직 안 나갑니다. 넣고 나서 왜 안 오는지 찾게 만들면 안 됩니다 */}
       <p className="border-t border-[#E8EBF0] bg-[#FDF7EC] px-6 py-3 text-[13px] leading-relaxed text-[#8A5A00]">

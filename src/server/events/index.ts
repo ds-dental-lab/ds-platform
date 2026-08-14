@@ -21,6 +21,8 @@ import {
   type RecipientSlot,
 } from '@/server/domain/notification';
 import type { OrderStatus, Sector } from '@/server/domain/order-status';
+import { eventFor } from '@/server/domain/alimtalk';
+import { queueAlimtalk } from '@/server/events/alimtalk';
 
 export interface OrderStatusChangedEvent {
   orderId: string;
@@ -114,6 +116,26 @@ export async function publishOrderStatusChanged(
     if (rows.length > 0) {
       await supabase.from('notifications').insert(rows);
     }
+
+    /*
+      ★ 알림톡은 인앱과 **따로** 쌓습니다 (2026-08-14).
+        인앱은 조직 하나에 한 줄이면 되지만, 알림톡은 사람마다 한 줄이라
+        받는 사람도 번호도 다릅니다. 규칙도 다릅니다 — 인앱은 상태가
+        바뀔 때마다 넘겨받는 쪽에 가지만, 알림톡은 셋(접수·제작대기·
+        재스캔)에만 갑니다.
+    */
+    const kakao = eventFor(event.from, event.to);
+
+    if (kakao) {
+      await queueAlimtalk(kakao, {
+        orderId: event.orderId,
+        orderNo: order.order_no,
+        patientLabel: order.patient_label,
+        clinicOrgId: order.clinic_org_id,
+        designOrgId: order.design_org_id,
+        labOrgId: order.lab_org_id,
+      });
+    }
   } catch (error) {
     // 업무는 이미 끝났습니다. 알림 실패로 되돌리지 않습니다.
     console.error('[events] 주문 상태 이벤트 처리 실패', error);
@@ -149,6 +171,23 @@ export async function publishOrderCreated(event: {
       .maybeSingle();
 
     if (!order?.design_org_id) return;
+
+    /*
+      ★ 접수 알림톡은 **새 주문일 때만** 입니다 (2026-08-14).
+        리메이크도 디자인센터가 받아야 하지만 문구가 달라야 합니다 —
+        "새 주문" 이라고 보내면 이미 한 번 틀어진 건이 새 건으로 읽힙니다.
+        템플릿이 정해지면 여기서 갈라 줍니다.
+    */
+    if (event.kind !== 'remake') {
+      await queueAlimtalk('order_received', {
+        orderId: event.orderId,
+        orderNo: order.order_no,
+        patientLabel: order.patient_label,
+        clinicOrgId: null,
+        designOrgId: order.design_org_id,
+        labOrgId: null,
+      });
+    }
 
     const remake = event.kind === 'remake';
     const eventType = remake ? 'order.remake_requested' : 'order.created';

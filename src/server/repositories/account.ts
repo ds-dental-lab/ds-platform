@@ -89,6 +89,8 @@ export interface MyAlimtalk {
   on: boolean;
   /** 이 사람 자리에 오는 알림톡 이름들 */
   events: string[];
+  /** 나에게 갈 뻔했던 최근 것들. 아직 안 보냅니다 */
+  recent: { title: string; body: string | null; at: string }[];
 }
 
 /**
@@ -120,9 +122,27 @@ export async function getMyAlimtalk(): Promise<MyAlimtalk | null> {
     .filter((rule) => rule.audience === session.orgType)
     .map((rule) => rule.label);
 
+  /*
+    ★ 쌓인 줄을 몇 개 보여 줍니다 (2026-08-14).
+      아직 발송이 없으니, **문구가 맞는지·나에게 오는 게 맞는지**를
+      눈으로 볼 방법이 이것뿐입니다. 사업자등록이 끝나고 실제로 나가기
+      시작하면 이 목록이 '받은 내역' 이 됩니다.
+
+    ★ 남의 줄은 안 옵니다 — RLS 가 `to_user_id = auth.uid()` 로 막습니다.
+  */
+  const { data: queued } = await supabase
+    .from('alimtalk_queue')
+    .select('title, body, created_at')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  const recent = ((queued ?? []) as { title: string; body: string | null; created_at: string }[])
+    .map((q) => ({ title: q.title, body: q.body, at: q.created_at }));
+
   return {
     phone: row?.phone ?? null,
     on: row?.alimtalk_on ?? true,
     events,
+    recent,
   };
 }

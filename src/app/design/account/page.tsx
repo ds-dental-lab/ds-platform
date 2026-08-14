@@ -27,7 +27,12 @@ export default async function AccountPage() {
 
       {/* ★ 자기 것만 고칩니다 — 관리자든 사용자든 모두에게 보입니다 */}
       {alimtalk && (
-        <AlimtalkCard phone={alimtalk.phone} on={alimtalk.on} events={alimtalk.events} />
+        <AlimtalkCard
+          phone={alimtalk.phone}
+          on={alimtalk.on}
+          events={alimtalk.events}
+          recent={alimtalk.recent}
+        />
       )}
     </>
   );
