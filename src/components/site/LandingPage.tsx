@@ -182,9 +182,6 @@ function Hero() {
             stopAt={SITE.heroStopAt || undefined}
             credit={SITE.videoCredit || undefined}
           />
-          <p className="mt-3.5 text-center text-[12.5px] text-[#98A2B3]">
-            지르코니아 디스크 밀링
-          </p>
         </div>
       </div>
     </section>
@@ -252,21 +249,68 @@ const STEPS = [
   { step: '05', art: 'ship', title: '납품', body: '요청하신 날에 맞춰 보냅니다.' },
 ] as const;
 
+/**
+ * ★ 칸(타일)에서 **걸음(stepper)** 으로 바꿨습니다 (사용자 요청 2026-08-14 —
+ *   "아이콘이 크고 단계별로 직관적으로").
+ *
+ *   타일 다섯 개는 '다섯 가지' 로 보입니다. 순서가 있는 일인데 순서가
+ *   안 읽혔습니다. 동그라미를 선으로 이어 두면 **왼쪽에서 오른쪽으로
+ *   흐르는 한 줄**이 됩니다.
+ *
+ * ★ 아이콘을 27px → 36px 로 키우고 동그라미 안에 넣었습니다.
+ *   어두운 바탕이라 선이 얇으면 멀리서 뭉갭니다 — 굵기도 한 단계 올렸습니다.
+ *
+ * ★ 잇는 선은 **마지막 칸에는 안 그립니다.** 그리면 다음에 뭔가 더
+ *   있는 것처럼 보입니다.
+ */
 function Flow() {
   return (
     <Section id="flow" eyebrow="PROCESS" title="스캔을 보내면, 이렇게 갑니다" dark>
-      <div className="mt-10 grid gap-px overflow-hidden rounded-xl bg-[#2A3550] sm:grid-cols-2 lg:grid-cols-5">
-        {STEPS.map((s) => (
-          <div key={s.step} className="flex flex-col bg-[#1B2438] px-5 py-6">
-            <div className="flex items-center gap-2.5">
-              <SiteArt name={s.art} className="h-7 w-7 shrink-0 text-[#7FA9F0]" />
-              <span className="text-[12.5px] font-extrabold tracking-[0.1em] text-[#5B8DE8]">{s.step}</span>
-            </div>
-            <h3 className="mt-3.5 text-[15.5px] font-extrabold tracking-[-0.02em] text-white">{s.title}</h3>
-            <p className="mt-1.5 text-[13.5px] leading-relaxed text-[#9FADC7]">{s.body}</p>
-          </div>
+      <ol className="mt-12 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-5 lg:gap-5">
+        {STEPS.map((s, i) => (
+          <li key={s.step} className="relative flex flex-col items-center text-center">
+            {/*
+              다음 걸음으로 잇는 선. 마지막 칸에는 안 그립니다 —
+              그리면 뒤에 뭔가 더 있는 것처럼 보입니다.
+
+              ★ 가로로 늘어설 때(lg)와 세로로 쌓일 때(좁은 화면)의 선이
+                다릅니다. 두 칸씩 놓이는 중간 폭에서는 **아무 선도 안
+                그립니다** — 그 배치에서 아래로 선을 그으면 바로 다음
+                걸음이 아니라 두 칸 건너를 가리킵니다.
+            */}
+            {i < STEPS.length - 1 && (
+              <>
+                {/* 가로 — 동그라미 한가운데 높이 */}
+                <span
+                  aria-hidden
+                  className="absolute left-1/2 top-9 hidden h-px w-full bg-[#33456B] lg:block"
+                />
+                {/* 세로 — 동그라미 아래부터 다음 동그라미 위까지 (72px + 칸 사이 40px) */}
+                <span
+                  aria-hidden
+                  className="absolute left-1/2 top-[72px] h-[calc(100%-32px)] w-px bg-[#33456B] sm:hidden"
+                />
+              </>
+            )}
+
+            <span className="relative z-10 grid h-[72px] w-[72px] place-items-center rounded-full border border-[#33456B] bg-[#1B2438]">
+              <SiteArt name={s.art} className="h-9 w-9 text-[#8FB6F5]" strokeWidth={1.7} />
+            </span>
+
+            <span className="mt-4 text-[12px] font-extrabold tracking-[0.16em] text-[#5B8DE8]">
+              {s.step}
+            </span>
+
+            <h3 className="mt-1.5 text-[17px] font-extrabold tracking-[-0.02em] text-white">
+              {s.title}
+            </h3>
+
+            <p className="mt-2 max-w-[220px] text-[13.5px] leading-relaxed text-[#9FADC7]">
+              {s.body}
+            </p>
+          </li>
         ))}
-      </div>
+      </ol>
     </Section>
   );
 }
