@@ -6,11 +6,17 @@
 
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { loginProblem, rememberableEmail, REMEMBER_KEY, keepCookies } from '@/server/domain/login';
+import {
+  loginProblem,
+  rememberableEmail,
+  REMEMBER_KEY,
+  keepCookies,
+  hasAuthCookie,
+} from '@/server/domain/login';
 import DenFlowMark from '@/components/brand/DenFlowMark';
 
 /* 다른 탭에서 지웠을 때도 따라옵니다 */
@@ -25,6 +31,44 @@ function readRemembered(): string {
 
 export default function LoginPage() {
   const router = useRouter();
+
+  /*
+    ★ 이미 로그인해 있으면 제 화면으로 보냅니다 (사용자 요청 2026-08-14 —
+      "즐겨찾기에 있는 denflow 누를 때마다 로그인 되어있는 상태로").
+
+      `/` 는 원래 그렇게 돕니다. 그런데 즐겨찾기에 **`/login` 을 담아 둔**
+      분에게는 로그인해 두어도 매번 빈 칸 두 개가 뜹니다. 사람은 그걸 보고
+      "또 풀렸네" 라고 읽습니다.
+
+    ★ 쿠키만 보고 보내지 **않습니다.** 쿠키는 남아 있는데 세션이 죽은
+      경우가 있는데, 그때 `/` 로 보내면 회사 홈페이지가 뜨고, 거기서
+      로그인을 누르면 다시 여기로 와서 또 보내집니다 — **뱅뱅 돕니다.**
+      그래서 토큰을 실제로 풀어 보고, 풀릴 때만 보냅니다.
+
+    ★ 쿠키가 아예 없으면 아무것도 안 합니다. 처음 오는 분이 대부분이고,
+      그분들에게 쓸데없는 확인을 시키지 않습니다.
+
+    ★ `replace` 입니다. `push` 로 보내면 뒤로가기가 로그인 화면으로
+      돌아오고, 거기서 또 튕겨 나갑니다.
+  */
+  useEffect(() => {
+    if (!hasAuthCookie(document.cookie.split('; ').map((c) => c.split('=')[0]))) return;
+
+    let alive = true;
+
+    createClient()
+      .auth.getClaims()
+      .then(({ data }) => {
+        if (alive && data?.claims?.sub) router.replace('/');
+      })
+      .catch(() => {
+        // 못 풀었으면 그냥 로그인 화면입니다
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [router]);
 
   /*
     ★ 담아 둔 아이디는 **읽는 값**이지 상태가 아닙니다.
