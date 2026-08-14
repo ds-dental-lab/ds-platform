@@ -20,6 +20,7 @@ import { canManageMembers, type MemberRole } from '@/server/domain/member';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { INVOICE_METHODS, type InvoiceMethod } from '@/server/domain/invoice-method';
+import { normalizePhone } from '@/server/domain/alimtalk';
 
 export type AccountResult = { ok: true } | { ok: false; error: string };
 
@@ -184,6 +185,56 @@ export async function submitPrivacyOfficer(userId: string): Promise<AccountResul
 
   revalidatePath('/design/account/privacy');
   revalidatePath('/privacy');
+
+  return { ok: true };
+}
+
+// ---------- 내 알림톡 (사용자 요청 2026-08-14) ----------
+
+export interface AlimtalkInput {
+  /** 사람이 친 그대로. 여기서 다듬습니다 */
+  phone: string;
+  on: boolean;
+}
+
+/**
+ * 알림톡 받을 번호와 켜짐/꺼짐. **자기 것만** 고칩니다.
+ *
+ * ★ 관리자든 사용자든 똑같이 자기 것을 고칩니다 (사용자 결정).
+ *   조직 정보와 달리 권한을 안 봅니다 — 자기 번호는 자기가 압니다.
+ *   남의 줄은 RLS(`profile_update` 의 `id = auth.uid()`)가 막습니다.
+ *
+ * ★ 대표번호(organizations.tel)와 다른 칸입니다.
+ *   그쪽은 청구서에 찍히는 번호고, 이것은 사람이 받는 번호입니다.
+ *
+ * ★ 번호를 비우는 것은 **끄는 것과 다릅니다.**
+ *   비우면 받을 길이 없어지고, 끄는 것은 번호를 둔 채 잠시 멈추는
+ *   것입니다. 둘을 따로 받습니다.
+ */
+export async function submitAlimtalk(input: AlimtalkInput): Promise<AccountResult> {
+  const session = await getSession();
+  if (!session?.user.id) return { ok: false, error: '로그인이 필요합니다' };
+
+  const typed = input.phone.trim();
+  const phone = typed === '' ? null : normalizePhone(typed);
+
+  /* 쳤는데 못 알아들었으면 조용히 지우지 않고 말해 줍니다 */
+  if (typed !== '' && phone === null) {
+    return { ok: false, error: '휴대전화 번호를 확인해 주세요 (예: 010-1234-5678)' };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ phone, alimtalk_on: input.on })
+    .eq('id', session.user.id);
+
+  if (error) return { ok: false, error: `저장하지 못했습니다: ${error.message}` };
+
+  revalidatePath('/clinic/account');
+  revalidatePath('/design/account');
+  revalidatePath('/lab/account');
 
   return { ok: true };
 }

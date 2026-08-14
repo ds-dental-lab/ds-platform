@@ -7,6 +7,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
+import { ALIMTALK_RULES } from '@/server/domain/alimtalk';
 import type { InvoiceMethod } from '@/server/domain/invoice-method';
 
 export interface MyOrg {
@@ -77,5 +78,51 @@ export async function getMyOrg(): Promise<MyOrg | null> {
     closingDay: row.closing_day,
     // ★ RLS 의 org_update 와 같은 조건입니다. 다르면 눌러 놓고 0행을 받습니다
     editable: session.role === 'owner' || session.role === 'admin',
+  };
+}
+
+// ---------- 내 알림톡 (2026-08-14) ----------
+
+export interface MyAlimtalk {
+  /** 숫자만 담긴 번호. 안 넣었으면 null */
+  phone: string | null;
+  on: boolean;
+  /** 이 사람 자리에 오는 알림톡 이름들 */
+  events: string[];
+}
+
+/**
+ * 내 알림톡 설정.
+ *
+ * ★ **내 줄만** 읽습니다. 남의 번호를 볼 이유가 없습니다 —
+ *   같은 조직 사람이면 RLS 로는 보이지만(`is_same_org_user`), 화면이
+ *   안 물어봅니다. 물어보면 언젠가 목록으로 보여 주게 됩니다.
+ *
+ * ★ 오는 알림톡 목록은 **자리로** 정합니다.
+ *   치과에는 재스캔, 디자인센터에는 새 주문, 기공소에는 제작 의뢰.
+ *   자기에게 안 오는 것까지 늘어놓으면 "왜 안 오지" 가 생깁니다.
+ */
+export async function getMyAlimtalk(): Promise<MyAlimtalk | null> {
+  const session = await getSession();
+  if (!session?.user.id) return null;
+
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('phone, alimtalk_on')
+    .eq('id', session.user.id)
+    .maybeSingle();
+
+  const row = data as { phone: string | null; alimtalk_on: boolean } | null;
+
+  const events = Object.values(ALIMTALK_RULES)
+    .filter((rule) => rule.audience === session.orgType)
+    .map((rule) => rule.label);
+
+  return {
+    phone: row?.phone ?? null,
+    on: row?.alimtalk_on ?? true,
+    events,
   };
 }

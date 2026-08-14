@@ -9,16 +9,26 @@
 
 import { notFound } from 'next/navigation';
 import { requireSession } from '@/server/policies/session';
-import { getMyOrg } from '@/server/repositories/account';
+import { getMyOrg, getMyAlimtalk } from '@/server/repositories/account';
 import AccountForm from '@/components/account/AccountForm';
+import AlimtalkCard from '@/components/account/AlimtalkCard';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AccountPage() {
   await requireSession();
 
-  const org = await getMyOrg();
+  const [org, alimtalk] = await Promise.all([getMyOrg(), getMyAlimtalk()]);
   if (!org) notFound();
 
-  return <AccountForm org={org} editable={org.editable} basePath="/lab" />;
+  return (
+    <>
+      <AccountForm org={org} editable={org.editable} basePath="/lab" />
+
+      {/* ★ 자기 것만 고칩니다 — 관리자든 사용자든 모두에게 보입니다 */}
+      {alimtalk && (
+        <AlimtalkCard phone={alimtalk.phone} on={alimtalk.on} events={alimtalk.events} />
+      )}
+    </>
+  );
 }
