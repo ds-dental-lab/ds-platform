@@ -19,15 +19,18 @@
 import Link from 'next/link';
 import { formatPercent, isSmallSample } from '@/server/domain/stats';
 import type { DesignStats } from '@/server/repositories/stats';
+import type { ReasonTally } from '@/server/domain/remake-reason';
 
 export interface StatsScreenProps {
   stats: DesignStats;
+  /** 리메이크 사유 집계 (사용자 요청 2026-08-14) */
+  reasons: ReasonTally;
   /** 기간 고르개가 쓰는 값들 */
   months: { value: string; label: string }[];
   month: string;
 }
 
-export default function StatsScreen({ stats, months, month }: StatsScreenProps) {
+export default function StatsScreen({ stats, reasons, months, month }: StatsScreenProps) {
   return (
     <div className="space-y-3.5">
       {/* ---------- 머리 ---------- */}
@@ -71,6 +74,9 @@ export default function StatsScreen({ stats, months, month }: StatsScreenProps) 
           />
         </div>
       </section>
+
+      {/* ---------- 리메이크 사유 ---------- */}
+      <ReasonSection reasons={reasons} remakes={stats.remakes} />
 
       {/* ---------- 디자이너별 ---------- */}
       <section className="rounded-lg border border-[#E8EBF0] bg-white">
@@ -258,4 +264,107 @@ function Td({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-16 text-center text-[14px] text-[#98A2B3]">{children}</p>;
+}
+
+/**
+ * 리메이크 사유. (사용자 요청 2026-08-14 — "재발방지하고 싶거든")
+ *
+ * ★ **적힌 것만 셉니다.** 사유 입력은 선택 사항이라, 리메이크 건수와
+ *   사유가 적힌 건수는 다릅니다. 그 차이를 화면에 적어 둡니다 —
+ *   안 적으면 '리메이크 12건인데 사유는 5건' 을 보고 표가 틀린 줄 압니다.
+ *
+ * ★ **주문 수와 사유 수도 다릅니다.** 중복으로 고를 수 있어서
+ *   합계가 주문 수보다 큽니다. 둘을 나란히 둡니다.
+ *
+ * ★ 여기도 평가표가 아닙니다. 갈래에 '기공소' 와 '디자인' 이 같이
+ *   있는 것은 탓하려는 것이 아니라, 어디를 손봐야 덜 생기는지
+ *   고르려는 것입니다.
+ */
+function ReasonSection({ reasons, remakes }: { reasons: ReasonTally; remakes: number }) {
+  const covered = remakes > 0 ? Math.round((reasons.orders / remakes) * 100) : null;
+
+  return (
+    <section className="rounded-lg border border-[#E8EBF0] bg-white">
+      <header className="flex flex-wrap items-baseline gap-2 border-b border-[#E8EBF0] px-5 py-3.5">
+        <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">리메이크 사유</h2>
+        <span className="text-[13px] text-[#98A2B3]">
+          {reasons.orders}건에 사유 {reasons.picks}개
+        </span>
+
+        {covered !== null && (
+          <span className="ml-auto text-[13px] text-[#98A2B3]">
+            리메이크 {remakes}건 중 <b className="font-semibold text-[#4A5567]">{covered}%</b> 가
+            적혀 있습니다
+          </span>
+        )}
+      </header>
+
+      <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-5 py-2.5 text-[13px] leading-relaxed text-[#98A2B3]">
+        사유 입력은 <b className="font-semibold text-[#4A5567]">선택</b>이라, 적힌 것만 셉니다.
+        한 건에 사유를 <b className="font-semibold text-[#4A5567]">여러 개</b> 고를 수 있어 사유
+        수가 건수보다 많습니다. 어디를 손봐야 덜 생기는지 고르는 숫자입니다.
+      </p>
+
+      {reasons.picks === 0 ? (
+        <Empty>이 기간에 적힌 리메이크 사유가 없습니다.</Empty>
+      ) : (
+        <>
+          {/* 갈래별 — 어느 쪽이 큰지 한눈에 */}
+          <div className="grid gap-2.5 border-b border-[#E8EBF0] px-5 py-4 sm:grid-cols-2 lg:grid-cols-3">
+            {reasons.groups.map((g) => (
+              <div key={g.key} className="rounded-md border border-[#E8EBF0] px-3 py-2.5">
+                <div className="flex items-baseline gap-2">
+                  <b className="text-[13.5px] font-bold text-[#1A2130]">{g.name}</b>
+                  <span className="ml-auto text-[13.5px] font-extrabold tabular-nums text-[#1279E8]">
+                    {g.count}
+                  </span>
+                  <span className="text-[12.5px] tabular-nums text-[#98A2B3]">
+                    {formatPercent(g.share)}
+                  </span>
+                </div>
+
+                {/* 막대는 눈으로 견주라고 답니다. 숫자는 위에 이미 있습니다 */}
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#F0F2F5]">
+                  <div
+                    className="h-full rounded-full bg-[#1279E8]"
+                    style={{ width: `${g.share ?? 0}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <table className="w-full text-[13.5px]">
+            <thead>
+              <tr className="border-b border-[#E8EBF0] text-left text-[13px] text-[#98A2B3]">
+                <Th className="pl-5">코드</Th>
+                <Th>갈래</Th>
+                <Th>사유</Th>
+                <Th right className="pr-5">
+                  건수
+                </Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F0F2F5]">
+              {reasons.reasons.map((r) => (
+                <tr key={r.code} className="hover:bg-[#F8F9FB]">
+                  <Td className="pl-5 font-bold text-[#1279E8]">{r.code}</Td>
+                  <Td className="text-[#98A2B3]">{r.groupName}</Td>
+                  <Td className="text-[#1A2130]">
+                    <span className="mr-2 rounded bg-[#F0F2F5] px-1.5 py-0.5 text-[11.5px] font-semibold text-[#4A5567]">
+                      {r.tag}
+                    </span>
+                    {r.label}
+                  </Td>
+                  <Td right className="pr-5 font-bold">
+                    {r.count}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </section>
+  );
 }

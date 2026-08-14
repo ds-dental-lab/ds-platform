@@ -30,6 +30,9 @@ import { listSeatOptions } from '@/server/repositories/member';
 import DesignerAssignSelect from '@/components/order/DesignerAssignSelect';
 import DesignFileUpload from '@/components/order/DesignFileUpload';
 import RemakeRequest from '@/components/order/RemakeRequest';
+import RemakeReasonButton from '@/components/order/RemakeReasonButton';
+import { getOrderReasons } from '@/server/repositories/remake-reason';
+import { OTHER_CODE } from '@/server/domain/remake-reason';
 import RepairRequest from '@/components/order/RepairRequest';
 import { defaultDueDate } from '@/server/domain/due-date';
 
@@ -62,7 +65,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       다른 것을 하나도 안 쓰는데 줄 맨 뒤에서 혼자 기다리고 있었습니다.
       주문등록·주문상세·수정 네 화면이 모두 같은 모양이었습니다.
   */
-  const [labs, implantCatalog, messages, prosthesisCatalog, holidays, repair, pickups] =
+  const [labs, implantCatalog, messages, prosthesisCatalog, holidays, repair, pickups, reasons] =
     await Promise.all([
       listPartnerLabs(),
       getImplantCatalog(),
@@ -80,6 +83,14 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
         수거가 안 닫히면 제작 시작도 막혀 그 주문은 그대로 굳습니다.
     */
       listPickupsForOrder(orderId),
+      /*
+        ★ 리메이크가 아니면 **묻지도 않습니다** (사용자 요청 2026-08-14).
+          원주문에는 적을 사유가 없습니다. 늘 물으면 주문상세를 열
+          때마다 아무도 안 쓰는 왕복이 하나씩 늡니다.
+      */
+      order.is_remake
+        ? getOrderReasons(orderId)
+        : Promise.resolve([] as Awaited<ReturnType<typeof getOrderReasons>>),
     ]);
 
   const today = todayInKst();
@@ -178,6 +189,25 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
         isRepair: order.is_repair,
         pickups,
       })}
+      /*
+        ★ 리메이크 사유 (사용자 요청 2026-08-14).
+          리메이크로 들어온 건에만 답니다 — 원주문에 '무엇 때문에 다시
+          만들었나' 를 물어도 답할 것이 없습니다.
+
+        ★ 디자인센터 사람이면 관리자든 사용자든 적습니다.
+          실제로 만진 디자이너가 사유를 제일 잘 압니다.
+          **통계를 보는 것만** 관리자입니다 (/design/stats).
+      */
+      nameSlot={
+        order.is_remake ? (
+          <RemakeReasonButton
+            orderId={order.id}
+            codes={reasons.map((r) => r.code)}
+            note={reasons.find((r) => r.code === OTHER_CODE)?.note ?? null}
+            canEdit
+          />
+        ) : null
+      }
       issueSlot={
         <RepairPanel repair={repair} isRepair={order.is_repair} orderPath="/design/orders" />
       }

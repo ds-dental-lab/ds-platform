@@ -16,6 +16,8 @@ import { getDesignStats } from '@/server/repositories/stats';
 import { todayInKst } from '@/server/domain/week';
 import { periodRange, isValidYearMonth, prevYearMonth, yearMonthOf } from '@/server/domain/billing';
 import StatsScreen from '@/components/stats/StatsScreen';
+import { getReasonRows } from '@/server/repositories/remake-reason';
+import { tallyReasons } from '@/server/domain/remake-reason';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +37,19 @@ export default async function DesignStatsPage({
 
   // 달력 월로 봅니다 — 거래처마다 다른 정산 기준일과 섞으면 뜻이 흐려집니다
   const { from, to } = periodRange(month, 1);
-  const stats = await getDesignStats(from, to);
+
+  /*
+    ★ 사유는 **적은 날**로 자릅니다 (repositories/remake-reason).
+      접수일로 자르면 지난달 건에 오늘 사유를 달았을 때 이번달 표에서
+      사라집니다 — 적어 놓고 안 보이면 아무도 다시 안 적습니다.
+      그래서 위 접수일 기준과 잣대가 다릅니다. 화면에도 그렇게 적어 뒀습니다.
+  */
+  const [stats, reasonRows] = await Promise.all([
+    getDesignStats(from, to),
+    getReasonRows(from, to),
+  ]);
+
+  const reasons = tallyReasons(reasonRows);
 
   const months: { value: string; label: string }[] = [];
   let cursor = thisMonth;
@@ -47,7 +61,7 @@ export default async function DesignStatsPage({
 
   return (
     <div className="mx-auto max-w-[1000px]">
-      <StatsScreen stats={stats} months={months} month={month} />
+      <StatsScreen stats={stats} reasons={reasons} months={months} month={month} />
       <div className="pb-10" />
     </div>
   );

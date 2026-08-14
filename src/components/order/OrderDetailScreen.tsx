@@ -128,6 +128,13 @@ export interface OrderDetailScreenProps {
   issueSlot?: React.ReactNode;
   /** 아래줄에 끼워 넣을 것 (리메이크 · 리페어 신청) — 시안 .dt-bar */
   barSlot?: React.ReactNode;
+  /**
+   * 환자 이름 **바로 옆**에 붙일 것 (리메이크 사유).
+   *
+   * ★ 이 건이 무엇인가에 붙는 꼬리표만 옵니다. 동작 단추는
+   *   `barSlot` 입니다 — 섞으면 이름줄이 단추밭이 됩니다.
+   */
+  nameSlot?: React.ReactNode;
 }
 
 export default function OrderDetailScreen({
@@ -151,6 +158,7 @@ export default function OrderDetailScreen({
   progress,
   progressNote,
   barSlot,
+  nameSlot,
 }: OrderDetailScreenProps) {
   const placements: ChartPlacement[] = order.items.map((item) => ({
     tooth: item.tooth_number,
@@ -270,6 +278,11 @@ export default function OrderDetailScreen({
           <b className="text-[15.5px] font-extrabold tracking-[-0.03em] text-[#1A2130]">
             {order.patient_label}
           </b>
+
+          {/* ★ 이름 바로 옆입니다 (사용자 요청 2026-08-14).
+                리메이크 사유는 '이 건이 무엇인가' 에 붙는 꼬리표라,
+                아래 단추줄에 두면 다른 동작들과 섞여 안 눌립니다 */}
+          {nameSlot}
 
           <div className="ml-auto flex flex-wrap items-center gap-[9px]">
             <span className="text-[13.5px] text-[#4A5567]">요청시한: {order.due_date}</span>
