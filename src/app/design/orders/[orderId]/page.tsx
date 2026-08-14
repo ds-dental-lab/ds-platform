@@ -44,7 +44,30 @@ interface OrderDetailPageProps {
 
 export default async function DesignOrderDetailPage({ params }: OrderDetailPageProps) {
   const { orderId } = await params;
-  const order = await getOrderDetail(orderId);
+
+  /*
+    ★ 주문과 **함께** 부릅니다 (2026-08-14).
+      아래 여섯은 주문 내용을 하나도 안 씁니다 — 주문번호만 있으면
+      되는데 그건 주소에 있습니다. 주문을 기다렸다 부를 이유가
+      없었습니다. 왕복이 셋에서 둘로 줄어듭니다.
+  */
+  const [order, labs, implantCatalog, messages, prosthesisCatalog, holidays, pickups] =
+    await Promise.all([
+      getOrderDetail(orderId),
+      listPartnerLabs(),
+      getImplantCatalog(),
+      listOrderMessages(orderId),
+      // 꺼진 제품도 함께 — 지난 주문이 그 조합을 가리킵니다
+      getProsthesisCatalog({ includeInactive: true }),
+      // 쉬는 날은 요청시한 달력에서 빠집니다
+      getHolidayMap(),
+      /*
+        ★ 자사 제작이면 물건이 **여기로** 옵니다 (사용자 지적 2026-08-13).
+          디자인센터가 기공소 자리를 겸하는데 이 화면에 수거 줄이 아예
+          없어서, 자사 제작 건은 아무도 수거완료를 못 눌렀습니다.
+      */
+      listPickupsForOrder(orderId),
+    ]);
 
   /*
     ★ 404 대신 이유를 적습니다 (사용자 요청 2026-08-13).
@@ -61,37 +84,46 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
   }
 
   /*
-    ★ 휴일도 **함께** 부릅니다.
-      다른 것을 하나도 안 쓰는데 줄 맨 뒤에서 혼자 기다리고 있었습니다.
-      주문등록·주문상세·수정 네 화면이 모두 같은 모양이었습니다.
+    ★ 세션은 여기서 **공짜**입니다. getOrderDetail 이 이미 한 번
+      불렀고, 요청 하나 안에서는 캐시됩니다 (policies/session 의 cache).
+      그래서 아래 한 줄에 금액과 사람 목록까지 같이 태울 수 있습니다.
   */
-  const [labs, implantCatalog, messages, prosthesisCatalog, holidays, repair, pickups, reasons] =
-    await Promise.all([
-      listPartnerLabs(),
-      getImplantCatalog(),
-      listOrderMessages(orderId),
-      // 꺼진 제품도 함께 — 지난 주문이 그 조합을 가리킵니다
-      getProsthesisCatalog({ includeInactive: true }),
-      // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
-      getHolidayMap(),
-      // 리페어 칸 — 여기 함께 넣어야 왕복이 안 늘어납니다
-      getRepairContext(order),
+  const session = await getSession();
+  const viewer = {
+    userId: session?.user.id ?? '',
+    isManager: canManageMembers(session?.role as MemberRole | null),
+  };
+  const seat = { designerId: order.designer_user_id, designerName: order.designer_name };
+
+  // 담당 칸을 고칠 수 있는 사람에게만 사람 목록을 내려보냅니다
+  const canAssignDesigner =
+    assignable(order.status) && checkAssign(seat, viewer, viewer.userId).ok;
+
+  /*
+    ★ 주문을 실제로 쓰는 것만 여기 남습니다. 나머지는 위에서 주문과
+      같이 출발했습니다. 왕복이 넷(주문 → 나머지 → 금액 → 사람)에서
+      **둘**로 줄었습니다.
+
+    ★ 리메이크가 아니면 사유를 묻지도 않습니다 (2026-08-14).
+      원주문에는 적을 사유가 없습니다.
+  */
+  const [repair, reasons, money, seats] = await Promise.all([
+    getRepairContext(order),
+    order.is_remake
+      ? getOrderReasons(orderId)
+      : Promise.resolve([] as Awaited<ReturnType<typeof getOrderReasons>>),
     /*
-      ★ 자사 제작이면 물건이 **여기로** 옵니다 (사용자 지적 2026-08-13).
-        디자인센터가 기공소 자리를 겸하는데 이 화면에 수거 줄이 아예
-        없어서, 자사 제작 건은 아무도 수거완료를 못 눌렀습니다.
-        수거가 안 닫히면 제작 시작도 막혀 그 주문은 그대로 굳습니다.
+      ★ 몽키스패너는 **관리자만** 봅니다 (사용자 결정 2026-08-12).
+        디자이너에게는 금액이 아예 안 보입니다. 화면에서 빼는 것과
+        못 고치는 것은 다르므로 저장은 서버가 또 봅니다.
     */
-      listPickupsForOrder(orderId),
-      /*
-        ★ 리메이크가 아니면 **묻지도 않습니다** (사용자 요청 2026-08-14).
-          원주문에는 적을 사유가 없습니다. 늘 물으면 주문상세를 열
-          때마다 아무도 안 쓰는 왕복이 하나씩 늡니다.
-      */
-      order.is_remake
-        ? getOrderReasons(orderId)
-        : Promise.resolve([] as Awaited<ReturnType<typeof getOrderReasons>>),
-    ]);
+    canSeeMoney(session?.role as MemberRole | null)
+      ? getOrderMoney(order.id)
+      : Promise.resolve(null),
+    canAssignDesigner ? listSeatOptions() : Promise.resolve([]),
+  ]);
+
+  const mySeat = checkSeat(seat, viewer);
 
   const today = todayInKst();
   const designFiles = order.files.filter((f) => f.kind === 'design');
@@ -109,40 +141,16 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       : undefined;
 
   /*
-    ★ 몽키스패너는 **관리자만** 봅니다 (사용자 결정 2026-08-12).
-      디자인센터 사용자(디자이너)에게는 금액이 아예 안 보입니다.
-      화면에서 빼는 것과 못 고치는 것은 다르므로, 저장은 서버가 또 봅니다
-      (submitAdjustItem 이 디자인센터인지 봅니다).
-  */
-  const session = await getSession();
-  const money = canSeeMoney(session?.role as MemberRole | null)
-    ? await getOrderMoney(order.id)
-    : null;
-
-  /*
     ★ 한 주문은 한 디자이너가 만듭니다 (사용자 결정 2026-08-12).
       실제로 막는 곳은 세 군데입니다 — 여기(화면), changeOrderStatus(서버),
       order_file_insert 정책(DB). 화면에서 감추는 것만으로는 부족합니다.
-  */
-  const viewer = {
-    userId: session?.user.id ?? '',
-    isManager: canManageMembers(session?.role as MemberRole | null),
-  };
 
-  const seat = { designerId: order.designer_user_id, designerName: order.designer_name };
-  const mySeat = checkSeat(seat, viewer);
-
-  // 담당 칸을 고칠 수 있는 사람에게만 사람 목록을 내려보냅니다
-  const canAssignDesigner =
-    assignable(order.status) && checkAssign(seat, viewer, viewer.userId).ok;
-
-  /*
-    ★ 디자이너에게도 **전체 목록**을 줍니다 (사용자 결정 2026-08-12).
+    ★ 디자이너에게도 사람 목록 **전체**를 줍니다 (사용자 결정 2026-08-12).
       "가입되어 활성화된 유저들끼리 담당자 이전을 할 수 있다."
       살아 있는 우리 조직 사람인지는 서버가 다시 봅니다
       (submitAssignDesigner).
+      — session·viewer·seat·money·seats 는 위 한 줄에서 함께 받아 옵니다.
   */
-  const seats = canAssignDesigner ? await listSeatOptions() : [];
 
   /*
     ★ 남의 주문이면 그 이유가 먼저입니다.

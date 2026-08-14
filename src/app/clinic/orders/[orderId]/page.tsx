@@ -34,7 +34,30 @@ interface OrderDetailPageProps {
 
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
   const { orderId } = await params;
-  const order = await getOrderDetail(orderId);
+
+  /*
+    ★ 주문과 **함께** 부릅니다 (2026-08-14).
+      아래 다섯은 주문 내용을 하나도 안 씁니다 — 주문번호만 있으면
+      되는데, 그건 주소에 이미 있습니다. 주문을 기다렸다 부를 이유가
+      없었습니다.
+  */
+  const [order, implantCatalog, messages, prosthesisCatalog, holidays, pickups] =
+    await Promise.all([
+      getOrderDetail(orderId),
+      getImplantCatalog(),
+      listOrderMessages(orderId),
+      // 지난 주문이 가리키는 조합은 꺼져도 이름을 잃지 않아야 합니다
+      getProsthesisCatalog({ includeInactive: true }),
+      // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
+      getHolidayMap(),
+      /*
+        ★ 수거 카드를 치과에는 **안 보여 줍니다** (사용자 지적 2026-08-13 —
+          "치과는 작업하는 사람들이 아니고 고객이니깐 과정만 확인할뿐").
+          수거가 어디쯤인지는 진행 막대가 이미 말합니다.
+          여기서는 막대를 그리는 재료로만 씁니다.
+      */
+      listPickupsForOrder(orderId),
+    ]);
 
   /*
     ★ 404 대신 이유를 적습니다 (사용자 요청 2026-08-13).
@@ -58,25 +81,22 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       안 쓰는데 줄을 세워 둔 셈이라, 왕복 하나가 고스란히 화면 뜨는
       시간에 더해졌습니다.
   */
-  const [implantCatalog, messages, prosthesisCatalog, holidays, repair, pickups] =
-    await Promise.all([
-      getImplantCatalog(),
-      listOrderMessages(orderId),
-      // 지난 주문이 가리키는 조합은 꺼져도 이름을 잃지 않아야 합니다
-      getProsthesisCatalog({ includeInactive: true }),
-      // 쉬는 날은 요청시한 달력에서 빠집니다 (디자인센터 휴일 화면이 쥡니다)
-      getHolidayMap(),
-      // 리페어 칸 — 여기 함께 넣어야 왕복이 안 늘어납니다
-      getRepairContext(order),
-      /*
-        ★ 수거 카드를 치과에는 **안 보여 줍니다** (사용자 지적 2026-08-13 —
-          "치과는 작업하는 사람들이 아니고 고객이니깐 과정만 확인할뿐").
-          수거가 어디쯤인지는 진행 막대의 수거대기·수거중·수거완료 칸이
-          이미 말합니다. 같은 것을 카드로 또 펴면 치과 화면이 작업자용
-          화면처럼 보입니다. 여기서는 막대를 그리는 재료로만 씁니다.
-      */
-      listPickupsForOrder(orderId),
-    ]);
+  /*
+    ★ 리페어 칸만 주문을 기다립니다 (2026-08-14).
+
+      전에는 여섯을 **주문이 온 뒤에** 한꺼번에 불렀습니다. 그런데
+      그중 다섯은 주문을 하나도 안 씁니다 — 주문번호만 있으면 됩니다.
+      주문번호는 주소에 이미 있으므로, 다섯은 **주문과 같이 출발**할 수
+      있었는데 줄을 서서 기다리고 있었습니다.
+
+      왕복이 셋(세션 → 주문 → 나머지)에서 둘로 줄었습니다.
+      화면이 뜨는 시간에서 왕복 하나가 통째로 빠집니다.
+
+    ★ 주문이 없을 때도 다섯 개를 부르게 됩니다. 그건 없는 주소를 친
+      드문 경우이고, 그때 조금 헛도는 편이 **매번 한 왕복을 더 기다리는
+      것보다 낫습니다.**
+  */
+  const repair = await getRepairContext(order);
 
   const progress = orderProgress({
     status: order.status,
