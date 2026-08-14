@@ -26,7 +26,6 @@ import { SiteArt } from '@/components/site/SiteArt';
 const SITE = {
   name: 'DS 덴탈랩',
   tagline: '모델리스 전문 기공소',
-  lead: '모델을 뜨지 않습니다. 스캔 데이터에서 바로 설계하고 밀링합니다.',
   tel: '010-3365-3145',
 
   // ★ 첫 화면의 밀링 영상. 셋 중 위에 있는 것부터 씁니다.
@@ -133,15 +132,30 @@ function Hero() {
         <div>
           <p className="text-[14px] font-bold tracking-[0.14em] text-[#1279E8]">{SITE.tagline.toUpperCase()}</p>
 
-          <h1 className="mt-4 text-[34px] font-extrabold leading-[1.25] tracking-[-0.045em] sm:text-[44px]">
-            모델을 뜨지 않습니다.
+          {/*
+            ★ 첫 줄이 길어서 크기를 줄였습니다 (2026-08-14). 브라우저에서
+              재서 맞춘 값입니다.
+
+              44px 로 두면 두 칸 배치(lg)에서 넘쳐 '간결하게' 한 마디만
+              다음 줄로 떨어집니다. 그 모양이 제일 안 좋습니다.
+
+            ★ 36px 도 아슬아슬했습니다 — 1024px 화면에서 여유가 21px
+              뿐이었습니다. 한글 글꼴은 기계마다 다릅니다(윈도우는 맑은
+              고딕, 맥은 애플 SD 산돌고딕). 여기서 딱 맞는 값은 **저쪽에서
+              넘칩니다.** 재 보고 정할 때는 넉넉한 쪽으로 잡아야 합니다.
+          */}
+          <h1 className="mt-4 text-balance text-[27px] font-extrabold leading-[1.3] tracking-[-0.045em] sm:text-[34px]">
+            모델은 생략하고, 과정은 간결하게
             <br />
-            <span className="text-[#1279E8]">스캔에서 바로 보철로.</span>
+            <span className="text-[#1279E8]">스캔에서 바로 보철로</span>
           </h1>
 
           <p className="mt-6 max-w-[520px] text-[15px] leading-relaxed text-[#4A5567]">
-            석고 모델을 만들고 굳히고 다듬는 시간이 통째로 빠집니다. 구강 스캔 데이터를 받아
-            그대로 설계하고 밀링합니다. <b className="font-bold text-[#1A2130]">덜 거치니 덜 틀어집니다.</b>
+            모델 제작의 번거로움 없이
+            <br />
+            스캔 데이터에서 최종 보철까지
+            <br />
+            <b className="font-bold text-[#1A2130]">하나의 디지털 프로세스로</b>
           </p>
 
           <div className="mt-9 flex flex-wrap gap-2.5">
