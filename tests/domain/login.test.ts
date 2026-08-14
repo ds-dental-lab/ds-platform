@@ -14,6 +14,7 @@ import {
   loginProblem,
   rememberableEmail,
   shouldDropSession,
+  hasAuthCookie,
   keepCookies,
   clearedKeepCookies,
   KEEP_KEY,
@@ -144,6 +145,22 @@ describe('로그인 상태 유지', () => {
   it('★ http 에서는 Secure 를 안 붙입니다 — 붙이면 브라우저가 조용히 버립니다', () => {
     keepCookies(true, false).forEach((c) => expect(c).not.toContain('Secure'));
     keepCookies(true, true).forEach((c) => expect(c).toContain('Secure'));
+  });
+
+  it('★ 쿠키가 없으면 인증 서버에 안 묻습니다 — 홈페이지 손님이 여기 걸립니다', () => {
+    expect(hasAuthCookie([])).toBe(false);
+    expect(hasAuthCookie(['denflow.login.keep', 'denflow.login.alive'])).toBe(false);
+  });
+
+  it('쿠키가 있으면 묻습니다 — 쪼개져 담긴 것도 알아봅니다', () => {
+    expect(hasAuthCookie(['sb-dzliwedyqkondvcwnvbh-auth-token'])).toBe(true);
+    // 값이 길면 .0 .1 로 나뉩니다
+    expect(hasAuthCookie(['sb-abc-auth-token.0', 'sb-abc-auth-token.1'])).toBe(true);
+  });
+
+  it('비슷하게 생긴 남의 쿠키에는 안 속습니다', () => {
+    expect(hasAuthCookie(['sb-something-else'])).toBe(false);
+    expect(hasAuthCookie(['my-auth-token'])).toBe(false);
   });
 
   it('로그아웃하면 둘 다 지웁니다', () => {

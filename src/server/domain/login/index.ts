@@ -160,6 +160,28 @@ export function keepCookies(keep: boolean, secure: boolean): string[] {
   ];
 }
 
+/**
+ * 이 요청이 로그인 쿠키를 들고 있는가.
+ *
+ * ★ **없으면 물어볼 것도 없습니다.** (2026-08-14)
+ *   미들웨어는 토큰이 안 풀릴 때 `getUser()` 로 넘어가는데, 그건
+ *   Supabase 인증 서버까지 한 번 다녀온다는 뜻입니다. 로그인한 사람의
+ *   만료된 토큰을 되살리려고 둔 갈래인데, **쿠키가 아예 없는 사람**까지
+ *   거기로 갑니다.
+ *
+ *   `/` 를 미들웨어에 넣은 뒤로는 그게 **회사 홈페이지를 여는 모든
+ *   손님**이 됩니다. 거래처가 아니라 처음 보러 온 사람들입니다.
+ *
+ * ★ 쿠키가 없으면 로그인일 수가 없습니다. 세션이 거기 담기기 때문입니다.
+ *   그러니 이 지름길은 빠르기만 한 게 아니라 **맞는 답**입니다.
+ *
+ * ★ 이름으로 알아봅니다 — `sb-<프로젝트>-auth-token`. 값이 길면
+ *   `.0` `.1` 로 쪼개져 담기므로 앞부분만 봅니다.
+ */
+export function hasAuthCookie(names: string[]): boolean {
+  return names.some((name) => name.startsWith('sb-') && name.includes('-auth-token'));
+}
+
 /** 로그아웃할 때 지웁니다 */
 export function clearedKeepCookies(secure: boolean): string[] {
   const tail = `Path=/; SameSite=Lax${secure ? '; Secure' : ''}`;

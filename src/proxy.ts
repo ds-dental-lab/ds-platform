@@ -5,6 +5,7 @@ import {
   KEEP_KEY,
   ALIVE_KEY,
   shouldDropSession,
+  hasAuthCookie,
 } from "@/server/domain/login";
 
 
@@ -69,16 +70,27 @@ export async function proxy(request: NextRequest) {
   */
   let signedIn = false;
 
-  const { data: claims } = await supabase.auth.getClaims();
+  /*
+    ★ 쿠키가 아예 없으면 **아무것도 안 묻습니다** (2026-08-14).
+      아래 getUser 갈래는 인증 서버까지 한 번 다녀옵니다. 만료된 토큰을
+      되살리려고 둔 길인데, 되살릴 토큰이 없는 사람까지 거기로 갔습니다.
 
-  if (claims?.claims?.sub) {
-    signedIn = true;
-  } else {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      `/` 를 이 목록에 넣은 뒤로 그게 **회사 홈페이지를 여는 모든 손님**
+      이 됐습니다 — 거래처가 아니라 처음 보러 온 사람들입니다.
+      세션은 쿠키에 담기므로, 쿠키가 없으면 로그인일 수가 없습니다.
+  */
+  if (hasAuthCookie(request.cookies.getAll().map((c) => c.name))) {
+    const { data: claims } = await supabase.auth.getClaims();
 
-    signedIn = Boolean(user);
+    if (claims?.claims?.sub) {
+      signedIn = true;
+    } else {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      signedIn = Boolean(user);
+    }
   }
 
 
