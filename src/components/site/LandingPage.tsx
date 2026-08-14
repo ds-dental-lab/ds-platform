@@ -19,6 +19,8 @@
 
 import Link from 'next/link';
 import ContactForm from '@/components/site/ContactForm';
+import MillingStage from '@/components/site/MillingStage';
+import { SiteArt } from '@/components/site/SiteArt';
 
 /** ★ 고치실 곳은 여기뿐입니다 */
 const SITE = {
@@ -26,6 +28,14 @@ const SITE = {
   tagline: '모델리스 전문 기공소',
   lead: '모델을 뜨지 않습니다. 스캔 데이터에서 바로 설계하고 밀링합니다.',
   tel: '010-3365-3145',
+
+  // ★ 첫 화면의 밀링 영상.
+  //   비워 두면 직접 그린 밀링 장면이 나갑니다 — 지금이 그 상태입니다.
+  //   진짜 영상이 생기면 `public/media/milling.mp4` 에 넣고
+  //   아래를 `'/media/milling.mp4'` 로 바꾸시면 그것으로 바뀝니다.
+  //   (소리 없이 저절로 도는 자리라 **10~20초짜리 짧은 것**이 맞습니다)
+  heroVideo: '',
+  heroPoster: '',
 };
 
 export default function LandingPage({ loggedIn }: { loggedIn: boolean }) {
@@ -95,36 +105,51 @@ function Logo() {
 
 // ---------- 첫 화면 ----------
 
+/**
+ * ★ 첫 화면을 두 칸으로 나눴습니다 (2026-08-14).
+ *   전에는 글만 있고 오른쪽이 통째로 비어 있었습니다. 기공소 홈페이지에
+ *   처음 온 사람이 가장 먼저 확인하고 싶은 것은 **뭘로 만드느냐**입니다.
+ *   좁은 화면에서는 글이 위, 장면이 아래로 자연스럽게 접힙니다.
+ */
 function Hero() {
   return (
     <section className="relative overflow-hidden border-b border-[#E8EBF0] bg-gradient-to-b from-[#F7FAFF] to-white">
-      <div className="mx-auto max-w-[1080px] px-6 py-20 sm:py-28">
-        <p className="text-[14px] font-bold tracking-[0.14em] text-[#1279E8]">{SITE.tagline.toUpperCase()}</p>
+      <div className="mx-auto grid max-w-[1080px] items-center gap-12 px-6 py-16 sm:py-20 lg:grid-cols-[1fr_minmax(0,470px)] lg:gap-14">
+        <div>
+          <p className="text-[14px] font-bold tracking-[0.14em] text-[#1279E8]">{SITE.tagline.toUpperCase()}</p>
 
-        <h1 className="mt-4 text-[34px] font-extrabold leading-[1.25] tracking-[-0.045em] sm:text-[46px]">
-          모델을 뜨지 않습니다.
-          <br />
-          <span className="text-[#1279E8]">스캔에서 바로 보철로.</span>
-        </h1>
+          <h1 className="mt-4 text-[34px] font-extrabold leading-[1.25] tracking-[-0.045em] sm:text-[44px]">
+            모델을 뜨지 않습니다.
+            <br />
+            <span className="text-[#1279E8]">스캔에서 바로 보철로.</span>
+          </h1>
 
-        <p className="mt-6 max-w-[520px] text-[15px] leading-relaxed text-[#4A5567]">
-          석고 모델을 만들고 굳히고 다듬는 시간이 통째로 빠집니다. 구강 스캔 데이터를 받아
-          그대로 설계하고 밀링합니다. <b className="font-bold text-[#1A2130]">덜 거치니 덜 틀어집니다.</b>
-        </p>
+          <p className="mt-6 max-w-[520px] text-[15px] leading-relaxed text-[#4A5567]">
+            석고 모델을 만들고 굳히고 다듬는 시간이 통째로 빠집니다. 구강 스캔 데이터를 받아
+            그대로 설계하고 밀링합니다. <b className="font-bold text-[#1A2130]">덜 거치니 덜 틀어집니다.</b>
+          </p>
 
-        <div className="mt-9 flex flex-wrap gap-2.5">
-          <a
-            href="#contact"
-            className="grid h-12 place-items-center rounded-lg bg-[#1279E8] px-7 text-[15px] font-bold text-white hover:bg-[#0F68C9]"
-          >
-            수가표 요청하기
-          </a>
-          <a
-            href="#flow"
-            className="grid h-12 place-items-center rounded-lg border border-[#DDE2EA] px-7 text-[15px] font-bold text-[#4A5567] hover:bg-[#F4F6F9]"
-          >
-            진행 과정 보기
-          </a>
+          <div className="mt-9 flex flex-wrap gap-2.5">
+            <a
+              href="#contact"
+              className="grid h-12 place-items-center rounded-lg bg-[#1279E8] px-7 text-[15px] font-bold text-white hover:bg-[#0F68C9]"
+            >
+              수가표 요청하기
+            </a>
+            <a
+              href="#flow"
+              className="grid h-12 place-items-center rounded-lg border border-[#DDE2EA] px-7 text-[15px] font-bold text-[#4A5567] hover:bg-[#F4F6F9]"
+            >
+              진행 과정 보기
+            </a>
+          </div>
+        </div>
+
+        <div>
+          <MillingStage src={SITE.heroVideo || undefined} poster={SITE.heroPoster || undefined} />
+          <p className="mt-3 text-center text-[12.5px] text-[#98A2B3]">
+            지르코니아 디스크 밀링 — 설계 데이터를 그대로 깎아 냅니다
+          </p>
         </div>
       </div>
     </section>
@@ -175,11 +200,11 @@ function Why() {
 // ---------- 진행 과정 ----------
 
 const STEPS = [
-  { step: '01', title: '스캔 전송', body: '치과가 구강 스캔 파일과 처방을 올립니다. 치식·재료·쉐이드를 화면에서 고릅니다.' },
-  { step: '02', title: '디자인', body: '담당 디자이너가 배정되어 설계합니다. 한 주문은 한 사람이 끝까지 맡습니다.' },
-  { step: '03', title: '제작', body: '설계 데이터로 밀링하고 마무리합니다. 진행 상태가 화면에 그대로 보입니다.' },
-  { step: '04', title: '납품', body: '요청하신 날에 맞춰 보냅니다. 지난 주문과 정산 내역도 언제든 다시 볼 수 있습니다.' },
-];
+  { step: '01', art: 'scan', title: '스캔 전송', body: '치과가 구강 스캔 파일과 처방을 올립니다. 치식·재료·쉐이드를 화면에서 고릅니다.' },
+  { step: '02', art: 'design', title: '디자인', body: '담당 디자이너가 배정되어 설계합니다. 한 주문은 한 사람이 끝까지 맡습니다.' },
+  { step: '03', art: 'mill', title: '제작', body: '설계 데이터로 밀링하고 마무리합니다. 진행 상태가 화면에 그대로 보입니다.' },
+  { step: '04', art: 'ship', title: '납품', body: '요청하신 날에 맞춰 보냅니다. 지난 주문과 정산 내역도 언제든 다시 볼 수 있습니다.' },
+] as const;
 
 function Flow() {
   return (
@@ -187,8 +212,11 @@ function Flow() {
       <div className="mt-10 grid gap-px overflow-hidden rounded-xl bg-[#2A3550] sm:grid-cols-4">
         {STEPS.map((s) => (
           <div key={s.step} className="bg-[#1B2438] p-6">
-            <span className="text-[13px] font-extrabold tracking-[0.1em] text-[#5B8DE8]">{s.step}</span>
-            <h3 className="mt-3 text-[16px] font-extrabold tracking-[-0.02em] text-white">{s.title}</h3>
+            <div className="flex items-center gap-3">
+              <SiteArt name={s.art} className="h-8 w-8 shrink-0 text-[#7FA9F0]" />
+              <span className="text-[13px] font-extrabold tracking-[0.1em] text-[#5B8DE8]">{s.step}</span>
+            </div>
+            <h3 className="mt-4 text-[16px] font-extrabold tracking-[-0.02em] text-white">{s.title}</h3>
             <p className="mt-2.5 text-[14px] leading-relaxed text-[#9FADC7]">{s.body}</p>
           </div>
         ))}
@@ -199,24 +227,47 @@ function Flow() {
 
 // ---------- 취급 보철 ----------
 
+/**
+ * ★ 여기 적힌 것이 **실제 제품 표와 글자·색까지 같습니다.**
+ *   홈페이지에만 있는 품목을 적어 두면 주문 화면에서 못 고르고,
+ *   그 전화를 저희가 받습니다.
+ *
+ * ★ 고정성만 합니다 (사용자 확인 2026-08-14).
+ *   덴쳐 같은 가철성 보철은 취급하지 않습니다 — 모델리스 공정과
+ *   애초에 맞지 않습니다. 아래에 한 줄로 밝혀 둡니다.
+ *   **안 적으면 덴쳐 주문이 들어옵니다.**
+ */
 const PRODUCTS = [
-  { name: '크라운', items: ['지르코니아', 'PMMA'], color: '#E0409A', soft: '#FCEAF3' },
-  { name: '인레이', items: ['하이브리드', '지르코니아'], color: '#1B63E8', soft: '#EDF3FE' },
-  { name: '임플란트', items: ['Abut + Zir (SCRP)', 'Abut + Zir (Cementation)', 'Abut + PMMA', '커스텀 어버트먼트'], color: '#7C6BE8', soft: '#EDEBFB' },
-];
+  { name: '크라운', art: 'crown', items: ['지르코니아', 'PMMA'], color: '#E0409A', soft: '#FCEAF3' },
+  { name: '인레이', art: 'inlay', items: ['하이브리드', '지르코니아'], color: '#1B63E8', soft: '#EDF3FE' },
+  { name: '임플란트', art: 'implant', items: ['Abut + Zir (SCRP)', 'Abut + Zir (Cementation)', 'Abut + PMMA', '커스텀 어버트먼트'], color: '#7C6BE8', soft: '#EDEBFB' },
+] as const;
 
 function Products() {
   return (
     <Section id="products" eyebrow="PRODUCTS" title="취급 보철">
-      <div className="mt-10 grid gap-5 sm:grid-cols-3">
+      <p className="mt-3 text-[14.5px] leading-relaxed text-[#4A5567]">
+        지르코니아 크라운 · 인레이 · 임플란트 보철을 만듭니다. 전부 밀링으로 나옵니다.
+      </p>
+
+      <div className="mt-9 grid gap-5 sm:grid-cols-3">
         {PRODUCTS.map((p) => (
           <div key={p.name} className="rounded-xl border border-[#E8EBF0] p-6">
-            <span
-              className="inline-block rounded-md px-2.5 py-1 text-[14px] font-extrabold"
-              style={{ background: p.soft, color: p.color }}
-            >
-              {p.name}
-            </span>
+            <div className="flex items-center gap-3">
+              <span
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-lg"
+                style={{ background: p.soft, color: p.color }}
+              >
+                <SiteArt name={p.art} className="h-6 w-6" />
+              </span>
+              <span
+                className="inline-block rounded-md px-2.5 py-1 text-[14px] font-extrabold"
+                style={{ background: p.soft, color: p.color }}
+              >
+                {p.name}
+              </span>
+            </div>
+
             <ul className="mt-4 space-y-2">
               {p.items.map((item) => (
                 <li key={item} className="flex gap-2 text-[13.5px] text-[#4A5567]">
@@ -231,6 +282,11 @@ function Products() {
 
       <p className="mt-6 text-[14px] text-[#98A2B3]">
         브리지·폰틱, 치은 포셀린, 중복 등록까지 주문 화면에서 그대로 지정하실 수 있습니다.
+      </p>
+
+      {/* ★ 안 하는 것을 적어 두는 편이 서로 시간을 아낍니다 */}
+      <p className="mt-2 text-[14px] text-[#98A2B3]">
+        틀니·부분틀니 등 가철성 보철은 취급하지 않습니다.
       </p>
     </Section>
   );
@@ -321,24 +377,34 @@ function Scope() {
   return (
     <section className="border-b border-[#E8EBF0] bg-white">
       <div className="mx-auto grid max-w-[1080px] gap-10 px-6 py-16 sm:grid-cols-2">
-        <div>
-          <h2 className="text-[21px] font-extrabold leading-snug tracking-[-0.035em]">
-            크라운부터 임플란트까지,<br />모두 가능합니다.
-          </h2>
-          <p className="mt-3.5 text-[13.5px] leading-relaxed text-[#4A5567]">
-            크라운·브릿지 / 인레이·온레이 / 임플란트 보철·어버트먼트를 제작합니다.
-            상세 수가는 수가표로 안내드립니다.
-          </p>
+        <div className="flex gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#EAF2FE] text-[#1279E8]">
+            <SiteArt name="bridge" className="h-7 w-7" />
+          </span>
+          <div>
+            <h2 className="text-[21px] font-extrabold leading-snug tracking-[-0.035em]">
+              크라운부터 임플란트까지,<br />모두 가능합니다.
+            </h2>
+            <p className="mt-3.5 text-[13.5px] leading-relaxed text-[#4A5567]">
+              크라운·브릿지 / 인레이·온레이 / 임플란트 보철·어버트먼트를 제작합니다.
+              상세 수가는 수가표로 안내드립니다.
+            </p>
+          </div>
         </div>
 
-        <div>
-          <h2 className="text-[21px] font-extrabold leading-snug tracking-[-0.035em]">
-            어떤 스캐너를 쓰셔도<br />받습니다.
-          </h2>
-          <p className="mt-3.5 text-[13.5px] leading-relaxed text-[#4A5567]">
-            구강스캔 파일(STL 등)을 보내 주시면 됩니다. 쓰시는 스캐너를 알려 주시면
-            맞춰 안내드리겠습니다.
-          </p>
+        <div className="flex gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#EAF2FE] text-[#1279E8]">
+            <SiteArt name="file" className="h-7 w-7" />
+          </span>
+          <div>
+            <h2 className="text-[21px] font-extrabold leading-snug tracking-[-0.035em]">
+              어떤 스캐너를 쓰셔도<br />받습니다.
+            </h2>
+            <p className="mt-3.5 text-[13.5px] leading-relaxed text-[#4A5567]">
+              구강스캔 파일(STL 등)을 보내 주시면 됩니다. 쓰시는 스캐너를 알려 주시면
+              맞춰 안내드리겠습니다.
+            </p>
+          </div>
         </div>
       </div>
     </section>
