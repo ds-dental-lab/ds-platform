@@ -157,6 +157,30 @@ Authentication → **URL Configuration**
 > 못 넣어서 링크 쪽으로 열어 뒀습니다). 그래서 이 목록이 곧 생명줄입니다.
 > 화면은 멀쩡한데 링크만 죽는 종류의 고장이라 원인 찾기가 아주 어렵습니다.
 
+#### ★ 제대로 들어갔는지 확인하는 법 (메일 안 나갑니다)
+
+`admin/generate_link` 는 링크를 **만들기만** 합니다. 보내지 않습니다.
+
+```bash
+curl -s -X POST "$SUPABASE_URL/auth/v1/admin/generate_link" \
+  -H "apikey: $SERVICE_ROLE" -H "Authorization: Bearer $SERVICE_ROLE" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"recovery","email":"<있는 계정>"}'
+```
+
+돌려받은 `action_link` 의 `?redirect_to=` 를 봅니다.
+
+| 요청에 넣은 값 | 나와야 하는 것 |
+|---|---|
+| 안 줌 | **Site URL** 그대로 |
+| 허용목록에 있는 주소 | 그 주소 그대로 |
+| 허용목록에 **없는** 주소 | **Site URL 로 되돌아감** |
+
+★ 세 번째가 핵심입니다. 허용목록에 없으면 **오류가 아니라 조용히
+  딴 곳으로** 갑니다. 이게 "링크만 죽는" 고장의 정체입니다.
+
+*(2026-08-14 확인: 셋 다 정상)*
+
 ### 7-4. 붙인 뒤 확인
 
 - [ ] `https://denflow.kr` 이 열리고 자물쇠가 보인다
