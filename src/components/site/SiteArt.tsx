@@ -20,6 +20,7 @@ import type { ReactNode } from 'react';
 
 export type SiteArtName =
   | 'scan'
+  | 'review'
   | 'design'
   | 'mill'
   | 'ship'
@@ -41,6 +42,17 @@ const ART: Record<SiteArtName, ReactNode> = {
       <path d="M13.2 18.8l4.2-4.2 3 3-4.2 4.2" />
       <path d="M23 14a6 6 0 0 1 0-8.4" />
       <path d="M27 16.4a11 11 0 0 1 0-13.2" />
+    </>
+  ),
+
+  // 사전 검토 — 스캔을 돋보기로 들여다봅니다
+  review: (
+    <>
+      <path d="M6 26.4c-1.4-3-2-7.6-1-11 .9-3 3-4.6 5-4.6 1.3 0 2.2.9 2.8 2 .6-1.1 1.5-2 2.8-2" />
+      <path d="M12.8 21.6c-.4 1.9-.6 2.8-1.8 2.8s-1.4 1-1.8 2.9c-.4 2-1.9 3-2.9 1.3" />
+      <circle cx="21.5" cy="16.5" r="6.5" />
+      <path d="M26.3 21.3L29.4 24.4" />
+      <path d="M18.8 16.8l1.9 2 3.2-3.6" />
     </>
   ),
 

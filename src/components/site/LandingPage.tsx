@@ -29,13 +29,23 @@ const SITE = {
   lead: '모델을 뜨지 않습니다. 스캔 데이터에서 바로 설계하고 밀링합니다.',
   tel: '010-3365-3145',
 
-  // ★ 첫 화면의 밀링 영상.
-  //   비워 두면 직접 그린 밀링 장면이 나갑니다 — 지금이 그 상태입니다.
-  //   진짜 영상이 생기면 `public/media/milling.mp4` 에 넣고
-  //   아래를 `'/media/milling.mp4'` 로 바꾸시면 그것으로 바뀝니다.
-  //   (소리 없이 저절로 도는 자리라 **10~20초짜리 짧은 것**이 맞습니다)
+  // ★ 첫 화면의 밀링 영상. 셋 중 위에 있는 것부터 씁니다.
+  //
+  //   1) heroYouTube — 유튜브 아이디. 지금 이것이 나갑니다
+  //   2) heroVideo   — 우리 서버에 올린 파일 (`public/media/` 에 넣고 경로를 적습니다).
+  //                    쓰시려면 heroYouTube 를 비우셔야 합니다
+  //   3) 둘 다 비우면 직접 그린 밀링 장면이 나갑니다
+  //
+  // ★ **지금 걸린 영상은 우리가 찍은 것이 아닙니다.**
+  //   유튜브 'Dental Bean' 채널의 "Milling zirconia # shorts" 입니다.
+  //   퍼가기(embed)를 허용해 둔 영상이라 붙이는 것 자체는 됩니다. 다만
+  //   회사 홈페이지 첫 화면에 놓이면 **우리 장비로 보입니다.**
+  //   나중에 우리 밀링을 찍으면 `heroVideo` 로 바꾸시는 편이 좋습니다.
+  //   출처를 한 줄 달고 싶으시면 `videoCredit` 에 적으시면 나옵니다.
+  heroYouTube: '1WDxkbn4LxQ',
   heroVideo: '',
   heroPoster: '',
+  videoCredit: '',
 };
 
 export default function LandingPage({ loggedIn }: { loggedIn: boolean }) {
@@ -114,7 +124,7 @@ function Logo() {
 function Hero() {
   return (
     <section className="relative overflow-hidden border-b border-[#E8EBF0] bg-gradient-to-b from-[#F7FAFF] to-white">
-      <div className="mx-auto grid max-w-[1080px] items-center gap-12 px-6 py-16 sm:py-20 lg:grid-cols-[1fr_minmax(0,470px)] lg:gap-14">
+      <div className="mx-auto grid max-w-[1080px] items-center gap-12 px-6 py-16 sm:py-20 lg:grid-cols-[1fr_minmax(0,360px)] lg:gap-16">
         <div>
           <p className="text-[14px] font-bold tracking-[0.14em] text-[#1279E8]">{SITE.tagline.toUpperCase()}</p>
 
@@ -146,9 +156,14 @@ function Hero() {
         </div>
 
         <div>
-          <MillingStage src={SITE.heroVideo || undefined} poster={SITE.heroPoster || undefined} />
-          <p className="mt-3 text-center text-[12.5px] text-[#98A2B3]">
-            지르코니아 디스크 밀링 — 설계 데이터를 그대로 깎아 냅니다
+          <MillingStage
+            youtubeId={SITE.heroYouTube || undefined}
+            src={SITE.heroVideo || undefined}
+            poster={SITE.heroPoster || undefined}
+            credit={SITE.videoCredit || undefined}
+          />
+          <p className="mt-3.5 text-center text-[12.5px] text-[#98A2B3]">
+            지르코니아 디스크 밀링
           </p>
         </div>
       </div>
@@ -199,25 +214,36 @@ function Why() {
 
 // ---------- 진행 과정 ----------
 
+/**
+ * ★ 한 단계에 한 줄만 씁니다 (사용자 요청 2026-08-14 — "설명을 줄이고
+ *   간단명료하게"). 진행 과정은 **읽는 곳이 아니라 훑는 곳**입니다.
+ *   자세한 것은 수가표를 받고 통화할 때 나옵니다.
+ *
+ * ★ '사전 검토' 를 스캔 전송 바로 뒤에 넣었습니다 (사용자 요청).
+ *   지어낸 단계가 아닙니다 — 실제로 디자인센터가 스캔을 보고
+ *   '재스캔' 으로 되돌리는 길이 시스템에 있습니다. 이 단계를 안 적으면
+ *   치과 입장에서는 보낸 뒤 감감무소식으로 보입니다.
+ */
 const STEPS = [
-  { step: '01', art: 'scan', title: '스캔 전송', body: '치과가 구강 스캔 파일과 처방을 올립니다. 치식·재료·쉐이드를 화면에서 고릅니다.' },
-  { step: '02', art: 'design', title: '디자인', body: '담당 디자이너가 배정되어 설계합니다. 한 주문은 한 사람이 끝까지 맡습니다.' },
-  { step: '03', art: 'mill', title: '제작', body: '설계 데이터로 밀링하고 마무리합니다. 진행 상태가 화면에 그대로 보입니다.' },
-  { step: '04', art: 'ship', title: '납품', body: '요청하신 날에 맞춰 보냅니다. 지난 주문과 정산 내역도 언제든 다시 볼 수 있습니다.' },
+  { step: '01', art: 'scan', title: '스캔 전송', body: '스캔 파일과 처방을 올립니다.' },
+  { step: '02', art: 'review', title: '사전 검토', body: '스캔 상태를 먼저 봅니다. 다시 떠야 하면 그때 알려 드립니다.' },
+  { step: '03', art: 'design', title: '디자인', body: '담당 디자이너가 맡아 설계합니다.' },
+  { step: '04', art: 'mill', title: '제작', body: '설계 그대로 밀링합니다.' },
+  { step: '05', art: 'ship', title: '납품', body: '요청하신 날에 맞춰 보냅니다.' },
 ] as const;
 
 function Flow() {
   return (
     <Section id="flow" eyebrow="PROCESS" title="스캔을 보내면, 이렇게 갑니다" dark>
-      <div className="mt-10 grid gap-px overflow-hidden rounded-xl bg-[#2A3550] sm:grid-cols-4">
+      <div className="mt-10 grid gap-px overflow-hidden rounded-xl bg-[#2A3550] sm:grid-cols-2 lg:grid-cols-5">
         {STEPS.map((s) => (
-          <div key={s.step} className="bg-[#1B2438] p-6">
-            <div className="flex items-center gap-3">
-              <SiteArt name={s.art} className="h-8 w-8 shrink-0 text-[#7FA9F0]" />
-              <span className="text-[13px] font-extrabold tracking-[0.1em] text-[#5B8DE8]">{s.step}</span>
+          <div key={s.step} className="flex flex-col bg-[#1B2438] px-5 py-6">
+            <div className="flex items-center gap-2.5">
+              <SiteArt name={s.art} className="h-7 w-7 shrink-0 text-[#7FA9F0]" />
+              <span className="text-[12.5px] font-extrabold tracking-[0.1em] text-[#5B8DE8]">{s.step}</span>
             </div>
-            <h3 className="mt-4 text-[16px] font-extrabold tracking-[-0.02em] text-white">{s.title}</h3>
-            <p className="mt-2.5 text-[14px] leading-relaxed text-[#9FADC7]">{s.body}</p>
+            <h3 className="mt-3.5 text-[15.5px] font-extrabold tracking-[-0.02em] text-white">{s.title}</h3>
+            <p className="mt-1.5 text-[13.5px] leading-relaxed text-[#9FADC7]">{s.body}</p>
           </div>
         ))}
       </div>

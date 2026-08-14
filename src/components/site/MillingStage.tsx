@@ -4,53 +4,94 @@
 // 홈페이지 첫 화면의 밀링 장면. (사용자 요청 2026-08-14 —
 // "메인 화면에는 지르코니아 밀링기 깔끔하게 가공하는 영상")
 //
-// ★ **영상 자리를 만들고, 영상이 없을 때 보여 줄 그림을 같이 넣었습니다.**
-//   지금 저희에게 실제 밀링 영상 파일이 없습니다. 남의 영상을 받아다
-//   붙이면 저작권이 걸리고, 자리를 빈 검은 네모로 두면 첫 화면이
-//   고장 난 것처럼 보입니다. 그래서 **직접 그린 밀링 장면**을 기본으로
-//   두고, 진짜 영상이 생기면 그것으로 바뀌게 했습니다.
+// ★ **세로 칸입니다.** 넣을 영상이 쇼츠(9:16)라서 그렇습니다.
+//   가로 칸에 세로 영상을 넣으면 좌우가 시커멓게 남거나, 위아래를
+//   40% 넘게 잘라 내야 합니다. 칸을 영상에 맞추는 편이 낫습니다.
+//   지금 비율(2:3)에서 잘리는 것은 위아래 8% 씩입니다.
 //
-// ★ 바꾸는 곳은 `LandingPage.tsx` 의 `SITE.heroVideo` **한 줄**입니다.
-//   `public/media/` 에 파일을 넣고 그 줄에 경로를 적으면 끝입니다.
-//   파일이 있는지 서버에서 뒤지게 하지 않았습니다 — Vercel 에서는
-//   `public/` 이 함수 안에 없을 수 있어서 **되기도 하고 안 되기도 하는**
-//   코드가 됩니다. 그건 나중에 원인을 못 찾습니다.
+// ★ 들어오는 길이 셋이고, 순서가 정해져 있습니다.
+//   1) 유튜브 아이디  2) 우리 서버의 영상 파일  3) 직접 그린 장면
+//   셋 다 없을 수는 없습니다 — 3번이 늘 받쳐 줍니다. 치과 중에는
+//   유튜브를 막아 둔 곳이 있어서, 그런 곳에서는 검은 네모만 남습니다.
 //
-// ★ 영상은 소리 없이 저절로 돕니다(`muted` `playsInline`).
-//   이 셋 중 하나만 빠져도 휴대전화에서 재생이 막힙니다.
+// ★ **마크를 잘라 냅니다** (사용자 요청 — "상단 마크 빼고").
+//   테두리를 다 드러내 놓고 재 봤더니 셋이 있었습니다.
 //
-// ★ 움직임을 싫어하는 설정을 켠 분에게는 멈춘 그림이 나갑니다
-//   (globals.css 의 `prefers-reduced-motion`). 어지럼증 때문에 그 설정을
-//   켜 두는 분들이 있습니다.
+//     위 2.4~12.5%   유튜브가 씌우는 제목줄 (채널 사진·제목·채널명)
+//     위 3.9~ 9.3%   올린 사람이 **영상에 구워 넣은** 채널 로고 (오른쪽 위)
+//     아래 91.5%~    유튜브가 씌우는 'Shorts' 로고
+//
+//   앞의 것과 뒤의 것은 주소 설정으로 못 없앱니다(`controls=0` 을 줘도
+//   쇼츠 껍데기는 제목줄을 붙입니다). 가운데 것은 영상 자체라 애초에
+//   방법이 없습니다. **셋 다 잘라 내는 것이 유일한 길입니다.**
+//
+//   그래서 영상을 칸보다 25% 크게 잡고 **위 17% · 아래 15.5%** 를
+//   잘랐습니다. 필요한 양(12.5% / 8.5%)보다 넉넉합니다.
+//   좌우로는 10% 씩 잘리는데, 깎는 자리가 한가운데라 안 걸립니다.
+//
+// ★ 유튜브가 씌우는 나머지는 주소로 껐습니다 → YouTubeAmbient.tsx
+//
+// ★ 소리 없이 저절로 돕니다(`mute` `playsinline`). 이 둘 중 하나만
+//   빠져도 휴대전화에서 재생이 막힙니다.
+//
+// ★ 움직임을 싫어하는 설정을 켠 분에게는 그린 장면이 멈춰서 나갑니다
+//   (globals.css 의 `prefers-reduced-motion`).
 // =========================================================
 
+import YouTubeAmbient from '@/components/site/YouTubeAmbient';
+
 export interface MillingStageProps {
-  /** 실제 영상 파일 경로. 비어 있으면 아래 그림이 나갑니다 */
+  /** 유튜브 영상 아이디. 가장 먼저 씁니다 */
+  youtubeId?: string;
+  /** 우리 서버에 올린 영상 파일 경로 */
   src?: string;
   /** 영상이 뜨기 전에 보여 줄 정지 이미지 */
   poster?: string;
+  /** 남의 영상을 쓸 때 아래에 붙일 한 줄. 비우면 안 나옵니다 */
+  credit?: string;
 }
 
-export default function MillingStage({ src, poster }: MillingStageProps) {
+/** 그린 장면의 바탕과 똑같이. 영상이 없을 때 이어지는 곳이 안 보이게 합니다 */
+const CHAMBER = 'linear-gradient(160deg, #18233D 0%, #111A2E 55%, #0A101C 100%)';
+
+export default function MillingStage({ youtubeId, src, poster, credit }: MillingStageProps) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#243352] bg-[#0E1626] shadow-[0_28px_60px_-34px_rgba(14,28,58,0.75)]">
-      {src ? (
-        <video
-          className="block aspect-[520/340] w-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          poster={poster}
-          aria-label="지르코니아 디스크를 밀링하는 모습"
-        >
-          <source src={src} />
-        </video>
-      ) : (
-        <MillingArt />
+    <figure className="mx-auto w-full max-w-[330px]">
+      <div
+        className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-[#243352] shadow-[0_28px_60px_-34px_rgba(14,28,58,0.75)]"
+        style={{ background: CHAMBER }}
+      >
+        {/* 늘 깔려 있습니다 — 영상이 막히거나 늦게 뜨면 이것이 보입니다 */}
+        <MillingArt className="absolute inset-0 m-auto h-auto w-full" />
+
+        {youtubeId ? (
+          // 125% × 148.1% 는 9:16 을 지킨 채 칸보다 25% 크게 잡은 것이고,
+          // -25.2% 는 그중 위쪽을 더 많이 버리려고 끌어올린 것입니다
+          <YouTubeAmbient
+            id={youtubeId}
+            title="지르코니아 밀링"
+            className="pointer-events-none absolute left-1/2 top-[-25.2%] h-[148.1%] w-[125%] -translate-x-1/2 border-0"
+          />
+        ) : src ? (
+          <video
+            className="absolute inset-0 h-full w-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            poster={poster}
+            aria-label="지르코니아 디스크를 밀링하는 모습"
+          >
+            <source src={src} />
+          </video>
+        ) : null}
+      </div>
+
+      {credit && (
+        <figcaption className="mt-2 text-center text-[12px] text-[#B0B8C6]">{credit}</figcaption>
       )}
-    </div>
+    </figure>
   );
 }
 
@@ -60,15 +101,19 @@ export default function MillingStage({ src, poster }: MillingStageProps) {
  * 위에서 내려다본 5축 밀링. 디스크가 천천히 돌고, 스핀들이 제자리에서
  * 깎으며, 다 깎인 크라운이 하나씩 밝아집니다.
  *
- * ★ 숫자를 안 지어냈습니다. 화면 아래 글씨는 디스크 규격(98φ)과
- *   공정 이름뿐입니다. 가동률·정확도 같은 것을 적어 두면 물어볼 때
+ * ★ 숫자를 안 지어냈습니다. 아래 글씨는 디스크 규격(98φ)과 공정
+ *   이름뿐입니다. 가동률·정확도 같은 것을 적어 두면 물어볼 때
  *   곤란해집니다.
+ *
+ * ★ 세로 칸에서는 위아래로 여백이 생기는데, 바탕색을 칸과 똑같이
+ *   맞춰 뒀으므로 이어지는 자리가 안 보입니다. 잘라 내는(slice) 대신
+ *   여백을 두는 이유는, 잘라 내면 아래 글씨가 먼저 날아가서입니다.
  */
-function MillingArt() {
+function MillingArt({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 520 340"
-      className="block w-full"
+      className={className}
       role="img"
       aria-label="지르코니아 디스크를 밀링하는 모습"
     >
@@ -170,19 +215,19 @@ function MillingArt() {
 
       {/* ---- 아래 글씨 ---- */}
       <g fontFamily="var(--font-sans)">
-        <circle cx="32" cy="26" r="4" fill="#4CD08A" className="ms-blink" />
-        <text x="43" y="30" fill="#8FA6CE" fontSize="11.5" fontWeight="700" letterSpacing="1.6">
+        <circle cx="108" cy="26" r="4" fill="#4CD08A" className="ms-blink" />
+        <text x="119" y="30" fill="#8FA6CE" fontSize="11.5" fontWeight="700" letterSpacing="1.6">
           MILLING
         </text>
 
-        <text x="28" y="304" fill="#7C93BE" fontSize="11.5" fontWeight="700" letterSpacing="1.4">
+        <text x="104" y="304" fill="#7C93BE" fontSize="11.5" fontWeight="700" letterSpacing="1.4">
           ZIRCONIA DISC 98φ
         </text>
-        <rect x="28" y="314" width="212" height="4" rx="2" fill="#22304C" />
-        <rect x="28" y="314" width="212" height="4" rx="2" fill="#4C8DF5" className="ms-progress" />
+        <rect x="104" y="314" width="180" height="4" rx="2" fill="#22304C" />
+        <rect x="104" y="314" width="180" height="4" rx="2" fill="#4C8DF5" className="ms-progress" />
 
-        <text x="492" y="304" textAnchor="end" fill="#5F7398" fontSize="11.5" fontWeight="700" letterSpacing="1.4">
-          5-AXIS · DRY
+        <text x="418" y="304" textAnchor="end" fill="#5F7398" fontSize="11.5" fontWeight="700" letterSpacing="1.4">
+          5-AXIS
         </text>
       </g>
     </svg>
