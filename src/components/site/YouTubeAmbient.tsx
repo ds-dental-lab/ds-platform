@@ -76,20 +76,32 @@ export default function YouTubeAmbient({
   stopAt?: number;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
-  // ★ 개발 중에는 효과가 두 번 돕니다. 플레이어를 두 개 만들면
-  //   되감기 신호가 서로 겹칩니다
-  const wired = useRef(false);
 
   useEffect(() => {
-    if (wired.current) return;
-    wired.current = true;
+    /*
+      ★★ 여기에 `한 번만 만들기` 표시를 두면 **아무것도 안 만들어집니다.**
+        실제로 그렇게 짰다가 되감기가 통째로 죽었습니다(2026-08-14).
 
-    let alive = true;
+        개발 중에는 React 가 효과를 두 번 돌립니다.
+          1회차 실행 → 표시를 켜고 통신 시작
+          1회차 정리 → cancelled = true
+          2회차 실행 → 표시가 이미 켜져 있어 **그냥 나감**
+          1회차 통신 도착 → cancelled 가 true 라 **그냥 나감**
+        둘 다 나가 버려서 플레이어가 없습니다.
+
+        `cancelled` 하나로 충분합니다. 정리와 실행이 한 묶음으로
+        돌기 때문에, 1회차 것은 버려지고 2회차 것만 남습니다 —
+        **정확히 하나**입니다.
+
+      ★ 운영에서는 효과가 한 번만 돌아서 이 실수가 안 드러납니다.
+        개발에서만 죽는 종류라 더 오래 못 찾습니다.
+    */
+    let cancelled = false;
     let watch: ReturnType<typeof setInterval> | undefined;
 
     loadPlayerApi()
       .then((YT) => {
-        if (!alive || !ref.current) return;
+        if (cancelled || !ref.current) return;
         const player = new YT.Player(ref.current, {
           events: {
             onReady(e) {
@@ -135,8 +147,10 @@ export default function YouTubeAmbient({
       });
 
     return () => {
-      alive = false;
+      cancelled = true;
       if (watch) clearInterval(watch);
+      // ★ 플레이어는 안 부숩니다. iframe 은 React 가 치우고,
+      //   destroy() 는 그 iframe 을 직접 지우려 들어 서로 부딪힙니다
     };
   }, [stopAt]);
 
