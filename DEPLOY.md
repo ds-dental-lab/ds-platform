@@ -78,10 +78,27 @@ Supabase → **Authentication → URL Configuration**
 | **처리방침 시행** | 사업자등록 전이라 **초안**으로 두는 중입니다 |
 | **PDF 자동 저장** | 한글 글꼴 라이선스 확인이 필요합니다. 지금은 인쇄창까지 |
 
-## 7. 도메인 붙이기 — `denflow.kr` (가비아에서 구입)
+## 7. 도메인 붙이기 — `denflow.kr` ✅ 2026-08-14 완료
 
 **순서가 중요합니다.** Vercel 에서 값을 먼저 받고 → 가비아에 넣고 →
 마지막에 Supabase. 거꾸로 하면 중간에 몇 시간 동안 주소가 죽습니다.
+
+### 실제로 넣은 값 (기록)
+
+| 타입 | 호스트 | 값 |
+|---|---|---|
+| A | `@` | `216.198.79.1` |
+| CNAME | `www` | `e603bc396fd81d0b.vercel-dns-017.com.` |
+
+`denflow.kr` = 정본(Production) · `www.denflow.kr` = **308** 로 넘겨줌.
+
+> ★ **CNAME 값은 프로젝트마다 다릅니다.** 위 문자열은 이 프로젝트 것이라
+>   다른 프로젝트에 붙여 쓰면 안 됩니다. Vercel 안내문에 *"We're expanding
+>   our IP range"* 라고 적혀 있듯, 옛 값(`cname.vercel-dns.com`,
+>   `76.76.21.21`)도 아직 돌지만 **화면이 권하는 새 값**을 씁니다.
+
+확인한 결과: `https://denflow.kr` → 200 · `https://www.denflow.kr` → 308 ·
+`x-vercel-id: kix1::icn1` (함수가 서울에서 돎) · 인증서·HSTS 자동.
 
 ### 7-1. Vercel 에 도메인 등록하고 값 받기
 
