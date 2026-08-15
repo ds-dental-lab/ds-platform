@@ -164,7 +164,21 @@ export default function HomeScreen({
   const { showTrend, workGrows, statusGrows } = homeLeftLayout(sector, canSeeMoney);
 
   return (
-    <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
+    /*
+      ★ 화면 높이만큼 세웁니다 (사용자 지적 2026-08-15 — "home화면 아래
+        비어잇는거 확인햇어").
+
+        전에는 금액 추이가 왼쪽 칸을 길게 만들어 주어, 그 높이에 나머지
+        두 칸이 따라 늘어났습니다. 추이를 빼자 **셋이 사이좋게 짧아져서**
+        화면 아래가 남았습니다 — 칸끼리는 맞는데 화면을 안 채우는 상태라,
+        '세 칸이 같은 줄에서 끝나는가' 만 보던 제 확인에 안 걸렸습니다.
+
+      ★ 76px = 상단바 48 + 위아래 여백 14+14. 껍데기가 차지하는 만큼입니다.
+
+      ★ **넓은 화면에서만** 겁니다. 좁은 화면은 카드가 세로로 쌓이는데,
+        거기에 높이를 강제하면 카드 하나가 화면을 통째로 차지합니다.
+    */
+    <div className="grid grid-cols-1 gap-3.5 lg:min-h-[calc(100vh-76px)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
       {/* ================= 왼쪽 ================= */}
       <div className="flex flex-col gap-3.5">
         {canSeeMoney && (
