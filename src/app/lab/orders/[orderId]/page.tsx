@@ -19,6 +19,8 @@ import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { todayInKst } from '@/server/domain/week';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
+import WorkOrderButton from '@/components/order/WorkOrderButton';
+import { canPrintWorkOrder } from '@/server/domain/order-status';
 import PickupCard from '@/components/order/PickupCard';
 import RepairPanel from '@/components/order/RepairPanel';
 import { getRepairContext } from '@/server/repositories/repair';
@@ -89,6 +91,16 @@ export default async function LabOrderDetailPage({ params }: LabOrderDetailPageP
         pickups.length > 0 ? (
           // 기공소 화면입니다 — 물건이 여기로 옵니다
           <PickupCard pickups={pickups} canComplete />
+        ) : null
+      }
+      /*
+        ★ 기공의뢰서 (사용자 요청 2026-08-15).
+          박스에 붙여 두는 종이입니다 — 기공소가 이 기능의 주인입니다.
+          관리자·사용자를 안 가립니다.
+      */
+      sheetSlot={
+        canPrintWorkOrder(order.roles) ? (
+          <WorkOrderButton href={`/lab/orders/${order.id}/work-order`} />
         ) : null
       }
       issueSlot={

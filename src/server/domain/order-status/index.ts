@@ -313,6 +313,27 @@ export function canManageOrder(roles: Sector[]): boolean {
   return roles.some((role) => role === 'clinic' || role === 'design_center');
 }
 
+/**
+ * 기공의뢰서를 뽑을 수 있는 자리인가. (사용자 요청 2026-08-15)
+ *
+ * ★ **만드는 쪽 둘** 입니다 — 기공소와 디자인센터.
+ *   *"기공소는 실제 가공작업 할때 박스에 해당 환자분 기공의뢰서 용지를
+ *   뽑아서 정보를 구분짓거든"*. 디자인센터도 자사 제작을 하므로 같이
+ *   뽑습니다.
+ *
+ * ★ **자리로만 가릅니다. 관리자·사용자를 안 봅니다.**
+ *   실제로 종이를 뽑는 사람은 작업대에 있는 사용자입니다. 관리자만
+ *   뽑게 하면 매번 관리자를 불러야 합니다 —
+ *   *"기공소관리자, 기공소 사용자, 센터 관리자, 센터 사용자 전부"*.
+ *
+ * ★ 치과는 뺐습니다. 이 종이는 **작업 지시서**입니다. 치과가 볼 것은
+ *   주문 화면과 진행 막대이지, 기공소 작업대에 붙는 종이가 아닙니다.
+ *   요청하신 넷에도 치과가 없습니다.
+ */
+export function canPrintWorkOrder(roles: Sector[]): boolean {
+  return roles.some((role) => role === 'lab' || role === 'design_center');
+}
+
 const REMAKE_ALLOWED_FROM: OrderStatus[] = ['shipping', 'completed'];
 
 /**

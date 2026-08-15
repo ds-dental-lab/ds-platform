@@ -19,7 +19,8 @@ import PickupCard from '@/components/order/PickupCard';
 import { listOrderMessages } from '@/server/repositories/order-message';
 import { getHolidayMap } from '@/server/repositories/holiday';
 import { todayInKst } from '@/server/domain/week';
-import { canUploadDesignFile } from '@/server/domain/order-status';
+import { canUploadDesignFile, canPrintWorkOrder } from '@/server/domain/order-status';
+import WorkOrderButton from '@/components/order/WorkOrderButton';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
 import OrderAdjustPanel from '@/components/order/OrderAdjustPanel';
 import { getOrderMoney } from '@/server/repositories/order-money';
@@ -214,6 +215,17 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
             note={reasons.find((r) => r.code === OTHER_CODE)?.note ?? null}
             canEdit
           />
+        ) : null
+      }
+      /*
+        ★ 기공의뢰서 (사용자 요청 2026-08-15).
+          디자인센터는 자사 제작을 하므로 여기서도 뽑습니다.
+          관리자·사용자를 안 가립니다 — 실제로 종이를 뽑는 사람은
+          작업대에 있는 사용자입니다.
+      */
+      sheetSlot={
+        canPrintWorkOrder(order.roles) ? (
+          <WorkOrderButton href={`/design/orders/${order.id}/work-order`} />
         ) : null
       }
       issueSlot={

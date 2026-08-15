@@ -27,6 +27,7 @@ import {
   repairReasonLabel,
   canEditFiles,
   deleteWarnings,
+  canPrintWorkOrder,
 } from '@/server/domain/order-status';
 
 describe('상태 목록', () => {
@@ -435,5 +436,26 @@ describe('지우기 전에 알려야 할 것', () => {
     for (const s of ['designing', 'production', 'shipping', 'completed'] as const) {
       expect(deleteWarnings(s).join(' ')).toContain('치과');
     }
+  });
+});
+
+describe('기공의뢰서를 뽑을 수 있는 자리', () => {
+  it('★ 만드는 쪽 둘 — 기공소와 디자인센터', () => {
+    expect(canPrintWorkOrder(['lab'])).toBe(true);
+    expect(canPrintWorkOrder(['design_center'])).toBe(true);
+  });
+
+  it('★ 치과는 못 뽑습니다 — 작업대에 붙는 지시서입니다', () => {
+    expect(canPrintWorkOrder(['clinic'])).toBe(false);
+  });
+
+  it('자사 제작이면 한 조직이 둘을 겸합니다', () => {
+    expect(canPrintWorkOrder(['design_center', 'lab'])).toBe(true);
+    // 치과가 섞여 있어도 만드는 자리가 있으면 됩니다
+    expect(canPrintWorkOrder(['clinic', 'lab'])).toBe(true);
+  });
+
+  it('자리가 없으면 못 뽑습니다', () => {
+    expect(canPrintWorkOrder([])).toBe(false);
   });
 });

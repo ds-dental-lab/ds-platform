@@ -135,6 +135,14 @@ export interface OrderDetailScreenProps {
    *   `barSlot` 입니다 — 섞으면 이름줄이 단추밭이 됩니다.
    */
   nameSlot?: React.ReactNode;
+  /**
+   * 머리줄 **오른쪽**, 요청시한 앞에 붙일 것 (기공의뢰서 인쇄).
+   *
+   * ★ 아래 단추줄과 나눈 이유 — 거기는 삭제·수정·상태 전이처럼
+   *   **조심해야 하는** 단추들입니다. 매번 눌러야 하는 것을 그 사이에
+   *   두면 안 됩니다.
+   */
+  sheetSlot?: React.ReactNode;
 }
 
 export default function OrderDetailScreen({
@@ -159,6 +167,7 @@ export default function OrderDetailScreen({
   progressNote,
   barSlot,
   nameSlot,
+  sheetSlot,
 }: OrderDetailScreenProps) {
   const placements: ChartPlacement[] = order.items.map((item) => ({
     tooth: item.tooth_number,
@@ -285,6 +294,15 @@ export default function OrderDetailScreen({
           {nameSlot}
 
           <div className="ml-auto flex flex-wrap items-center gap-[9px]">
+            {/*
+              ★ 기공의뢰서는 **요청시한 왼쪽**입니다 (사용자 요청 2026-08-15).
+                작업대에서 종이를 뽑는 동작이라 아래 단추줄(삭제·수정·상태
+                전이)과는 성격이 다릅니다. 거기 두면 위험한 단추들 사이에
+                섞여서, 매번 눌러야 하는 것이 매번 조심해야 하는 자리에
+                놓입니다.
+            */}
+            {sheetSlot}
+
             <span className="text-[13.5px] text-[#4A5567]">요청시한: {order.due_date}</span>
 
             <span
