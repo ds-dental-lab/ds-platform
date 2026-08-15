@@ -39,7 +39,7 @@ import { STATUS_LABEL, type OrderStatus, type Sector } from '@/server/domain/ord
 import { ISSUE_META, type IssueType } from '@/server/domain/order-list';
 import MoneyTrend from '@/components/home/MoneyTrend';
 import { PICKUP_KIND_LABEL, PICKUP_STATUS_LABEL } from '@/lib/format/pickup';
-import { WORK_LABEL, WORK_SECTORS } from '@/server/domain/worklist';
+import { WORK_LABEL, WORK_SECTORS, homeLeftLayout } from '@/server/domain/worklist';
 import type { HomeSummary, HomePickup, HomeWork } from '@/server/repositories/home';
 
 /** 섹터마다 세는 상태가 다릅니다 */
@@ -157,17 +157,11 @@ export default function HomeScreen({
   const showWork = WORK_SECTORS.includes(sector);
 
   /*
-    ★ 왼쪽 칸에서 남는 높이를 누가 가져가나 — **하나는 반드시** 가져가야
-      세 칸이 같은 줄에서 끝납니다. 아무도 안 늘어나면 그 칸만 먼저
-      끝나 화면이 어긋납니다.
-
-        금액을 보는 사람      → 맨 아래 추이
-        목록이 있는 사용자    → 그 목록
-        둘 다 없는 사람       → 진행중 상태·이슈
-                                (치과 사용자가 여기입니다)
+    ★ 무엇을 세우고 누가 남는 높이를 가져가는지는 **규칙**이 정합니다
+      (domain/worklist 의 homeLeftLayout). 화면 안에서 따지면 카드를
+      하나 넣고 뺄 때마다 세 칸이 어긋납니다 — 실제로 그래서 옮겼습니다.
   */
-  const workGrows = !canSeeMoney && showWork;
-  const statusGrows = !canSeeMoney && !showWork;
+  const { showTrend, workGrows, statusGrows } = homeLeftLayout(sector, canSeeMoney);
 
   return (
     <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
@@ -287,10 +281,13 @@ export default function HomeScreen({
           />
         )}
 
-        {/* ★ 금액 추이는 세 섹터 모두 봅니다.
-            전에는 디자인센터 자리에 작업 리스트만 두어, 정작 이 화면을 매일
-            보는 사람이 자기 매출 흐름을 못 봤습니다. 둘 다 세웁니다 */}
-        {canSeeMoney && (
+        {/*
+          ★ 작업 리스트가 있는 자리(디자인센터·기공소)에서는 안 세웁니다
+            (사용자 요청 2026-08-15). 그쪽은 이 화면을 일하려고 열고,
+            매출 흐름은 정산·통계에서 제대로 봅니다.
+            치과 관리자에게는 남습니다 — 빼면 왼쪽이 휑해집니다.
+        */}
+        {showTrend && (
           <MoneyTrend
             className="flex-1"
             title={money.trend}

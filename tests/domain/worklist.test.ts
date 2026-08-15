@@ -11,8 +11,10 @@ import {
   ownerOf,
   WORK_STATUSES,
   WORK_SECTORS,
+  homeLeftLayout,
   type WorklistRow,
 } from '@/server/domain/worklist';
+import type { Sector } from '@/server/domain/order-status';
 
 interface Row extends WorklistRow {
   id: string;
@@ -163,5 +165,57 @@ describe('이 목록을 세우는 섹터', () => {
   it('디자인센터와 기공소는 세웁니다', () => {
     expect(WORK_SECTORS).toContain('design_center');
     expect(WORK_SECTORS).toContain('lab');
+  });
+});
+
+// =========================================================
+// HOME 왼쪽 칸의 자리 배치 (사용자 요청 2026-08-15 —
+// "디자인관리자 home 에서 사용금액추이 영역은 필요없어보여,
+//  작업리스트 칸을 늘려서 다시 맞춰줘")
+// =========================================================
+
+describe('HOME 왼쪽 칸 배치', () => {
+  const ALL: Sector[] = ['clinic', 'design_center', 'lab'];
+
+  it('★ 작업 리스트가 있는 자리에는 금액 추이를 안 세웁니다', () => {
+    expect(homeLeftLayout('design_center', true).showTrend).toBe(false);
+    expect(homeLeftLayout('lab', true).showTrend).toBe(false);
+  });
+
+  it('★ 그 자리에서는 작업 리스트가 남는 높이를 가져갑니다', () => {
+    expect(homeLeftLayout('design_center', true).workGrows).toBe(true);
+    expect(homeLeftLayout('lab', true).workGrows).toBe(true);
+  });
+
+  it('★ 치과 관리자에게는 추이가 남습니다 — 빼면 왼쪽이 휑해집니다', () => {
+    const clinic = homeLeftLayout('clinic', true);
+    expect(clinic.showTrend).toBe(true);
+    expect(clinic.workGrows).toBe(false);
+    expect(clinic.statusGrows).toBe(false);
+  });
+
+  it('치과 사용자는 금액이 아예 없어 진행중 상태가 늘어납니다', () => {
+    const staff = homeLeftLayout('clinic', false);
+    expect(staff.showTrend).toBe(false);
+    expect(staff.statusGrows).toBe(true);
+  });
+
+  it('디자인센터·기공소 사용자도 작업 리스트가 늘어납니다', () => {
+    for (const s of ['design_center', 'lab'] as Sector[]) {
+      expect(homeLeftLayout(s, false).workGrows).toBe(true);
+    }
+  });
+
+  // ★★ 이 시험 하나가 이 규칙의 전부입니다.
+  //    없으면 왼쪽 칸만 먼저 끝나고, 둘이면 서로 밀어 들쭉날쭉해집니다.
+  it('★★ 늘어나는 칸이 언제나 정확히 하나입니다', () => {
+    for (const sector of ALL) {
+      for (const canSeeMoney of [true, false]) {
+        const l = homeLeftLayout(sector, canSeeMoney);
+        const growing = [l.showTrend, l.workGrows, l.statusGrows].filter(Boolean).length;
+
+        expect(growing, `${sector} / 금액 ${canSeeMoney}`).toBe(1);
+      }
+    }
   });
 });

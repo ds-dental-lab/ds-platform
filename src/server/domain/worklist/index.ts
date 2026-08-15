@@ -136,3 +136,45 @@ export function sortWork<T extends WorklistRow>(rows: T[]): T[] {
     (a, b) => b.dayCount - a.dayCount || a.dueDate.localeCompare(b.dueDate),
   );
 }
+
+// ---------- HOME 왼쪽 칸의 자리 배치 ----------
+//
+// ★ 규칙을 화면에서 빼냅니다 (2026-08-15).
+//   세 칸이 **같은 줄에서 끝나야** 화면이 안 어긋나는데, 그 조건이
+//   `flex-1` 을 누가 갖느냐 하나에 걸려 있습니다. 화면 코드 안에만
+//   두면 카드를 하나 넣고 뺄 때마다 조용히 깨집니다.
+
+export interface HomeLeftLayout {
+  /** 금액 추이를 세우는가 */
+  showTrend: boolean;
+  /** 작업 리스트가 남는 높이를 가져가는가 */
+  workGrows: boolean;
+  /** 진행중 상태·이슈가 남는 높이를 가져가는가 */
+  statusGrows: boolean;
+}
+
+/**
+ * HOME 왼쪽 칸에 무엇을 세우고, 누가 남는 높이를 가져가는가.
+ *
+ * ★ **금액 추이는 작업 리스트가 있는 자리에서는 안 세웁니다**
+ *   (사용자 요청 2026-08-15). 디자인센터·기공소는 이 화면을 일하려고
+ *   엽니다 — 무엇을 잡아야 하는지가 먼저이고, 매출 흐름은 정산·통계에서
+ *   제대로 봅니다.
+ *
+ * ★ 치과 관리자에게는 남깁니다. 거기는 작업 리스트가 없어서, 추이까지
+ *   빼면 왼쪽 칸이 금액 카드 하나로 휑해집니다.
+ *
+ * ★ **늘어나는 카드는 언제나 정확히 하나입니다.** 없으면 왼쪽 칸만
+ *   먼저 끝나고, 둘이면 서로 밀어 화면이 들쭉날쭉해집니다.
+ *   이걸 시험으로 못 박아 둡니다.
+ */
+export function homeLeftLayout(sector: Sector, canSeeMoney: boolean): HomeLeftLayout {
+  const hasWork = WORK_SECTORS.includes(sector);
+  const showTrend = canSeeMoney && !hasWork;
+
+  return {
+    showTrend,
+    workGrows: hasWork && !showTrend,
+    statusGrows: !hasWork && !showTrend,
+  };
+}
