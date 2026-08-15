@@ -49,4 +49,4 @@ export const SITE_DESCRIPTION =
 export const NAVER_VERIFICATION = '7930a62dbf7d7dbf83d8acea3908c28b5373ebbb';
 
 /** 구글 서치콘솔 소유확인 코드 (같은 방식) */
-export const GOOGLE_VERIFICATION = '';
+export const GOOGLE_VERIFICATION = 'CwtsIU8bxVDUbDuSQR-z7nWfHIP8dawoxsJ3bHdWwbc';
