@@ -60,11 +60,17 @@ declare global {
 /** 영상이 끝났다는 신호 */
 const ENDED = 0;
 
-/** 영상이 흐르고 있다는 신호 */
-const PLAYING = 1;
-
 /** 얼마나 자주 시각을 들여다보는가 */
 const WATCH_MS = 250;
+
+/**
+ * 이만큼 흐른 뒤에야 영상을 보여 줍니다 (초).
+ *
+ * ★ 유튜브는 재생이 시작되는 찰나에 시동 화면(일시정지 물결·채널 표시)을
+ *   띄웠다 거둡니다. 그게 걷히고 나서 나타나야 합니다 — 재생 시작
+ *   '신호' 에 맞춰 보여 줬더니 번쩍임을 정통으로 보여 줬습니다.
+ */
+const REVEAL_AT = 1.2;
 
 export default function YouTubeAmbient({
   id,
@@ -131,9 +137,6 @@ export default function YouTubeAmbient({
               e.target.playVideo();
             },
             onStateChange(e) {
-              // 흐르기 시작한 그때 처음으로 보입니다
-              if (e.data === PLAYING && !cancelled) setFlowing(true);
-
               // 20초보다 짧은 영상이면 여기로 옵니다
               if (e.data !== ENDED) return;
               e.target.seekTo(0, true);
@@ -142,26 +145,41 @@ export default function YouTubeAmbient({
           },
         });
 
-        if (!stopAt) return;
-
         /*
-          ★ `end=20` 을 주지 않고 **시각을 보고 되감습니다.**
-            (사용자 요청 2026-08-14 — "20초까지만 끊어주고 반복재생")
+          ★★ '재생 시작' 신호로 보여 주면 **번쩍임을 정통으로 보여 줍니다**
+            (사용자 신고 2026-08-14 — "여전히 일시정지 아이콘 나오고").
 
-            `end` 를 쓰면 유튜브가 그 지점에서 **정말로 멈춥니다.**
-            멈추는 순간 끝 화면이 잠깐 스치고, 그다음에야 되감깁니다.
-            배경처럼 도는 자리에서 그 깜빡임이 눈에 걸립니다.
+            유튜브는 재생이 시작되는 바로 그 찰나에 제 시동 화면
+            (일시정지 물결·채널 표시)을 띄웠다 거둡니다. PLAYING 신호에
+            맞춰 커튼을 걷었더니 정확히 그 번쩍임이 보였습니다.
+            실제로 겪고 바꿨습니다.
 
-            재생을 멈추지 않고 흐르는 중에 자리만 옮기면 이어 붙은
-            것처럼 보입니다.
+            그래서 신호가 아니라 **실제 재생 시각**을 봅니다 — 1.2초를
+            지나면 시동 화면이 다 걷힌 뒤입니다. 그때 나타납니다.
+            영상 첫 1.2초를 못 보여 주는 값이지만, 배경 영상에서 그건
+            아무도 아쉬워하지 않습니다.
+
+          ★ 이 시계는 되감기도 함께 봅니다.
+            `end=20` 을 안 쓰는 이유: 유튜브가 그 지점에서 정말로 멈추고,
+            멈추는 순간 끝 화면이 스칩니다. 흐르는 중에 자리만 옮기면
+            이어 붙은 것처럼 보입니다.
 
           ★ getCurrentTime 이 가끔 던집니다 — 플레이어가 아직 준비되지
-            않았거나 다시 만들어지는 사이입니다. 그때는 그냥 넘깁니다.
-            여기서 터지면 되감기가 통째로 멎습니다.
+            않았을 때입니다. 그때는 그냥 넘깁니다. 여기서 터지면
+            되감기와 나타나기가 같이 멎습니다.
         */
+        let revealed = false;
+
         watch = setInterval(() => {
           try {
-            if (shouldRewind(player.getCurrentTime(), stopAt)) player.seekTo(0, true);
+            const t = player.getCurrentTime();
+
+            if (!revealed && Number.isFinite(t) && t >= REVEAL_AT) {
+              revealed = true;
+              if (!cancelled) setFlowing(true);
+            }
+
+            if (stopAt && shouldRewind(t, stopAt)) player.seekTo(0, true);
           } catch {
             /* 다음 차례에 다시 봅니다 */
           }
