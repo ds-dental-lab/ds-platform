@@ -32,12 +32,12 @@ export default async function LabWorkOrderPage({
   searchParams,
 }: {
   params: Promise<{ orderId: string }>;
-  searchParams: Promise<{ print?: string }>;
+  searchParams: Promise<{ print?: string; bare?: string }>;
 }) {
   await requireSector('lab');
 
   const { orderId } = await params;
-  const { print } = await searchParams;
+  const { print, bare } = await searchParams;
 
   const [order, prosthesisCatalog, implantCatalog] = await Promise.all([
     getOrderDetail(orderId),
@@ -48,18 +48,26 @@ export default async function LabWorkOrderPage({
 
   if (!order || !canPrintWorkOrder(order.roles)) notFound();
 
+  /*
+    ★ `?bare=1` 은 안 보이는 틀 안에서 부를 때입니다 (WorkOrderButton).
+      그때는 단추가 필요 없습니다 — 남아 있으면 종이 첫 줄에 찍힙니다.
+  */
+  const embedded = bare === '1';
+
   return (
     <div className="mx-auto max-w-[760px]">
-      <div className="mb-3 flex items-center gap-2 print:hidden">
-        <Link
-          href={`/lab/orders/${orderId}`}
-          className="grid h-9 place-items-center rounded-md border border-[#DDE2EA] px-3.5 text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
-        >
-          주문으로
-        </Link>
-        {/* 인쇄창을 닫았다가 다시 열 때 */}
-        <PrintButton />
-      </div>
+      {!embedded && (
+        <div className="mb-3 flex items-center gap-2 print:hidden">
+          <Link
+            href={`/lab/orders/${orderId}`}
+            className="grid h-9 place-items-center rounded-md border border-[#DDE2EA] px-3.5 text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+          >
+            주문으로
+          </Link>
+          {/* 인쇄창을 닫았다가 다시 열 때 */}
+          <PrintButton />
+        </div>
+      )}
 
       <div className="rounded-lg border border-[#E8EBF0] print:border-0">
         <WorkOrderSheet

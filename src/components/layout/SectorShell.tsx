@@ -212,7 +212,12 @@ export default function SectorShell({
       className="min-h-screen bg-[#F4F6F9]"
     >
       {/* ---------- 상단바 ---------- */}
-      <header className="fixed inset-x-0 top-0 z-30 flex h-12 items-center border-b border-[#E8EBF0] bg-white">
+      {/* ★ data-screen-only — 인쇄할 때 사라집니다 (globals.css).
+             없으면 종이 첫 장에 상단바가 그대로 찍힙니다 */}
+      <header
+        data-screen-only
+        className="fixed inset-x-0 top-0 z-30 flex h-12 items-center border-b border-[#E8EBF0] bg-white"
+      >
         <div
           className="flex shrink-0 items-center gap-1.5 pl-2 transition-[width] duration-200"
           style={{ width: sidebarWidth }}
@@ -302,6 +307,7 @@ export default function SectorShell({
 
       {/* ---------- 사이드바 ---------- */}
       <nav
+        data-screen-only
         className="fixed bottom-0 left-0 top-12 z-20 overflow-y-auto border-r border-[#E8EBF0] bg-white p-2 transition-[width] duration-200"
         style={{ width: sidebarWidth }}
       >
@@ -371,11 +377,16 @@ export default function SectorShell({
       </nav>
 
       {/* ---------- 본문 ---------- */}
+      {/* ★ data-print-area — 인쇄할 때 껍데기가 비워 뒀던 자리를 되돌립니다.
+             안 그러면 종이 왼쪽에 사이드바 폭만큼 빈 띠가 남습니다 */}
       <main
+        data-print-area
         className="pt-12 transition-[margin] duration-200"
         style={{ marginLeft: sidebarWidth }}
       >
-        <div className="p-3.5">{children}</div>
+        <div data-print-area className="p-3.5">
+          {children}
+        </div>
       </main>
     </div>
   );

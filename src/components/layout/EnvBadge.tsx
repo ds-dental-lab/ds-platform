@@ -32,6 +32,7 @@ export default function EnvBadge() {
         ★ 화면을 밀지 않습니다 — fixed 라 자리를 안 차지합니다.
           자리를 차지하면 모든 화면의 높이 계산이 1px 씩 어긋납니다.
       */
+      data-screen-only
       className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[3px] bg-[#E09A1B]"
       aria-hidden="true"
     >
