@@ -72,14 +72,18 @@ declare global {
 /** 영상이 끝났다는 신호 */
 const ENDED = 0;
 
+/** 멈췄다는 신호 */
+const PAUSED = 2;
+
 /** 얼마나 자주 들여다보는가 */
 const WATCH_MS = 250;
 
 /**
  * 재생 시작 후 이만큼 흘러야 '깨끗하다' 고 봅니다 (초).
- * 유튜브 시동 화면이 걷히는 데 약 3초 — 여유를 더한 값입니다.
+ * 유튜브 시동 화면이 걷히는 데 약 3초 — 3.8 로 뒀다가 사용자 화면에서
+ * 여전히 걸려 4.5 로 늘렸습니다 (2026-08-15). 환경마다 더 깁니다.
  */
-const CLEAN = 3.8;
+const CLEAN = 4.5;
 
 /** 교대 페이드가 끝난 뒤에야 옛 쪽을 멈춥니다 (ms) */
 const AFTER_FADE_MS = 600;
@@ -117,7 +121,16 @@ export default function YouTubeAmbient({
       .then((YT) => {
         if (cancelled || !refA.current || !refB.current) return;
 
-        const make = (el: HTMLIFrameElement, starter: boolean) =>
+        /*
+          ★ '우리가 시킨 멈춤'인지 표시해 둡니다.
+            브라우저·유튜브가 제멋대로 멈추는 일이 있습니다(절전·백그라운드).
+            보이는 쪽이 멈추면 화면 한가운데 큰 단추가 뜹니다 — 그때는
+            바로 다시 틀어야 합니다. 그런데 교대 뒤에 우리가 시키는 멈춤까지
+            다시 틀면 두 대가 동시에 돌아 버립니다. 그래서 표시로 가릅니다.
+        */
+        const intendedPause = [false, false];
+
+        const make = (el: HTMLIFrameElement, idx: number, starter: boolean) =>
           new YT.Player(el, {
             events: {
               onReady(e) {
@@ -126,11 +139,18 @@ export default function YouTubeAmbient({
                   e.target.playVideo();
                 } else {
                   // 대기조 — 숨은 채 처음에서 기다립니다
+                  intendedPause[idx] = true;
                   e.target.pauseVideo();
                   e.target.seekTo(0, true);
                 }
               },
               onStateChange(e) {
+                // 시키지 않은 멈춤이면 되살립니다
+                if (e.data === PAUSED && !intendedPause[idx]) {
+                  e.target.playVideo();
+                  return;
+                }
+
                 // stopAt 이 없거나 영상이 그보다 짧으면 여기로 옵니다.
                 // 이 다시 시작은 화면에 보일 수 있습니다 — stopAt 을
                 // 영상 길이보다 짧게 두는 것이 이 조각을 쓰는 전제입니다
@@ -141,7 +161,7 @@ export default function YouTubeAmbient({
             },
           });
 
-        const players = [make(refA.current, true), make(refB.current, false)];
+        const players = [make(refA.current, 0, true), make(refB.current, 1, false)];
 
         /*
           ★ 상태는 넷뿐이고 한 방향으로만 돕니다.
@@ -164,6 +184,7 @@ export default function YouTubeAmbient({
             }
 
             if (phase === 'solo' && shouldRewind(t, stopAt)) {
+              intendedPause[1 - active] = false;
               players[1 - active].playVideo();
               phase = 'warming';
             }
@@ -179,6 +200,7 @@ export default function YouTubeAmbient({
 
             if (phase === 'cooling' && Date.now() - fadeStartedAt > AFTER_FADE_MS) {
               // 이제 아무도 안 봅니다 — 숨어서 정리하고 다음 차례를 기다립니다
+              intendedPause[active] = true;
               players[active].pauseVideo();
               players[active].seekTo(0, true);
               active = 1 - active;
@@ -225,6 +247,36 @@ export default function YouTubeAmbient({
 
   return (
     <span className={className} style={{ display: 'block' }}>
+      {/*
+        ★ 기다리는 동안 그림 대신 **이 영상의 섬네일**을 보여 줍니다
+          (사용자 신고 2026-08-15 — "여전히 그린밀링화면 나온다").
+          열자마자 영상이 있는 것처럼 보이고, 깨끗해지면 그 위로
+          진짜 영상이 페이드되어 '멈춰 있다가 움직이기 시작' 으로 읽힙니다.
+
+        ★ cover 로 자르면 딱 세로 영상 부분만 남습니다 — 계산이 아니라
+          우연이 아닙니다. 섬네일(16:9)에서 세로 영상이 차지하는 가운데
+          띠가 전체 폭의 31.6% 인데(픽셀로 잰 값: 1280 중 440~845),
+          이 칸의 비율(9:16)로 cover 하면 보이는 폭이 정확히 31.6% 입니다.
+
+        ★ 한 번 영상이 뜨면 다시 안 나옵니다. 교대는 영상끼리 합니다.
+      */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- 유튜브 섬네일은 원격 최적화 대상이 아닙니다 */}
+      <img
+        src={`https://i.ytimg.com/vi/${id}/hq720.jpg`}
+        alt=""
+        aria-hidden
+        draggable={false}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center',
+          opacity: visible === -1 ? 1 : 0,
+          transition: 'opacity 400ms ease',
+        }}
+      />
       {frame(0, refA)}
       {frame(1, refB)}
     </span>
