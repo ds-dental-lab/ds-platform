@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import EnvBadge from "@/components/layout/EnvBadge";
+import {
+  SITE_URL,
+  SITE_TITLE,
+  SITE_DESCRIPTION,
+  NAVER_VERIFICATION,
+  GOOGLE_VERIFICATION,
+} from "@/server/domain/site";
 
 /*
   ★ 웹폰트를 안 씁니다 (2026-08-13 — 화면이 느리다는 지적을 재 보고).
@@ -20,10 +27,53 @@ import EnvBadge from "@/components/layout/EnvBadge";
     거기는 인쇄물이라 기계마다 달라지면 안 됩니다.
 */
 
+/*
+  ★ 검색 결과에 뜨는 글입니다 (사용자 요청 2026-08-15 —
+    "네이버 검색하면 나오게 하고싶어").
+
+    전에는 제목이 `DenFlow` 한 단어였습니다. 그 이름을 이미 아는
+    사람만 찾을 수 있는 제목입니다 — 기공소를 찾는 사람에게는
+    아무 신호도 없습니다. 무엇을 하는 곳인지가 제목에 있어야 합니다.
+
+  ★ 값은 `domain/site` 한 곳에서 옵니다. 여기·robots·sitemap 이
+    같은 주소를 봐야 검색엔진이 한 사이트로 셉니다.
+
+  ★ `openGraph` 는 카카오톡·네이버 블로그에 주소를 붙였을 때 뜨는
+    미리보기입니다. 없으면 링크가 맨 글자로 나가서 아무도 안 누릅니다.
+
+  ★ 소유확인 코드는 비어 있으면 태그가 아예 안 붙습니다.
+    채우는 법은 `domain/site` 주석에 적어 뒀습니다.
+*/
 export const metadata: Metadata = {
-  title: "DenFlow",
-  description: "치과 · 디자인센터 · 기공소를 잇는 보철 주문 플랫폼",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    // 다른 화면은 "무엇 · DS 덴탈랩" 으로 나갑니다
+    template: `%s · ${SITE_TITLE}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: 'DenFlow',
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    siteName: SITE_TITLE,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    locale: 'ko_KR',
+  },
+  verification: { other: siteVerification() },
 };
+
+/** 값이 든 것만 붙입니다. 빈 태그가 나가면 소유확인이 오히려 실패합니다 */
+function siteVerification(): Record<string, string> {
+  const tags: Record<string, string> = {};
+
+  if (NAVER_VERIFICATION) tags['naver-site-verification'] = NAVER_VERIFICATION;
+  if (GOOGLE_VERIFICATION) tags['google-site-verification'] = GOOGLE_VERIFICATION;
+
+  return tags;
+}
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
