@@ -28,7 +28,7 @@
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { shouldRewind } from '@/server/domain/video';
 
 interface YTPlayer {
@@ -60,6 +60,9 @@ declare global {
 /** 영상이 끝났다는 신호 */
 const ENDED = 0;
 
+/** 영상이 흐르고 있다는 신호 */
+const PLAYING = 1;
+
 /** 얼마나 자주 시각을 들여다보는가 */
 const WATCH_MS = 250;
 
@@ -76,6 +79,25 @@ export default function YouTubeAmbient({
   stopAt?: number;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
+
+  /*
+    ★ 실제로 흐르기 전까지는 영상을 **안 보여 줍니다** (사용자 요청
+      2026-08-14 — "초반에 일시정지창 나타나는거 없애줘").
+
+      영상이 뜨는 첫 몇 초 동안 유튜브가 제 것들을 띄웁니다 — 스피너,
+      일시정지/재생 표시. controls=0 을 줘도 이 시동 화면은 안 꺼집니다.
+      끌 수 없으면 그동안 안 보이게 하는 것이 답입니다. 이 조각 뒤에는
+      직접 그린 밀링 장면이 늘 깔려 있어서, 숨겨도 빈 네모가 아닙니다.
+
+    ★ 한 번 보이면 다시 안 숨깁니다. 되감기(seekTo)마다 버퍼링이
+      끼는데, 그때마다 껐다 켜면 그게 더 큰 깜빡임입니다.
+
+    ★ 끝내 재생이 안 되면(자동재생 차단·API 실패) 영상은 영영 안 보이고
+      그린 장면이 그대로 남습니다 — 눌러도 반응 없는 멈춘 유튜브
+      화면보다 낫습니다. 이 조각은 pointer-events 가 없어서 사람이
+      재생 단추를 눌러 줄 수도 없기 때문입니다.
+  */
+  const [flowing, setFlowing] = useState(false);
 
   useEffect(() => {
     /*
@@ -109,6 +131,9 @@ export default function YouTubeAmbient({
               e.target.playVideo();
             },
             onStateChange(e) {
+              // 흐르기 시작한 그때 처음으로 보입니다
+              if (e.data === PLAYING && !cancelled) setFlowing(true);
+
               // 20초보다 짧은 영상이면 여기로 옵니다
               if (e.data !== ENDED) return;
               e.target.seekTo(0, true);
@@ -160,6 +185,8 @@ export default function YouTubeAmbient({
       title={title}
       className={className}
       src={embedUrl(id)}
+      // 흐르기 전에는 투명 — 유튜브의 시동 화면(스피너·일시정지)이 안 보입니다
+      style={{ opacity: flowing ? 1 : 0, transition: 'opacity 400ms ease' }}
       allow="autoplay; encrypted-media; picture-in-picture"
       referrerPolicy="strict-origin-when-cross-origin"
       tabIndex={-1}
