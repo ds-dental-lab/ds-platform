@@ -21,6 +21,7 @@ import Link from 'next/link';
 import ContactForm from '@/components/site/ContactForm';
 import MillingStage from '@/components/site/MillingStage';
 import { SiteArt } from '@/components/site/SiteArt';
+import DenFlowMark from '@/components/brand/DenFlowMark';
 
 /** ★ 고치실 곳은 여기뿐입니다 */
 const SITE = {
@@ -102,14 +103,15 @@ function Header({ loggedIn }: { loggedIn: boolean }) {
   );
 }
 
+/**
+ * ★ 마크를 공용 컴포넌트로 씁니다 (2026-08-14 — 새 로고로 교체하며).
+ *   전에는 여기만 따로 그린 마크가 있었는데, 두 벌을 두면 로고를
+ *   바꿀 때 언젠가 한쪽만 바뀝니다. 실제로 이번에 그럴 뻔했습니다.
+ */
 function Logo() {
   return (
     <span className="flex items-center gap-2.5">
-      <svg className="h-[22px] w-[32px] shrink-0" viewBox="0 0 142 100" fill="none" aria-label={SITE.name}>
-        <path d="M10 8 H40 A42 42 0 0 1 40 92 H10 Z" stroke="#1B2A4A" strokeWidth="12" strokeLinejoin="miter" />
-        <path d="M126 58 C126 78 108 92 88 92 C74 92 62 84 58 72 C54 60 62 50 74 46" stroke="#1B2A4A" strokeWidth="12" strokeLinecap="round" />
-        <path d="M74 46 C86 42 100 40 108 34" stroke="#1B2A4A" strokeWidth="12" strokeLinecap="round" />
-      </svg>
+      <DenFlowMark height={22} />
       <span className="text-[17px] font-extrabold leading-none tracking-[-0.045em]">
         DS <span className="font-semibold text-[#9AA3AE]">DENTAL LAB</span>
       </span>

@@ -24,22 +24,18 @@ import { readFile, writeFile } from 'node:fs/promises';
 
 const APP = new URL('../src/app/', import.meta.url);
 
-/* 아이폰용 — 모서리 안 깎고(rx 0) 그림을 0.78 로 줄여 여백을 둡니다 */
+/* 아이폰용 — 모서리 안 깎고(rx 0) 그림을 줄여 여백을 둡니다.
+   그림은 icon.svg 와 같은 denflow_C_v2 마크입니다 (2026-08-14 교체) */
 const APPLE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <defs>
-    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="8" y1="72" x2="94" y2="28">
-      <stop offset="0%" stop-color="#16D6D1"/>
-      <stop offset="55%" stop-color="#2D7BF4"/>
-      <stop offset="100%" stop-color="#7159F7"/>
-    </linearGradient>
-  </defs>
-  <rect width="100" height="100" fill="url(#g)"/>
-  <g fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round"
-     transform="translate(50 50) scale(0.78) translate(-60 -50)">
-    <path d="M33 28 C50 33, 65 43, 76 50"/>
-    <path d="M28 50 H76"/>
-    <path d="M33 72 C50 67, 65 57, 76 50"/>
-    <path d="M76 50 H92"/>
+  <rect width="100" height="100" fill="#16324F"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="13"
+     transform="translate(50 50) scale(0.66) translate(-60 -56)">
+    <path d="M14 82 H 24
+             C 33 82, 27 44, 44 34
+             C 51 30, 55 40, 60 40
+             C 65 40, 69 30, 76 34
+             C 93 44, 87 82, 96 82" stroke="#FFFFFF"/>
+    <path d="M96 82 H 106" stroke="#14B8A6"/>
   </g>
 </svg>`;
 
