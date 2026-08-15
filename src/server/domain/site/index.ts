@@ -46,7 +46,7 @@ export const SITE_DESCRIPTION =
  *     왜 있는지 반년 뒤에 아무도 모릅니다. 이 값은 여기 주석과 함께
  *     남습니다.
  */
-export const NAVER_VERIFICATION = '';
+export const NAVER_VERIFICATION = '7930a62dbf7d7dbf83d8acea3908c28b5373ebbb';
 
 /** 구글 서치콘솔 소유확인 코드 (같은 방식) */
 export const GOOGLE_VERIFICATION = '';
