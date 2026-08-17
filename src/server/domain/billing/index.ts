@@ -845,3 +845,42 @@ export function repriceWarning(impact: RepriceImpact): string | null {
     '마감한 달은 안 바뀝니다.'
   );
 }
+
+// ---------- 정산에 세울 거래처 ----------
+//
+// ★ 거래중지된 곳은 셀렉박스에서 뺍니다 (사용자 요청 2026-08-17).
+//   끊긴 치과가 목록에 그대로 남아 있으면, 달마다 그 이름들을 지나쳐야
+//   합니다. 해가 갈수록 고를 것은 그대로인데 목록만 길어집니다.
+//
+// ★ 그런데 **정산이 남은 곳은 반드시 남깁니다.**
+//   끊기 직전에 나간 물건은 청구해야 하고, 나간 청구서는 입금까지
+//   봐야 합니다. 여기서 감추면 그 돈은 화면에서 사라집니다 —
+//   목록이 깔끔해지는 대가로 받을 돈을 잃는 셈입니다.
+//   '남았는가' 를 세는 것은 repositories/billing 의 listUnsettledParties.
+//
+// ★ 지금 보고 있는 곳도 남깁니다.
+//   주소로 바로 들어왔거나(즐겨찾기·링크) 방금 정산을 끝낸 순간에도
+//   셀렉박스는 그 이름을 보여 줘야 합니다. 안 그러면 화면에는 그 거래처
+//   내역이 떠 있는데 위 칸만 '선택해 주세요' 로 비어 앞뒤가 안 맞습니다.
+
+export interface SettlementParty {
+  id: string;
+  /** organizations.status 가 active 인가 */
+  isActive: boolean;
+}
+
+/**
+ * 정산 셀렉박스에 세울 거래처만 남깁니다. 차례는 그대로 둡니다.
+ *
+ * @param unsettled 정산이 아직 안 끝난 거래처 id
+ * @param selectedId 지금 보고 있는 거래처. 없으면 null
+ */
+export function settlementParties<T extends SettlementParty>(
+  parties: T[],
+  unsettled: ReadonlySet<string>,
+  selectedId: string | null = null,
+): T[] {
+  return parties.filter(
+    (party) => party.isActive || unsettled.has(party.id) || party.id === selectedId,
+  );
+}

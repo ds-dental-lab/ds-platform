@@ -19,7 +19,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { resolvePartyPrice } from '@/server/domain/pricing';
-import { itemAmount, type ItemAmount } from '@/server/domain/billing';
+import { itemAmount, periodOfDate, type ItemAmount } from '@/server/domain/billing';
 import { buildAbbr, type ProsthesisCatalog } from '@/server/domain/prosthesis';
 import type { PartnerRow } from '@/server/repositories/partner';
 
@@ -616,6 +616,98 @@ export async function getPeriod(
   if (!row) return null;
 
   return { id: row.id, closedAt: row.closed_at, issuedAt: row.issued_at, paidAt: row.paid_at };
+}
+
+/**
+ * 이 거래처들 중 **정산이 아직 안 끝난 곳**. (사용자 요청 2026-08-17)
+ *
+ * 거래중지된 곳을 정산 셀렉박스에서 뺄 때, 여기에 든 곳만 남깁니다.
+ * 판단은 셋 중 하나라도 걸리면 '남았다' 입니다 —
+ *
+ * ```
+ * ① 아직 안 나간 청구 대상 주문이 있다   → 앞으로 청구할 것이 있음
+ * ② 배송됐는데 그 달을 안 닫았다          → 지금 청구할 것이 있음
+ * ③ 닫았는데 입금이 안 됐다               → 받을 돈이 남음
+ * ```
+ *
+ * ★ 셋째를 빼면 안 됩니다. 청구서를 보내 놓고 거래를 끊은 곳이
+ *   화면에서 사라지면, 그 미수금은 아무도 다시 안 봅니다.
+ *
+ * ★ 리메이크·리페어(is_billable=false)는 안 셉니다. 0원이라 정산할
+ *   것이 없는데, 세면 끊긴 거래처가 영원히 목록에 남습니다.
+ *
+ * ★ 지운 주문도 안 셉니다. 정산이 애초에 안 보는 건입니다
+ *   (getSettlement 도 deleted_at 을 걸러 냅니다).
+ */
+export async function listUnsettledParties(
+  parties: { id: string; orgType: 'clinic' | 'lab'; closingDay: number }[],
+): Promise<Set<string>> {
+  const left = new Set<string>();
+  if (parties.length === 0) return left;
+
+  const supabase = await createClient();
+
+  const ids = parties.map((p) => p.id);
+  const clinicIds = parties.filter((p) => p.orgType === 'clinic').map((p) => p.id);
+  const labIds = parties.filter((p) => p.orgType === 'lab').map((p) => p.id);
+
+  const orderQuery = (column: 'clinic_org_id' | 'lab_org_id', orgIds: string[]) =>
+    supabase
+      .from('orders')
+      .select(`${column}, shipped_at`)
+      .in(column, orgIds)
+      .is('deleted_at', null)
+      .eq('is_billable', true);
+
+  const [periods, clinicOrders, labOrders] = await Promise.all([
+    supabase
+      .from('billing_periods')
+      .select('party_org_id, year_month, closed_at, paid_at')
+      .in('party_org_id', ids),
+    clinicIds.length > 0 ? orderQuery('clinic_org_id', clinicIds) : null,
+    labIds.length > 0 ? orderQuery('lab_org_id', labIds) : null,
+  ]);
+
+  // 어느 거래처의 어느 달이 닫혔는가
+  const closed = new Set<string>();
+
+  for (const row of (periods.data ?? []) as {
+    party_org_id: string;
+    year_month: string;
+    closed_at: string | null;
+    paid_at: string | null;
+  }[]) {
+    if (!row.closed_at) continue;
+
+    closed.add(`${row.party_org_id}|${row.year_month}`);
+    if (!row.paid_at) left.add(row.party_org_id); // ③ 미입금
+  }
+
+  const closingDay = new Map(parties.map((p) => [p.id, p.closingDay]));
+
+  function walk(rows: Record<string, unknown>[], column: 'clinic_org_id' | 'lab_org_id') {
+    for (const row of rows) {
+      const orgId = row[column] as string;
+      if (left.has(orgId)) continue;
+
+      const shippedAt = row.shipped_at as string | null;
+
+      // ① 아직 안 나갔으면 앞으로 청구할 건입니다
+      if (!shippedAt) {
+        left.add(orgId);
+        continue;
+      }
+
+      // ② 나간 달을 아직 안 닫았습니다
+      const month = periodOfDate(shippedAt, closingDay.get(orgId) ?? 26);
+      if (!closed.has(`${orgId}|${month}`)) left.add(orgId);
+    }
+  }
+
+  walk((clinicOrders?.data ?? []) as Record<string, unknown>[], 'clinic_org_id');
+  walk((labOrders?.data ?? []) as Record<string, unknown>[], 'lab_org_id');
+
+  return left;
 }
 
 /** 이 달에 이미 마감한 거래처 id 들 */

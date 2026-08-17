@@ -19,6 +19,7 @@ import {
   getClosedSettlement,
   getPeriod,
   listClosedParties,
+  listUnsettledParties,
 } from '@/server/repositories/billing';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import {
@@ -26,6 +27,7 @@ import {
   isValidYearMonth,
   canClosePeriod,
   canIssueInvoice,
+  settlementParties,
 } from '@/server/domain/billing';
 import { todayInKst } from '@/server/domain/week';
 import SettlementScreen from '@/components/billing/SettlementScreen';
@@ -43,12 +45,25 @@ export default async function DesignBillingPage({
   await requireManagerSector('design_center');
 
   const query = await searchParams;
-  const parties = await listPartners();
+  const all = await listPartners();
   const today = todayInKst();
 
   const type = query.type === 'lab' ? 'lab' : 'clinic';
-  const partner =
-    parties.find((p) => p.id === query.party && p.orgType === type) ?? null;
+
+  /*
+    ★ 고르는 것은 **거른 목록이 아니라 전체**에서 찾습니다.
+      감춰진 거래처의 주소로 곧장 들어와도 그 정산은 열려야 합니다 —
+      즐겨찾기·청구내역의 링크가 그렇게 옵니다.
+  */
+  const partner = all.find((p) => p.id === query.party && p.orgType === type) ?? null;
+
+  /*
+    ★ 거래중지된 곳은 정산 화면에서 뺍니다 — 정산이 남은 곳만 남깁니다
+      (사용자 요청 2026-08-17). 남았는지 세는 것은 끊긴 곳만이라,
+      거래중인 곳이 대부분인 평소에는 질의가 거의 안 늘어납니다.
+  */
+  const unsettled = await listUnsettledParties(all.filter((p) => !p.isActive));
+  const parties = settlementParties(all, unsettled, partner?.id ?? null);
 
   // 아무것도 안 골랐으면 이번 달을 봅니다
   const yearMonth = isValidYearMonth(query.ym ?? '') ? query.ym! : today.slice(0, 7);
@@ -130,7 +145,11 @@ export default async function DesignBillingPage({
  * 기준일이 같은 거래처를 묶습니다.
  *
  * ★ 자기 자신(자사 기공)은 빼고 셉니다 — listPartners 가 이미 뺐습니다.
- * ★ 거래중지된 곳도 셉니다. 끊기 전에 나간 물건은 청구해야 합니다.
+ *
+ * ★ 셀렉박스와 **같은 목록**으로 셉니다 (settlementParties).
+ *   끊기 전에 나간 물건은 청구해야 하니 정산이 남은 곳은 들어 있고,
+ *   다 끝난 곳은 빠집니다. 다 끝난 곳까지 세면 '12/13 마감' 이 영원히
+ *   안 채워집니다 — 남은 하나가 애초에 닫을 것이 없는 곳이라서요.
  */
 function buildClosingGroups(
   parties: PartnerRow[],

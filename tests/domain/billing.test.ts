@@ -21,6 +21,7 @@ import {
   canClosePeriod,
   canIssueInvoice,
   repriceWarning,
+  settlementParties,
   canReopenPeriod,
   splitItemLines,
   invoicePartiesFor,
@@ -808,5 +809,47 @@ describe('단가 변경 경고', () => {
     const msg = repriceWarning({ months: ['2026-08'], orderCount: 1 });
 
     expect(msg).toContain('마감한 달은 안 바뀝니다');
+  });
+});
+
+// =========================================================
+// 정산 셀렉박스에 세울 거래처 (사용자 요청 2026-08-17)
+// =========================================================
+
+describe('정산 셀렉박스', () => {
+  const 거래중 = { id: 'a', isActive: true };
+  const 끊김 = { id: 'b', isActive: false };
+  const 끊김2 = { id: 'c', isActive: false };
+
+  it('거래중인 곳은 늘 나옵니다', () => {
+    expect(settlementParties([거래중], new Set())).toEqual([거래중]);
+  });
+
+  it('거래중지된 곳은 빠집니다', () => {
+    expect(settlementParties([거래중, 끊김], new Set())).toEqual([거래중]);
+  });
+
+  // ★ 목록이 깔끔해지는 대가로 받을 돈을 잃으면 안 됩니다
+  it('★ 거래중지됐지만 정산이 남았으면 나옵니다', () => {
+    expect(settlementParties([거래중, 끊김], new Set(['b']))).toEqual([거래중, 끊김]);
+  });
+
+  // ★ 화면에는 그 거래처 내역이 떠 있는데 셀렉박스만 비면 앞뒤가 안 맞습니다
+  it('★ 지금 보고 있는 곳은 정산이 끝났어도 나옵니다', () => {
+    expect(settlementParties([거래중, 끊김], new Set(), 'b')).toEqual([거래중, 끊김]);
+  });
+
+  it('보고 있는 곳만 남고 다른 끊긴 곳은 빠집니다', () => {
+    expect(settlementParties([끊김, 끊김2], new Set(), 'c')).toEqual([끊김2]);
+  });
+
+  it('차례를 바꾸지 않습니다', () => {
+    const rows = [끊김, 거래중, 끊김2];
+
+    expect(settlementParties(rows, new Set(['c'])).map((r) => r.id)).toEqual(['a', 'c']);
+  });
+
+  it('빈 목록은 빈 목록입니다', () => {
+    expect(settlementParties([], new Set(['b']), 'b')).toEqual([]);
   });
 });
