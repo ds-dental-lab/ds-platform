@@ -22,6 +22,7 @@ import ContactForm from '@/components/site/ContactForm';
 import MillingStage from '@/components/site/MillingStage';
 import { SiteArt } from '@/components/site/SiteArt';
 import DenFlowMark from '@/components/brand/DenFlowMark';
+import ChannelTalk from '@/components/site/ChannelTalk';
 
 /** ★ 고치실 곳은 여기뿐입니다 */
 const SITE = {
@@ -51,6 +52,24 @@ const SITE = {
   heroStopAt: 20,
 
   videoCredit: '',
+
+  /*
+    ★ 채널톡 상담 버튼 (오른쪽 아래). 사용자 요청 2026-08-15.
+
+      비어 있으면 **아무것도 안 붙습니다** — 스크립트도 안 받습니다.
+      키를 못 받은 채로 켜 두면 홈페이지를 열 때마다 남의 서버를
+      부르고 오류만 쌓입니다.
+
+      받는 법:
+        1) channel.io 가입 → 채널 만들기
+        2) 설정 → 보안 및 개발 → **플러그인 설치**
+        3) '웹사이트' 를 고르면 나오는 코드에서
+           `pluginKey: "여기"` 의 값만 아래에 붙여 넣기
+
+      ★ 채널 개설에 사업자등록은 필요 없습니다. 개인으로도 됩니다 —
+        지금 막혀 있는 다른 것들(플레이스·알림톡)과 다릅니다.
+  */
+  channelTalkKey: '',
 };
 
 export default function LandingPage({ loggedIn }: { loggedIn: boolean }) {
@@ -65,6 +84,16 @@ export default function LandingPage({ loggedIn }: { loggedIn: boolean }) {
       <Platform />
       <Contact />
       <Footer />
+
+      {/*
+        ★ 상담 버튼은 **이 화면에만** 답니다. 로그인해서 쓰는 플랫폼에는
+          주문마다 대화 칸이 이미 있고, 그게 그 건에 붙어 기록으로
+          남습니다. 채널톡을 거기까지 띄우면 같은 이야기가 두 곳으로
+          갈라집니다. 여기 오는 분은 아직 거래처가 아닙니다.
+
+        ★ 키가 비어 있으면 아무것도 안 붙습니다.
+      */}
+      {SITE.channelTalkKey && <ChannelTalk pluginKey={SITE.channelTalkKey} />}
     </div>
   );
 }
