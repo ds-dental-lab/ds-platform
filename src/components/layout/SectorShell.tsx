@@ -119,6 +119,15 @@ const NAV_ICON = {
       <path d="M12.4 14.6 14.4 16.6 18 12.8" />
     </>,
   ),
+  // 내면값 — 조절 손잡이(슬라이더)
+  fit: icon(
+    <>
+      <path d="M3 5.6h5M11 5.6h6M3 10h7.2M14.6 10H17M3 14.4h1.2M7.6 14.4H17" />
+      <circle cx="9.3" cy="5.6" r="1.7" />
+      <circle cx="12.9" cy="10" r="1.7" />
+      <circle cx="5.9" cy="14.4" r="1.7" />
+    </>,
+  ),
 };
 
 export interface SectorShellProps {

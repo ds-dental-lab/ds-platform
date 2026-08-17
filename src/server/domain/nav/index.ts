@@ -31,7 +31,8 @@ export type NavIcon =
   | 'holiday'
   | 'implant'
   | 'approve'
-  | 'board';
+  | 'board'
+  | 'fit';
 
 export interface NavItem {
   label: string;
@@ -72,6 +73,12 @@ export const NAV: Record<Sector, NavItem[]> = {
     { label: '제품', href: '/design/products', icon: 'product', staffHidden: true },
     { label: '휴일', href: '/design/holidays', icon: 'holiday', staffHidden: true },
     { label: '임플란트', href: '/design/implants', icon: 'implant', staffHidden: true },
+    /*
+      ★ 내면값 관리 (사용자 요청 2026-08-17).
+        메뉴는 관리자만 봅니다 — 값을 정하는 자리입니다.
+        디자이너는 주문상세에서 치과명을 눌러 **봅니다** (거기가 쓰는 자리).
+    */
+    { label: '내면값', href: '/design/fit-values', icon: 'fit', staffHidden: true },
     { label: '통계', href: '/design/stats', icon: 'billing', staffHidden: true },
     { label: '게시판', href: '/design/notices', icon: 'board' },
   ],

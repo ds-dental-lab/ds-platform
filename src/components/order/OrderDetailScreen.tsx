@@ -84,6 +84,13 @@ export interface OrderDetailScreenProps {
   forwardBlockedReason?: string;
   /** 머리줄에 치과 이름을 보일지 — 치과 자신에게는 필요 없습니다 */
   showClinic?: boolean;
+  /**
+   * 치과 이름 자리를 통째로 갈아 끼울 것 (내면값 카드).
+   *
+   * ★ 디자인센터만 넣습니다 — 치과명을 누르면 그 치과의 내면값이
+   *   열립니다. 없으면 이름만 찍습니다.
+   */
+  clinicSlot?: React.ReactNode;
   /** 담당자·기공소 줄을 보일지. 치과에는 감춥니다 (설계서 §8.5) */
   showCost?: boolean;
   /** 배정된 기공소 이름. showCost 일 때만 씁니다 */
@@ -155,6 +162,7 @@ export default function OrderDetailScreen({
   labs = [],
   forwardBlockedReason,
   showClinic = true,
+  clinicSlot,
   showCost = false,
   labName,
   designerSlot,
@@ -280,9 +288,11 @@ export default function OrderDetailScreen({
             {STATUS_LABEL[order.status]}
           </b>
 
-          {showClinic && order.clinic_name && (
-            <span className="text-[14px] text-[#4A5567]">{order.clinic_name}</span>
-          )}
+          {showClinic &&
+            (clinicSlot ??
+              (order.clinic_name && (
+                <span className="text-[14px] text-[#4A5567]">{order.clinic_name}</span>
+              )))}
 
           <b className="text-[15.5px] font-extrabold tracking-[-0.03em] text-[#1A2130]">
             {order.patient_label}

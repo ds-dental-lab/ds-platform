@@ -34,6 +34,9 @@ import RemakeRequest from '@/components/order/RemakeRequest';
 import RemakeReasonButton from '@/components/order/RemakeReasonButton';
 import { getOrderReasons } from '@/server/repositories/remake-reason';
 import { OTHER_CODE } from '@/server/domain/remake-reason';
+import FitValueCard from '@/components/fit-value/FitValueCard';
+import { getFitCard } from '@/server/repositories/fit-value';
+import { isRecentChange } from '@/server/domain/fit-value';
 import RepairRequest from '@/components/order/RepairRequest';
 import { defaultDueDate } from '@/server/domain/due-date';
 
@@ -108,7 +111,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
     ★ 리메이크가 아니면 사유를 묻지도 않습니다 (2026-08-14).
       원주문에는 적을 사유가 없습니다.
   */
-  const [repair, reasons, money, seats] = await Promise.all([
+  const [repair, reasons, money, seats, fitCard] = await Promise.all([
     getRepairContext(order),
     order.is_remake
       ? getOrderReasons(orderId)
@@ -122,6 +125,12 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       ? getOrderMoney(order.id)
       : Promise.resolve(null),
     canAssignDesigner ? listSeatOptions() : Promise.resolve([]),
+    /*
+      ★ 이 치과의 내면값 (사용자 요청 2026-08-17).
+        디자이너가 CAD 에 넣는 수치라 주문을 열 때마다 필요합니다 —
+        치과명을 누르면 카드로 열립니다.
+    */
+    getFitCard(order.clinic_org_id),
   ]);
 
   const mySeat = checkSeat(seat, viewer);
@@ -186,6 +195,19 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
       messages={messages}
       labs={labs}
       showCost
+      /*
+        ★ 치과명이 내면값 카드가 됩니다 (사용자 요청 2026-08-17).
+          디자이너·관리자 모두 봅니다 — 값을 쓰는 자리입니다.
+          7일 안에 바뀐 치과면 이름에 주황 점이 붙습니다.
+      */
+      clinicSlot={
+        <FitValueCard
+          clinicName={order.clinic_name}
+          card={fitCard}
+          recent={isRecentChange(fitCard.lastChangedAt, today)}
+          isManager={viewer.isManager}
+        />
+      }
       labName={order.in_house ? '자사 제작' : order.lab_name}
       forwardBlockedReason={forwardBlockedReason}
       /*
