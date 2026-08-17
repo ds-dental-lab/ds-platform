@@ -69,7 +69,7 @@ const SITE = {
       ★ 채널 개설에 사업자등록은 필요 없습니다. 개인으로도 됩니다 —
         지금 막혀 있는 다른 것들(플레이스·알림톡)과 다릅니다.
   */
-  channelTalkKey: '',
+  channelTalkKey: '3d578efd-f26e-4d69-a92a-fa4f89a320b9',
 };
 
 export default function LandingPage({ loggedIn }: { loggedIn: boolean }) {
