@@ -3,13 +3,19 @@
 //
 // 사용자탭 — 거래처(치과 · 기공소) 목록. (디자인센터, 시안 us-tbl)
 //
-// 표 여덟 칸 —
+// 표 아홉 칸 —
 //   구분 · 상호 · 대표자명 · 대표 전화번호 · 사업자등록번호 ·
-//   주소 · 단가 · 거래상태
+//   주소 · 단가 · 거래상태 · (지우기)
 //
-// ★ 지우는 버튼을 두지 않습니다.
-//   거래처를 지우면 그 치과의 지난 주문과 정산이 주인을 잃습니다.
-//   끊을 때는 '거래중지' 로 내립니다 — 목록에는 남습니다.
+// ★ 거래를 끊는 것은 '거래상태' 이고, 지우기는 다른 일입니다 (2026-08-17).
+//   끊긴 거래처는 목록에 남아야 합니다 — 지난 주문과 정산의 주인입니다.
+//   지우기는 **기록이 없는 줄**을 걷어 내는 단추입니다.
+//   무엇이 막는지는 DB 가 판단하고, 이 화면은 그 말을 그대로 보여 줍니다.
+//
+// ★ 묻기 전에 **세어 봅니다** (checkDeletePartner).
+//   줄 끝의 작은 단추라 손이 미끄러지기 쉬운데, 계정까지 함께 내려가는
+//   일입니다. 무엇이 걸리고 무엇이 함께 내려가는지 숫자로 적은 다음에
+//   묻습니다 — 세는 동안에는 숫자를 안 적습니다(잠깐 보인 0 이 거짓말이 됩니다).
 //
 // ★ 줄을 누르면 정보 창, '단가' 를 누르면 단가 화면으로 갑니다.
 //   둘을 한 창에 넣으면 창이 너무 길어집니다 (제품이 수십 줄입니다).
@@ -20,7 +26,12 @@
 import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { submitTogglePartner } from '@/server/actions/partner';
+import {
+  submitTogglePartner,
+  submitDeletePartner,
+  checkDeletePartner,
+  type PartnerDeletePlan,
+} from '@/server/actions/partner';
 import PartnerDialog from '@/components/partner/PartnerDialog';
 import type { PartnerRow, PartnerType } from '@/server/repositories/partner';
 
@@ -50,6 +61,10 @@ export default function PartnerTable({ rows }: PartnerTableProps) {
 
   /** 열려 있는 창 — 'new' 는 등록, 행이면 수정 */
   const [editing, setEditing] = useState<PartnerRow | 'new' | null>(null);
+  /** 지울지 묻고 있는 거래처 */
+  const [asking, setAsking] = useState<PartnerRow | null>(null);
+  /** 그 거래처를 지우면 무엇이 걸리는가. 아직 세는 중이면 null */
+  const [plan, setPlan] = useState<PartnerDeletePlan | null>(null);
 
   const busy = saving || refreshing;
 
@@ -76,6 +91,45 @@ export default function PartnerTable({ rows }: PartnerTableProps) {
 
     const result = await submitTogglePartner(row.id, !row.isActive);
     setSaving(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    startTransition(() => router.refresh());
+  }
+
+  /** 물음창을 열고, 무엇이 걸리는지 세어 옵니다 (아무것도 안 고칩니다) */
+  async function ask(row: PartnerRow) {
+    setError('');
+    setPlan(null);
+    setAsking(row);
+
+    const result = await checkDeletePartner(row.id);
+
+    if (!result.ok) {
+      setAsking(null);
+      setError(result.error);
+      return;
+    }
+
+    setPlan(result.plan);
+  }
+
+  async function remove(row: PartnerRow) {
+    setError('');
+    setSaving(true);
+
+    const result = await submitDeletePartner(row.id);
+    setSaving(false);
+
+    /*
+      ★ 막혔을 때는 창을 닫습니다.
+        이유가 표 위에 남아야 읽힙니다 — 창 안에 띄우면 '취소' 를 누르는
+        순간 무엇 때문에 안 됐는지가 함께 사라집니다.
+    */
+    setAsking(null);
 
     if (!result.ok) {
       setError(result.error);
@@ -154,13 +208,16 @@ export default function PartnerTable({ rows }: PartnerTableProps) {
               <Th>주소</Th>
               <Th center>단가</Th>
               <Th center>거래상태</Th>
+              <Th center>
+                <span className="sr-only">지우기</span>
+              </Th>
             </tr>
           </thead>
 
           <tbody>
             {shown.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-16 text-center text-[14px] text-[#98A2B3]">
+                <td colSpan={9} className="py-16 text-center text-[14px] text-[#98A2B3]">
                   {keyword || filter !== 'all'
                     ? '찾는 거래처가 없습니다.'
                     : '등록된 거래처가 없습니다.'}
@@ -229,6 +286,22 @@ export default function PartnerTable({ rows }: PartnerTableProps) {
                       {row.isActive ? '거래중' : '거래중지'}
                     </button>
                   </Td>
+
+                  <Td center>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        ask(row);
+                      }}
+                      aria-label={`${row.name} 지우기`}
+                      title="지우기"
+                      className="grid h-7 w-7 place-items-center rounded text-[#C4CBD6] hover:bg-[#FDF2F2] hover:text-[#D8453F] disabled:cursor-not-allowed"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </Td>
                 </tr>
               ))
             )}
@@ -265,6 +338,89 @@ export default function PartnerTable({ rows }: PartnerTableProps) {
             startTransition(() => router.refresh());
           }}
         />
+      )}
+
+      {asking && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-6">
+          <div className="w-full max-w-[420px] overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="px-7 pb-5 pt-7 text-center">
+              <span
+                className={
+                  'mx-auto grid h-12 w-12 place-items-center rounded-full ' +
+                  (plan?.blocked ? 'bg-[#FDF0E0] text-[#E09A1B]' : 'bg-[#FDF2F2] text-[#D8453F]')
+                }
+              >
+                {plan?.blocked ? (
+                  <b className="text-[20px] font-extrabold leading-none">!</b>
+                ) : (
+                  <TrashIcon big />
+                )}
+              </span>
+
+              <h3 className="mt-4 text-[15.5px] font-bold tracking-tight text-[#1A2130]">
+                {plan?.blocked ? `${asking.name} 은(는) 지울 수 없습니다` : `${asking.name} 을(를) 지울까요?`}
+              </h3>
+
+              {/* ★ 세는 동안에는 아무 숫자도 안 적습니다 — 잠깐 보인 0 이 거짓말이 됩니다 */}
+              {!plan ? (
+                <p className="mt-3 text-[13.5px] text-[#98A2B3]">무엇이 걸리는지 보고 있습니다…</p>
+              ) : plan.blocked ? (
+                <>
+                  <p className="mt-3 rounded-md border border-[#F0DCBB] bg-[#FEFAF3] px-3 py-2.5 text-left text-[13.5px] leading-relaxed text-[#8A6314]">
+                    {plan.blocked}
+                  </p>
+                  <p className="mt-3 text-[13px] leading-relaxed text-[#98A2B3]">
+                    거래중지로 내리면 목록에는 남고 새 주문만 막힙니다. 지난 주문과 청구서는
+                    그대로입니다.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 text-[13.5px] leading-relaxed text-[#98A2B3]">
+                    목록에서 사라지고, 이 거래처에 넣어 둔 개별 단가도 함께 지워집니다.
+                  </p>
+
+                  {/* ★ 계정을 함께 내리는 일은 반드시 미리 밝힙니다 */}
+                  {plan.members > 0 && (
+                    <p className="mt-3 rounded-md border border-[#F5C6C4] bg-[#FDF2F2] px-3 py-2.5 text-left text-[13px] leading-relaxed text-[#B3312C]">
+                      이 거래처의 <b className="font-bold">계정 {plan.members}개</b>도 함께
+                      내려갑니다. 그 사람은 다음 로그인부터 소속이 없어져 &lsquo;승인
+                      대기&rsquo; 화면을 봅니다.
+                    </p>
+                  )}
+
+                  <p className="mt-3 rounded-md bg-[#F8F9FB] px-3 py-2 text-left text-[13px] leading-relaxed text-[#4A5567]">
+                    살아 있는 주문 {plan.orders}건 · 정산 기록 {plan.periods}건 — 걸리는 것이
+                    없습니다. 거래만 끊을 때는{' '}
+                    <b className="font-semibold text-[#1A2130]">거래중지</b> 로 내려 주세요.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="flex gap-2 px-4 pb-4">
+              <button
+                type="button"
+                onClick={() => setAsking(null)}
+                disabled={busy}
+                className="h-11 flex-1 rounded-md border border-[#DDE2EA] text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
+              >
+                {plan?.blocked ? '닫기' : '취소'}
+              </button>
+
+              {!plan?.blocked && (
+                <button
+                  type="button"
+                  onClick={() => remove(asking)}
+                  disabled={busy || !plan}
+                  className="h-11 flex-1 rounded-md bg-[#D8453F] text-[13.5px] font-bold text-white hover:bg-[#C03A34] disabled:opacity-60"
+                >
+                  {busy ? '지우는 중…' : '지우기'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -334,6 +490,29 @@ function SearchIcon() {
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden="true">
       <circle cx="7" cy="7" r="4.5" />
       <path d="M10.5 10.5 14 14" />
+    </svg>
+  );
+}
+
+function TrashIcon({ big }: { big?: boolean }) {
+  const size = big ? 20 : 15;
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2.5 4h11" />
+      <path d="M6 4V2.6h4V4" />
+      <path d="M4 4l.7 9.4h6.6L12 4" />
+      <path d="M6.6 6.6v4.4M9.4 6.6v4.4" />
     </svg>
   );
 }

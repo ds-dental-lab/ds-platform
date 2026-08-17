@@ -13,6 +13,12 @@
 //
 // ★ '거래중지' 는 지우기가 아닙니다.
 //   지난 주문과 정산은 그대로 남고, 새 주문만 막힙니다.
+//
+// ★ 청구서 받을 곳은 **필수가 아닙니다** (사용자 요청 2026-08-17).
+//   전에는 저장을 막았습니다. 그래서 '거래중' 을 내리려는 순간
+//   "청구서 수신 이메일을 넣어 주세요" 가 떠서 **거래중지가 안 됐습니다.**
+//   갈 데가 없으면 청구서 **발행**에서 막습니다 — 그 자리가 맞습니다.
+//   여기서는 빈 곳을 알려만 줍니다.
 // =========================================================
 
 'use client';
@@ -23,6 +29,7 @@ import {
   submitUpdatePartner,
   type PartnerInput,
 } from '@/server/actions/partner';
+import { missingContact, wantsEmail, wantsFax } from '@/server/domain/invoice-method';
 import type { InvoiceMethod, PartnerRow, PartnerType } from '@/server/repositories/partner';
 
 const METHODS: { value: InvoiceMethod; label: string }[] = [
@@ -62,9 +69,16 @@ export default function PartnerDialog({ row, onClose, onSaved }: PartnerDialogPr
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // 수령 방식에 따라 받을 곳이 갈립니다
-  const needsEmail = invoiceMethod !== 'fax';
-  const needsFax = invoiceMethod !== 'email';
+  // 수령 방식에 따라 받을 곳이 갈립니다 (규칙은 domain/invoice-method)
+  const needsEmail = wantsEmail(invoiceMethod);
+  const needsFax = wantsFax(invoiceMethod);
+
+  /** 고른 방식인데 비어 있는 곳. 막지는 않고 알려만 줍니다 */
+  const missing = missingContact({
+    method: invoiceMethod,
+    email: invoiceEmail,
+    fax,
+  });
 
   async function handleSubmit() {
     setError('');
@@ -172,6 +186,14 @@ export default function PartnerDialog({ row, onClose, onSaved }: PartnerDialogPr
             <Field label="팩스 번호">
               <Text value={fax} onChange={setFax} placeholder="02-000-0000" />
             </Field>
+          )}
+
+          {/* ★ 경고가 아니라 안내입니다. 저장은 그대로 됩니다 */}
+          {missing.length > 0 && (
+            <p className="rounded-md bg-[#F8F9FB] px-3 py-2 text-[13px] leading-relaxed text-[#4A5567]">
+              {missing.map((m) => (m === 'email' ? '청구서 수신 이메일' : '팩스 번호')).join(' · ')}{' '}
+              이(가) 비어 있습니다. 지금 비워 둬도 저장됩니다 — 청구서를 발행할 때 채우면 됩니다.
+            </p>
           )}
 
           <Field label="세금계산서 수신 이메일">
