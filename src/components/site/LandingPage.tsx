@@ -27,7 +27,7 @@ import ChannelTalk from '@/components/site/ChannelTalk';
 /** ★ 고치실 곳은 여기뿐입니다 */
 const SITE = {
   name: '덴플로우 디지털 기공소',
-  tagline: '모델리스 전문 기공소',
+  tagline: '디지털 기공소',
   tel: '010-3365-3145',
 
   // ★ 첫 화면의 밀링 영상. 셋 중 위에 있는 것부터 씁니다.

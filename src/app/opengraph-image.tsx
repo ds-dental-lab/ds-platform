@@ -69,7 +69,7 @@ export default function OpengraphImage() {
         </div>
 
         <div style={{ marginTop: 14, fontSize: 40, fontWeight: 700, color: '#7FB6D9' }}>
-          모델리스 전문 기공소
+          디지털 기공소
         </div>
 
         <div style={{ marginTop: 30, fontSize: 30, color: '#B8C6D6', lineHeight: 1.45 }}>
