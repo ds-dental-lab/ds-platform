@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: SITE_TITLE,
-    // 다른 화면은 "무엇 · DS 덴탈랩" 으로 나갑니다
+    // 다른 화면은 "무엇 · 덴플로우 치과기공소" 로 나갑니다
     template: `%s · ${SITE_TITLE}`,
   },
   description: SITE_DESCRIPTION,

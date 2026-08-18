@@ -66,7 +66,7 @@ console.log('대상:', URL_, '\n');
 //   시험 서버에는 발송 서비스가 없어서, 안 그러면 아무도 못 들어옵니다.
 const ACCOUNTS = [
   ['clinic@test.kr', '테스트치과 관리자'],
-  ['design@test.kr', 'DS 덴탈랩 관리자'],
+  ['design@test.kr', '덴플로우 관리자'],
   ['lab@test.kr', 'DS 기공소 관리자'],
 ];
 

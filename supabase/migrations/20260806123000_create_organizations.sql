@@ -10,7 +10,7 @@ create type org_status as enum ('pending', 'active', 'suspended');
 
 -- ---------- 조직 ----------
 -- 치과 · 디자인센터 · 기공소를 한 테이블에서 org_type 으로 구분합니다.
--- DS 덴탈랩은 디자인센터이면서 자사 기공을 겸합니다(통합 운영).
+-- 덴플로우 치과기공소은 디자인센터이면서 자사 기공을 겸합니다(통합 운영).
 create table organizations (
   id          uuid primary key default gen_random_uuid(),
   org_type    org_type    not null,
@@ -70,10 +70,10 @@ create trigger organizations_touch
 
 -- ---------- 시드 데이터 ----------
 insert into organizations (org_type, code, name, status) values
-  ('design_center', 'DD-001', 'DS 덴탈랩',  'active'),
+  ('design_center', 'DD-001', '덴플로우 치과기공소',  'active'),
   ('clinic',        'DC-001', '테스트치과', 'active');
 
--- 테스트치과 → DS 덴탈랩 전속 연결
+-- 테스트치과 → 덴플로우 치과기공소 전속 연결
 insert into partnerships (from_org_id, to_org_id, relation, status)
 select c.id, d.id, 'clinic_design', 'active'
 from organizations c, organizations d

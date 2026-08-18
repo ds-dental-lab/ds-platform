@@ -26,7 +26,7 @@ import ChannelTalk from '@/components/site/ChannelTalk';
 
 /** ★ 고치실 곳은 여기뿐입니다 */
 const SITE = {
-  name: 'DS 덴탈랩',
+  name: '덴플로우 치과기공소',
   tagline: '모델리스 전문 기공소',
   tel: '010-3365-3145',
 

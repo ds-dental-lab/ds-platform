@@ -58,8 +58,9 @@ export default function OpengraphImage() {
           </g>
         </svg>
 
-        <div style={{ marginTop: 44, fontSize: 68, fontWeight: 800, letterSpacing: -2 }}>
-          DS 덴탈랩
+        {/* 상호가 길어져 글자를 줄였습니다 — 1200 폭에서 한 줄로 들어갑니다 */}
+        <div style={{ marginTop: 44, fontSize: 60, fontWeight: 800, letterSpacing: -2 }}>
+          덴플로우 치과기공소
         </div>
 
         <div style={{ marginTop: 14, fontSize: 40, fontWeight: 700, color: '#7FB6D9' }}>

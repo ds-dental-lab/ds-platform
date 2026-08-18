@@ -46,7 +46,7 @@ export default function FitValuePlayground() {
                     { label: 'Hook', from: '미사용', to: '있음' },
                   ],
                   changedAt: '2026-08-16T09:00:00.000Z',
-                  byName: 'DS 덴탈랩 관리자',
+                  byName: '덴플로우 관리자',
                 },
                 {
                   changes: [{ label: '맞결', from: '-0.03', to: '-0.05' }],

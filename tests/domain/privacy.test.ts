@@ -17,7 +17,7 @@ import {
 } from '@/server/domain/privacy';
 
 const full: PolicyFacts = {
-  orgName: 'DS 덴탈랩',
+  orgName: '덴플로우 치과기공소',
   bizNo: '123-45-67890',
   address: '서울시 어딘가',
   tel: '02-000-0000',
