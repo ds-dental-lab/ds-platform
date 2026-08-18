@@ -30,7 +30,10 @@ import {
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: '개인정보 처리방침 — DenFlow',
+  // ★ 상호를 여기 또 적지 않습니다. 뿌리 레이아웃의 틀이 붙어
+  //   "개인정보 처리방침 · 덴플로우 디지털 기공소" 가 됩니다.
+  //   전에는 '— DenFlow' 를 손으로 붙여 둬서 이름이 두 번 나왔습니다.
+  title: '개인정보 처리방침',
 };
 
 export default async function PrivacyPolicyPage() {
