@@ -141,8 +141,14 @@ function Logo() {
   return (
     <span className="flex items-center gap-2.5">
       <DenFlowMark height={22} />
-      <span className="text-[17px] font-extrabold leading-none tracking-[-0.045em]">
-        DS <span className="font-semibold text-[#9AA3AE]">DENTAL LAB</span>
+      {/*
+        ★ 글자는 `Denflow` 한 낱말입니다 (사용자 요청 2026-08-18).
+          전에는 `DS DENTAL LAB` 이었는데, 마크가 DenFlow 마크이고
+          주소도 denflow.kr 이라 로고 옆 글자만 다른 이름이었습니다.
+          맨 위와 맨 아래가 같은 조각(Logo)을 쓰므로 여기 한 곳입니다.
+      */}
+      <span className="text-[17px] font-extrabold leading-none tracking-[-0.045em] text-[#16324F]">
+        Denflow
       </span>
     </span>
   );

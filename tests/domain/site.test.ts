@@ -22,16 +22,35 @@ import {
   GOOGLE_VERIFICATION,
 } from '@/server/domain/site';
 
-describe('검색 결과의 제목', () => {
+describe('검색 결과의 이름', () => {
   // *"DS덴탈랩.모델리스 전문 기공소 라고 쓰여있는거 DS덴탈랩만 보이게 해줘"*
-  it('★ 상호만 나갑니다 — 설명이 안 붙습니다', () => {
-    expect(SITE_TITLE).toBe(SITE_NAME);
+  it('★ 이름만 나갑니다 — 설명이 안 붙습니다', () => {
     expect(SITE_TITLE).not.toContain('·');
     expect(SITE_TITLE).not.toContain(SITE_TAGLINE);
   });
 
+  // *"네이버 검색에는 덴플로우 디지털 기공소 라고 나왔으면 좋겠어"*
+  it('★ 검색 이름은 상호와 다릅니다 — 서류는 상호를 씁니다', () => {
+    expect(SITE_TITLE).toBe('덴플로우 디지털 기공소');
+    expect(SITE_NAME).toBe('덴플로우 치과기공소');
+  });
+
   it('붙여 쓴 이름도 들고 있습니다 — 사람들은 이렇게 칩니다', () => {
     expect(SITE_NAME_TIGHT).toBe(SITE_NAME.replace(/\s/g, ''));
+  });
+});
+
+// ★ 이름이 둘이라, 구조화 데이터가 둘을 묶어 주지 않으면 검색엔진이
+//   남남으로 봅니다. 그 연결이 실제로 붙어 있는지 파일에서 확인합니다
+describe('두 이름이 묶여 있는가', () => {
+  const jsonLd = fs.readFileSync(
+    path.join(process.cwd(), 'src', 'components', 'site', 'SiteJsonLd.tsx'),
+    'utf8',
+  );
+
+  it('★ 조직은 검색 이름을, 사이트는 상호를 다른 이름으로 답니다', () => {
+    expect(jsonLd).toContain('alternateName: [SITE_TITLE, SITE_NAME_TIGHT]');
+    expect(jsonLd).toContain('alternateName: [SITE_NAME, SITE_NAME_TIGHT]');
   });
 });
 

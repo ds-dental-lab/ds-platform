@@ -58,9 +58,14 @@ export default function OpengraphImage() {
           </g>
         </svg>
 
-        {/* 상호가 길어져 글자를 줄였습니다 — 1200 폭에서 한 줄로 들어갑니다 */}
+        {/*
+          ★ 검색·공유에 나가는 그림이라 **검색 이름**을 씁니다
+            (서류의 상호와 다릅니다 — domain/site 주석 참고).
+          ★ 이름이 길어 글자를 68 → 60px 로 줄였습니다. 1200 폭에서
+            좌우 여백 92 를 빼면 1016px 이고, 9자면 딱 한 줄입니다.
+        */}
         <div style={{ marginTop: 44, fontSize: 60, fontWeight: 800, letterSpacing: -2 }}>
-          덴플로우 치과기공소
+          {SITE_TITLE}
         </div>
 
         <div style={{ marginTop: 14, fontSize: 40, fontWeight: 700, color: '#7FB6D9' }}>

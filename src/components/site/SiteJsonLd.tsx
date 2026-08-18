@@ -20,14 +20,22 @@
 //   주소를 넣고 LocalBusiness 로 올립니다 ([[ds-flow-backlog]]).
 //
 // ★ WebSite 의 name 이 **구글이 결과에 찍는 사이트 이름**입니다.
-//   제목 태그와 따로 놉니다 — 둘 다 상호로 맞춰 둬야 '덴플로우 치과기공소' 로
-//   깔끔하게 나옵니다.
+//   제목 태그와 따로 놉니다 — 둘을 안 맞추면 결과에 엉뚱한 이름이 뜹니다.
+//
+// ★★ 이름이 **둘**입니다 (2026-08-18).
+//   서류에 찍히는 상호는 `덴플로우 치과기공소`, 검색에서 보이길 원하는
+//   이름은 `덴플로우 디지털 기공소` 입니다. 그냥 두면 검색엔진이 둘을
+//   **남남으로** 보고, 어느 쪽으로 찾아도 반쪽만 걸립니다.
+//   그래서 서로를 alternateName 으로 걸어 하나로 묶습니다 —
+//   조직은 상호를 본명으로, 사이트는 검색 이름을 본명으로 삼고
+//   각자 상대를 다른 이름에 적어 둡니다.
 // =========================================================
 
 import {
   SITE_URL,
   SITE_NAME,
   SITE_NAME_TIGHT,
+  SITE_TITLE,
   SITE_DESCRIPTION,
   SITE_LOGO,
   SITE_LOGO_SIZE,
@@ -41,7 +49,8 @@ const GRAPH = [
     '@type': 'Organization',
     '@id': ORG_ID,
     name: SITE_NAME,
-    alternateName: SITE_NAME_TIGHT,
+    // 검색에서 쓰는 이름과 붙여 쓴 이름을 함께 — 어느 쪽으로 찾아도 여기로
+    alternateName: [SITE_TITLE, SITE_NAME_TIGHT],
     url: SITE_URL,
     description: SITE_DESCRIPTION,
     telephone: SITE_TEL,
@@ -58,8 +67,9 @@ const GRAPH = [
     '@type': 'WebSite',
     '@id': `${SITE_URL}/#website`,
     url: SITE_URL,
-    name: SITE_NAME,
-    alternateName: SITE_NAME_TIGHT,
+    // 구글이 결과에 찍는 사이트 이름 = 검색에서 보이길 원하는 이름
+    name: SITE_TITLE,
+    alternateName: [SITE_NAME, SITE_NAME_TIGHT],
     inLanguage: 'ko-KR',
     publisher: { '@id': ORG_ID },
   },
