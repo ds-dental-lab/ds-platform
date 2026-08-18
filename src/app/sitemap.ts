@@ -18,7 +18,7 @@ import type { MetadataRoute } from 'next';
 import { SITE_URL } from '@/server/domain/site';
 
 /** 홈페이지 글을 마지막으로 고친 날 — 고칠 때 같이 올려 주세요 */
-const HOME_UPDATED = new Date('2026-08-15');
+const HOME_UPDATED = new Date('2026-08-18');
 
 /** 처리방침을 마지막으로 고친 날 */
 const PRIVACY_UPDATED = new Date('2026-08-13');
