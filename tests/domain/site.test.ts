@@ -29,10 +29,14 @@ describe('검색 결과의 이름', () => {
     expect(SITE_TITLE).not.toContain(SITE_TAGLINE);
   });
 
-  // *"네이버 검색에는 덴플로우 디지털 기공소 라고 나왔으면 좋겠어"*
-  it('★ 검색 이름은 상호와 다릅니다 — 서류는 상호를 씁니다', () => {
-    expect(SITE_TITLE).toBe('덴플로우 디지털 기공소');
-    expect(SITE_NAME).toBe('덴플로우 치과기공소');
+  // *"서류까지 전부 덴플로우 디지털 기공소로 해줘"*
+  //
+  // ★ 반나절 동안 검색 이름과 상호가 갈라져 있었습니다.
+  //   다시 갈라지면 명함·세금계산서·플레이스마다 "어느 쪽이었지" 가
+  //   따라붙습니다. 하나라는 것을 여기서 못 박습니다.
+  it('★ 검색 이름과 상호가 같습니다 — 이름은 하나입니다', () => {
+    expect(SITE_TITLE).toBe(SITE_NAME);
+    expect(SITE_NAME).toBe('덴플로우 디지털 기공소');
   });
 
   it('붙여 쓴 이름도 들고 있습니다 — 사람들은 이렇게 칩니다', () => {
@@ -40,17 +44,17 @@ describe('검색 결과의 이름', () => {
   });
 });
 
-// ★ 이름이 둘이라, 구조화 데이터가 둘을 묶어 주지 않으면 검색엔진이
-//   남남으로 봅니다. 그 연결이 실제로 붙어 있는지 파일에서 확인합니다
-describe('두 이름이 묶여 있는가', () => {
+// ★ 상호·제목·사이트명이 **한 값에서** 나오는지 봅니다.
+//   구조화 데이터만 옛 이름으로 남으면 검색엔진은 그쪽을 믿습니다
+describe('구조화 데이터도 같은 이름을 봅니다', () => {
   const jsonLd = fs.readFileSync(
     path.join(process.cwd(), 'src', 'components', 'site', 'SiteJsonLd.tsx'),
     'utf8',
   );
 
-  it('★ 조직은 검색 이름을, 사이트는 상호를 다른 이름으로 답니다', () => {
-    expect(jsonLd).toContain('alternateName: [SITE_TITLE, SITE_NAME_TIGHT]');
-    expect(jsonLd).toContain('alternateName: [SITE_NAME, SITE_NAME_TIGHT]');
+  it('★ 이름을 손으로 적어 두지 않았습니다', () => {
+    expect(jsonLd).toContain('name: SITE_NAME');
+    expect(jsonLd).not.toContain('덴플로우');
   });
 });
 

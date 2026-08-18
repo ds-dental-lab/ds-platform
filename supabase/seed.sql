@@ -9,13 +9,13 @@
 
 -- ---------- 조직 ----------
 insert into organizations (org_type, code, name, status) values
-  ('design_center', 'DD-001', '덴플로우 치과기공소',  'active'),
+  ('design_center', 'DD-001', '덴플로우 디지털 기공소',  'active'),
   ('clinic',        'DC-001', '테스트치과', 'active'),
   ('lab',           'DL-001', 'DS 기공소',  'active')
 on conflict (code) do nothing;
 
 -- ---------- 거래 관계 ----------
--- 테스트치과 → 덴플로우 치과기공소
+-- 테스트치과 → 덴플로우 디지털 기공소
 insert into partnerships (from_org_id, to_org_id, relation, status)
 select c.id, d.id, 'clinic_design', 'active'
 from organizations c, organizations d
@@ -25,7 +25,7 @@ where c.code = 'DC-001' and d.code = 'DD-001'
     where p.from_org_id = c.id and p.relation = 'clinic_design' and p.status = 'active'
   );
 
--- 덴플로우 치과기공소 → DS 기공소
+-- 덴플로우 디지털 기공소 → DS 기공소
 insert into partnerships (from_org_id, to_org_id, relation, status)
 select d.id, l.id, 'design_lab', 'active'
 from organizations d, organizations l

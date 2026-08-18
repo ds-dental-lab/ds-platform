@@ -114,7 +114,7 @@ const BUSY: HomeSummary = {
       isPinned: true,
       publishedAt: '2026-08-10',
       createdAt: '2026-08-10',
-      authorName: '덴플로우 치과기공소',
+      authorName: '덴플로우 디지털 기공소',
     },
     {
       id: 'n2',
@@ -124,7 +124,7 @@ const BUSY: HomeSummary = {
       isPinned: false,
       publishedAt: '2026-08-08',
       createdAt: '2026-08-08',
-      authorName: '덴플로우 치과기공소',
+      authorName: '덴플로우 디지털 기공소',
     },
   ],
 };
