@@ -28,7 +28,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createRecoveryClient } from '@/lib/supabase/client';
-import DenFlowMark from '@/components/brand/DenFlowMark';
+import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import {
   checkEmail,
   checkCode,
@@ -223,11 +223,7 @@ export default function ResetPasswordPage() {
 
       <div className="auth-card">
         <div className="auth-logo">
-          <DenFlowMark height={26} />
-          <span className="logo-txt">
-            <b>Den</b>
-            <i>Flow</i>
-          </span>
+          <DenFlowLogo markHeight={26} fontSize={24} />
         </div>
 
         <h1 className="auth-title">{step === 'done' ? '비밀번호를 바꿨습니다' : '비밀번호 찾기'}</h1>
@@ -367,9 +363,6 @@ const css = `
   box-shadow:0 1px 3px rgba(26,33,48,.04);
 }
 .auth-logo{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:26px}
-.logo-txt{display:inline-flex; align-items:baseline; gap:0; font-size:24px; font-weight:800; letter-spacing:-0.045em; line-height:1}
-.logo-txt b{color:#1B2A4A; font-weight:800}
-.logo-txt i{color:#9AA3AE; font-weight:600; font-style:normal; letter-spacing:.01em}
 .auth-title{margin:0 0 6px; text-align:center; font-size:17px; font-weight:800; letter-spacing:-0.03em}
 .auth-lead{margin:0 0 20px; text-align:center; font-size:13px; line-height:1.6; color:var(--ink-2)}
 .auth-fields{display:flex; flex-direction:column; gap:9px}

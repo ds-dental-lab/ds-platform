@@ -20,7 +20,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { clearedKeepCookies } from '@/server/domain/login';
-import DenFlowMark from '@/components/brand/DenFlowMark';
+import DenFlowLogo from '@/components/brand/DenFlowLogo';
 
 export type Sector = 'clinic' | 'design_center' | 'lab';
 
@@ -254,12 +254,7 @@ export default function SectorShell({
                   접힌 사이드바는 56px 이고 그 안에 메뉴 버튼(30px)만 겨우
                   들어갑니다. 마크를 남기면 버튼을 밀어냅니다.
               */}
-              <DenFlowMark height={19} className="ml-0.5 mr-1.5" />
-
-              <span className="flex items-baseline whitespace-nowrap text-[17px] font-extrabold leading-none tracking-[-0.045em]">
-                <b className="text-[#1B2A4A]">Den</b>
-                <i className="font-semibold not-italic tracking-[.01em] text-[#9AA3AE]">Flow</i>
-              </span>
+              <DenFlowLogo markHeight={19} fontSize={17} gap={6} className="ml-0.5 mr-1.5" />
             </>
           )}
         </div>

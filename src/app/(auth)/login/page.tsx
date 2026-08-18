@@ -17,7 +17,7 @@ import {
   keepCookies,
   hasAuthCookie,
 } from '@/server/domain/login';
-import DenFlowMark from '@/components/brand/DenFlowMark';
+import DenFlowLogo from '@/components/brand/DenFlowLogo';
 
 /* 다른 탭에서 지웠을 때도 따라옵니다 */
 function subscribeRemembered(onChange: () => void) {
@@ -193,11 +193,7 @@ export default function LoginPage() {
 
       <div className="auth-card">
         <div className="auth-logo">
-          <DenFlowMark height={26} />
-          <span className="logo-txt">
-            <b>Den</b>
-            <i>Flow</i>
-          </span>
+          <DenFlowLogo markHeight={26} fontSize={24} />
         </div>
 
         <div className="auth-fields">
@@ -326,9 +322,6 @@ const css = `
   box-shadow:0 1px 3px rgba(26,33,48,.04);
 }
 .auth-logo{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:30px}
-.logo-txt{display:inline-flex; align-items:baseline; gap:0; font-size:24px; font-weight:800; letter-spacing:-0.045em; line-height:1}
-.logo-txt b{color:#1B2A4A; font-weight:800}
-.logo-txt i{color:#9AA3AE; font-weight:600; font-style:normal; letter-spacing:.01em}
 .auth-fields{display:flex; flex-direction:column; gap:9px}
 .ctl{
   width:100%; height:44px; padding:0 13px; border-radius:5px;

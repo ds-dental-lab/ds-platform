@@ -21,7 +21,7 @@ import Link from 'next/link';
 import ContactForm from '@/components/site/ContactForm';
 import MillingStage from '@/components/site/MillingStage';
 import { SiteArt } from '@/components/site/SiteArt';
-import DenFlowMark from '@/components/brand/DenFlowMark';
+import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import ChannelTalk from '@/components/site/ChannelTalk';
 
 /** ★ 고치실 곳은 여기뿐입니다 */
@@ -133,25 +133,16 @@ function Header({ loggedIn }: { loggedIn: boolean }) {
 }
 
 /**
- * ★ 마크를 공용 컴포넌트로 씁니다 (2026-08-14 — 새 로고로 교체하며).
- *   전에는 여기만 따로 그린 마크가 있었는데, 두 벌을 두면 로고를
- *   바꿀 때 언젠가 한쪽만 바뀝니다. 실제로 이번에 그럴 뻔했습니다.
+ * ★ 마크도 글자도 공용 조각입니다 (2026-08-18).
+ *   전에는 여기만 따로 그린 마크가 있었고(2026-08-14 합침), 그다음엔
+ *   글자만 홈페이지가 달랐습니다 — `DS DENTAL LAB` → `Denflow`.
+ *   플랫폼과 다른 로고를 홈페이지가 달고 있어도 아무도 모릅니다.
+ *   이제 로그인·사이드바와 **같은 조각**을 씁니다.
+ *
+ * ★ 맨 위와 맨 아래가 이것 하나를 씁니다.
  */
 function Logo() {
-  return (
-    <span className="flex items-center gap-2.5">
-      <DenFlowMark height={22} />
-      {/*
-        ★ 글자는 `Denflow` 한 낱말입니다 (사용자 요청 2026-08-18).
-          전에는 `DS DENTAL LAB` 이었는데, 마크가 DenFlow 마크이고
-          주소도 denflow.kr 이라 로고 옆 글자만 다른 이름이었습니다.
-          맨 위와 맨 아래가 같은 조각(Logo)을 쓰므로 여기 한 곳입니다.
-      */}
-      <span className="text-[17px] font-extrabold leading-none tracking-[-0.045em] text-[#16324F]">
-        Denflow
-      </span>
-    </span>
-  );
+  return <DenFlowLogo markHeight={22} fontSize={17} />;
 }
 
 // ---------- 첫 화면 ----------
