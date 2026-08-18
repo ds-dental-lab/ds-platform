@@ -1,0 +1,87 @@
+// =========================================================
+// 놓을 위치: tests/domain/site.test.ts
+// 기준: 사용자 요청 2026-08-18 — 검색 결과에 상호만, 로고가 뜨게
+//
+// ★ 제목은 **두 번 바뀌었습니다** (DenFlow → 상호·설명 → 상호).
+//   세 번째로 흔들리지 않게 여기 못 박아 둡니다.
+// =========================================================
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { describe, it, expect } from 'vitest';
+import {
+  SITE_URL,
+  SITE_NAME,
+  SITE_NAME_TIGHT,
+  SITE_TAGLINE,
+  SITE_TITLE,
+  SITE_DESCRIPTION,
+  SITE_LOGO,
+  SITE_LOGO_SIZE,
+  NAVER_VERIFICATION,
+  GOOGLE_VERIFICATION,
+} from '@/server/domain/site';
+
+describe('검색 결과의 제목', () => {
+  // *"DS덴탈랩.모델리스 전문 기공소 라고 쓰여있는거 DS덴탈랩만 보이게 해줘"*
+  it('★ 상호만 나갑니다 — 설명이 안 붙습니다', () => {
+    expect(SITE_TITLE).toBe(SITE_NAME);
+    expect(SITE_TITLE).not.toContain('·');
+    expect(SITE_TITLE).not.toContain(SITE_TAGLINE);
+  });
+
+  it('붙여 쓴 이름도 들고 있습니다 — 사람들은 이렇게 칩니다', () => {
+    expect(SITE_NAME_TIGHT).toBe(SITE_NAME.replace(/\s/g, ''));
+  });
+});
+
+describe('설명 줄', () => {
+  // ★ 제목이 포기한 낱말은 여기서 살아 있어야 합니다.
+  //   안 그러면 '모델리스 기공소' 로 찾는 사람에게 어디에도 안 걸립니다
+  it('★ 무엇을 하는 곳인지가 맨 앞에 있습니다', () => {
+    expect(SITE_DESCRIPTION.startsWith(SITE_TAGLINE)).toBe(true);
+    expect(SITE_DESCRIPTION).toContain('기공소');
+  });
+
+  it('너무 길지 않습니다 — 뒤는 잘려 나갑니다', () => {
+    expect(SITE_DESCRIPTION.length).toBeLessThanOrEqual(160);
+  });
+});
+
+describe('로고', () => {
+  // ★ 구글은 112px 미만이면 아예 안 씁니다
+  it('★ 정사각 512px 이고 실제로 그 크기입니다', () => {
+    const file = path.join(process.cwd(), 'public', SITE_LOGO.replace(/^\//, ''));
+    expect(fs.existsSync(file), `${file} 가 없습니다 — make-icons.mjs 를 돌리세요`).toBe(true);
+
+    // PNG 머리에 적힌 가로·세로를 그대로 읽습니다
+    const png = fs.readFileSync(file);
+    expect(png.readUInt32BE(16)).toBe(SITE_LOGO_SIZE);
+    expect(png.readUInt32BE(20)).toBe(SITE_LOGO_SIZE);
+    expect(SITE_LOGO_SIZE).toBeGreaterThanOrEqual(112);
+  });
+
+  // ★ 빌드마다 주소가 바뀌면 구글이 매번 새 그림으로 봅니다
+  it('★ 주소가 안 변하는 곳(public)에 있습니다', () => {
+    expect(SITE_LOGO.startsWith('/')).toBe(true);
+    expect(SITE_LOGO).not.toContain('_next');
+  });
+});
+
+describe('주소와 소유확인', () => {
+  it('정본 주소는 https 이고 끝에 / 가 없습니다', () => {
+    expect(SITE_URL.startsWith('https://')).toBe(true);
+    expect(SITE_URL.endsWith('/')).toBe(false);
+  });
+
+  // ★ 흔한 실수 — 태그를 통째로 붙여 넣습니다. 그러면 소유확인이 조용히 실패합니다
+  it('★ 소유확인 코드에 태그가 섞여 있지 않습니다', () => {
+    for (const code of [NAVER_VERIFICATION, GOOGLE_VERIFICATION]) {
+      if (!code) continue;
+
+      expect(code).not.toContain('<');
+      expect(code).not.toContain('content=');
+      expect(code.trim()).toBe(code);
+    }
+  });
+});

@@ -5,6 +5,7 @@
 // src/app/icon.svg 하나에서 래스터 아이콘 둘을 만듭니다.
 //   src/app/favicon.ico   16·32·48 세 장을 담은 ICO
 //   src/app/apple-icon.png 180x180 (아이폰 홈 화면)
+//   public/logo.png        512x512 (검색 결과 로고 · 구조화 데이터)
 //
 // ★ 손으로 고치는 파일이 아닙니다. 마크를 바꾸면 icon.svg 만 고치고
 //   이것을 다시 돌리세요. 셋이 어긋나면 탭·홈화면·북마크에서
@@ -13,6 +14,11 @@
 // ★ 아이폰용은 **모서리를 안 깎고 여백을 더 줍니다.**
 //   iOS 가 알아서 둥글게 자릅니다. 우리가 미리 깎아 두면 두 번 깎여
 //   모서리에 흰 자국이 남고, 자를 때 그림 끝이 잘려 나갑니다.
+//
+// ★ logo.png 만 `public/` 에 둡니다.
+//   검색엔진에게 "이것이 우리 로고" 라고 알려 주는 그림이라 **주소가
+//   안 변해야** 합니다. src/app 규약 파일들은 빌드마다 해시가 붙는데,
+//   그러면 구글이 매번 다른 그림으로 봅니다.
 //
 // ★ ICO 를 아직 만드는 이유: /favicon.ico 를 그냥 찔러 보는 곳이
 //   남아 있습니다(북마크·검색·구형 브라우저). SVG 가 주력이고
@@ -84,5 +90,13 @@ await sharp(Buffer.from(APPLE), { density: 384 })
   .png()
   .toFile(new URL('apple-icon.png', APP).pathname.replace(/^\//, ''));
 
+// 검색 결과에 뜨는 로고. 아이폰용과 같은 그림을 크게 뽑습니다 —
+// 구글은 정사각을 원하고, 작으면(112px 미만) 아예 안 씁니다
+await sharp(Buffer.from(APPLE), { density: 512 })
+  .resize(512, 512)
+  .png()
+  .toFile(new URL('../public/logo.png', import.meta.url).pathname.replace(/^\//, ''));
+
 console.log(`favicon.ico  ${sizes.join('·')} 세 장`);
 console.log('apple-icon.png  180x180');
+console.log('public/logo.png  512x512');

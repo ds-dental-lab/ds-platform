@@ -5,6 +5,7 @@ import { getMySignup } from "@/server/repositories/signup";
 import { waitingView } from "@/server/domain/signup";
 import LogoutButton from "@/components/logout-button";
 import LandingPage from "@/components/site/LandingPage";
+import SiteJsonLd from "@/components/site/SiteJsonLd";
 
 const HOME_BY_SECTOR = {
   clinic: "/clinic",
@@ -30,7 +31,22 @@ const HOME_BY_SECTOR = {
  */
 export default async function Home() {
   const session = await getSession();
-  if (!session) return <LandingPage loggedIn={false} />;
+
+  /*
+    ★ 구조화 데이터는 **홈페이지에만** 답니다 (2026-08-18).
+      "이 조직의 대표 페이지가 어디인가" 를 한 곳으로 못 박아야
+      검색엔진이 로고와 상호를 그 한 곳에 묶습니다. 모든 화면에
+      뿌리면 어느 것이 대표인지 흐려지고, 로그인한 사람에게는
+      아무 쓸모도 없는 글자만 나갑니다.
+  */
+  if (!session) {
+    return (
+      <>
+        <SiteJsonLd />
+        <LandingPage loggedIn={false} />
+      </>
+    );
+  }
 
   if (session.orgType) {
     redirect(HOME_BY_SECTOR[session.orgType]);
