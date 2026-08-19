@@ -189,6 +189,44 @@ export async function submitPrivacyOfficer(userId: string): Promise<AccountResul
   return { ok: true };
 }
 
+// ---------- 이용약관 (사용자 요청 2026-08-19) ----------
+
+/**
+ * 이용약관 시행일을 정합니다.
+ *
+ * ★ 처리방침과 **따로** 받습니다.
+ *   두 문서는 검토가 끝나는 시점이 다릅니다. 한 칸으로 묶어 두면
+ *   약관만 고쳤는데 처리방침 시행일까지 움직입니다.
+ *
+ * ★ 날짜를 넣는 행위가 곧 "법률 검토를 마쳤다" 는 뜻입니다.
+ *   비어 있는 동안 공개 화면(/terms)은 '초안' 이라고 밝힙니다.
+ */
+export async function submitTermsEffectiveOn(
+  effectiveOn: string | null,
+): Promise<AccountResult> {
+  const session = await getSession();
+
+  if (!session?.orgId || !canManageMembers(session.role as MemberRole | null)) {
+    return { ok: false, error: '관리자만 정할 수 있습니다' };
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .update({ terms_effective_on: effectiveOn || null })
+    .eq('id', session.orgId)
+    .select('id');
+
+  if (error) return { ok: false, error: `저장하지 못했습니다: ${error.message}` };
+  if (!data || data.length === 0) return { ok: false, error: '바꿀 수 있는 조직이 아닙니다' };
+
+  revalidatePath('/design/account/privacy');
+  revalidatePath('/terms');
+
+  return { ok: true };
+}
+
 // ---------- 내 알림톡 (사용자 요청 2026-08-14) ----------
 
 export interface AlimtalkInput {

@@ -101,12 +101,13 @@ export default function SignupPage() {
   const [orgType, setOrgType] = useState<SignupSector>('clinic');
   const [orgName, setOrgName] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
   const [mailSent, setMailSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSignup() {
-    const verdict = checkSignup({ name, email, password, orgType, orgName });
+    const verdict = checkSignup({ name, email, password, orgType, orgName, agreed });
     if (!verdict.ok) {
       setError(verdict.reason);
       return;
@@ -277,6 +278,37 @@ export default function SignupPage() {
               </div>
             </div>
 
+            {/*
+              ★ 동의를 받고 나서야 이용계약이 섭니다 (약관 제5조).
+                전에는 "가입하면 처리방침에 따라 처리됩니다" 라는 안내문만
+                있었습니다. 그건 알림이지 동의가 아닙니다.
+
+              ★ 두 문서를 **새 탭**으로 엽니다.
+                같은 탭에서 열면 여기까지 적은 것이 전부 날아갑니다.
+                읽고 오라고 해 놓고 처음부터 다시 적게 하면 안 읽습니다.
+
+              ★ 한 칸으로 묶었습니다.
+                둘 다 필수라 따로 받아도 고를 여지가 없습니다. 나중에
+                광고 수신처럼 **선택** 동의가 생기면 그때 칸을 나눕니다.
+            */}
+            <label className="agree">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+              />
+              <span>
+                <Link href="/terms" className="link strong" target="_blank" rel="noreferrer">
+                  이용약관
+                </Link>
+                과{' '}
+                <Link href="/privacy" className="link strong" target="_blank" rel="noreferrer">
+                  개인정보 처리방침
+                </Link>
+                에 동의합니다.
+              </span>
+            </label>
+
             {error && <p className="auth-err">{error}</p>}
 
             <button className="btn-primary" onClick={handleSignup} disabled={loading}>
@@ -288,15 +320,6 @@ export default function SignupPage() {
               <Link href="/login" className="link strong">
                 로그인
               </Link>
-            </p>
-
-            {/* ★ 가입 전에 읽을 수 있어야 의미가 있습니다 */}
-            <p className="auth-legal">
-              가입하면{' '}
-              <Link href="/privacy" className="link strong">
-                개인정보 처리방침
-              </Link>
-              에 따라 정보가 처리됩니다.
             </p>
           </>
         )}
@@ -365,6 +388,14 @@ const css = `
   color:#98A2B3; background:none; border:none; cursor:pointer;
 }
 .eye:hover{color:var(--ink-2); background:var(--bg)}
+.agree{
+  display:flex; align-items:flex-start; gap:8px; margin-top:14px;
+  font-size:12.5px; line-height:1.55; color:var(--ink-2); cursor:pointer;
+}
+.agree input{
+  width:15px; height:15px; margin:1px 0 0; flex-shrink:0;
+  accent-color:var(--brand); cursor:pointer;
+}
 .auth-err{margin:12px 0 0; font-size:13px; color:var(--danger); line-height:1.5}
 .btn-primary{
   display:block; width:100%; height:48px; margin-top:18px; border-radius:5px; border:none;
@@ -375,7 +406,6 @@ const css = `
 .btn-primary:hover:not(:disabled){background:var(--brand-dark)}
 .btn-primary:disabled{background:#D5DAE2; color:#8E98A8; cursor:not-allowed}
 .auth-join{margin:22px 0 0; text-align:center; font-size:13px; color:var(--ink-2)}
-.auth-legal{margin:10px 0 0; text-align:center; font-size:11.5px; line-height:1.6; color:#98A2B3}
 .link{color:var(--ink-2); cursor:pointer; text-decoration:none}
 .link.strong{font-weight:600; color:var(--brand)}
 `;

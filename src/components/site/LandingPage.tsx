@@ -537,7 +537,10 @@ function Footer() {
           </p>
         </div>
 
-        <div className="flex gap-4 sm:ml-auto">
+        <div className="flex flex-wrap gap-4 sm:ml-auto">
+          <Link href="/terms" className="text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8]">
+            이용약관
+          </Link>
           <Link href="/privacy" className="text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8]">
             개인정보 처리방침
           </Link>

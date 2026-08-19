@@ -23,6 +23,9 @@ const HOME_UPDATED = new Date('2026-08-18');
 /** 처리방침을 마지막으로 고친 날 */
 const PRIVACY_UPDATED = new Date('2026-08-13');
 
+/** 이용약관을 마지막으로 고친 날 */
+const TERMS_UPDATED = new Date('2026-08-19');
+
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
@@ -37,6 +40,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: HOME_UPDATED,
       changeFrequency: 'yearly',
       priority: 0.5,
+    },
+    {
+      url: `${SITE_URL}/terms`,
+      lastModified: TERMS_UPDATED,
+      changeFrequency: 'yearly',
+      priority: 0.3,
     },
     {
       url: `${SITE_URL}/privacy`,

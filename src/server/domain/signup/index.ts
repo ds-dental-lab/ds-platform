@@ -52,6 +52,14 @@ export interface SignupForm {
   password: string;
   orgType: string;
   orgName: string;
+  /**
+   * 이용약관과 개인정보 처리방침에 동의했는가.
+   *
+   * ★ 약관 제5조 — 이용계약은 **동의하고 신청한 뒤 승인**으로 성립합니다.
+   *   동의를 안 받고 가입시키면 그 약관은 그 사람에게 효력이 없습니다.
+   *   그래서 화면의 체크박스로 끝내지 않고 규칙으로 막습니다.
+   */
+  agreed: boolean;
 }
 
 /**
@@ -77,6 +85,13 @@ export function checkSignup(form: SignupForm): Verdict {
   if (!form.password) return { ok: false, reason: '비밀번호를 넣어 주세요' };
   if (form.password.length < MIN_PASSWORD) {
     return { ok: false, reason: `비밀번호는 ${MIN_PASSWORD}자 이상으로 해 주세요` };
+  }
+
+  // ★ 맨 마지막에 봅니다.
+  //   동의는 다 적고 나서 하는 것입니다. 빈 칸이 남았는데 "동의해 주세요"
+  //   부터 뜨면, 정작 무엇에 동의하는지 못 읽은 채로 체크하게 됩니다.
+  if (!form.agreed) {
+    return { ok: false, reason: '이용약관과 개인정보 처리방침에 동의해 주세요' };
   }
 
   return { ok: true };

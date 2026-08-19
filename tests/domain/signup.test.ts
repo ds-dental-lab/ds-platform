@@ -24,6 +24,7 @@ const form = (over: Partial<SignupForm> = {}): SignupForm => ({
   password: 'goodpass1',
   orgType: 'clinic',
   orgName: '행복치과',
+  agreed: true,
   ...over,
 });
 
@@ -81,6 +82,35 @@ describe('가입 신청 검사', () => {
     const verdict = checkSignup(form({ name: '', password: 'x' }));
 
     expect(verdict.ok === false && verdict.reason).toContain('이름');
+  });
+});
+
+// ---------- 약관 동의 (사용자 요청 2026-08-19) ----------
+//
+// ★ 약관 제5조 — 이용계약은 **동의하고 신청한 뒤 승인**으로 섭니다.
+//   동의 없이 가입시키면 그 약관은 그 사람에게 효력이 없습니다.
+describe('약관 동의', () => {
+  it('★ 동의를 안 하면 막습니다', () => {
+    const verdict = checkSignup(form({ agreed: false }));
+
+    expect(verdict.ok).toBe(false);
+    expect(verdict.ok === false && verdict.reason).toContain('이용약관');
+  });
+
+  /**
+   * ★ 동의는 **맨 마지막에** 봅니다.
+   *   빈 칸이 남았는데 "동의해 주세요" 부터 뜨면, 정작 무엇에
+   *   동의하는지 못 읽은 채로 체크하게 됩니다.
+   */
+  it('★ 빈 칸이 남아 있으면 그쪽을 먼저 말합니다', () => {
+    const verdict = checkSignup(form({ agreed: false, name: '' }));
+
+    expect(verdict.ok === false && verdict.reason).toContain('이름');
+  });
+
+  it('★ 화면에서 체크박스를 지워도 통과하지 않습니다', () => {
+    // 화면을 건너뛰고 값을 직접 만들어 보낸 경우
+    expect(checkSignup(form({ agreed: undefined as unknown as boolean })).ok).toBe(false);
   });
 });
 

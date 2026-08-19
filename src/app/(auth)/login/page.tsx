@@ -297,8 +297,12 @@ export default function LoginPage() {
           </span>
         </p>
 
-        {/* ★ 처리방침은 로그인 없이 닿아야 합니다 */}
+        {/* ★ 약관과 처리방침은 로그인 없이 닿아야 합니다 */}
         <p className="auth-legal">
+          <Link href="/terms" className="link">
+            이용약관
+          </Link>
+          <span className="sep">·</span>
           <Link href="/privacy" className="link">
             개인정보 처리방침
           </Link>
