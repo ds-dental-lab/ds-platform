@@ -92,6 +92,15 @@ export function planStatusNotifications(
     ];
   }
 
+  /*
+    ★ 배송으로 넘어간 것은 알리지 않습니다 (사용자 결정 2026-08-19 —
+      "제작 → 배송 이런건 알림은 없어도 된다").
+      치과가 받아서 할 일이 생기는 것은 맞지만, 물건은 어차피 그날
+      옵니다 — 종에 건마다 쌓이면 정작 봐야 할 대화가 묻힙니다.
+      대신 HOME 의 '오늘 배송 예정' 검수 목록이 그 자리를 맡습니다.
+  */
+  if (to === 'shipping') return [];
+
   // 그 외는 인앱만. 일을 넘겨받는 쪽에 알립니다.
   const inAppTarget = nextOwnerSlot(to);
   if (!inAppTarget || inAppTarget === slotOfSector(actor)) return [];

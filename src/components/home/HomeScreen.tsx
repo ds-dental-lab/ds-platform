@@ -38,6 +38,8 @@ import Link from 'next/link';
 import { STATUS_LABEL, type OrderStatus, type Sector } from '@/server/domain/order-status';
 import { ISSUE_META, type IssueType } from '@/server/domain/order-list';
 import MoneyTrend from '@/components/home/MoneyTrend';
+import TodayDeliveryDialog from '@/components/home/TodayDeliveryDialog';
+import { todayInKst } from '@/server/domain/week';
 import { PICKUP_KIND_LABEL, PICKUP_STATUS_LABEL } from '@/lib/format/pickup';
 import { WORK_LABEL, WORK_SECTORS, homeLeftLayout } from '@/server/domain/worklist';
 import type { HomeSummary, HomePickup, HomeWork } from '@/server/repositories/home';
@@ -314,8 +316,23 @@ export default function HomeScreen({
 
       {/* ================= 가운데 — 오늘 배송 예정 ================= */}
       <Card>
-        <div className="flex items-center">
+        <div className="flex flex-wrap items-center gap-2.5">
           <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">오늘 배송 예정</h2>
+
+          {/*
+            ★ 검수 목록 (사용자 요청 2026-08-19).
+              배송 알림을 종에서 뺀 것과 한 쌍입니다 — 건마다 종에 쌓는
+              대신, 이 단추로 오늘 올 것을 통째로 봅니다. 주문번호와
+              보철 요약까지 실려서 상자를 뜯으며 대조할 수 있습니다.
+              없으면 단추도 없습니다.
+          */}
+          <TodayDeliveryDialog
+            rows={summary.todayDeliveries}
+            orderPath={path.orders}
+            showClinic={sector !== 'clinic'}
+            today={todayInKst()}
+          />
+
           <Link
             href={path.deliveries}
             className="ml-auto text-[13.5px] text-[#4A5567] hover:text-[#1279E8]"

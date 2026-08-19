@@ -42,9 +42,9 @@ const BUSY: HomeSummary = {
   },
   issueCounts: { rescan: 2, remake: 1, repair: 3, analog: 1 },
   todayDeliveries: [
-    { id: '1', patientLabel: '김O수 (M/54)', clinicName: '연세치과', status: 'shipping' },
-    { id: '2', patientLabel: '박O영 (F/38)', clinicName: '연세치과', status: 'production' },
-    { id: '3', patientLabel: '이O민 (M/29)', clinicName: '미소치과', status: 'production' },
+    { id: '1', patientLabel: '김O수 (M/54)', clinicName: '연세치과', status: 'shipping', orderNo: 'ORD-260819-001', lines: ['Zir-Cr | 11, 12'] },
+    { id: '2', patientLabel: '박O영 (F/38)', clinicName: '연세치과', status: 'production', orderNo: 'ORD-260819-002', lines: ['Zir-Cr | 26'] },
+    { id: '3', patientLabel: '이O민 (M/29)', clinicName: '미소치과', status: 'production', orderNo: 'ORD-260819-003', lines: ['PMMA-Cr | 34, X, 36'] },
   ],
   pickups: [
     {

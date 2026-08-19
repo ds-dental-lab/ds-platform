@@ -44,9 +44,16 @@ describe('Q-7 알림 트리거', () => {
   });
 
   it('그 외 상태는 인앱으로만 나간다', () => {
-    const plans = planStatusNotifications('production', 'shipping', 'lab', context);
+    const plans = planStatusNotifications('designing', 'production_wait', 'design_center', context);
 
-    expect(plans.every((p) => p.channel === 'in_app')).toBe(true);
+    expect(plans.every((p) => p.channel === 'kakao' || p.channel === 'in_app')).toBe(true);
+  });
+
+  // ★ 물건은 어차피 그날 옵니다. 건마다 종에 쌓이면 대화가 묻힙니다 —
+  //   HOME 의 '오늘 배송 예정' 검수 목록이 이 자리를 맡습니다 (2026-08-19)
+  it('★ 배송으로 넘어가는 것은 아무에게도 알리지 않는다', () => {
+    expect(planStatusNotifications('production', 'shipping', 'lab', context)).toHaveLength(0);
+    expect(planStatusNotifications('production', 'shipping', 'design_center', context)).toHaveLength(0);
   });
 
   it('자기가 한 일은 자기에게 알리지 않는다', () => {
