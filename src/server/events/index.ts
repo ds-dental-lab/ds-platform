@@ -23,6 +23,8 @@ import {
 import type { OrderStatus, Sector } from '@/server/domain/order-status';
 import { eventFor } from '@/server/domain/alimtalk';
 import { queueAlimtalk } from '@/server/events/alimtalk';
+import { chatPushPayload } from '@/server/domain/push';
+import { sendPushToOrgs } from '@/server/events/push';
 
 export interface OrderStatusChangedEvent {
   orderId: string;
@@ -348,7 +350,9 @@ export async function publishOrderMessage(event: {
     };
 
     // 누가 실제로 받는지는 도메인이 정합니다 (자사 제작 함정이 여기 있습니다)
-    const rows = resolveRecipients(plans, orgOf, event.authorOrgId).map(({ plan, orgId }) => ({
+    const recipients = resolveRecipients(plans, orgOf, event.authorOrgId);
+
+    const rows = recipients.map(({ plan, orgId }) => ({
       org_id: orgId,
       event_id: saved?.id ?? null,
       channel: 'in_app' as const,
@@ -363,12 +367,43 @@ export async function publishOrderMessage(event: {
     if (rows.length > 0) {
       await supabase.from('notifications').insert(rows);
     }
+
+    /*
+      ★ 같은 받는이에게 웹푸시도 쏩니다 (2026-08-19).
+        종·탭제목·소리는 탭이 보일 때만 삽니다 — 다른 프로그램을 보고
+        있으면 폴링 자체가 멈춥니다. 푸시는 그 구멍을 메웁니다.
+
+      ★ 인앱 알림과 내용이 **일부러 다릅니다.**
+        인앱은 환자·본문 미리보기를 싣지만, 푸시는 구글·모질라 서버를
+        지나 잠금화면까지 가는 글자라 주문번호와 보낸 곳뿐입니다
+        (domain/push 가 타입으로 막습니다).
+    */
+    const payloadByOrg = new Map(
+      recipients.map(({ plan, orgId }) => [
+        orgId,
+        chatPushPayload({
+          orderNo: order.order_no,
+          authorName: event.authorName || SECTOR_NAME_FALLBACK[event.authorSector],
+          link: linkFor(plan.to, event.orderId),
+          orderId: event.orderId,
+        }),
+      ]),
+    );
+
+    await sendPushToOrgs(payloadByOrg);
   } catch (error) {
     console.error('[events] 대화 알림 처리 실패', error);
   }
 }
 
 /** 받는 쪽 화면 경로가 섹터마다 다릅니다 */
+/** 조직 이름이 비었을 때의 대비 — 푸시 제목이 '에서 대화를' 로 시작하면 안 됩니다 */
+const SECTOR_NAME_FALLBACK: Record<Sector, string> = {
+  clinic: '치과',
+  design_center: '디자인센터',
+  lab: '기공소',
+};
+
 function linkFor(slot: RecipientSlot, orderId: string): string {
   const base: Record<RecipientSlot, string> = {
     clinic: '/clinic/orders',

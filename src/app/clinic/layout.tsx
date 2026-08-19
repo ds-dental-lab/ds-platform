@@ -15,7 +15,7 @@ export default async function ClinicLayout({ children }: { children: React.React
   ]);
   return (
     <SectorShell sector="clinic" isManager={canSeeMoney(s.role as MemberRole | null)} orgName={s.orgName ?? ""} userName={s.userName}
-      bell={<NotificationBell notifications={notifications} unreadCount={unreadCount} />}
+      bell={<NotificationBell notifications={notifications} unreadCount={unreadCount} pushKey={process.env.VAPID_PUBLIC_KEY ?? null} />}
     >
       {children}
     </SectorShell>

@@ -10,6 +10,7 @@
 // =========================================================
 
 import { listOrderPage } from '@/server/repositories/order-list';
+import { unreadChatByOrder } from '@/server/repositories/notification';
 import {
   rangeStart,
   isSortable,
@@ -52,18 +53,22 @@ export default async function OrderListScreen({
   const today = todayInKst();
   const q = readParams(searchParams, today, sector);
 
-  const result = await listOrderPage({
-    from: q.from,
-    to: q.to,
-    clinic: q.clinic,
-    patient: q.patient,
-    statuses: q.statuses,
-    issues: q.issues,
-    sort: q.sort,
-    dir: q.dir,
-    page: q.page,
-    perPage: 10,
-  });
+  // 안 읽은 대화 뱃지(💬)는 목록과 무관하니 나란히 물어봅니다
+  const [result, unreadChat] = await Promise.all([
+    listOrderPage({
+      from: q.from,
+      to: q.to,
+      clinic: q.clinic,
+      patient: q.patient,
+      statuses: q.statuses,
+      issues: q.issues,
+      sort: q.sort,
+      dir: q.dir,
+      page: q.page,
+      perPage: 10,
+    }),
+    unreadChatByOrder(),
+  ]);
 
   return (
     <div>
@@ -113,6 +118,7 @@ export default async function OrderListScreen({
           sort={q.sort}
           dir={q.dir}
           showLab={showLab}
+          unreadChat={unreadChat}
         />
 
         <OrderPager

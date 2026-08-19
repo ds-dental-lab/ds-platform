@@ -21,6 +21,7 @@ import {
   submitEditOrderMessage,
   submitDeleteOrderMessage,
 } from '@/server/actions/order-message';
+import { markOrderChatRead } from '@/server/actions/notification';
 import type { OrderMessage } from '@/server/repositories/order-message';
 import type { Sector } from '@/server/domain/order-status';
 
@@ -56,6 +57,17 @@ export default function OrderChat({ orderId, messages }: OrderChatProps) {
     const box = listRef.current;
     if (box) box.scrollTop = box.scrollHeight;
   }, [messages.length]);
+
+  /*
+    ★ 이 화면을 보고 있으면 읽은 것입니다 (2026-08-19).
+      열 때 한 번, 그리고 신호로 새 글이 붙을 때마다(길이가 변할 때)
+      읽음으로 돌립니다. 그래야 목록의 💬 뱃지와 HOME 띠가 실제
+      읽음과 같이 움직입니다. 안 읽은 게 없으면 액션이 아무것도
+      안 하므로 (0행이면 revalidate 도 안 함) 헛돌지 않습니다.
+  */
+  useEffect(() => {
+    markOrderChatRead(orderId);
+  }, [orderId, messages.length]);
 
   async function run(action: () => Promise<{ ok: boolean; error?: string }>) {
     setError('');

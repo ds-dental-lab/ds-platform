@@ -10,6 +10,7 @@ import { getSession } from '@/server/policies/session';
 import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 import HomeScreen from '@/components/home/HomeScreen';
 import AutoRefresh from '@/components/layout/AutoRefresh';
+import UnreadChatStrip from '@/components/home/UnreadChatStrip';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,8 @@ export default async function HomePage() {
     <>
       {/* ★ 치과에도 붙입니다 — 대화 알림이 종에 뜨려면 여기가 있어야 합니다 */}
       <AutoRefresh />
+      {/* 안 읽은 대화가 있으면 맨 위에 띠가 섭니다 (2026-08-19) */}
+      <UnreadChatStrip orderPath="/clinic/orders" />
       <HomeScreen
         sector="clinic"
         summary={summary}

@@ -20,16 +20,20 @@ import UnreadPing, {
   setPingSound,
   subscribePingSound,
 } from '@/components/layout/UnreadPing';
+import PushToggle from '@/components/layout/PushToggle';
 import type { NotificationRow } from '@/server/repositories/notification';
 
 export interface NotificationBellProps {
   notifications: NotificationRow[];
   unreadCount: number;
+  /** 웹푸시 공개키. 없으면 PC 알림 스위치가 아예 안 보입니다 */
+  pushKey?: string | null;
 }
 
 export default function NotificationBell({
   notifications,
   unreadCount,
+  pushKey = null,
 }: NotificationBellProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -98,13 +102,18 @@ export default function NotificationBell({
                 ★ 못 끄는 소리는 결국 스피커를 끄게 만듭니다.
                   그러면 정작 필요한 때 못 듣습니다. 여기서 끕니다.
               */}
-              <button
-                onClick={() => setPingSound(!sound)}
-                title={sound ? '새 알림에 소리가 납니다' : '소리가 꺼져 있습니다'}
-                className="ml-auto text-[13px] text-[#98A2B3] hover:text-[#4A5567]"
-              >
-                소리 {sound ? '켬' : '끔'}
-              </button>
+              <span className="ml-auto flex items-center gap-3">
+                {/* ★ 탭을 안 볼 때는 소리도 안 납니다 — 그 구멍을 PC 알림이 메웁니다 */}
+                <PushToggle vapidKey={pushKey} />
+
+                <button
+                  onClick={() => setPingSound(!sound)}
+                  title={sound ? '새 알림에 소리가 납니다' : '소리가 꺼져 있습니다'}
+                  className="text-[13px] text-[#98A2B3] hover:text-[#4A5567]"
+                >
+                  소리 {sound ? '켬' : '끔'}
+                </button>
+              </span>
 
               {unreadCount > 0 && (
                 <button

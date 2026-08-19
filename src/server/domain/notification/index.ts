@@ -203,6 +203,30 @@ const SECTOR_NAME: Record<Sector, string> = {
  *   ②는 조직 구조가 통합 모델이라 늘 도사리고 있는 함정입니다
  *   (설계서 Q-6). 눈으로 읽어서는 안 틀렸다고 장담할 수 없습니다.
  */
+/**
+ * 안 읽은 대화 알림들을 주문별로 셉니다. (사용자 요청 2026-08-19 —
+ *   "모든 알림이 종으로 오니깐 종알림으로 많이 안 볼 거야")
+ *
+ * ★ 종에서 대화만 따로 꺼내 눈에 박는 데 씁니다 — 주문목록의 💬 뱃지와
+ *   HOME 의 안 읽은 대화 띠가 이 수를 그립니다.
+ *
+ * ★ payload 를 믿지 않습니다.
+ *   알림은 여러 곳에서 만듭니다. orderId 가 없거나 글자가 아니면
+ *   조용히 빼지, 화면을 죽이지 않습니다.
+ */
+export function countUnreadChatByOrder(payloads: unknown[]): Record<string, number> {
+  const out: Record<string, number> = {};
+
+  for (const payload of payloads) {
+    const orderId = (payload as { orderId?: unknown } | null)?.orderId;
+    if (typeof orderId !== 'string' || !orderId) continue;
+
+    out[orderId] = (out[orderId] ?? 0) + 1;
+  }
+
+  return out;
+}
+
 export function resolveRecipients(
   plans: NotificationPlan[],
   orgOf: Record<RecipientSlot, string | null>,

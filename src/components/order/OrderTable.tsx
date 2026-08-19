@@ -63,6 +63,8 @@ export interface OrderTableProps {
   sort: SortColumn;
   dir: 1 | -1;
   showLab: boolean;
+  /** 주문 id → 안 읽은 대화 수. 있으면 💬 뱃지가 붙습니다 */
+  unreadChat?: Record<string, number>;
 }
 
 export default function OrderTable({
@@ -74,6 +76,7 @@ export default function OrderTable({
   sort,
   dir,
   showLab,
+  unreadChat = {},
 }: OrderTableProps) {
   const columns = showLab ? COLUMNS : COLUMNS.filter((c) => c.key !== 'lab_name');
 
@@ -158,6 +161,7 @@ export default function OrderTable({
             rows.map((row) => {
               const dday = computeDDay(row.due_date, today, row.status);
               const issue = row.issue ? ISSUE_META[row.issue] : null;
+              const chat = unreadChat[row.id] ?? 0;
 
               return (
                 <OrderTableRow
@@ -217,14 +221,34 @@ export default function OrderTable({
                   )}
 
                   <td className="px-3 py-2 text-center">
-                    {issue && (
-                      <span
-                        className="inline-block rounded-full px-[9px] py-[3px] text-[11px] font-bold"
-                        style={{ background: issue.bg, color: issue.fg }}
-                      >
-                        {issue.label}
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1">
+                      {issue && (
+                        <span
+                          className="inline-block rounded-full px-[9px] py-[3px] text-[11px] font-bold"
+                          style={{ background: issue.bg, color: issue.fg }}
+                        >
+                          {issue.label}
+                        </span>
+                      )}
+
+                      {/*
+                        ★ 안 읽은 대화 (사용자 요청 2026-08-19).
+                          종에는 모든 알림이 섞여서 대화가 묻힙니다.
+                          일하는 화면(목록)에 직접 박습니다. 주문상세를
+                          열면 읽음이 되어 뱃지가 꺼집니다.
+                      */}
+                      {chat > 0 && (
+                        <span
+                          className="inline-flex items-center gap-[3px] rounded-full bg-[#EAF3FE] px-[8px] py-[3px] text-[11px] font-bold text-[#1279E8]"
+                          title={`안 읽은 대화 ${chat}건`}
+                        >
+                          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                            <path d="M8 2C4.1 2 1 4.6 1 7.8c0 1.8 1 3.4 2.6 4.5-.1.8-.5 1.9-1.3 2.7 1.5-.2 2.8-.8 3.7-1.4.6.1 1.3.2 2 .2 3.9 0 7-2.6 7-5.9S11.9 2 8 2Z" />
+                          </svg>
+                          {chat}
+                        </span>
+                      )}
+                    </span>
                   </td>
 
                   {/*

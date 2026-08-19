@@ -29,7 +29,7 @@ export default async function DesignLayout({ children }: { children: React.React
   return (
     <SectorShell sector="design_center" isManager={isManager} orgName={s.orgName ?? ""} userName={s.userName}
       navCounts={{ "/design/signups": pendingSignups, "/design/contacts": newContacts }}
-      bell={<NotificationBell notifications={notifications} unreadCount={unreadCount} />}
+      bell={<NotificationBell notifications={notifications} unreadCount={unreadCount} pushKey={process.env.VAPID_PUBLIC_KEY ?? null} />}
     >
       {children}
     </SectorShell>
