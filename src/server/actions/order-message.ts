@@ -12,6 +12,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { publishOrderMessage } from '@/server/events';
+import { signalOrderChanged } from '@/server/events/signal';
 
 export type MessageResult = { ok: true } | { ok: false; error: string };
 
@@ -74,16 +75,21 @@ export async function submitOrderMessage(
       알림을 만드는 동안 전송 버튼이 멈춰 있을 이유가 없습니다.
       after() 는 응답을 보낸 뒤에 돕니다.
   */
-  after(() =>
-    publishOrderMessage({
+  after(async () => {
+    await publishOrderMessage({
       orderId,
       authorOrgId: author.orgId,
       authorUserId: session.user.id,
       authorSector: author.sector,
       authorName: author.name,
       body: text,
-    }),
-  );
+    });
+
+    // ★ 신호는 알림 다음입니다 (2026-08-19).
+    //   받은 쪽은 신호를 듣고 화면을 다시 읽는데, 그때 알림(종 숫자)이
+    //   아직 안 만들어져 있으면 글은 붙고 종은 늦는 어긋남이 보입니다.
+    await signalOrderChanged(orderId);
+  });
 
   refreshAll();
   return { ok: true };
@@ -98,17 +104,21 @@ export async function submitEditOrderMessage(
 
   const supabase = await createClient();
 
+  // order_id 는 신호를 쏠 곳입니다 — 고친 글도 상대 화면에서 바뀌어야 합니다
   const { data, error } = await supabase
     .from('order_messages')
     .update({ body: body.trim(), edited_at: new Date().toISOString() })
     .eq('id', messageId)
     .is('deleted_at', null)
-    .select('id');
+    .select('id, order_id');
 
   if (error) return { ok: false, error: `고치지 못했습니다: ${error.message}` };
   if (!data || data.length === 0) {
     return { ok: false, error: '고칠 수 있는 글이 아닙니다' };
   }
+
+  const orderId = (data[0] as { order_id: string }).order_id;
+  after(() => signalOrderChanged(orderId));
 
   refreshAll();
   return { ok: true };
@@ -129,12 +139,15 @@ export async function submitDeleteOrderMessage(messageId: string): Promise<Messa
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', messageId)
     .is('deleted_at', null)
-    .select('id');
+    .select('id, order_id');
 
   if (error) return { ok: false, error: `지우지 못했습니다: ${error.message}` };
   if (!data || data.length === 0) {
     return { ok: false, error: '지울 수 있는 글이 아닙니다' };
   }
+
+  const orderId = (data[0] as { order_id: string }).order_id;
+  after(() => signalOrderChanged(orderId));
 
   refreshAll();
   return { ok: true };

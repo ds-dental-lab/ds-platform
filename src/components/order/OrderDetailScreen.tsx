@@ -30,6 +30,8 @@ import Link from 'next/link';
 import ToothChart from '@/components/dental/ToothChart';
 import OrderStatusActions from '@/components/order/OrderStatusActions';
 import OrderChat from '@/components/order/OrderChat';
+import OrderSignal from '@/components/order/OrderSignal';
+import AutoRefresh from '@/components/layout/AutoRefresh';
 import OrderActions from '@/components/order/OrderActions';
 import OrderFileList, { DownloadAllButton } from '@/components/order/OrderFileList';
 import LabAssignSelect from '@/components/order/LabAssignSelect';
@@ -265,6 +267,14 @@ export default function OrderDetailScreen({
       className="-mx-3.5 -mt-3.5 flex flex-wrap items-stretch gap-3 xl:flex-nowrap"
       title={`주문번호 ${order.order_no}`}
     >
+      {/*
+        ★ 열어 둔 채로도 대화가 따라옵니다 (2026-08-19).
+          OrderSignal 이 빠른 길(신호, 즉시), AutoRefresh 가 반드시 오는
+          길(20초 폴링)입니다. Realtime 연결은 조용히 끊기므로 폴링을
+          지우면 안 됩니다 — 끊겨도 최대 20초 늦을 뿐 잃지 않습니다.
+      */}
+      <OrderSignal orderId={order.id} />
+      <AutoRefresh />
       {/* ================= 본문 (.dt-main) ================= */}
       <div className="flex min-w-0 flex-1 flex-col border-y border-r border-[#E8EBF0] bg-white">
         {/* ---------- .dt-head ---------- */}
