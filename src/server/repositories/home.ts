@@ -28,8 +28,6 @@ import {
 import { listNotices, type NoticeRow } from '@/server/repositories/notice';
 import { pickupStillListed, pickupWaiting } from '@/server/domain/pickup';
 import type { OrderStatus, Sector } from '@/server/domain/order-status';
-import { buildSummaryLines } from '@/server/domain/summary';
-import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import type { IssueType } from '@/server/domain/order-list';
 
 export interface HomeDelivery {
@@ -37,10 +35,6 @@ export interface HomeDelivery {
   patientLabel: string;
   clinicName: string;
   status: OrderStatus;
-  /** 검수 목록(모달)에 싣는 것 — 카드 목록에는 안 그립니다 */
-  orderNo: string;
-  /** 보철 요약 줄 (예: "Zir-Cr | 11, 12"). 비어 있을 수 있습니다 */
-  lines: string[];
 }
 
 export interface HomePickup {
@@ -189,8 +183,6 @@ export async function getHomeSummary(): Promise<HomeSummary> {
         patientLabel: row.patient_label,
         clinicName: row.clinic?.name ?? '',
         status: row.status,
-        orderNo: '',
-        lines: [],
       });
     }
 
@@ -235,13 +227,6 @@ export async function getHomeSummary(): Promise<HomeSummary> {
     ),
   );
 
-  /*
-    ★ 검수 목록(모달)용 낱개 정보는 오늘 배송분에만 얹습니다 (2026-08-19).
-      큰 조회에 order_items 를 끼우면 모든 주문의 치아 줄까지 통째로
-      실려 옵니다 — 몇 건뿐인 오늘 배송만 따로 묻는 것이 쌉니다.
-  */
-  await fillDeliveryDetails(supabase, todayDeliveries);
-
   return {
     statusCounts,
     issueCounts,
@@ -251,54 +236,6 @@ export async function getHomeSummary(): Promise<HomeSummary> {
     worklist: mine,
     notices: await notices,
   };
-}
-
-/**
- * 오늘 배송분에 주문번호와 보철 요약을 채웁니다. (2026-08-19)
- *
- * ★ 검수 목록(모달)에서만 씁니다. 카드의 짧은 목록은 이 값을 안 그립니다.
- * ★ 요약의 약칭(Zir-Cr)은 제품 카탈로그에서 옵니다 — 기공소 계정이면
- *   getProsthesisCatalog 가 알아서 값 없는 목록을 줍니다 (§8.5).
- */
-async function fillDeliveryDetails(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  rows: HomeDelivery[],
-): Promise<void> {
-  if (rows.length === 0) return;
-
-  const [{ data }, catalog] = await Promise.all([
-    supabase
-      .from('orders')
-      .select('id, order_no, order_items(tooth_number, is_pontic, type_code, material_code)')
-      .in('id', rows.map((row) => row.id)),
-    getProsthesisCatalog(),
-  ]);
-
-  const byId = new Map(
-    ((data ?? []) as {
-      id: string;
-      order_no: string;
-      order_items:
-        | { tooth_number: number; is_pontic: boolean; type_code: string; material_code: string }[]
-        | null;
-    }[]).map((order) => [order.id, order]),
-  );
-
-  for (const row of rows) {
-    const order = byId.get(row.id);
-    if (!order) continue;
-
-    row.orderNo = order.order_no;
-    row.lines = buildSummaryLines({
-      placements: (order.order_items ?? []).map((item) => ({
-        tooth: item.tooth_number,
-        isPontic: item.is_pontic,
-        typeCode: item.type_code,
-        materialCode: item.material_code,
-      })),
-      catalog,
-    }).map((line) => line.text);
-  }
 }
 
 /**

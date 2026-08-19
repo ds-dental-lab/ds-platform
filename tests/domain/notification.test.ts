@@ -50,7 +50,7 @@ describe('Q-7 알림 트리거', () => {
   });
 
   // ★ 물건은 어차피 그날 옵니다. 건마다 종에 쌓이면 대화가 묻힙니다 —
-  //   HOME 의 '오늘 배송 예정' 검수 목록이 이 자리를 맡습니다 (2026-08-19)
+  //   오늘 올 것은 HOME 의 '오늘 배송 예정' 카드가 이미 보여 줍니다 (2026-08-19)
   it('★ 배송으로 넘어가는 것은 아무에게도 알리지 않는다', () => {
     expect(planStatusNotifications('production', 'shipping', 'lab', context)).toHaveLength(0);
     expect(planStatusNotifications('production', 'shipping', 'design_center', context)).toHaveLength(0);
