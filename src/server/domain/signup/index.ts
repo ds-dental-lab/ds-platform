@@ -190,3 +190,51 @@ export function waitingView(
     canRetry: false,
   };
 }
+
+// ---------- 가입이 막혔을 때 뭐라고 할 것인가 ----------
+
+/**
+ * 인증 서버가 가입을 거절했을 때 화면에 띄울 말.
+ *
+ * ★★ **영어가 그대로 새고 있었습니다** (2026-08-21).
+ *   전에는 `가입하지 못했습니다: ${message}` 였습니다. 치과 원장님이
+ *   보는 화면에 `email rate limit exceeded` 가 그대로 찍힙니다.
+ *   무슨 말인지도, 무엇을 해야 하는지도 알 수 없습니다.
+ *
+ * ★ 실제로 그 일이 났습니다. 메일이 안 온다는 말을 듣고 찔러 보니
+ *   `over_email_send_rate_limit` 이었습니다 — 기본 메일 서비스는
+ *   시간당 몇 통뿐입니다. 그때 화면이 저 영어를 보여 줬습니다.
+ *
+ * ★ **무엇을 하면 되는지**까지 말합니다. "안 됩니다" 만으로는
+ *   전화를 걸게 만듭니다.
+ */
+export function signupFailure(raw: string | null | undefined): string {
+  const text = (raw ?? '').toLowerCase();
+
+  if (text.includes('already')) return '이미 가입된 이메일입니다. 로그인해 주세요.';
+
+  if (text.includes('rate limit') || text.includes('too many')) {
+    return (
+      '지금은 확인 메일을 더 보낼 수 없습니다. ' +
+      '잠시 뒤(한 시간쯤) 다시 해 주시거나, 디자인센터로 연락 주시면 바로 열어 드립니다.'
+    );
+  }
+
+  if (text.includes('weak') || text.includes('easy to guess') || text.includes('pwned')) {
+    return '흔히 쓰이거나 이미 유출된 적 있는 비밀번호입니다. 다른 것으로 지어 주세요.';
+  }
+
+  if (text.includes('at least')) {
+    return `비밀번호는 ${MIN_PASSWORD}자 이상으로 해 주세요.`;
+  }
+
+  if (text.includes('email address') && text.includes('invalid')) {
+    return '이메일 주소를 다시 확인해 주세요.';
+  }
+
+  if (text.includes('signups not allowed') || text.includes('disabled')) {
+    return '지금은 가입을 받지 않습니다. 디자인센터로 연락 주세요.';
+  }
+
+  return '가입하지 못했습니다. 잠시 뒤에 다시 해 주세요.';
+}

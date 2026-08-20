@@ -10,6 +10,7 @@ import {
   SIGNUP_SECTORS,
   isSignupSector,
   checkSignup,
+  signupFailure,
   canReview,
   checkReviewable,
   checkRejectReason,
@@ -193,5 +194,57 @@ describe('기다리는 사람에게 보여 줄 말', () => {
 
     expect(view.body).toContain('초대');
     expect(view.canRetry).toBe(false);
+  });
+});
+
+
+/*
+  ★ 가입이 막혔을 때 (2026-08-21).
+    메일이 안 온다는 말을 듣고 찔러 보니 over_email_send_rate_limit
+    이었습니다. 그때 화면은 `email rate limit exceeded` 를 그대로
+    보여 주고 있었습니다 — 치과 원장님이 보는 자리입니다.
+*/
+describe('가입 실패 문구', () => {
+  it('메일 한도면 무엇을 하면 되는지까지 말합니다', () => {
+    const msg = signupFailure('email rate limit exceeded');
+    expect(msg).toContain('잠시 뒤');
+    expect(msg).toContain('디자인센터');
+  });
+
+  it('이미 가입된 주소', () => {
+    expect(signupFailure('User already registered')).toContain('이미 가입된');
+  });
+
+  it('유출·흔한 비밀번호', () => {
+    expect(
+      signupFailure('Password is known to be weak and easy to guess, please choose a different one.'),
+    ).toContain('유출');
+  });
+
+  it('짧은 비밀번호는 자릿수를 말합니다', () => {
+    expect(signupFailure('Password should be at least 8 characters.')).toContain(
+      String(MIN_PASSWORD),
+    );
+  });
+
+  it('주소 형식', () => {
+    expect(signupFailure('Email address "a@b.invalid" is invalid')).toContain('이메일 주소');
+  });
+
+  // ★★ 이것이 이 함수의 전부입니다 — 영어가 화면에 새면 안 됩니다
+  it('어떤 말이 와도 영어를 그대로 보여 주지 않습니다', () => {
+    for (const raw of [
+      'email rate limit exceeded',
+      'User already registered',
+      'Password is known to be weak and easy to guess, please choose a different one.',
+      'Email address is invalid',
+      'Signups not allowed for this instance',
+      'unexpected_failure',
+      '',
+      null,
+      undefined,
+    ]) {
+      expect(signupFailure(raw)).not.toMatch(/[a-z]{4,}/);
+    }
   });
 });

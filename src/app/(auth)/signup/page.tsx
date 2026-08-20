@@ -36,6 +36,7 @@ import {
   SECTOR_LABEL,
   SECTOR_HINT,
   checkSignup,
+  signupFailure,
   MIN_PASSWORD,
   type SignupSector,
 } from '@/server/domain/signup';
@@ -132,11 +133,13 @@ export default function SignupPage() {
     setLoading(false);
 
     if (signError) {
-      setError(
-        signError.message.includes('already')
-          ? '이미 가입된 이메일입니다. 로그인해 주세요.'
-          : `가입하지 못했습니다: ${signError.message}`,
-      );
+      /*
+        ★ 인증 서버의 말은 영어입니다. 그대로 보여 주면 치과 원장님
+          화면에 `email rate limit exceeded` 가 찍힙니다 — 실제로
+          그랬습니다 (2026-08-21). 무슨 말인지도, 무엇을 해야 하는지도
+          알 수 없습니다.
+      */
+      setError(signupFailure(signError.message));
       return;
     }
 
