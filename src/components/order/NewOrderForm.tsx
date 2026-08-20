@@ -70,6 +70,7 @@ import type { OptionPreset } from '@/server/repositories/option-preset';
 import type { IsoDate } from '@/server/domain/week';
 import type { DueDatePolicy } from '@/server/domain/due-date';
 import type { OrderFormInitial } from '@/components/order/orderFormInitial';
+import { useToast } from '@/components/ui/Toast';
 
 interface Entry extends ToothPlacement {
   shadeSystem: string;
@@ -166,6 +167,7 @@ function OrderFormBody({
   initial,
 }: NewOrderFormProps & { onStartOver: () => void }) {
   const router = useRouter();
+  const toast = useToast();
   const editing = Boolean(initial);
 
   // ---------- 환자정보 ----------
@@ -495,12 +497,35 @@ function OrderFormBody({
     // ---------- 수정 ----------
     if (initial) {
       const result = await submitUpdateOrder({ ...payload, orderId: initial.orderId });
-      setSaving(false);
 
       if (!result.ok) {
+        setSaving(false);
         setError(result.error);
         return;
       }
+
+      /*
+        ★★ **여기서 파일을 안 올리고 있었습니다** (사용자 지적 2026-08-21 —
+          "디자인 단계에서 디자이너가 주문수정으로 추가 파일 업로드시
+           업로드가 안 되는 현상").
+
+          고른 파일을 들고만 있다가 그대로 주문상세로 나가 버렸습니다.
+          아무 오류도 안 났습니다 — 그래서 더 나빴습니다. 올린 줄 알고
+          나갔는데 파일이 없는 것이니까요.
+
+          등록 때와 **같은 길**로 보냅니다. 주문은 이미 있으니 만들
+          것은 없고, 올리기만 하면 됩니다.
+      */
+      const added = pendingFiles.length;
+      const ok = await sendPendingFiles(initial.orderId);
+      setSaving(false);
+      if (!ok) return;
+
+      /*
+        ★ 알림은 껍데기가 들고 있습니다. 이 화면은 곧 주문상세로
+          넘어가며 죽는데, 껍데기는 안 죽어서 넘어간 뒤에도 남습니다.
+      */
+      toast(added > 0 ? `주문을 수정하고 파일 ${added}개를 올렸습니다` : '주문을 수정했습니다');
 
       router.push(`${basePath}/${initial.orderId}`);
       router.refresh();
@@ -526,36 +551,50 @@ function OrderFormBody({
       setCreatedOrderNo(orderNo);
     }
 
-    if (pendingFiles.length > 0) {
-      const total = pendingFiles.length;
-
-      // ★ 진행률은 오른쪽 위 알림이 맡습니다.
-      //   스캔 데이터는 한 개가 수백 MB 라, 아무 표시가 없으면
-      //   멈춘 줄 알고 창을 닫습니다 — 그러면 파일 없는 주문이 남습니다.
-      const upload = await uploadOrderFiles(orderId, pendingFiles, (progress) =>
-        setUpload({ phase: 'uploading', progress }),
-      );
-
-      setPendingFiles((prev) => prev.filter((f) => upload.failed.includes(f.name)));
+    if (!(await sendPendingFiles(orderId, '주문은 등록되었습니다'))) {
       setSaving(false);
-      setProgress('');
-
-      setUpload(
-        upload.ok
-          ? { phase: 'done', total }
-          : { phase: 'failed', total, failed: upload.failed, failures: upload.failures },
-      );
-
-      if (!upload.ok) {
-        setError(
-          `주문은 등록되었습니다. 다만 파일 ${upload.failed.length}개를 올리지 못했습니다. 다시 시도를 눌러 주세요.`,
-        );
-        return;
-      }
+      return;
     }
 
     setSaving(false);
     setDone({ orderId, orderNo });
+  }
+
+  /**
+   * 고른 파일을 실제로 올립니다. 다 됐으면 true.
+   *
+   * ★ 등록과 수정이 **같은 함수**를 씁니다. 두 군데에 따로 적어 두면
+   *   언젠가 한쪽만 고칩니다 — 실제로 수정 쪽에는 아예 없었습니다.
+   */
+  async function sendPendingFiles(orderId: string, done = '주문은 저장되었습니다'): Promise<boolean> {
+    if (pendingFiles.length === 0) return true;
+
+    const total = pendingFiles.length;
+
+    // ★ 진행률은 오른쪽 위 알림이 맡습니다.
+    //   스캔 데이터는 한 개가 수백 MB 라, 아무 표시가 없으면
+    //   멈춘 줄 알고 창을 닫습니다 — 그러면 파일 없는 주문이 남습니다.
+    const upload = await uploadOrderFiles(orderId, pendingFiles, (progress) =>
+      setUpload({ phase: 'uploading', progress }),
+    );
+
+    setPendingFiles((prev) => prev.filter((f) => upload.failed.includes(f.name)));
+    setProgress('');
+
+    setUpload(
+      upload.ok
+        ? { phase: 'done', total }
+        : { phase: 'failed', total, failed: upload.failed, failures: upload.failures },
+    );
+
+    if (!upload.ok) {
+      setError(
+        `${done}. 다만 파일 ${upload.failed.length}개를 올리지 못했습니다. 다시 시도를 눌러 주세요.`,
+      );
+      return false;
+    }
+
+    return true;
   }
 
   /** 안내창에서 항목을 누르면 그 자리로 데려갑니다 */
@@ -1003,7 +1042,12 @@ function OrderFormBody({
       {/* ---------- ④ 스캔/쉐이드 파일 ---------- */}
       <div id="sec-files" className="scroll-mt-16">
         <OrderSection icon={SECTION_ICON.file} title="스캔/쉐이드 파일">
-          <ScanDropZone files={pendingFiles} onChange={setPendingFiles} disabled={saving} />
+          <ScanDropZone
+            files={pendingFiles}
+            onChange={setPendingFiles}
+            disabled={saving}
+            existing={initial?.files ?? []}
+          />
           {showProblems && pendingFiles.length === 0 && !editing && (
             <p className="mt-2 text-[13px] text-[#D8453F]">
               스캔 파일이 있어야 주문을 넣을 수 있습니다.

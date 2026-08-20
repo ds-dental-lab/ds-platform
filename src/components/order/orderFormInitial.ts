@@ -21,6 +21,15 @@ export interface OrderFormEntry extends ToothPlacement {
   hasGingival: boolean;
 }
 
+/** 이미 올라가 있는 파일 한 줄. 수정 화면이 '누적' 을 보여 주는 데 씁니다 */
+export interface ExistingOrderFile {
+  id: string;
+  name: string;
+  size: number;
+  /** 저장소까지 갔는가. pending/failed 는 이름만 있고 파일이 없습니다 */
+  status: 'pending' | 'uploaded' | 'failed';
+}
+
 export interface OrderFormInitial {
   orderId: string;
   patientText: string;
@@ -31,6 +40,18 @@ export interface OrderFormInitial {
   entries: OrderFormEntry[];
   /** { 옵션그룹id: 옵션값id } — 저장된 것이 이름으로 오므로 id 로 되돌립니다 */
   options: Record<string, string>;
+  /**
+   * 이 주문에 이미 올라가 있는 스캔·쉐이드 파일.
+   *
+   * ★ 수정 화면에서 드롭존이 **빈 칸으로** 보였습니다. 그러면
+   *   "안 올라갔나 보다" 하고 같은 파일을 또 올립니다 — 실제로
+   *   같은 스캔이 두 벌씩 쌓입니다. 이미 있는 것을 먼저 보여 주고,
+   *   새로 고른 것을 그 아래에 쌓습니다.
+   *
+   * ★ 총량 상한(1GB)도 **이미 있는 것까지 합쳐서** 잽니다.
+   *   새로 고른 것만 재면 수정을 반복해 상한을 그냥 지나갑니다.
+   */
+  files: ExistingOrderFile[];
 }
 
 export interface OptionGroupLite {
@@ -87,5 +108,17 @@ export function toFormInitial(
     notes: order.notes ?? '',
     entries,
     options,
+    /*
+      ★ 디자인 파일은 뺍니다. 이 드롭존은 스캔·쉐이드 칸입니다 —
+        디자인 파일은 디자인센터의 제 칸(DesignFileUpload)에 있습니다.
+    */
+    files: order.files
+      .filter((f) => f.kind !== 'design')
+      .map((f) => ({
+        id: f.id,
+        name: f.file_name,
+        size: f.file_size ?? 0,
+        status: f.upload_status,
+      })),
   };
 }
