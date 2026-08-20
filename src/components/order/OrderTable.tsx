@@ -152,10 +152,16 @@ export default function OrderTable({
 
         <tbody>
           {rows.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length} className="px-4 py-16 text-center text-gray-400">
-                조건에 맞는 주문이 없습니다.
-              </td>
+            /*
+              ★ 빈 자리에 글을 쓰지 않습니다 (사용자 요청 2026-08-21).
+                '조건에 맞는 주문이 없습니다' 가 있었는데, 목록이 비었다는
+                것은 보면 압니다. 굳이 적으면 없는 일을 지적받는 느낌이 됩니다.
+
+              ★ 줄은 남겨 둡니다. 통째로 빼면 표가 머리줄만 남고 납작하게
+                주저앉아, 다음 주문이 들어오는 순간 화면이 튑니다.
+            */
+            <tr aria-hidden="true">
+              <td colSpan={columns.length} className="px-4 py-16" />
             </tr>
           ) : (
             rows.map((row) => {
