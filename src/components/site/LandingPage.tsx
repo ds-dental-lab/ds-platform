@@ -573,17 +573,29 @@ function Scope() {
   return (
     <section className="bg-[#16324F]">
       <div className="mx-auto max-w-[1080px] px-6 py-16 sm:py-20">
-        <h2 data-reveal className="text-center">
-          <span className="block text-[17px] font-bold tracking-[-0.02em] text-[#6FD8CB] sm:text-[19px]">
-            맡기시기 전 걱정부터 덜어드리는
-          </span>
-          <span className="mt-2 block text-[26px] font-extrabold tracking-[-0.035em] text-white sm:text-[32px]">
-            덴플로우의 4가지 약속
-          </span>
+        {/*
+          ★ 한 줄로 크게 (사용자 요청 2026-08-18).
+            두 줄로 나눠 두었더니 위가 설명, 아래가 제목이라 눈이 두 번
+            움직였습니다. 한 문장이면 한 번에 읽힙니다.
+
+          ★ 상호만 로고 꼬리색으로 둡니다. 한 줄에 색이 둘이면
+            거기서 끊어 읽게 되는데, 끊기는 자리가 쉼표라 자연스럽습니다.
+
+          ★ 크기를 셋으로 나눴습니다 — 좁은 화면에서 42px 로 두면
+            열네 글자가 넘칩니다. 한글 글꼴은 기계마다 폭이 달라서
+            (윈도우 맑은고딕 · 맥 애플SD산돌고딕) 딱 맞는 값을 하나로
+            잡으면 저쪽에서 넘칩니다. `text-balance` 로 쉼표에서
+            고르게 나뉘도록 뒀습니다.
+        */}
+        <h2
+          data-reveal
+          className="text-balance text-center text-[25px] font-extrabold leading-[1.25] tracking-[-0.04em] text-white sm:text-[34px] lg:text-[42px]"
+        >
+          스캔에서 세팅까지, <span className="text-[#6FD8CB]">덴플로우</span>
         </h2>
 
         {/* ★ 큰 화면에서 넷이 한 줄. 한눈에 보이는 것이 이 자리의 목적입니다 */}
-        <ul className="mt-11 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="mt-12 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
           {PROMISES.map((p, i) => (
             <li
               key={p.title}
