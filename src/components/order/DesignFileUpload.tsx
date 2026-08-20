@@ -22,7 +22,7 @@ import { useState, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadOrderFiles } from '@/lib/upload';
 import UploadToast, { type UploadState } from '@/components/order/UploadToast';
-import { tooBig, formatBytes, MAX_UPLOAD_BYTES } from '@/server/domain/upload';
+import { checkUploadBatch } from '@/server/domain/upload';
 
 // ★ 상한은 domain/upload 한 곳에 있습니다 (ScanDropZone 과 같은 값).
 
@@ -41,20 +41,19 @@ export default function DesignFileUpload({ orderId }: { orderId: string }) {
     if (!list || list.length === 0) return;
     setError('');
 
-    const picked: File[] = [];
-    const over: string[] = [];
-
-    for (const file of Array.from(list)) {
-      if (tooBig(file.size)) over.push(file.name);
-      else picked.push(file);
-    }
+    const picked = Array.from(list);
 
     // 입력칸을 비웁니다 — 같은 파일을 다시 골라도 change 가 뜨도록
     if (inputRef.current) inputRef.current.value = '';
 
-    if (over.length > 0) {
-      setError(`${over.join(', ')} 은 ${formatBytes(MAX_UPLOAD_BYTES)} 를 넘어 올릴 수 없습니다`);
+    // 크기·총량은 한 곳에서 봅니다 (domain/upload 의 checkUploadBatch)
+    const problem = checkUploadBatch(picked);
+
+    if (problem) {
+      setError(problem);
+      return;
     }
+
     if (picked.length === 0) return;
 
     setUploading(true);

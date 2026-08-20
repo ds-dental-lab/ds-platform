@@ -19,6 +19,11 @@ import {
   worthReplacing,
   tooBig,
   formatBytes,
+  MAX_ORDER_TOTAL_BYTES,
+  RESUMABLE_MIN_BYTES,
+  TUS_CHUNK_BYTES,
+  needsResumable,
+  checkUploadBatch,
 } from '@/server/domain/upload';
 
 const MB = 1024 * 1024;
@@ -97,9 +102,9 @@ describe('줄인 것을 쓸까', () => {
 });
 
 describe('상한', () => {
-  // ★ 한 덩어리 150MB 가 실제로 옵니다 (2026-08-20 확인). 그 두 배로 잡았습니다
-  it('★ 300MB 까지입니다 — 150MB 한 덩어리가 들어와야 합니다', () => {
-    expect(MAX_UPLOAD_BYTES).toBe(300 * MB);
+  // ★ 한 덩어리 150MB 가 실제로 옵니다 (2026-08-20 확인). 그 세 배로 잡았습니다
+  it('★ 500MB 까지입니다 — 150MB 한 덩어리가 들어와야 합니다', () => {
+    expect(MAX_UPLOAD_BYTES).toBe(500 * MB);
     expect(tooBig(150 * MB)).toBe(false);
     expect(tooBig(MAX_UPLOAD_BYTES)).toBe(false);
     expect(tooBig(MAX_UPLOAD_BYTES + 1)).toBe(true);
@@ -109,5 +114,71 @@ describe('상한', () => {
     expect(formatBytes(512)).toBe('512B');
     expect(formatBytes(2048)).toBe('2KB');
     expect(formatBytes(5 * MB)).toBe('5.0MB');
+  });
+});
+
+// =========================================================
+// 주문당 총량 · 이어올리기 기준 (작업지시서 2026-08-20)
+// =========================================================
+
+const file = (name: string, mb: number) => ({ name, size: mb * MB });
+
+describe('묶음 검사', () => {
+  it('보통 주문은 통과합니다', () => {
+    expect(checkUploadBatch([file('a.stl', 150)])).toBeNull();
+    expect(checkUploadBatch([file('a.stl', 50), file('b.stl', 50), file('c.stl', 50)])).toBeNull();
+    expect(checkUploadBatch(Array.from({ length: 10 }, (_, i) => file(`f${i}.stl`, 10)))).toBeNull();
+  });
+
+  it('빈 묶음도 통과합니다', () => {
+    expect(checkUploadBatch([])).toBeNull();
+  });
+
+  it('한 개가 상한을 넘으면 그 이름을 댑니다', () => {
+    const msg = checkUploadBatch([file('작은거.stl', 10), file('너무큰거.stl', 600)]);
+
+    expect(msg).toContain('너무큰거.stl');
+    expect(msg).not.toContain('작은거.stl');
+  });
+
+  // ★ "이 중에 큰 게 있습니다" 로는 어느 것을 빼야 할지 모릅니다
+  it('★ 여럿이 넘으면 큰 것부터 댑니다', () => {
+    const msg = checkUploadBatch([file('중간.stl', 550), file('제일큰.stl', 900)])!;
+
+    expect(msg.indexOf('제일큰.stl')).toBeLessThan(msg.indexOf('중간.stl'));
+  });
+
+  // ★★ 파일 하나만 재면 못 막는 사고 — 폴더째 끌어다 놓기
+  it('★ 하나하나는 통과해도 합쳐서 넘으면 막습니다', () => {
+    const folder = Array.from({ length: 30 }, (_, i) => file(`case${i}.stl`, 40));
+
+    expect(folder.every((f) => !tooBig(f.size))).toBe(true);
+    expect(checkUploadBatch(folder)).toContain('폴더째');
+  });
+
+  it('총량은 1GB 까지', () => {
+    expect(MAX_ORDER_TOTAL_BYTES).toBe(1024 * MB);
+    expect(checkUploadBatch([file('a.stl', 500), file('b.stl', 500)])).toBeNull();
+    expect(checkUploadBatch([file('a.stl', 500), file('b.stl', 500), file('c.stl', 100)])).not.toBeNull();
+  });
+});
+
+describe('이어올리기로 보낼 것', () => {
+  it('6MB 를 넘으면 이어올리기', () => {
+    expect(RESUMABLE_MIN_BYTES).toBe(6 * MB);
+    expect(needsResumable(6 * MB)).toBe(false);
+    expect(needsResumable(6 * MB + 1)).toBe(true);
+    expect(needsResumable(150 * MB)).toBe(true);
+  });
+
+  // ★ 작은 파일까지 이어올리기로 보내면 오히려 느립니다
+  it('★ 10MB 열 개짜리 중 작은 것은 그냥 보냅니다', () => {
+    expect(needsResumable(1 * MB)).toBe(false);
+    expect(needsResumable(5 * MB)).toBe(false);
+  });
+
+  // ★ Supabase 가 6MB 조각을 요구합니다. 다르면 통째로 거절합니다
+  it('★ 조각은 6MB 여야 합니다 — 마음대로 못 바꿉니다', () => {
+    expect(TUS_CHUNK_BYTES).toBe(6 * MB);
   });
 });

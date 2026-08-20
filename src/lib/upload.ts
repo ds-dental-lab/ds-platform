@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { compressImages } from '@/lib/compress-image';
+import { uploadResumable } from '@/lib/upload-resumable';
+import { needsResumable } from '@/server/domain/upload';
 
 /** 올라간 파일 한 건. 화면이 진행 상황을 그리는 데 씁니다 */
 export interface UploadedFile {
@@ -10,6 +12,14 @@ export interface UploadedFile {
 }
 
 const BUCKET = 'order-files';
+
+/**
+ * 한 번에 몇 개까지 동시에 올리는가 (작업지시서 §3-2 확정값).
+ *
+ * ★ 하나씩이면 왕복 시간이 그대로 쌓이고, 다 던지면 회선이 막혀
+ *   전부 느려지고 끊기기도 쉽습니다.
+ */
+const UPLOAD_CONCURRENCY = 3;
 
 export interface UploadResult {
   ok: boolean;
@@ -27,20 +37,29 @@ export type UploadKind = 'scan' | 'design';
  *   스캔 데이터는 한 개가 수백 MB 입니다. 1/1 에 멈춰 있으면
  *   되고 있는 건지 멈춘 건지 알 수 없어 사람이 창을 닫아 버립니다.
  */
-export interface UploadProgress {
-  /** 지금 올리는 파일 (1부터) */
-  index: number;
-  total: number;
+export interface UploadingFile {
   fileName: string;
   /** 이 파일의 % */
   percent: number;
-  /** 전체 바이트 기준 % */
-  overallPercent: number;
-  /** 다 올린 파일 수 */
+  /** 몇 번째 시도인가. 1이면 처음입니다 */
+  attempt: number;
+}
+
+export interface UploadProgress {
+  /** 전부 몇 개인가 */
+  total: number;
+  /** 다 올린 수 */
   done: number;
   failed: number;
-  /** 이 파일을 몇 번째로 시도하고 있는가. 1이면 처음입니다 */
-  attempt: number;
+  /** 전체 바이트 기준 % */
+  overallPercent: number;
+  /**
+   * 지금 올라가고 있는 파일들.
+   *
+   * ★ 한 번에 셋까지 올라갑니다 (작업지시서 §3-2). 그래서 '지금 이
+   *   파일' 하나로는 못 그립니다 — 목록으로 줍니다.
+   */
+  active: UploadingFile[];
 }
 
 export type UploadProgressHandler = (progress: UploadProgress) => void;
@@ -82,7 +101,6 @@ export async function uploadOrderFiles(
 
   const token = session?.access_token;
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
-  let sentBytes = 0;
 
   // 진행률은 files 로 세지만 아래 반복은 plan 을 돕니다 — 길이가 같습니다
   const count = files.length;
@@ -119,44 +137,64 @@ export async function uploadOrderFiles(
     }
   }
 
-  for (let i = 0; i < plan.length; i++) {
-    const { file, path, rowId } = plan[i];
+  /*
+    ★ **한 번에 셋씩** 올립니다 (작업지시서 §3-2).
+
+      하나씩 줄 세워 올리면 10MB 열 개짜리 주문에서 왕복 시간이 그대로
+      쌓입니다. 그렇다고 다 한꺼번에 던지면 회선이 막혀 전부 느려지고
+      끊기기도 쉽습니다. 셋이 그 사이입니다.
+
+    ★ 진행률은 **바이트로** 셉니다. 셋이 동시에 움직이므로 '몇 번째
+      파일' 로는 그릴 수가 없습니다.
+  */
+  const sentByPath: Record<string, number> = {};
+  const activeByPath: Record<string, UploadingFile> = {};
+
+  const report = () => {
+    const sent = Object.values(sentByPath).reduce((a, b) => a + b, 0);
+
+    onProgress?.({
+      total: count,
+      done: uploaded.length,
+      failed: failed.length,
+      overallPercent: Math.min(100, Math.round((sent / totalBytes) * 100)),
+      active: Object.values(activeByPath),
+    });
+  };
+
+  report();
+
+  async function run(index: number) {
+    const { file, path, rowId } = plan[index];
 
     let attempt = 1;
+    activeByPath[path] = { fileName: file.name, percent: 0, attempt };
 
-    const report = (percent: number) => {
-      onProgress?.({
-        index: i + 1,
-        total: count,
-        fileName: file.name,
-        percent,
-        overallPercent: Math.min(
-          100,
-          Math.round(((sentBytes + (file.size * percent) / 100) / totalBytes) * 100),
-        ),
-        done: uploaded.length,
-        failed: failed.length,
-        attempt,
-      });
+    const onPercent = (percent: number) => {
+      sentByPath[path] = (file.size * percent) / 100;
+      activeByPath[path] = { fileName: file.name, percent, attempt };
+      report();
     };
 
-    report(0);
-
     const ok = token
-      ? await putWithRetry(path, file, token, report, (n) => {
+      ? await putWithRetry(path, file, token, onPercent, (n) => {
           attempt = n;
         })
       : // 토큰을 못 읽는 드문 경우 — 진행률 없이라도 올립니다
         !(await supabase.storage.from(BUCKET).upload(path, file)).error;
+
+    delete activeByPath[path];
 
     if (!ok) {
       // 줄은 그대로 둡니다 — 무엇이 빠졌는지 알려 주는 유일한 흔적입니다
       if (rowId) {
         await supabase.from('order_files').update({ upload_status: 'failed' }).eq('id', rowId);
       }
+
       failed.push(file.name);
-      report(0);
-      continue;
+      sentByPath[path] = 0;
+      report();
+      return;
     }
 
     const { error: rowError } = rowId
@@ -179,9 +217,25 @@ export async function uploadOrderFiles(
       uploaded.push({ path, name: file.name, size: file.size, type: file.type });
     }
 
-    sentBytes += file.size;
-    report(100);
+    sentByPath[path] = file.size;
+    report();
   }
+
+  // 셋짜리 일꾼이 목록을 나눠 가져갑니다
+  let next = 0;
+
+  async function worker() {
+    for (;;) {
+      const mine = next++;
+      if (mine >= plan.length) return;
+
+      await run(mine);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(UPLOAD_CONCURRENCY, plan.length) }, () => worker()),
+  );
 
   return { ok: failed.length === 0, uploaded, failed };
 }
@@ -213,6 +267,11 @@ const MAX_ATTEMPTS = 3;
  * ★ 되돌릴 수 없는 실패는 다시 하지 않습니다.
  *   권한 없음·파일 너무 큼(4xx)은 열 번을 해도 같습니다.
  *   끊김(status 0)과 서버 오류(5xx)만 다시 합니다.
+ *
+ * ★ 이어올리기로 보낸 파일은 **다시 할 때 처음부터가 아닙니다.**
+ *   올린 자리를 적어 뒀다가 그 지점부터 이어 갑니다
+ *   (lib/upload-resumable). 그래서 150MB 가 90%에서 끊겨도
+ *   다시 90%부터 갑니다 — 이 기능의 값이 거의 전부 여기 있습니다.
  */
 async function putWithRetry(
   path: string,
@@ -224,7 +283,16 @@ async function putWithRetry(
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     onAttempt(attempt);
 
-    const result = await putWithProgress(path, file, token, onPercent);
+    /*
+      ★ **큰 파일은 이어올리기로** 보냅니다 (작업지시서 §3-2).
+        6MB 를 넘으면 끊겨도 그 자리부터 이어 갑니다. 작은 파일까지
+        그렇게 보내면 만들고 조각내는 왕복이 파일보다 커서 오히려
+        느립니다 — 10MB 열 개짜리 주문이 느려지면 안 됩니다.
+    */
+    const result = needsResumable(file.size)
+      ? await uploadResumable(path, file, token, onPercent)
+      : await putWithProgress(path, file, token, onPercent);
+
     if (result.ok) return true;
 
     // 다시 해도 소용없는 실패면 여기서 접습니다
@@ -343,19 +411,20 @@ export async function retryOrderFiles(
 
     let attempt = 1;
 
+    /*
+      ★ 여기는 **하나씩** 올립니다. 빠진 것을 채우는 자리라 보통 한둘이고,
+        무엇이 다시 올라가는지 또렷하게 보이는 편이 낫습니다.
+    */
     const report = (percent: number) => {
       onProgress?.({
-        index: i + 1,
         total: files.length,
-        fileName: file.name,
-        percent,
+        done: uploaded.length,
+        failed: failed.length,
         overallPercent: Math.min(
           100,
           Math.round(((sentBytes + (file.size * percent) / 100) / totalBytes) * 100),
         ),
-        done: uploaded.length,
-        failed: failed.length,
-        attempt,
+        active: [{ fileName: file.name, percent, attempt }],
       });
     };
 

@@ -19,18 +19,17 @@
 /**
  * 파일 한 개 상한. 버킷에도 같은 값을 겁니다.
  *
- * ★ 100MB → **300MB** (사용자 확인 2026-08-20).
+ * ★ 100 → 300 → **500MB** (작업지시서 2026-08-20 확정값).
  *   "1건이 150MB 로 한 덩어리로 올 때도 있고, 3개로 각 50MB,
  *    10개로 각 10MB 로 올 때도 있다."
- *   150MB 짜리 한 덩어리가 **지금 상한에 그대로 걸립니다.**
- *   실제 최대의 두 배로 잡아 뒀습니다 — 스캐너를 바꾸거나 케이스가
+ *   실제 최대(150MB)의 세 배로 잡습니다 — 스캐너를 바꾸거나 케이스가
  *   커지면 파일도 같이 큽니다. 여기서 막히면 치과는 이유를 모른 채
  *   주문을 못 넣습니다.
  *
  * ★ 그래도 상한은 둡니다. 실수로 고른 동영상 한 개가 저장소를
  *   갉아먹는 것을 막는 마지막 선입니다.
  */
-export const MAX_UPLOAD_BYTES = 300 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
 
 // ---------- 사진 줄이기 ----------
 //
@@ -101,9 +100,81 @@ export function worthReplacing(originalBytes: number, compressedBytes: number): 
   return compressedBytes < originalBytes * 0.9;
 }
 
+/**
+ * 주문 하나에 올릴 수 있는 **전체** 크기 (작업지시서 확정값).
+ *
+ * ★ 파일 하나만 재면 못 막는 사고가 있습니다 — **폴더째 끌어다 놓기**.
+ *   스캐너 프로젝트 폴더를 통째로 던지면 40MB 짜리 서른 개가 됩니다.
+ *   하나하나는 다 통과하는데 합치면 1.2GB 입니다.
+ *
+ * ★ 실제 한 건이 150MB 어름이니 여섯 배 남깁니다. 정상적인 주문이
+ *   여기 걸리면 안 됩니다 — 이 선은 사고를 막는 것이지 살림하는 것이
+ *   아닙니다(살림은 보관기간이 합니다).
+ */
+export const MAX_ORDER_TOTAL_BYTES = 1024 * 1024 * 1024;
+
+/**
+ * 이 크기를 넘으면 **이어올리기**로 보냅니다 (Supabase 권장 기준).
+ *
+ * ★ 작은 파일까지 이어올리기로 보내면 오히려 느립니다 — 만들고
+ *   조각내고 확인하는 왕복이 파일 자체보다 큽니다.
+ *   10MB 열 개짜리 주문이 느려지면 안 됩니다.
+ */
+export const RESUMABLE_MIN_BYTES = 6 * 1024 * 1024;
+
+/**
+ * 이어올리기 조각 크기.
+ *
+ * ★ **6MB 여야 합니다.** Supabase 의 이어올리기가 그 크기를 요구합니다 —
+ *   다르게 보내면 통째로 거절합니다. 마음대로 바꾸지 마세요.
+ */
+export const TUS_CHUNK_BYTES = 6 * 1024 * 1024;
+
+/** 이 파일은 이어올리기로 보내야 하는가 */
+export function needsResumable(size: number): boolean {
+  return size > RESUMABLE_MIN_BYTES;
+}
+
 /** 상한을 넘었는가 */
 export function tooBig(size: number): boolean {
   return size > MAX_UPLOAD_BYTES;
+}
+
+/**
+ * 이 묶음을 올려도 되는가. 막을 이유가 있으면 그 말을, 없으면 null.
+ *
+ * ★ **파일 하나 검사와 총량 검사를 한 곳에서** 합니다.
+ *   화면마다 따로 재면 한 곳은 총량을 빠뜨립니다 — 실제로 스캔칸과
+ *   디자인칸 둘이 각자 재고 있었습니다.
+ *
+ * ★ 큰 놈부터 이름을 댑니다. "이 중에 큰 게 있습니다" 로는 어느 것을
+ *   빼야 할지 모릅니다.
+ */
+export function checkUploadBatch(
+  files: { name: string; size: number }[],
+): string | null {
+  const over = files.filter((f) => tooBig(f.size));
+
+  if (over.length > 0) {
+    const names = [...over]
+      .sort((a, b) => b.size - a.size)
+      .map((f) => f.name)
+      .join(', ');
+
+    return `${names} 은(는) ${formatBytes(MAX_UPLOAD_BYTES)} 를 넘어 올릴 수 없습니다`;
+  }
+
+  const total = files.reduce((sum, f) => sum + f.size, 0);
+
+  if (total > MAX_ORDER_TOTAL_BYTES) {
+    return (
+      `한 번에 ${formatBytes(total)} 는 너무 많습니다 ` +
+      `(주문 하나에 ${formatBytes(MAX_ORDER_TOTAL_BYTES)} 까지). ` +
+      '폴더째 고르신 것은 아닌지 확인해 주세요'
+    );
+  }
+
+  return null;
 }
 
 /** 사람에게 보여 줄 크기 */

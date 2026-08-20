@@ -11,7 +11,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { tooBig, formatBytes, MAX_UPLOAD_BYTES } from '@/server/domain/upload';
+import { checkUploadBatch } from '@/server/domain/upload';
 
 /** 명세서 §4.2.9 */
 const EXTS = ['PLY', 'OBJ', 'STL', 'DXD', 'ZIP', 'PNG', 'JPG'];
@@ -42,16 +42,22 @@ export default function ScanDropZone({ files, onChange, disabled }: ScanDropZone
     if (!list) return;
     setError('');
 
-    const next: File[] = [];
-    for (const file of Array.from(list)) {
-      if (tooBig(file.size)) {
-        setError(`${file.name} 은 ${formatBytes(MAX_UPLOAD_BYTES)} 를 넘어 올릴 수 없습니다`);
-        continue;
-      }
-      next.push(file);
+    const next = [...files, ...Array.from(list)];
+
+    /*
+      ★ 이미 고른 것까지 **합쳐서** 잽니다 (작업지시서 §3-1).
+        새로 고른 것만 재면, 300MB 를 세 번 나눠 고르는 식으로 총량
+        상한을 그냥 지나갑니다. 폴더째 끌어다 놓는 사고가 그렇게 옵니다.
+    */
+    const problem = checkUploadBatch(next);
+
+    if (problem) {
+      setError(problem);
+      if (inputRef.current) inputRef.current.value = '';
+      return;
     }
 
-    onChange([...files, ...next]);
+    onChange(next);
     if (inputRef.current) inputRef.current.value = '';
   }
 

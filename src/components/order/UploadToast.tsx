@@ -91,28 +91,16 @@ export default function UploadToast({ state, onClose }: UploadToastProps) {
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.preventDefault()}
       >
-        <div className="w-full max-w-[380px] rounded-xl bg-white p-6 shadow-xl">
+        <div className="w-full max-w-[400px] rounded-xl bg-white p-6 shadow-xl">
           <div className="flex items-center gap-2.5">
             <Spinner />
             <b className="text-[14px] font-bold text-[#1A2130]">
-              파일 올리는 중 {state.progress.index} / {state.progress.total}
+              파일 올리는 중 {state.progress.done} / {state.progress.total}
             </b>
             <b className="ml-auto text-[16px] font-extrabold tabular-nums text-[#1279E8]">
               {state.progress.overallPercent}%
             </b>
           </div>
-
-          <p
-            className="mt-2.5 truncate text-[13.5px] text-[#4A5567]"
-            title={state.progress.fileName}
-          >
-            {state.progress.fileName}
-            {state.progress.attempt > 1 && (
-              <span className="ml-1.5 font-semibold text-[#C2721B]">
-                다시 시도 {state.progress.attempt}번째
-              </span>
-            )}
-          </p>
 
           <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-[#EDF0F4]">
             <div
@@ -121,9 +109,49 @@ export default function UploadToast({ state, onClose }: UploadToastProps) {
             />
           </div>
 
-          <p className="mt-1.5 text-[12.5px] text-[#98A2B3]">
-            이 파일 {state.progress.percent}%
-          </p>
+          {/*
+            ★ 한 번에 셋까지 올라갑니다 (작업지시서 §3-2).
+              그래서 '지금 이 파일' 한 줄로는 못 그립니다 — 올라가는
+              것을 다 보여 줍니다. 250MB 짜리가 20% 에 멈춰 있는지
+              도는지를 사람이 봐야 창을 안 닫습니다.
+          */}
+          <ul className="mt-3 space-y-2">
+            {state.progress.active.map((file) => (
+              <li key={file.fileName}>
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className="min-w-0 flex-1 truncate text-[12.5px] text-[#4A5567]"
+                    title={file.fileName}
+                  >
+                    {file.fileName}
+                  </span>
+
+                  {file.attempt > 1 && (
+                    <span className="shrink-0 text-[11.5px] font-semibold text-[#C2721B]">
+                      이어서 {file.attempt}번째
+                    </span>
+                  )}
+
+                  <b className="shrink-0 text-[12px] font-bold tabular-nums text-[#98A2B3]">
+                    {file.percent}%
+                  </b>
+                </div>
+
+                <div className="mt-1 h-1 overflow-hidden rounded-full bg-[#F0F2F5]">
+                  <div
+                    className="h-full rounded-full bg-[#8FB6F5] transition-[width] duration-200"
+                    style={{ width: `${file.percent}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {state.progress.failed > 0 && (
+            <p className="mt-2.5 text-[12.5px] font-semibold text-[#B3312C]">
+              {state.progress.failed}개는 실패했습니다 — 올린 뒤 다시 시도할 수 있습니다
+            </p>
+          )}
 
           {/* ★ 여기가 이 창의 본론입니다 */}
           <p className="mt-4 rounded-md border border-[#F5D9A8] bg-[#FEF7EA] px-3 py-2.5 text-[13.5px] font-semibold leading-relaxed text-[#8A5A12]">
