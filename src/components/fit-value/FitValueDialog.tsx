@@ -175,12 +175,17 @@ export default function FitValueDialog({
           {/* ---------- 비고 ---------- */}
           <section>
             <GroupLabel>비고 · 치과 특징</GroupLabel>
+            {/*
+              ★ 회색 예시 글을 안 깔아 둡니다 (사용자 요청 2026-08-19).
+                손으로 적는 칸이라 빈 채로 두는 편이 낫습니다 — 예시가
+                깔려 있으면 적힌 것인지 예시인지 한 번 더 봐야 하고,
+                긴 예시는 칸을 좁아 보이게 만듭니다.
+            */}
             <textarea
               value={note}
               maxLength={NOTE_MAX}
               onChange={(e) => setNote(e.target.value)}
               rows={4}
-              placeholder={'대구치 Implant Case\n- supra margin [ eq보다 살짝 높게 ]'}
               className="w-full resize-y rounded-md border border-[#DDE2EA] px-2.5 py-2 text-[14px] leading-relaxed outline-none focus:border-[#5546C8]"
             />
           </section>
