@@ -9,6 +9,14 @@
 //
 // ★ 어느 칸이 잘못됐는지는 이름으로 알립니다 (checkFitValues).
 //   칸이 아홉인데 "값이 잘못됐습니다" 만 뜨면 아홉 칸을 다 봅니다.
+//
+// ★ **회색 예시 글을 한 칸도 안 깔아 둡니다** (사용자 요청 2026-08-19).
+//   빈 칸과 적힌 칸이 한눈에 갈려야 합니다 — 예시가 깔려 있으면
+//   '적힌 것인지 예시인지' 를 매번 한 번 더 봐야 합니다.
+//   칸마다 이름표가 이미 붙어 있어(자연치·CNC·맞결…) 무엇을 넣는
+//   자리인지는 그것으로 충분합니다.
+//   ★ 값의 모양(소수점 자리·음수)은 잘못 넣었을 때 checkFitValues 가
+//     이름을 붙여 알려 줍니다. 미리 겁주는 것보다 그때 잡는 편이 낫습니다.
 // =========================================================
 
 'use client';
@@ -131,7 +139,6 @@ export default function FitValueDialog({
                   label={field.label}
                   value={numbers[field.key]}
                   onChange={(v) => setNumbers((prev) => ({ ...prev, [field.key]: v }))}
-                  placeholder="-0.05"
                 />
               ))}
             </div>
@@ -166,7 +173,6 @@ export default function FitValueDialog({
                 value={implantNote}
                 maxLength={IMPLANT_MAX}
                 onChange={(e) => setImplantNote(e.target.value)}
-                placeholder="OST TS / SS"
                 className="h-9 w-full rounded-md border border-[#DDE2EA] px-2.5 text-[14px] outline-none focus:border-[#5546C8]"
               />
             </div>
@@ -175,12 +181,6 @@ export default function FitValueDialog({
           {/* ---------- 비고 ---------- */}
           <section>
             <GroupLabel>비고 · 치과 특징</GroupLabel>
-            {/*
-              ★ 회색 예시 글을 안 깔아 둡니다 (사용자 요청 2026-08-19).
-                손으로 적는 칸이라 빈 채로 두는 편이 낫습니다 — 예시가
-                깔려 있으면 적힌 것인지 예시인지 한 번 더 봐야 하고,
-                긴 예시는 칸을 좁아 보이게 만듭니다.
-            */}
             <textarea
               value={note}
               maxLength={NOTE_MAX}
@@ -234,12 +234,10 @@ function NumberBox({
   label,
   value,
   onChange,
-  placeholder = '0.04',
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
-  placeholder?: string;
 }) {
   return (
     <label className="block rounded-md border border-[#DDE2EA] px-2.5 py-1.5 focus-within:border-[#5546C8]">
@@ -247,9 +245,8 @@ function NumberBox({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
         inputMode="decimal"
-        className="w-full text-[14px] font-semibold tabular-nums text-[#1A2130] outline-none placeholder:font-normal placeholder:text-[#C4CBD6]"
+        className="w-full text-[14px] font-semibold tabular-nums text-[#1A2130] outline-none"
       />
     </label>
   );
