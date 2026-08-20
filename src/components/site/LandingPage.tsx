@@ -516,97 +516,93 @@ function Contact() {
 // ---------- 취급 범위 · 스캐너 ----------
 
 /*
-  ★ 다섯 가지 약속 (사용자 요청 2026-08-18).
-    전에는 '취급 보철 · 스캐너' 두 칸이었습니다. 둘 다 **우리가 무엇을
-    할 수 있는가**였는데, 치과가 궁금한 것은 그게 아니라 **맡기면
-    무엇이 편해지는가**입니다. 그래서 다섯으로 늘리고 전부
-    '치과 쪽에서 좋아지는 것' 으로 다시 썼습니다.
+  ★ 네 가지 약속 (사용자 요청 2026-08-18, 시안 지르카).
+    어두운 띠 위에 흰 카드 넷 — 제목이 위, 그림이 가운데, 두 줄이 아래.
+    카드 한 장이 **한 호흡**에 읽혀야 합니다. 그래서 문장을 넣지 않고
+    '걱정 한 줄 → 답 한 줄' 로 끊었습니다.
 
-  ★ 다섯 가지 모두 **실제로 되는 것**입니다 — 지어낸 것이 없습니다.
-      ① 스캐너 무관   파일만 받으면 됩니다
-      ② 진행 공유     주문 상태·실시간 대화·배송조회가 이미 있습니다
-      ③ 모델리스 전 품목  제품 표 그대로입니다
-      ④ 리메이크 통계  사유를 모아 통계로 봅니다 (/design/stats)
-      ⑤ 의뢰내역 조회  주문목록 검색이 그것입니다
-    홈페이지에 적은 것을 화면이 못 하면 그게 제일 나쁩니다.
+  ★ 다섯에서 넷으로 줄였습니다.
+    넷이면 큰 화면에서 한 줄에 딱 떨어집니다. 다섯은 3+2 로 갈라져
+    마지막 줄이 남는데, 한눈에 보이는 것이 이 자리의 목적입니다.
 
-  ★ 번호를 붙였습니다. 다섯은 그냥 늘어놓으면 '많다' 로만 읽히는데,
-    번호가 붙으면 세면서 읽습니다.
+  ★ 네 가지 모두 **실제로 되는 것**입니다 — 파일만 받으면 되는 것,
+    주문 상태·실시간 대화, 제품 표 그대로, 리메이크 사유 통계
+    (/design/stats). 홈페이지에 적은 것을 화면이 못 하면 그게 제일
+    나쁩니다.
+
+  ★ 남색은 로고 몸통(#16324F), 강조는 로고 꼬리(#14B8A6)입니다.
+    진행 과정 절의 검정(#141B2B)과 일부러 다르게 뒀습니다 — 어두운
+    띠가 둘인데 같은 색이면 같은 절이 두 번 나온 것처럼 보입니다.
 */
 
-const PROMISES: { art: SiteArtName; title: string; body: string }[] = [
+const PROMISES: {
+  art: SiteArtName;
+  title: string;
+  /** 걱정 — 흐리게 */
+  worry: string;
+  /** 답 — 진하게 */
+  answer: string;
+}[] = [
   {
     art: 'scan',
-    title: '쓰시던 스캐너 그대로',
-    body: '구강스캔 파일(STL 등)만 보내 주시면 됩니다. 장비를 새로 맞추실 필요가 없습니다.',
+    title: '스캐너 무관',
+    worry: '장비 바꾸실 필요 없이',
+    answer: '쓰시던 그대로, 파일만',
   },
   {
     art: 'track',
-    title: '지금 어디까지 왔는지 늘 보입니다',
-    body: '접수·디자인·제작·배송이 화면에 그대로 뜹니다. 진행이 궁금해 전화하실 일이 없습니다.',
+    title: '실시간 진행 공유',
+    worry: '어디까지 왔는지 전화 마세요',
+    answer: '접수 → 배송 화면에서 바로',
   },
   {
     art: 'bridge',
-    title: '크라운부터 임플란트까지, 모델 없이',
-    body: '크라운·브릿지, 인레이·온레이, 임플란트 보철과 어버트먼트를 모델리스로 제작합니다.',
+    title: '모델리스 전 품목',
+    worry: '크라운·브릿지, 인레이·온레이',
+    answer: '임플란트 보철까지 모델 없이',
   },
   {
     art: 'chart',
-    title: '리메이크는 원인까지 남깁니다',
-    body: '사유를 모아 매달 들여다보고, 같은 일이 되풀이되지 않게 공정을 고칩니다.',
-  },
-  {
-    art: 'file',
-    title: '지난 의뢰가 한 화면에',
-    body: '환자·보철·날짜로 바로 찾습니다. 언제 무엇을 보내셨는지 한눈에 보입니다.',
+    title: '리메이크 통계 & 분석',
+    worry: '원인 모르고 넘어가지 않게',
+    answer: '매달 모아 분석하고 고칩니다',
   },
 ];
 
 function Scope() {
   return (
-    <section className="border-b border-[#E8EBF0] bg-white">
-      <div className="mx-auto max-w-[1080px] px-6 py-18 sm:py-24">
-        <p data-reveal className="text-[13px] font-bold tracking-[0.14em] text-[#1279E8]">
-          PROMISE
-        </p>
-        <h2
-          data-reveal
-          style={{ transitionDelay: '80ms' }}
-          className="mt-3 text-[26px] font-extrabold tracking-[-0.035em] sm:text-[30px]"
-        >
-          덴플로우가 지키는 다섯 가지
+    <section className="bg-[#16324F]">
+      <div className="mx-auto max-w-[1080px] px-6 py-16 sm:py-20">
+        <h2 data-reveal className="text-center">
+          <span className="block text-[17px] font-bold tracking-[-0.02em] text-[#6FD8CB] sm:text-[19px]">
+            맡기시기 전 걱정부터 덜어드리는
+          </span>
+          <span className="mt-2 block text-[26px] font-extrabold tracking-[-0.035em] text-white sm:text-[32px]">
+            덴플로우의 4가지 약속
+          </span>
         </h2>
-        <p
-          data-reveal
-          style={{ transitionDelay: '140ms' }}
-          className="mt-3.5 max-w-[560px] text-[14.5px] leading-relaxed text-[#4A5567]"
-        >
-          기공소를 바꾸실 때 제일 걱정되는 것부터 없앴습니다.
-        </p>
 
-        {/* ★ 셋씩 놓으면 마지막 줄이 둘입니다. 왼쪽으로 붙여 두면
-              '모자란' 것이 아니라 '이어지는' 것으로 읽힙니다 */}
-        <ul className="mt-10 grid gap-x-8 gap-y-9 sm:grid-cols-2 lg:grid-cols-3">
+        {/* ★ 큰 화면에서 넷이 한 줄. 한눈에 보이는 것이 이 자리의 목적입니다 */}
+        <ul className="mt-11 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
           {PROMISES.map((p, i) => (
             <li
               key={p.title}
               data-reveal
-              /* 한 줄씩 물결처럼 — 같은 줄은 같이, 다음 줄은 조금 늦게 */
-              style={{ transitionDelay: `${(i % 3) * 70}ms` }}
+              style={{ transitionDelay: `${i * 80}ms` }}
+              className="flex flex-col items-center rounded-2xl bg-white px-5 py-7 text-center"
             >
-              <div className="flex items-center gap-3">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#EAF2FE] text-[#1279E8]">
-                  <SiteArt name={p.art} className="h-6 w-6" />
-                </span>
-                <b className="text-[13px] font-extrabold tabular-nums tracking-[0.1em] text-[#B6C2D4]">
-                  {String(i + 1).padStart(2, '0')}
-                </b>
-              </div>
-
-              <h3 className="mt-4 text-[17.5px] font-extrabold leading-snug tracking-[-0.035em]">
+              <b className="text-[16px] font-extrabold tracking-[-0.03em] text-[#16324F]">
                 {p.title}
-              </h3>
-              <p className="mt-2.5 text-[13.5px] leading-relaxed text-[#4A5567]">{p.body}</p>
+              </b>
+
+              <span className="my-5 grid h-14 w-14 place-items-center rounded-2xl bg-[#EAF6F4] text-[#0E8C7F]">
+                <SiteArt name={p.art} className="h-8 w-8" strokeWidth={1.7} />
+              </span>
+
+              <span className="text-[12.5px] leading-relaxed text-[#8A94A3]">{p.worry}</span>
+              <b className="mt-1 text-[13.5px] font-bold leading-relaxed text-[#1A2130]">
+                {p.answer}
+              </b>
             </li>
           ))}
         </ul>
