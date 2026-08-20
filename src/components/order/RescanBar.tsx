@@ -66,7 +66,7 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
       setUpload(
         upload.ok
           ? { phase: 'done', total: files.length }
-          : { phase: 'failed', total: files.length, failed: upload.failed },
+          : { phase: 'failed', total: files.length, failed: upload.failed, failures: upload.failures },
       );
 
       if (!upload.ok) {

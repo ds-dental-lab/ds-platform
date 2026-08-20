@@ -69,7 +69,7 @@ export default function DesignFileUpload({ orderId }: { orderId: string }) {
     setUpload(
       result.ok
         ? { phase: 'done', total: picked.length }
-        : { phase: 'failed', total: picked.length, failed: result.failed },
+        : { phase: 'failed', total: picked.length, failed: result.failed, failures: result.failures },
     );
 
     if (!result.ok) {

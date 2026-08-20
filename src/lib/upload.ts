@@ -21,10 +21,24 @@ const BUCKET = 'order-files';
  */
 const UPLOAD_CONCURRENCY = 3;
 
+export interface FailedFile {
+  fileName: string;
+  /** 왜 못 올렸는가. 화면이 그대로 보여 줍니다 */
+  reason: string;
+}
+
 export interface UploadResult {
   ok: boolean;
   uploaded: UploadedFile[];
+  /** 못 올린 파일 이름 (기존 화면들이 그대로 씁니다) */
   failed: string[];
+  /**
+   * 못 올린 이유까지.
+   *
+   * ★ 이름만 있으면 "왜 안 됐냐" 를 아무도 모릅니다. 실제로 첫 실패
+   *   때 서버가 뭐라고 했는지 몰라 한참 헤맸습니다.
+   */
+  failures: FailedFile[];
 }
 
 /** 스캔은 치과가, 디자인은 디자인센터가 올립니다 (설계서 §8.3) */
@@ -81,6 +95,7 @@ export async function uploadOrderFiles(
   const supabase = createClient();
   const uploaded: UploadedFile[] = [];
   const failed: string[] = [];
+  const failures: FailedFile[] = [];
 
   /*
     ★ 사진은 여기서 줄입니다 (사용자 요청 2026-08-14 — 저장소 아끼기).
@@ -176,22 +191,28 @@ export async function uploadOrderFiles(
       report();
     };
 
-    const ok = token
-      ? await putWithRetry(path, file, token, onPercent, (n) => {
-          attempt = n;
-        })
-      : // 토큰을 못 읽는 드문 경우 — 진행률 없이라도 올립니다
-        !(await supabase.storage.from(BUCKET).upload(path, file)).error;
+    let outcome: { ok: boolean; reason?: string };
+
+    if (token) {
+      outcome = await putWithRetry(path, file, token, onPercent, (n) => {
+        attempt = n;
+      });
+    } else {
+      // 토큰을 못 읽는 드문 경우 — 진행률 없이라도 올립니다
+      const { error } = await supabase.storage.from(BUCKET).upload(path, file);
+      outcome = { ok: !error, reason: error?.message };
+    }
 
     delete activeByPath[path];
 
-    if (!ok) {
+    if (!outcome.ok) {
       // 줄은 그대로 둡니다 — 무엇이 빠졌는지 알려 주는 유일한 흔적입니다
       if (rowId) {
         await supabase.from('order_files').update({ upload_status: 'failed' }).eq('id', rowId);
       }
 
       failed.push(file.name);
+      failures.push({ fileName: file.name, reason: outcome.reason ?? '알 수 없는 오류' });
       sentByPath[path] = 0;
       report();
       return;
@@ -213,6 +234,7 @@ export async function uploadOrderFiles(
 
     if (rowError) {
       failed.push(file.name);
+      failures.push({ fileName: file.name, reason: `줄을 못 남겼습니다: ${rowError.message}` });
     } else {
       uploaded.push({ path, name: file.name, size: file.size, type: file.type });
     }
@@ -237,7 +259,7 @@ export async function uploadOrderFiles(
     Array.from({ length: Math.min(UPLOAD_CONCURRENCY, plan.length) }, () => worker()),
   );
 
-  return { ok: failed.length === 0, uploaded, failed };
+  return { ok: failed.length === 0, uploaded, failed, failures };
 }
 
 /**
@@ -279,7 +301,9 @@ async function putWithRetry(
   token: string,
   onPercent: (percent: number) => void,
   onAttempt: (attempt: number) => void,
-): Promise<boolean> {
+): Promise<{ ok: boolean; reason?: string }> {
+  let lastReason: string | undefined;
+
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     onAttempt(attempt);
 
@@ -293,23 +317,27 @@ async function putWithRetry(
       ? await uploadResumable(path, file, token, onPercent)
       : await putWithProgress(path, file, token, onPercent);
 
-    if (result.ok) return true;
+    if (result.ok) return { ok: true };
+
+    lastReason = result.reason;
 
     // 다시 해도 소용없는 실패면 여기서 접습니다
-    if (!result.retryable || attempt === MAX_ATTEMPTS) return false;
+    if (!result.retryable || attempt === MAX_ATTEMPTS) return { ok: false, reason: lastReason };
 
     // 1초 · 2초 — 끊김이 지나가기를 잠깐 기다립니다
     await new Promise((r) => setTimeout(r, attempt * 1000));
     onPercent(0);
   }
 
-  return false;
+  return { ok: false, reason: lastReason };
 }
 
 interface PutResult {
   ok: boolean;
   /** 다시 해 볼 만한 실패인가 */
   retryable: boolean;
+  /** 왜 실패했는가 */
+  reason?: string;
 }
 
 /**
@@ -341,17 +369,23 @@ function putWithProgress(
       if (e.lengthComputable) onPercent(Math.round((e.loaded / e.total) * 100));
     };
 
-    xhr.onload = () =>
+    xhr.onload = () => {
+      const ok = xhr.status >= 200 && xhr.status < 300;
+
       resolve({
-        ok: xhr.status >= 200 && xhr.status < 300,
+        ok,
         // 서버가 밀린 것(5xx)은 다시 해 볼 만합니다. 4xx 는 아닙니다
         retryable: xhr.status >= 500,
+        reason: ok
+          ? undefined
+          : `서버가 거절했습니다 (${xhr.status}) ${(xhr.responseText || '').slice(0, 120)}`,
       });
+    };
 
     // 네트워크가 끊긴 것 — 가장 흔하고, 가장 다시 해 볼 만합니다
-    xhr.onerror = () => resolve({ ok: false, retryable: true });
-    xhr.ontimeout = () => resolve({ ok: false, retryable: true });
-    xhr.onabort = () => resolve({ ok: false, retryable: false });
+    xhr.onerror = () => resolve({ ok: false, retryable: true, reason: '연결이 끊겼습니다' });
+    xhr.ontimeout = () => resolve({ ok: false, retryable: true, reason: '시간이 너무 걸렸습니다' });
+    xhr.onabort = () => resolve({ ok: false, retryable: false, reason: '올리기가 중단됐습니다' });
 
     xhr.send(file);
   });
@@ -398,6 +432,8 @@ export async function retryOrderFiles(
   let sentBytes = 0;
 
   // 이름이 같은 빈 줄부터 채웁니다. 한 줄에 두 파일이 붙지 않도록 지웁니다
+  const failures: FailedFile[] = [];
+
   const slots = new Map<string, string>();
   for (const row of missing) {
     if (!slots.has(row.fileName)) slots.set(row.fileName, row.id);
@@ -430,14 +466,20 @@ export async function retryOrderFiles(
 
     report(0);
 
-    const ok = token
-      ? await putWithRetry(path, file, token, report, (n) => {
-          attempt = n;
-        })
-      : !(await supabase.storage.from(BUCKET).upload(path, file)).error;
+    let outcome: { ok: boolean; reason?: string };
 
-    if (!ok) {
+    if (token) {
+      outcome = await putWithRetry(path, file, token, report, (n) => {
+        attempt = n;
+      });
+    } else {
+      const { error } = await supabase.storage.from(BUCKET).upload(path, file);
+      outcome = { ok: !error, reason: error?.message };
+    }
+
+    if (!outcome.ok) {
       failed.push(file.name);
+      failures.push({ fileName: file.name, reason: outcome.reason ?? '알 수 없는 오류' });
       report(0);
       continue;
     }
@@ -474,5 +516,5 @@ export async function retryOrderFiles(
     report(100);
   }
 
-  return { ok: failed.length === 0, uploaded, failed };
+  return { ok: failed.length === 0, uploaded, failed, failures };
 }

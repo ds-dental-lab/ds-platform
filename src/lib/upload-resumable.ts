@@ -37,6 +37,14 @@ export interface ResumableResult {
   ok: boolean;
   /** 다시 해 볼 만한 실패인가 */
   retryable: boolean;
+  /**
+   * 왜 실패했는가. 사람에게 보여 주고 기록에도 남깁니다.
+   *
+   * ★ 이걸 안 들고 나오면 화면에 "못 올렸습니다" 만 뜹니다.
+   *   실제로 그래서 첫 실패 때 원인을 못 찾고 한참 헤맸습니다 —
+   *   서버가 뭐라고 했는지 아무도 몰랐습니다.
+   */
+  reason?: string;
 }
 
 interface Memo {
@@ -108,7 +116,12 @@ function baseHeaders(token: string): Record<string, string> {
 }
 
 /** 올릴 자리를 새로 만듭니다. 만들어진 주소를 돌려줍니다 */
-async function createUpload(path: string, file: File, token: string): Promise<string | null> {
+async function createUpload(
+  path: string,
+  file: File,
+  token: string,
+  onReason: (reason: string) => void,
+): Promise<string | null> {
   const res = await fetch(endpoint(), {
     method: 'POST',
     headers: {
@@ -124,10 +137,24 @@ async function createUpload(path: string, file: File, token: string): Promise<st
     },
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    onReason(`자리 만들기 실패 (${res.status}) ${body.slice(0, 120)}`);
+    return null;
+  }
 
   const location = res.headers.get('location');
-  if (!location) return null;
+
+  if (!location) {
+    /*
+      ★ 여기가 브라우저에서만 생기는 함정입니다.
+        Location 은 CORS 노출 목록에 있어야 자바스크립트가 읽습니다.
+        Supabase 는 열어 두었지만, 중간에 무언가(회사 방화벽·프록시)가
+        헤더를 걷어 내면 여기서 조용히 null 이 됩니다.
+    */
+    onReason('자리 주소(Location)를 못 읽었습니다 — 프록시가 헤더를 걷어 냈을 수 있습니다');
+    return null;
+  }
 
   // 상대 주소로 올 수도 있습니다
   return location.startsWith('http') ? location : new URL(location, endpoint()).toString();
@@ -188,6 +215,10 @@ export async function uploadResumable(
   onPercent: (percent: number) => void,
 ): Promise<ResumableResult> {
   const key = memoKey(path, file);
+  let reason = '';
+  const note = (r: string) => {
+    reason = r;
+  };
 
   // ① 적어 둔 자리가 있으면 거기서 이어 갑니다
   let url = readMemo(key);
@@ -207,8 +238,8 @@ export async function uploadResumable(
 
   // ② 없으면 새로 만듭니다
   if (!url) {
-    url = await createUpload(path, file, token);
-    if (!url) return { ok: false, retryable: true };
+    url = await createUpload(path, file, token, note);
+    if (!url) return { ok: false, retryable: true, reason };
 
     writeMemo(key, url);
     offset = 0;
@@ -236,7 +267,14 @@ export async function uploadResumable(
       const retryable = result.status === 0 || result.status >= 500 || result.status === 409;
       if (!retryable) clearMemo(key);
 
-      return { ok: false, retryable };
+      return {
+        ok: false,
+        retryable,
+        reason:
+          result.status === 0
+            ? `연결이 끊겼습니다 (${Math.round((offset / file.size) * 100)}% 에서)`
+            : `이어붙이기 실패 (${result.status})`,
+      };
     }
 
     offset = end;

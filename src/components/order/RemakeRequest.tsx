@@ -185,7 +185,7 @@ export default function RemakeRequest({
       setUpload(
         upload.ok
           ? { phase: 'done', total: newFiles.length }
-          : { phase: 'failed', total: newFiles.length, failed: upload.failed },
+          : { phase: 'failed', total: newFiles.length, failed: upload.failed, failures: upload.failures },
       );
 
       if (!upload.ok) {

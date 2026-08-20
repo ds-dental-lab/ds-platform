@@ -23,12 +23,24 @@
 'use client';
 
 import { useEffect } from 'react';
-import type { UploadProgress } from '@/lib/upload';
+import type { UploadProgress, FailedFile } from '@/lib/upload';
 
 export type UploadState =
   | { phase: 'uploading'; progress: UploadProgress }
   | { phase: 'done'; total: number }
-  | { phase: 'failed'; total: number; failed: string[] };
+  | {
+      phase: 'failed';
+      total: number;
+      failed: string[];
+      /**
+       * 왜 못 올렸는가. 없으면 이름만 보여 줍니다(옛 화면 호환).
+       *
+       * ★ 이름만 뜨면 "왜 안 됐냐" 를 아무도 모릅니다 — 사장님도,
+       *   저도. 실제로 첫 실패 때 서버가 뭐라고 했는지 몰라 한참
+       *   헤맸습니다. 이유가 한 줄 있으면 그 자리에서 갈립니다.
+       */
+      failures?: FailedFile[];
+    };
 
 export interface UploadToastProps {
   state: UploadState | null;
@@ -184,10 +196,26 @@ export default function UploadToast({ state, onClose }: UploadToastProps) {
           onClose={onClose}
           title={`${state.total - state.failed.length} / ${state.total} 만 올라갔습니다`}
         >
-          <span className="block text-[13px] text-[#B3312C]">
-            못 올린 파일: {state.failed.join(', ')}
-          </span>
-          <span className="mt-1 block text-[13px] text-[#98A2B3]">
+          {state.failures && state.failures.length > 0 ? (
+            <ul className="mt-0.5 space-y-1.5">
+              {state.failures.map((f) => (
+                <li key={f.fileName}>
+                  <span className="block truncate text-[13px] font-semibold text-[#B3312C]" title={f.fileName}>
+                    {f.fileName}
+                  </span>
+                  <span className="block text-[12px] leading-relaxed text-[#A0666A]">
+                    {f.reason}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="block text-[13px] text-[#B3312C]">
+              못 올린 파일: {state.failed.join(', ')}
+            </span>
+          )}
+
+          <span className="mt-2 block text-[13px] text-[#98A2B3]">
             주문은 등록됐습니다. 다시 시도를 눌러 주세요.
           </span>
         </Line>

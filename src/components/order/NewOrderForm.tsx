@@ -543,7 +543,7 @@ function OrderFormBody({
       setUpload(
         upload.ok
           ? { phase: 'done', total }
-          : { phase: 'failed', total, failed: upload.failed },
+          : { phase: 'failed', total, failed: upload.failed, failures: upload.failures },
       );
 
       if (!upload.ok) {

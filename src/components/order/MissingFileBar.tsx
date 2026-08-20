@@ -60,7 +60,7 @@ export default function MissingFileBar({ orderId, missing, editable }: MissingFi
     setUpload(
       result.ok
         ? { phase: 'done', total: files.length }
-        : { phase: 'failed', total: files.length, failed: result.failed },
+        : { phase: 'failed', total: files.length, failed: result.failed, failures: result.failures },
     );
 
     if (!result.ok) {
