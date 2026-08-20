@@ -552,7 +552,7 @@ const PROMISES: {
   {
     art: 'track',
     title: '실시간 진행 공유',
-    worry: '어디까지 왔는지 전화 마세요',
+    worry: '굳이 물어보지 않으셔도',
     answer: '접수 → 배송 화면에서 바로',
   },
   {
@@ -603,16 +603,25 @@ function Scope() {
               style={{ transitionDelay: `${i * 80}ms` }}
               className="flex flex-col items-center rounded-2xl bg-white px-5 py-7 text-center"
             >
-              <b className="text-[16px] font-extrabold tracking-[-0.03em] text-[#16324F]">
+              {/*
+                ★ 제목이 카드에서 제일 먼저 읽히는 것이라 크게 잡았습니다.
+                  다만 '리메이크 통계 & 분석' 은 열두 글자라 248px 카드에서
+                  한 줄에 안 들어갑니다. 한 카드만 두 줄이 되면 그 카드의
+                  그림이 아래로 밀려 넷의 눈높이가 어긋납니다.
+                  그래서 **모든 제목이 두 줄 자리를 차지**하게 뒀습니다
+                  (min-h 2.6em = 1.3줄높이 × 2). 짧은 제목 아래가 조금
+                  비지만, 그림 넷이 나란한 편이 훨씬 잘 읽힙니다.
+              */}
+              <b className="flex min-h-[2.6em] items-center text-balance text-[19px] font-extrabold leading-[1.3] tracking-[-0.035em] text-[#16324F] sm:text-[20px]">
                 {p.title}
               </b>
 
-              <span className="my-5 grid h-14 w-14 place-items-center rounded-2xl bg-[#EAF6F4] text-[#0E8C7F]">
+              <span className="my-4 grid h-14 w-14 place-items-center rounded-2xl bg-[#EAF6F4] text-[#0E8C7F]">
                 <SiteArt name={p.art} className="h-8 w-8" strokeWidth={1.7} />
               </span>
 
-              <span className="text-[12.5px] leading-relaxed text-[#8A94A3]">{p.worry}</span>
-              <b className="mt-1 text-[13.5px] font-bold leading-relaxed text-[#1A2130]">
+              <span className="text-[13px] leading-relaxed text-[#8A94A3]">{p.worry}</span>
+              <b className="mt-1 text-[14.5px] font-bold leading-relaxed text-[#1A2130]">
                 {p.answer}
               </b>
             </li>
