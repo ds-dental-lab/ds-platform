@@ -39,21 +39,6 @@ export default function FitValuePlayground() {
             clinicName="[안양]선한이웃치과"
             card={{
               values: SAMPLE,
-              recentChanges: [
-                {
-                  changes: [
-                    { label: '자연치', from: '0.02', to: '0.04' },
-                    { label: 'Hook', from: '미사용', to: '있음' },
-                  ],
-                  changedAt: '2026-08-16T09:00:00.000Z',
-                  byName: '덴플로우 관리자',
-                },
-                {
-                  changes: [{ label: '맞결', from: '-0.03', to: '-0.05' }],
-                  changedAt: '2026-08-10T09:00:00.000Z',
-                  byName: null,
-                },
-              ],
               lastChangedAt: '2026-08-16T09:00:00.000Z',
             }}
             recent
@@ -66,7 +51,7 @@ export default function FitValuePlayground() {
           <b className="text-[13.5px] font-bold text-[#1279E8]">접수</b>
           <FitValueCard
             clinicName="미등록치과"
-            card={{ values: null, recentChanges: [], lastChangedAt: null }}
+            card={{ values: null, lastChangedAt: null }}
             recent={false}
             isManager={false}
           />

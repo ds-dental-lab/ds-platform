@@ -174,7 +174,7 @@ export default function FitValueDialog({
 
           {/* ---------- 비고 ---------- */}
           <section>
-            <GroupLabel>비고</GroupLabel>
+            <GroupLabel>비고 · 치과 특징</GroupLabel>
             <textarea
               value={note}
               maxLength={NOTE_MAX}
@@ -185,10 +185,11 @@ export default function FitValueDialog({
             />
           </section>
 
-          {/* ★ 저장이 곧 알림입니다 — 무엇이 바뀌는지 미리 밝혀 둡니다 */}
+          {/* ★ 저장이 곧 알림입니다 — 무엇이 일어나는지 미리 밝혀 둡니다 */}
           <p className="rounded-md bg-[#F8F9FB] px-3 py-2 text-[12.5px] leading-relaxed text-[#98A2B3]">
-            저장하면 바뀐 값이 변경 이력으로 남고, 디자이너가 주문상세에서 치과명을 누르면
-            최근 변경으로 보입니다.
+            저장하면 <b className="font-bold text-[#4A5567]">7일 동안</b> 주문상세의 치과명
+            옆에 주황 점이 붙고, 카드를 열면 바뀐 날짜가 뜹니다. 디자이너가 그걸 보고
+            새 값으로 작업합니다.
           </p>
         </div>
 

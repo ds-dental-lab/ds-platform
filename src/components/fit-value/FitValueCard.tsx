@@ -7,11 +7,20 @@
 // ★ 디자이너와 관리자 모두 봅니다. 값을 **쓰는** 자리라서요.
 //   고치는 것은 관리자가 관리탭에서 합니다 — 카드 아래 길이 있습니다.
 //
-// ★ 값이 갓 바뀌었으면 치과명에 주황 점이 붙습니다 (7일).
-//   이것이 "변경되면 웹페이지에서 알린다" 의 틀입니다 — 종을 울리면
-//   지나가고 없어지지만, 디자이너는 주문을 열 때마다 치과명을 보므로
-//   점은 볼 때까지 남습니다. 무엇이 바뀌었는지는 카드의 '최근 변경' 에
-//   문장으로 나옵니다.
+// ★ 값이 갓 바뀌었으면 **두 군데**서 알립니다 (7일 동안).
+//   ① 치과명 옆 주황 점 — 카드를 안 열어도 보입니다
+//   ② 카드 맨 위 주황 띠 — 열면 '언제 바뀌었는지' 가 먼저 읽힙니다
+//   종을 울리면 지나가고 없어지지만, 디자이너는 주문을 열 때마다
+//   치과명을 보므로 이 표시는 **볼 때까지 남습니다.**
+//
+// ★ **무엇이 바뀌었는지는 안 늘어놓습니다** (사용자 요청 2026-08-19).
+//   변경 목록을 카드에 넣었더니 정작 지금 값이 무엇인지가 뒤로
+//   밀렸습니다. 디자이너가 볼 것은 '지금 이 치과는 얼마인가' 이고,
+//   바뀐 값은 바로 위 칸에 이미 새 값으로 떠 있습니다.
+//   이력은 fit_value_changes 에 그대로 쌓입니다 — 화면에서만 뺐습니다.
+//
+// ★ 비고는 **손으로 적는 치과 특징**입니다. 카드에서 제일 넓은 자리를
+//   줍니다 — 수치는 표로 읽지만, 이 치과가 어떤 곳인지는 글로만 남습니다.
 // =========================================================
 
 'use client';
@@ -83,6 +92,18 @@ export default function FitValueCard({
             {clinicName} 내면값
           </h4>
 
+          {/*
+            ★ 열자마자 제일 먼저 읽히는 자리입니다.
+              점은 '뭔가 바뀌었다' 만 말하고, 이 띠가 '언제' 를 말합니다.
+              무엇이 바뀌었는지는 안 적습니다 — 새 값이 바로 아래 있습니다.
+          */}
+          {recent && card.lastChangedAt && (
+            <p className="mt-2.5 flex items-center gap-1.5 rounded-md border border-[#F3CD8B] bg-[#FEF7EA] px-2.5 py-2 text-[12.5px] font-bold text-[#8A5A12]">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#E8912B]" />
+              {monthDay(card.lastChangedAt)}에 내면값이 바뀌었습니다
+            </p>
+          )}
+
           {!registered ? (
             <>
               <p className="mt-3 rounded-md bg-[#F8F9FB] px-3 py-2.5 text-[13px] leading-relaxed text-[#98A2B3]">
@@ -146,41 +167,19 @@ export default function FitValueCard({
                 )}
               </div>
 
-              {/* ---------- 비고 ---------- */}
-              {card.values?.note && (
-                <Group label="비고">
-                  <p className="whitespace-pre-wrap rounded-md bg-[#F8F9FB] px-3 py-2 text-[13px] leading-relaxed text-[#4A5567]">
+              {/* ---------- 비고 — 손으로 적어 두는 치과 특징 ---------- */}
+              <Group label="비고 · 치과 특징">
+                {card.values?.note ? (
+                  <p className="whitespace-pre-wrap rounded-md border border-[#E8EBF0] bg-[#F8F9FB] px-3 py-2.5 text-[13px] leading-relaxed text-[#4A5567]">
                     {card.values.note}
                   </p>
-                </Group>
-              )}
-
-              {/* ---------- 최근 변경 — 알림의 몸통 ---------- */}
-              {card.recentChanges.length > 0 && (
-                <Group label="최근 변경">
-                  <ul className="space-y-1.5">
-                    {card.recentChanges.map((row, i) => (
-                      <li key={i} className="text-[12.5px] leading-relaxed text-[#4A5567]">
-                        <span className="tabular-nums text-[#98A2B3]">
-                          {row.changedAt.slice(5, 10).replace('-', '/')}
-                        </span>{' '}
-                        {row.changes.map((c, j) => (
-                          <span key={j}>
-                            {j > 0 && ' · '}
-                            {c.label}{' '}
-                            <span className="text-[#98A2B3] line-through">{c.from}</span>
-                            {' → '}
-                            <b className="font-bold text-[#1A2130]">{c.to}</b>
-                          </span>
-                        ))}
-                        {row.byName && (
-                          <span className="text-[#C4CBD6]"> — {row.byName}</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </Group>
-              )}
+                ) : (
+                  <p className="rounded-md border border-dashed border-[#E0E4EB] px-3 py-2.5 text-[12.5px] leading-relaxed text-[#B6BECB]">
+                    아직 적힌 내용이 없습니다.
+                    {isManager ? ' 관리탭에서 적어 두면 여기 보입니다.' : ''}
+                  </p>
+                )}
+              </Group>
 
               {isManager && <ManageLink />}
             </>
@@ -192,6 +191,14 @@ export default function FitValueCard({
 }
 
 // ---------- 조각들 ----------
+
+/** '2026-08-19T...' → '8월 19일' */
+function monthDay(iso: string): string {
+  const month = Number(iso.slice(5, 7));
+  const day = Number(iso.slice(8, 10));
+
+  return `${month}월 ${day}일`;
+}
 
 function ManageLink() {
   return (

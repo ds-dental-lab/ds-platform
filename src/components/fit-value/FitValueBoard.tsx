@@ -16,6 +16,11 @@
 //
 // ★ 줄을 누르면 수정 창입니다. 값이 일곱에 글이 둘이라
 //   표에서 바로 고치게 하면 칸이 좁아 오타를 냅니다.
+//
+// ★ 비고(치과 특징)도 표에 보입니다 (2026-08-19).
+//   손으로 적는 글이라 '누가 적혀 있고 누가 비었는지' 가 한눈에
+//   보여야 채우게 됩니다. 줄바꿈은 표에서 ' · ' 로 이어 한 줄로
+//   보여 주고, 원문은 마우스를 올리면 뜹니다.
 // =========================================================
 
 'use client';
@@ -29,6 +34,9 @@ import {
 } from '@/server/domain/fit-value';
 import type { FitBoardRow } from '@/server/repositories/fit-value';
 import FitValueDialog from '@/components/fit-value/FitValueDialog';
+
+/** 표에서는 여러 줄을 한 줄로 잇습니다 */
+const NEWLINE = String.fromCharCode(10);
 
 export interface FitValueBoardProps {
   rows: FitBoardRow[];
@@ -67,7 +75,7 @@ export default function FitValueBoard({ rows }: FitValueBoardProps) {
 
       {/* ---------- 표 ---------- */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] border-collapse">
+        <table className="w-full min-w-[1160px] border-collapse">
           <thead>
             <tr className="border-y border-[#E8EBF0] text-[13.5px] text-[#4A5567]">
               <Th left>치과명</Th>
@@ -76,6 +84,8 @@ export default function FitValueBoard({ rows }: FitValueBoardProps) {
               ))}
               <Th>Hook</Th>
               <Th>임플란트</Th>
+              {/* ★ 손으로 적는 치과 특징. 주문상세 카드에 그대로 나갑니다 */}
+              <Th left>비고 · 치과 특징</Th>
               <Th>등록여부</Th>
             </tr>
           </thead>
@@ -83,7 +93,7 @@ export default function FitValueBoard({ rows }: FitValueBoardProps) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-16 text-center text-[14px] text-[#98A2B3]">
+                <td colSpan={12} className="py-16 text-center text-[14px] text-[#98A2B3]">
                   {keyword ? '찾는 치과가 없습니다.' : '등록된 치과가 없습니다.'}
                 </td>
               </tr>
@@ -125,9 +135,23 @@ export default function FitValueBoard({ rows }: FitValueBoardProps) {
                     </Td>
 
                     <Td>
-                      <span className="block max-w-[140px] truncate text-[13.5px]">
+                      <span className="block max-w-[130px] truncate text-[13.5px]">
                         {row.values?.implantNote || '-'}
                       </span>
+                    </Td>
+
+                    <Td left>
+                      {row.values?.note ? (
+                        /* 줄바꿈이 있어도 표에서는 한 줄로 — 자세히는 눌러서 봅니다 */
+                        <span
+                          title={row.values.note}
+                          className="block max-w-[260px] truncate text-[13px] text-[#4A5567]"
+                        >
+                          {row.values.note.split(NEWLINE).map((l) => l.trim()).filter(Boolean).join(' · ')}
+                        </span>
+                      ) : (
+                        <span className="text-[13px] text-[#C4CBD6]">-</span>
+                      )}
                     </Td>
 
                     <Td>

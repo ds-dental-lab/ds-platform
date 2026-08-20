@@ -3,7 +3,7 @@
 //
 // 치과별 내면값 읽기. 디자인센터 화면 둘이 씁니다 —
 //   관리탭(/design/fit-values)  치과 전부를 한 표로
-//   주문상세 카드                그 주문의 치과 하나
+//   주문상세 카드                그 주문의 치과 하나 (값 + 비고 + 바뀐 날)
 //
 // ★ 제 것만 돌아옵니다 (RLS fit_select — 디자인센터 전원).
 //   치과·기공소가 부르면 0줄입니다. 화면이 아니라 표가 막습니다.
@@ -12,7 +12,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
-import type { FitChange, FitValues } from '@/server/domain/fit-value';
+import type { FitValues } from '@/server/domain/fit-value';
 
 interface RawFitRow {
   clinic_org_id: string;
@@ -109,67 +109,47 @@ export async function listFitBoard(): Promise<FitBoardRow[]> {
 
 // ---------- 주문상세 카드 ----------
 
-export interface FitChangeRow {
-  changes: FitChange[];
-  changedAt: string;
-  /** 바꾼 사람 이름. 모르면 null */
-  byName: string | null;
-}
-
 export interface FitCard {
   values: FitValues | null;
-  /** 최근 변경 몇 건 — 카드의 '알림' 이 이것입니다 */
-  recentChanges: FitChangeRow[];
-  /** 마지막으로 바뀐 때. 치과명에 점을 찍는 기준 */
+  /**
+   * 마지막으로 바뀐 때. 치과명에 점을 찍고 카드에 띠를 띄우는 기준입니다.
+   *
+   * ★ **무엇이 바뀌었는지는 안 싣습니다** (사용자 요청 2026-08-19).
+   *   카드에 변경 목록을 늘어놓았더니, 정작 지금 값이 무엇인지가
+   *   뒤로 밀렸습니다. 디자이너가 볼 것은 '지금 이 치과는 얼마인가'
+   *   이고, 바뀌었다는 사실은 **날짜 한 줄**이면 충분합니다.
+   *   이력 자체는 fit_value_changes 에 그대로 쌓입니다 — 누가 언제
+   *   무엇을 바꿨는지는 남아야 합니다. 화면에서만 뺐습니다.
+   */
   lastChangedAt: string | null;
 }
 
-/** 카드에 싣는 이력 수. 다 실으면 카드가 이력장이 됩니다 */
-const CARD_CHANGES = 5;
-
-/** 치과 하나의 내면값과 최근 변경. 디자인센터가 아니면 빈 카드 */
+/** 치과 하나의 내면값. 디자인센터가 아니면 빈 카드 */
 export async function getFitCard(clinicOrgId: string): Promise<FitCard> {
   const supabase = await createClient();
 
-  const [fit, changes] = await Promise.all([
+  const [fit, lastChange] = await Promise.all([
     supabase
       .from('clinic_fit_values')
       .select(FIT_COLUMNS)
       .eq('clinic_org_id', clinicOrgId)
       .maybeSingle(),
+    /*
+      ★ 마지막 한 줄만 봅니다.
+        전에는 다섯 줄을 읽고 바꾼 사람 이름까지 따로 물어봤습니다
+        (왕복 셋). 화면이 날짜만 쓰므로 이제 하나면 됩니다.
+    */
     supabase
       .from('fit_value_changes')
-      .select('changes, created_by, created_at')
+      .select('created_at')
       .eq('clinic_org_id', clinicOrgId)
       .order('created_at', { ascending: false })
-      .limit(CARD_CHANGES),
+      .limit(1)
+      .maybeSingle(),
   ]);
-
-  const rows = (changes.data ?? []) as {
-    changes: FitChange[];
-    created_by: string | null;
-    created_at: string;
-  }[];
-
-  // 바꾼 사람 이름 — 같은 관리자가 반복이라 몇 명 안 됩니다
-  const ids = [...new Set(rows.map((r) => r.created_by).filter((v): v is string => Boolean(v)))];
-
-  const profiles =
-    ids.length > 0
-      ? await supabase.from('user_profiles').select('id, name').in('id', ids)
-      : { data: [] };
-
-  const names = new Map(
-    ((profiles.data ?? []) as { id: string; name: string | null }[]).map((p) => [p.id, p.name]),
-  );
 
   return {
     values: fit.data ? toValues(fit.data as unknown as RawFitRow) : null,
-    recentChanges: rows.map((row) => ({
-      changes: row.changes,
-      changedAt: row.created_at,
-      byName: row.created_by ? (names.get(row.created_by) ?? null) : null,
-    })),
-    lastChangedAt: rows[0]?.created_at ?? null,
+    lastChangedAt: (lastChange.data as { created_at: string } | null)?.created_at ?? null,
   };
 }
