@@ -119,7 +119,7 @@ function Header({ loggedIn }: { loggedIn: boolean }) {
   return (
     <header className="sticky top-0 z-40 border-b border-[#E8EBF0] bg-white/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-[1080px] items-center px-6">
-        <Logo />
+        <Logo big />
 
         <nav className="ml-auto flex items-center gap-1 sm:gap-5">
           <a href="#why" className="hidden text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8] sm:block">
@@ -156,8 +156,18 @@ function Header({ loggedIn }: { loggedIn: boolean }) {
  *
  * ★ 맨 위와 맨 아래가 이것 하나를 씁니다.
  */
-function Logo() {
-  return <DenFlowLogo markHeight={22} fontSize={17} />;
+/**
+ * ★ 맨 위는 크게, 맨 아래는 그대로 (사용자 요청 2026-08-18).
+ *   머리줄 로고는 **처음 눈이 닿는 곳**이라 간판만 한 크기가 필요합니다.
+ *   바닥은 이미 읽고 내려온 자리여서 같이 키우면 무겁습니다.
+ *   높이 64px 머리줄에 28px 마크면 위아래로 18px씩 남습니다.
+ */
+function Logo({ big = false }: { big?: boolean }) {
+  return big ? (
+    <DenFlowLogo markHeight={28} fontSize={21} gap={11} />
+  ) : (
+    <DenFlowLogo markHeight={22} fontSize={17} />
+  );
 }
 
 // ---------- 첫 화면 ----------
@@ -551,7 +561,7 @@ const PROMISES: {
   },
   {
     art: 'track',
-    title: '실시간 진행 공유',
+    title: '실시간 진행상황 공유',
     worry: '굳이 물어보지 않으셔도',
     answer: '접수 → 배송 화면에서 바로',
   },
