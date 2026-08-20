@@ -219,7 +219,7 @@ export async function uploadOrderFiles(
     if (!outcome.ok) {
       // 줄은 그대로 둡니다 — 무엇이 빠졌는지 알려 주는 유일한 흔적입니다
       if (rowId) {
-        await supabase.from('order_files').update({ upload_status: 'failed' }).eq('id', rowId);
+        await supabase.rpc('mark_order_file_status', { p_file_id: rowId, p_status: 'failed' });
       }
 
       failed.push(file.name);
@@ -229,8 +229,18 @@ export async function uploadOrderFiles(
       return;
     }
 
+    /*
+      ★★ **전에는 여기서 조용히 실패했습니다** (2026-08-21).
+        `update(...).eq('id', rowId)` 였는데, 정책이 막으면 오류가
+        아니라 **0줄 고침**입니다 — supabase-js 는 그것을 성공으로
+        돌려줍니다. 그래서 화면은 "다 올렸습니다", 표에는 pending,
+        주문상세는 "안 올라감". 셋이 서로 다른 말을 했습니다.
+        (파일은 저장소에 멀쩡히 있었습니다.)
+
+        지금은 함수가 막힐 때 **소리를 냅니다.**
+    */
     const { error: rowError } = rowId
-      ? await supabase.from('order_files').update({ upload_status: 'uploaded' }).eq('id', rowId)
+      ? await supabase.rpc('mark_order_file_status', { p_file_id: rowId, p_status: 'uploaded' })
       : // 줄을 못 만들었던 드문 경우 — 지금이라도 남깁니다
         await supabase.from('order_files').insert({
           order_id: orderId,
@@ -244,8 +254,14 @@ export async function uploadOrderFiles(
         });
 
     if (rowError) {
+      /*
+        ★ 파일 자체는 저장소에 올라가 있습니다. 못 한 것은 '적기' 뿐입니다.
+          그래도 실패로 셉니다 — 표에 pending 으로 남은 줄은 화면이
+          "안 올라감" 으로 보여 주므로, 사람 눈에는 안 올라간 것과
+          같습니다. 이유를 그대로 붙여 무엇이 막았는지 남깁니다.
+      */
       failed.push(file.name);
-      failures.push({ fileName: file.name, reason: `줄을 못 남겼습니다: ${rowError.message}` });
+      failures.push({ fileName: file.name, reason: `올렸지만 기록을 못 남겼습니다: ${rowError.message}` });
     } else {
       uploaded.push({ path, name: file.name, size: file.size, type: file.type });
     }
