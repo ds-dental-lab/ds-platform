@@ -278,3 +278,56 @@
     box-shadow: none !important;
   }
 }
+
+/* =========================================================
+   스크롤하면 올라오는 효과 (홈페이지)
+   사용자 요청 2026-08-18 — zircarlab 처럼
+
+   ★★ 감추는 규칙이 **`@media (scripting: enabled)` 안에만** 있습니다.
+     글을 잠깐 감췄다 보여 주는 효과라, 보여 줄 사람이 없으면
+     글이 영영 안 보입니다. 자바스크립트가 꺼져 있으면 이 규칙 자체가
+     안 걸려서 **처음부터 다 보입니다.**
+
+     처음에는 인라인 스크립트로 `<html>` 에 표시를 달아 이 문을
+     만들었는데, `<html>` 은 React 가 그리는 자리라 서버가 보낸 HTML 과
+     달라집니다. 수화가 깨지면서 **첫 화면이 안 보인 채 멈췄습니다.**
+     class 든 data 속성이든 똑같이 깨졌습니다. CSS 로 하면 손댈 일이
+     아예 없습니다.
+
+   ★ 24px 만 올립니다. 더 크게 잡으면 스크롤할 때마다 화면이
+     출렁여서, 두 번째 볼 때부터 거슬립니다.
+
+   ★ 나타난 뒤에는 transform 을 지웁니다(none).
+     translateY(0) 로 남겨 두면 그 조각이 계속 합성 레이어로 떠 있어,
+     긴 화면에서 스크롤이 무거워집니다.
+   ========================================================= */
+
+@media (scripting: enabled) {
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+  }
+
+  [data-reveal][data-shown] {
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+  }
+}
+
+/*
+  ★ 움직임을 줄여 달라고 해 둔 분께는 안 움직입니다.
+    취향이 아니라 접근성입니다 — 멀미나 전정기관 문제로 이 설정을
+    켜 두는 분들이 있습니다. 글은 처음부터 그대로 보입니다.
+*/
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

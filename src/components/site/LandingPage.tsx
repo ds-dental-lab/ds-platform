@@ -23,6 +23,7 @@ import MillingStage from '@/components/site/MillingStage';
 import { SiteArt } from '@/components/site/SiteArt';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import ChannelTalk from '@/components/site/ChannelTalk';
+import ScrollReveal from '@/components/site/ScrollReveal';
 
 /** ★ 고치실 곳은 여기뿐입니다 */
 const SITE = {
@@ -75,6 +76,20 @@ const SITE = {
 export default function LandingPage({ loggedIn }: { loggedIn: boolean }) {
   return (
     <div className="min-h-screen bg-white text-[#1A2130]">
+      {/*
+        ★ 스크롤하면 글이 올라오는 효과 (2026-08-18).
+          감추는 일은 CSS 가, 보여 주는 일은 이 조각이 합니다.
+
+        ★ **`<html>` 을 건드리지 않습니다.**
+          처음에는 인라인 스크립트로 `<html>` 에 표시를 달았는데,
+          그 자리는 React 가 그리는 곳이라 서버가 보낸 HTML 과
+          달라집니다. 수화(hydration)가 깨지면서 **첫 화면이 안 보인 채
+          멈췄습니다** — 효과를 붙이려다 홈페이지를 백지로 만들 뻔했습니다.
+          class 를 data 속성으로 바꿔도 똑같이 깨졌습니다.
+          지금은 CSS 의 `@media (scripting: enabled)` 가 그 일을 합니다.
+      */}
+      <ScrollReveal />
+
       <Header loggedIn={loggedIn} />
       <Hero />
       <Scope />
@@ -158,7 +173,7 @@ function Hero() {
     <section className="relative overflow-hidden border-b border-[#E8EBF0] bg-gradient-to-b from-[#F7FAFF] to-white">
       <div className="mx-auto grid max-w-[1080px] items-center gap-12 px-6 py-16 sm:py-20 lg:grid-cols-[1fr_minmax(0,360px)] lg:gap-16">
         <div>
-          <p className="text-[14px] font-bold tracking-[0.14em] text-[#1279E8]">{SITE.tagline.toUpperCase()}</p>
+          <p data-reveal className="text-[14px] font-bold tracking-[0.14em] text-[#1279E8]">{SITE.tagline.toUpperCase()}</p>
 
           {/*
             ★ 첫 줄이 길어서 크기를 줄였습니다 (2026-08-14). 브라우저에서
@@ -172,13 +187,22 @@ function Hero() {
               고딕, 맥은 애플 SD 산돌고딕). 여기서 딱 맞는 값은 **저쪽에서
               넘칩니다.** 재 보고 정할 때는 넉넉한 쪽으로 잡아야 합니다.
           */}
-          <h1 className="mt-4 text-balance text-[27px] font-extrabold leading-[1.3] tracking-[-0.045em] sm:text-[34px]">
+          {/* ★ 제일 큰 글이라 **안 늦춥니다.** 첫 화면의 큰 글이 늦게
+                뜨면 화면 전체가 느린 것처럼 보입니다(LCP) */}
+          <h1
+            data-reveal
+            className="mt-4 text-balance text-[27px] font-extrabold leading-[1.3] tracking-[-0.045em] sm:text-[34px]"
+          >
             모델은 생략하고, 과정은 간결하게
             <br />
             <span className="text-[#1279E8]">스캔에서 바로 보철로</span>
           </h1>
 
-          <p className="mt-6 max-w-[520px] text-[15px] leading-relaxed text-[#4A5567]">
+          <p
+            data-reveal
+            style={{ transitionDelay: '90ms' }}
+            className="mt-6 max-w-[520px] text-[15px] leading-relaxed text-[#4A5567]"
+          >
             모델 제작의 번거로움 없이
             <br />
             스캔 데이터에서 최종 보철까지
@@ -186,7 +210,7 @@ function Hero() {
             <b className="font-bold text-[#1A2130]">하나의 디지털 프로세스로</b>
           </p>
 
-          <div className="mt-9 flex flex-wrap gap-2.5">
+          <div data-reveal style={{ transitionDelay: '180ms' }} className="mt-9 flex flex-wrap gap-2.5">
             <a
               href="#contact"
               className="grid h-12 place-items-center rounded-lg bg-[#1279E8] px-7 text-[15px] font-bold text-white hover:bg-[#0F68C9]"
@@ -202,7 +226,7 @@ function Hero() {
           </div>
         </div>
 
-        <div>
+        <div data-reveal style={{ transitionDelay: '120ms' }}>
           <MillingStage
             youtubeId={SITE.heroYouTube || undefined}
             src={SITE.heroVideo || undefined}
@@ -454,7 +478,9 @@ function Contact() {
     <section id="contact" className="border-t border-[#E8EBF0] bg-[#F7FAFF]">
       <div className="mx-auto max-w-[1080px] px-6 py-18 sm:py-24">
         <div className="grid gap-10 sm:grid-cols-[0.9fr_1.1fr] sm:items-start">
-          <div className="sm:sticky sm:top-24">
+          {/* ★ 붙어 따라오는 칸(sticky)이라 통째로 올립니다 —
+                안쪽을 따로 올리면 따라오는 동안 계속 움직입니다 */}
+          <div data-reveal className="sm:sticky sm:top-24">
             <p className="text-[13px] font-bold tracking-[0.14em] text-[#1279E8]">CONTACT</p>
             <h2 className="mt-3 text-[26px] font-extrabold leading-[1.3] tracking-[-0.035em] sm:text-[30px]">
               수가표부터
@@ -477,7 +503,10 @@ function Contact() {
             </div>
           </div>
 
-          <ContactForm />
+          {/* 폼은 살짝 늦게 — 왼쪽 글이 먼저 읽히고 폼이 따라옵니다 */}
+          <div data-reveal style={{ transitionDelay: '110ms' }}>
+            <ContactForm />
+          </div>
         </div>
       </div>
     </section>
@@ -490,7 +519,7 @@ function Scope() {
   return (
     <section className="border-b border-[#E8EBF0] bg-white">
       <div className="mx-auto grid max-w-[1080px] gap-10 px-6 py-16 sm:grid-cols-2">
-        <div className="flex gap-4">
+        <div data-reveal className="flex gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#EAF2FE] text-[#1279E8]">
             <SiteArt name="bridge" className="h-7 w-7" />
           </span>
@@ -505,7 +534,7 @@ function Scope() {
           </div>
         </div>
 
-        <div className="flex gap-4">
+        <div data-reveal style={{ transitionDelay: '110ms' }} className="flex gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#EAF2FE] text-[#1279E8]">
             <SiteArt name="file" className="h-7 w-7" />
           </span>
@@ -570,9 +599,19 @@ function Section({
 }) {
   return (
     <section id={id} className={dark ? 'bg-[#141B2B]' : 'bg-white'}>
+      {/*
+        ★ 머리글에만 답니다 (2026-08-18).
+          안쪽 내용까지 조각조각 올리면, 한 화면에서 대여섯 개가 따로
+          움직여 어지럽습니다. 절의 제목이 올라오고 내용이 따라오는
+          정도가 읽기에 제일 편합니다.
+      */}
       <div className="mx-auto max-w-[1080px] px-6 py-18 sm:py-24">
-        <p className="text-[13px] font-bold tracking-[0.14em] text-[#1279E8]">{eyebrow}</p>
+        <p data-reveal className="text-[13px] font-bold tracking-[0.14em] text-[#1279E8]">
+          {eyebrow}
+        </p>
         <h2
+          data-reveal
+          style={{ transitionDelay: '80ms' }}
           className={
             'mt-3 text-[26px] font-extrabold tracking-[-0.035em] sm:text-[30px] ' +
             (dark ? 'text-white' : 'text-[#1A2130]')
@@ -580,7 +619,9 @@ function Section({
         >
           {title}
         </h2>
-        {children}
+        <div data-reveal style={{ transitionDelay: '160ms' }}>
+          {children}
+        </div>
       </div>
     </section>
   );
