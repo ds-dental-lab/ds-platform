@@ -64,7 +64,7 @@ export default function ToothChart({
   const bridges = computeBridges(placements, severedKeys);
 
   return (
-    <div className="w-full overflow-x-auto px-2.5 pb-4 pt-1.5">
+    <div className="w-full overflow-x-auto px-2.5 pb-1.5 pt-1.5">
       {/*
         ★ `min-w-[860px]` 이었는데 **실제로 필요한 폭은 959px** 입니다.
           모자란 만큼 한 줄이 눌려서, 치아 사이 이음매가 먼저 짜부라지고

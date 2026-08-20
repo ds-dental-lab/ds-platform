@@ -263,8 +263,29 @@ export default function OrderDetailScreen({
   ).length;
 
   return (
+    /*
+      ★ 화면 하나에 앉힙니다 (사용자 요청 2026-08-19 —
+        "스크롤 없이 한눈에 보고 싶어").
+
+        여백을 깎아 1071px → 849px 까지 줄였지만, 그것만으로는 기계마다
+        답이 달라집니다. 창 높이는 사람마다 다르고 한글 글꼴 폭도 다릅니다.
+        그래서 **높이를 창에 맞춰 못 박고**, 넘치는 것은 가운데 칸만
+        흐르게 뒀습니다 — 머리줄·치식도·아래 단추줄은 늘 제자리입니다.
+        제일 자주 누르는 단추가 스크롤 밖으로 나가지 않습니다.
+
+      ★ `h-` 가 아니라 **`max-h-`** 입니다.
+        높이를 못 박으면 큰 모니터에서 화면이 남아, 아래 단추줄만
+        저 밑에 붙고 그 위가 통째로 비어 보입니다(실제로 1180px 창에서
+        272px 이 비었습니다). 상한만 두면 내용이 짧을 때는 제 키대로
+        서고, 넘칠 때만 가운데가 흐릅니다.
+
+      ★ 창이 낮으면(820px 미만) 이 규칙을 안 겁니다.
+        노트북에서 억지로 한 화면에 밀어 넣으면 칸마다 두세 줄만 보이는
+        화면이 됩니다. 그때는 예전처럼 페이지가 흐르는 편이 낫습니다.
+        62 = 상단바 48 + 아래 여백 14.
+    */
     <div
-      className="-mx-3.5 -mt-3.5 flex flex-wrap items-stretch gap-3 xl:flex-nowrap"
+      className="-mx-3.5 -mt-3.5 flex flex-wrap items-stretch gap-3 xl:flex-nowrap [@media(min-height:820px)]:max-h-[calc(100vh-62px)] [@media(min-height:820px)]:overflow-hidden"
       title={`주문번호 ${order.order_no}`}
     >
       {/*
@@ -276,9 +297,9 @@ export default function OrderDetailScreen({
       <OrderSignal orderId={order.id} />
       <AutoRefresh />
       {/* ================= 본문 (.dt-main) ================= */}
-      <div className="flex min-w-0 flex-1 flex-col border-y border-r border-[#E8EBF0] bg-white">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col border-y border-r border-[#E8EBF0] bg-white">
         {/* ---------- .dt-head ---------- */}
-        <div className="flex flex-wrap items-center gap-3 border-b border-[#E8EBF0] px-[18px] py-3">
+        <div className="flex flex-wrap items-center gap-3 border-b border-[#E8EBF0] px-[18px] py-2.5">
           <span className="grid place-items-center text-[#98A2B3]" aria-hidden="true">
             <svg
               width="16"
@@ -340,7 +361,7 @@ export default function OrderDetailScreen({
 
         {/* 넓은 것에는 자기 스크롤을 줍니다 — 칸이 여덟까지 늘어납니다 */}
         {progress && progress.length > 1 && (
-          <div className="border-b border-[#F0F2F5] px-[18px] py-3">
+          <div className="border-b border-[#F0F2F5] px-[18px] py-1.5">
             <div className="overflow-x-auto">
               <OrderProgress steps={progress} />
             </div>
@@ -351,14 +372,14 @@ export default function OrderDetailScreen({
         {issueSlot && <div className="px-[18px] pt-3.5">{issueSlot}</div>}
 
         {/* ---------- .dt-arch ---------- */}
-        <div className="px-[18px] pb-[30px] pt-6">
+        <div className="px-[18px] pb-2 pt-2">
           <ToothChart placements={placements} catalog={prosthesisCatalog} readOnly />
         </div>
 
         {extraSlot && <div className="px-[18px] pb-3.5">{extraSlot}</div>}
 
         {/* ---------- .dt-cols ---------- */}
-        <div className="grid grid-cols-1 items-stretch gap-3.5 px-[18px] pb-[18px] lg:grid-cols-[1.6fr_1fr]">
+        <div className="grid min-h-0 grid-cols-1 items-stretch gap-2.5 overflow-y-auto px-[18px] pb-3 lg:grid-cols-[1.6fr_1fr]">
           {/* g-a — 제작보철 */}
           <Card
             className="lg:col-start-1 lg:row-start-1"
@@ -448,7 +469,7 @@ export default function OrderDetailScreen({
               editable={sector === 'clinic' && canAddFiles}
             />
 
-            <div className="flex max-h-[260px] min-h-[172px] flex-col overflow-y-auto">
+            <div className="flex max-h-[158px] min-h-[124px] flex-col overflow-y-auto">
               {scanFiles.length === 0 ? (
                 <p className="m-auto py-6 text-[13.5px] text-[#98A2B3]">
                   업로드된 스캔 파일이 없습니다.
@@ -470,14 +491,20 @@ export default function OrderDetailScreen({
               {order.options.length === 0 ? (
                 <p className="text-[13.5px] text-[#98A2B3]">고른 제작옵션이 없습니다.</p>
               ) : (
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                /*
+                  ★ 넓은 화면에서는 **넷을 한 줄**에 놓습니다 (2026-08-19).
+                    두 줄이면 이 칸만 60px 넘게 잡아먹어, 화면이 스크롤로
+                    넘어가는 가장 큰 이유였습니다. 왼쪽 칸이 680px 이라
+                    넷을 세워도 하나당 160px씩 남습니다.
+                */
+                <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
                   {order.options.map((option) => (
                     <div key={option.groupName} className="relative">
                       {/* 시안 .ffield — 라벨이 테두리 위에 걸쳐 앉습니다 */}
                       <label className="absolute -top-[7px] left-[10px] z-10 bg-[#F5F8FE] px-[5px] text-[11px] font-semibold text-[#98A2B3]">
                         {option.groupName}
                       </label>
-                      <div className="grid h-11 place-items-center rounded-md border border-[#DDE2EA] bg-white text-[14px] font-medium text-[#1A2130]">
+                      <div className="grid h-10 place-items-center truncate rounded-md border border-[#DDE2EA] bg-white px-2 text-[13.5px] font-medium text-[#1A2130]">
                         {option.value}
                       </div>
                     </div>
@@ -488,7 +515,7 @@ export default function OrderDetailScreen({
 
             {hasImplant && (
               <Card icon={ICON.implant} title="임플란트 모델">
-                <div className="flex max-h-[190px] flex-col gap-2 overflow-y-auto">
+                <div className="flex max-h-[150px] flex-col gap-1.5 overflow-y-auto">
                   {implantRows.length === 0 ? (
                     <p className="px-0.5 py-1.5 text-[13.5px] text-[#98A2B3]">
                       등록된 모델 정보가 없습니다.
@@ -533,7 +560,7 @@ export default function OrderDetailScreen({
               </span>
             }
           >
-            <div className="flex max-h-[260px] min-h-[172px] flex-col overflow-y-auto">
+            <div className="flex max-h-[158px] min-h-[124px] flex-col overflow-y-auto">
               {designFiles.length === 0 ? (
                 <p className="m-auto py-6 text-[13.5px] text-[#98A2B3]">
                   아직 디자인 파일이 없습니다.
@@ -545,7 +572,7 @@ export default function OrderDetailScreen({
           </Card>
 
           {/* g-e — 기타 요청사항 */}
-          <div className="min-h-[104px] rounded-[9px] border border-[#E8EBF0] bg-white px-4 py-[13px] lg:col-start-1 lg:row-start-3">
+          <div className="max-h-[104px] min-h-[68px] overflow-y-auto rounded-[9px] border border-[#E8EBF0] bg-white px-4 py-2.5 lg:col-start-1 lg:row-start-3">
             <p className="mb-[7px] text-[14px] font-bold text-[#1A2130]">기타 요청사항</p>
             <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#1279E8]">
               {order.notes || <span className="text-[#C4CBD6]">적힌 내용이 없습니다.</span>}
@@ -574,7 +601,7 @@ export default function OrderDetailScreen({
         </div>
 
         {/* ---------- .dt-bar ---------- */}
-        <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-[#E8EBF0] px-[18px] py-3">
+        <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-[#E8EBF0] px-[18px] py-2">
           <OrderActions
             orderId={order.id}
             status={order.status}
@@ -612,7 +639,7 @@ export default function OrderDetailScreen({
       </div>
 
       {/* ================= 대화 (aside.dt-memo) ================= */}
-      <aside className="flex min-h-[560px] w-full shrink-0 flex-col self-stretch border-y border-l border-[#E8EBF0] bg-white xl:w-[320px]">
+      <aside className="flex min-h-[460px] w-full shrink-0 flex-col self-stretch border-y border-l border-[#E8EBF0] bg-white xl:w-[320px]">
         <OrderChat orderId={order.id} messages={messages} />
       </aside>
     </div>
@@ -664,7 +691,7 @@ function Card({
         'flex flex-col rounded-[9px] border border-[#E2EAF7] bg-[#F5F8FE] ' + className
       }
     >
-      <div className="flex items-center gap-2.5 px-4 pt-[13px]">
+      <div className="flex items-center gap-2.5 px-4 pt-2.5">
         <span className="flex items-center gap-1.5 text-[14px] font-bold tracking-[-0.03em] text-[#1A2130]">
           {icon && (
             <span className="text-[#1279E8]" aria-hidden="true">
@@ -676,7 +703,7 @@ function Card({
         {right}
       </div>
 
-      <div className="min-h-[112px] flex-1 px-4 pb-4 pt-3">{children}</div>
+      <div className="min-h-[92px] flex-1 px-4 pb-3 pt-2.5">{children}</div>
     </div>
   );
 }
