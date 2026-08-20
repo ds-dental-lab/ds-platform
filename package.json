@@ -10,7 +10,8 @@
     "check-env": "node scripts/check-env.mjs",
     "icons": "node scripts/make-icons.mjs",
     "seed-staging": "node scripts/seed-staging.mjs",
-    "seed-staging-data": "node scripts/seed-staging-data.mjs"
+    "seed-staging-data": "node scripts/seed-staging-data.mjs",
+    "backup": "node scripts/backup.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

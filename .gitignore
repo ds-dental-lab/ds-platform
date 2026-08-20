@@ -42,3 +42,6 @@ next-env.d.ts
 
 # claude code — 로컬 전용 설정
 .claude/settings.local.json
+
+# 운영 DB 를 받아 둔 폴더 — 환자 실명이 들어 있습니다
+backup/
