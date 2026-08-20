@@ -223,6 +223,38 @@ const SECTOR_NAME: Record<Sector, string> = {
  *   알림은 여러 곳에서 만듭니다. orderId 가 없거나 글자가 아니면
  *   조용히 빼지, 화면을 죽이지 않습니다.
  */
+/**
+ * 저장된 표시값에서 **부를 이름**을 뽑습니다. (사용자 요청 2026-08-19 —
+ *   "주문번호로 나오는데 해당 환자명(님)으로 표기해 줘")
+ *
+ * ```
+ * '이건희 (12345)' → '이건희님'
+ * '이건희'         → '이건희님'
+ * ```
+ *
+ * ★ 차트번호를 뗍니다. 알림 띠는 **지나가는 눈에 걸리라고** 있는
+ *   자리라, 숫자가 붙으면 이름이 늦게 읽힙니다. 차트번호가 필요한
+ *   사람은 눌러서 들어갑니다.
+ *
+ * ★ 부를 이름이 없으면 null 입니다 — 그때는 화면이 주문번호로 돌아갑니다.
+ *   '(비공개)' 처럼 가려 둔 값에 '님' 을 붙이면 사람 이름처럼 보입니다.
+ *
+ * ★ 이미 '님' 으로 끝나면 안 붙입니다. '김님님' 이 나옵니다.
+ */
+export function patientCall(label: string | null | undefined): string | null {
+  const raw = (label ?? '').trim();
+  if (!raw) return null;
+
+  // 뒤에 붙은 차트번호 '(...)' 를 뗍니다
+  const name = raw.replace(/\s*\([^()]*\)\s*$/, '').trim();
+  if (!name) return null;
+
+  // 가려 둔 값이거나 이름이라 볼 수 없는 것
+  if (name.startsWith('(') || name === '-') return null;
+
+  return name.endsWith('님') ? name : `${name}님`;
+}
+
 export function countUnreadChatByOrder(payloads: unknown[]): Record<string, number> {
   const out: Record<string, number> = {};
 

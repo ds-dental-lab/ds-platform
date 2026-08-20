@@ -14,6 +14,7 @@
 // =========================================================
 
 import HomeScreen from '@/components/home/HomeScreen';
+import UnreadChatBanner from '@/components/home/UnreadChatBanner';
 import type { Sector } from '@/server/domain/order-status';
 import type { HomeSummary } from '@/server/repositories/home';
 
@@ -140,6 +141,25 @@ const CASES: { key: string; label: string; sector: Sector; summary: HomeSummary;
 export default function HomePlayground() {
   return (
     <div className="min-h-screen bg-[#F4F6F9] p-6">
+      {/*
+        ★ 안 읽은 대화 띠. 실제로는 알림이 쌓여야 나오는 자리라,
+          가짜 자료로 여기서 모양만 봅니다 (2026-08-19).
+      */}
+      <section className="mb-10">
+        <h1 className="mb-2 text-[14px] font-bold text-[#4A5567]">
+          안 읽은 대화 띠 — 이름이 있을 때 / 없을 때
+        </h1>
+        <UnreadChatBanner
+          orderPath="/design/orders"
+          orders={[
+            { orderId: '1', orderNo: 'ORD-260819-004', patientCall: '이건희님', count: 3 },
+            { orderId: '2', orderNo: 'ORD-260819-002', patientCall: '김하늘님', count: 1 },
+            { orderId: '3', orderNo: 'ORD-260818-011', patientCall: '박서준님', count: 12 },
+            { orderId: '4', orderNo: 'ORD-260818-007', patientCall: null, count: 2 },
+          ]}
+        />
+      </section>
+
       {CASES.map((c) => (
         <section key={c.key} className="mb-10">
           <h1 className="mb-2 text-[14px] font-bold text-[#4A5567]">{c.label}</h1>
