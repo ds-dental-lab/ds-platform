@@ -136,3 +136,50 @@ export function sentMessage(email: string): string {
 export function resendLabel(secondsLeft: number): string {
   return secondsLeft > 0 ? `재발송 (${secondsLeft}초)` : '인증번호 다시 받기';
 }
+
+// ---------- 못 바꿨을 때 뭐라고 할 것인가 ----------
+
+/**
+ * 인증 서버가 비밀번호를 거절했을 때 화면에 띄울 말.
+ *
+ * ★★ **왜 나눠야 하나** (2026-08-21).
+ *   전에는 무엇이 잘못됐든 "비밀번호를 바꾸지 못했습니다. 처음부터
+ *   다시 해 주세요" 하나였습니다. 세션이 끊긴 것이든, 그냥 흔한
+ *   비밀번호를 골랐든 똑같이 말하고 **인증번호부터 다시 받게** 했습니다.
+ *
+ *   유출 비밀번호 차단을 켠 뒤로 이게 흔한 길이 됐습니다.
+ *   `password123` 을 넣은 사람은 여기서 걸리는데, 바꾸면 되는 일로
+ *   메일함을 다시 열게 하면 안 됩니다.
+ *
+ * ★ 여기서 고칠 수 있는 것이면 `retry: true` — 그 칸에 그대로
+ *   머무릅니다. 아니면 처음부터입니다.
+ *
+ * ★ 인증 서버의 말은 영어입니다. 그대로 보여 주면 아무도 안 읽습니다.
+ */
+export interface SaveFailure {
+  message: string;
+  /** 이 칸에서 다시 해 볼 수 있는가 */
+  retry: boolean;
+}
+
+export function passwordSaveFailure(raw: string | null | undefined): SaveFailure {
+  const text = (raw ?? '').toLowerCase();
+
+  if (text.includes('weak') || text.includes('easy to guess') || text.includes('pwned')) {
+    return {
+      message: '흔히 쓰이거나 이미 유출된 적 있는 비밀번호입니다. 다른 것으로 지어 주세요.',
+      retry: true,
+    };
+  }
+
+  if (text.includes('different from the old password')) {
+    return { message: '지금 쓰시던 것과 같습니다. 다른 것으로 지어 주세요.', retry: true };
+  }
+
+  if (text.includes('at least') || text.includes('should be at least')) {
+    return { message: `비밀번호는 ${MIN_PASSWORD}자 이상으로 해 주세요.`, retry: true };
+  }
+
+  // 세션이 끊겼거나 알 수 없는 사정 — 인증번호부터 다시입니다
+  return { message: '비밀번호를 바꾸지 못했습니다. 처음부터 다시 해 주세요.', retry: false };
+}

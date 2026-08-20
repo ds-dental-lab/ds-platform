@@ -33,6 +33,7 @@ import {
   checkEmail,
   checkCode,
   checkNewPassword,
+  passwordSaveFailure,
   normalizeCode,
   sentMessage,
   resendLabel,
@@ -201,7 +202,22 @@ export default function ResetPasswordPage() {
 
     if (saveError) {
       setLoading(false);
-      setError('비밀번호를 바꾸지 못했습니다. 처음부터 다시 해 주세요.');
+
+      /*
+        ★ 여기서 고칠 수 있는 것과, 처음부터 해야 하는 것을 갈라
+          말합니다 (2026-08-21 — 유출 비밀번호 차단을 켠 뒤로 앞의
+          것이 흔한 길이 됐습니다). 그냥 다른 비밀번호를 지으면 될
+          일로 인증번호부터 다시 받게 하면 안 됩니다.
+      */
+      const failure = passwordSaveFailure(saveError.message);
+      setError(failure.message);
+
+      if (failure.retry) {
+        // 이 칸에 그대로 둡니다 — 두 칸을 비워 다시 넣게만 합니다
+        setPassword('');
+        setConfirm('');
+      }
+
       return;
     }
 

@@ -10,6 +10,7 @@ import {
   normalizeCode,
   checkCode,
   checkNewPassword,
+  passwordSaveFailure,
   sentMessage,
   resendLabel,
   MIN_CODE,
@@ -164,5 +165,53 @@ describe('화면에 쓰는 글', () => {
   it('재발송은 남은 초를 보여 줍니다', () => {
     expect(resendLabel(42)).toBe('재발송 (42초)');
     expect(resendLabel(0)).toBe('인증번호 다시 받기');
+  });
+});
+
+
+/*
+  ★ 인증 서버가 비밀번호를 거절했을 때 (2026-08-21).
+    유출 비밀번호 차단을 켠 뒤로 '흔한 비밀번호' 가 흔한 길이 됐습니다.
+    그냥 다른 것을 지으면 될 일로 인증번호부터 다시 받게 하면 안 됩니다.
+*/
+describe('비밀번호 저장 실패', () => {
+  it('흔하거나 유출된 것이면 그 칸에서 다시 합니다', () => {
+    const r = passwordSaveFailure(
+      'Password is known to be weak and easy to guess, please choose a different one.',
+    );
+    expect(r.retry).toBe(true);
+    expect(r.message).toContain('유출');
+  });
+
+  it('쓰던 것과 같으면 그 칸에서 다시 합니다', () => {
+    const r = passwordSaveFailure('New password should be different from the old password.');
+    expect(r.retry).toBe(true);
+    expect(r.message).toContain('같습니다');
+  });
+
+  it('짧으면 자릿수를 말합니다', () => {
+    const r = passwordSaveFailure('Password should be at least 8 characters.');
+    expect(r.retry).toBe(true);
+    expect(r.message).toContain(String(MIN_PASSWORD));
+  });
+
+  // ★ 세션이 끊긴 것은 여기서 못 고칩니다 — 인증번호부터입니다
+  it('모르는 사정이면 처음부터입니다', () => {
+    for (const raw of ['Auth session missing!', '', null, undefined]) {
+      const r = passwordSaveFailure(raw);
+      expect(r.retry).toBe(false);
+      expect(r.message).toContain('처음부터');
+    }
+  });
+
+  // ★ 인증 서버의 말은 영어입니다. 그대로 새어 나가면 아무도 안 읽습니다
+  it('영어를 그대로 보여 주지 않습니다', () => {
+    for (const raw of [
+      'Password is known to be weak and easy to guess, please choose a different one.',
+      'New password should be different from the old password.',
+      'Auth session missing!',
+    ]) {
+      expect(passwordSaveFailure(raw).message).not.toMatch(/[a-z]{4,}/);
+    }
   });
 });
