@@ -1,5 +1,6 @@
 ﻿import { describe, it, expect } from 'vitest';
 import {
+  statusChangeMessage,
   STATUS_LABEL,
   STATUS_ORDER,
   OWNER_SECTOR,
@@ -457,5 +458,34 @@ describe('기공의뢰서를 뽑을 수 있는 자리', () => {
 
   it('자리가 없으면 못 뽑습니다', () => {
     expect(canPrintWorkOrder([])).toBe(false);
+  });
+});
+
+
+/*
+  ★ 상태가 바뀌었다는 말. (사용자 요청 2026-08-21)
+    배지 글자만 바뀌면 누른 사람이 못 알아채고 한 번 더 누릅니다.
+*/
+describe('상태 변경 알림 문구', () => {
+  it('접수 → 디자인 이면 "디자인 상태로 변경되었습니다"', () => {
+    expect(statusChangeMessage('designing')).toBe('디자인 상태로 변경되었습니다');
+  });
+
+  it('제작대기·배송도 같은 모양입니다', () => {
+    expect(statusChangeMessage('production_wait')).toBe('제작대기 상태로 변경되었습니다');
+    expect(statusChangeMessage('shipping')).toBe('배송 상태로 변경되었습니다');
+  });
+
+  // ★ 이 둘은 '상태로 변경' 이 기계 말투로 들립니다
+  it('취소·완료는 따로 적습니다', () => {
+    expect(statusChangeMessage('cancelled')).toBe('주문이 취소되었습니다');
+    expect(statusChangeMessage('completed')).toBe('주문이 완료되었습니다');
+  });
+
+  it('모든 상태가 빈 말 없이 한 줄을 냅니다', () => {
+    for (const status of STATUS_ORDER) {
+      expect(statusChangeMessage(status).trim().length).toBeGreaterThan(0);
+      expect(statusChangeMessage(status)).not.toContain('undefined');
+    }
   });
 });

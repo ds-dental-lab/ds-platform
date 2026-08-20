@@ -28,7 +28,8 @@ import { useRouter } from 'next/navigation';
 import { getOrderFileUrl, submitDeleteOrderFile } from '@/server/actions/order-file';
 import { formatBytes, middleEllipsis } from '@/lib/format/order';
 import { isFileBlockedFor } from '@/server/domain/file-access';
-import type { Sector } from '@/server/domain/order-status';
+import { statusChangeMessage, type Sector } from '@/server/domain/order-status';
+import { useToast } from '@/components/ui/Toast';
 
 export interface OrderFileRow {
   id: string;
@@ -59,6 +60,7 @@ export default function OrderFileList({
   sector,
 }: OrderFileListProps) {
   const router = useRouter();
+  const toast = useToast();
   const [refreshing, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [asking, setAsking] = useState<OrderFileRow | null>(null);
@@ -79,7 +81,15 @@ export default function OrderFileList({
     save(result.url, result.fileName);
 
     // 기공소가 디자인 파일을 받으면 '제작' 으로 넘어갑니다 — 화면도 따라갑니다
-    if (result.advanced) startTransition(() => router.refresh());
+    if (result.advanced) {
+      /*
+        ★ 이건 **버튼을 안 눌렀는데 바뀌는** 유일한 자리입니다.
+          받았다는 사실이 곧 시작했다는 신호라 저절로 넘어갑니다
+          (actions/order-file). 말이 없으면 왜 바뀌었는지 모릅니다.
+      */
+      toast(statusChangeMessage('production'));
+      startTransition(() => router.refresh());
+    }
   }
 
   async function remove(file: OrderFileRow) {
@@ -231,6 +241,7 @@ export interface DownloadAllButtonProps {
  */
 export function DownloadAllButton({ files, sector }: DownloadAllButtonProps) {
   const router = useRouter();
+  const toast = useToast();
   const [, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(0);
@@ -267,7 +278,10 @@ export function DownloadAllButton({ files, sector }: DownloadAllButtonProps) {
     setBusy(false);
     setDone(0);
 
-    if (advanced) startTransition(() => router.refresh());
+    if (advanced) {
+      toast(statusChangeMessage('production'));
+      startTransition(() => router.refresh());
+    }
   }
 
   return (

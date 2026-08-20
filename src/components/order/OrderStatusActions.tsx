@@ -15,11 +15,13 @@ import { useRouter } from 'next/navigation';
 import { submitStatusChange } from '@/server/actions/order';
 import {
   getActionsForRoles,
+  statusChangeMessage,
   STATUS_LABEL,
   type OrderStatus,
   type Sector,
   type StatusAction,
 } from '@/server/domain/order-status';
+import { useToast } from '@/components/ui/Toast';
 
 export interface OrderStatusActionsProps {
   orderId: string;
@@ -53,6 +55,7 @@ export default function OrderStatusActions({
   forwardBlockedReason,
 }: OrderStatusActionsProps) {
   const router = useRouter();
+  const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [saving, setSaving] = useState(false);
 
@@ -86,13 +89,23 @@ export default function OrderStatusActions({
     setSaving(false);
 
     if (!result.ok) {
+      /*
+        ★ 실패도 같은 자리에 띄웁니다. 성공만 알리면 안 된 것은
+          여전히 아무 말이 없습니다 — 확인창을 닫고 나가면 빨간
+          글씨도 같이 사라집니다.
+      */
       setError(result.error);
+      toast(result.error, 'error');
       return;
     }
 
     setAsking(null);
     setReason('');
     setLabOrgId('');
+
+    // '접수 → 디자인' 이면 '디자인 상태로 변경되었습니다'
+    toast(statusChangeMessage(action.to));
+
     startTransition(() => router.refresh());
   }
 

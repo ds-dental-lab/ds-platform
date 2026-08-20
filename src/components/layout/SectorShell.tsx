@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { clearedKeepCookies } from '@/server/domain/login';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
+import ToastProvider from '@/components/ui/Toast';
 
 export type Sector = 'clinic' | 'design_center' | 'lab';
 
@@ -210,6 +211,12 @@ export default function SectorShell({
   }
 
   return (
+    /*
+      ★ 알림(토스트)을 껍데기에 답니다.
+        화면을 옮겨 다녀도 껍데기는 안 죽으므로, 주문상세에서 목록으로
+        넘어가는 동안에도 "디자인 상태로 변경되었습니다" 가 살아 있습니다.
+    */
+    <ToastProvider>
     <div
       data-sector={sector}
       style={
@@ -393,6 +400,7 @@ export default function SectorShell({
         </div>
       </main>
     </div>
+    </ToastProvider>
   );
 }
 

@@ -632,3 +632,23 @@ export function checkRepairReasons(
 
   return { ok: true };
 }
+
+// ---------- 상태가 바뀌었다는 말 ----------
+
+/**
+ * 상태를 바꾼 뒤 오른쪽 위에 띄울 한 줄. (사용자 요청 2026-08-21)
+ *
+ * ★ 배지 글자만 바뀌는 것으로는 부족합니다.
+ *   '접수' 가 '디자인' 으로 바뀌어도 누른 사람은 그 작은 글자를
+ *   안 봅니다. 그래서 눌렸는지 몰라 한 번 더 누릅니다.
+ *
+ * ★ 취소·완료는 '상태로 변경' 이 어색합니다.
+ *   기계가 만든 문장처럼 들리면 사람이 안 읽습니다. 그 둘만
+ *   따로 적습니다.
+ */
+export function statusChangeMessage(to: OrderStatus): string {
+  if (to === 'cancelled') return '주문이 취소되었습니다';
+  if (to === 'completed') return '주문이 완료되었습니다';
+
+  return `${STATUS_LABEL[to]} 상태로 변경되었습니다`;
+}

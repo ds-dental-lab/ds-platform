@@ -242,6 +242,31 @@
   .ms-dust { opacity: 0.5; }
   .ms-progress { transform: scaleX(0.62); }
 }
+
+/* =========================================================
+   오른쪽 위 알림이 미끄러져 들어오는 것 (2026-08-21)
+
+   ★★ 자바스크립트로 하다 데였습니다.
+     처음엔 requestAnimationFrame 으로 '흐림 → 진함' 을 켰습니다.
+     그런데 창이 뒤에 있거나 그림을 안 그리는 상태면 rAF 가 아예
+     안 옵니다 — 그러면 알림이 **투명한 채로 떴다가 그대로 사라집니다.**
+     아무 말도 없는 것과 같습니다. 실제로 그 상태를 봤습니다.
+
+     CSS 애니메이션은 붙는 순간 저절로 한 번 돕니다. 켜 주는 사람이
+     필요 없으니 안 켜질 일도 없습니다.
+   ========================================================= */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.toast-in {
+  animation: toast-in 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-in { animation: none; }
+}
 /* =========================================================
    인쇄 (2026-08-15)
 

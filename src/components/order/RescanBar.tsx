@@ -20,6 +20,8 @@ import { uploadOrderFiles } from '@/lib/upload';
 import UploadToast, { type UploadState } from '@/components/order/UploadToast';
 import ScanDropZone from '@/components/order/ScanDropZone';
 import type { OrderDetailFile } from '@/server/repositories/order';
+import { statusChangeMessage } from '@/server/domain/order-status';
+import { useToast } from '@/components/ui/Toast';
 
 export interface RescanBarProps {
   orderId: string;
@@ -29,6 +31,7 @@ export interface RescanBarProps {
 
 export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
   const router = useRouter();
+  const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState('');
@@ -92,6 +95,8 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
     }
 
     setOpen(false);
+    // 재스캔이 풀려 접수로 돌아갑니다
+    toast(statusChangeMessage('received'));
     startTransition(() => router.refresh());
   }
 
