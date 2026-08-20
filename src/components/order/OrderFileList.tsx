@@ -27,6 +27,8 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { getOrderFileUrl, submitDeleteOrderFile } from '@/server/actions/order-file';
 import { formatBytes, middleEllipsis } from '@/lib/format/order';
+import { isFileBlockedFor } from '@/server/domain/file-access';
+import type { Sector } from '@/server/domain/order-status';
 
 export interface OrderFileRow {
   id: string;
@@ -41,9 +43,21 @@ export interface OrderFileListProps {
   files: OrderFileRow[];
   /** 지울 수 있는가. 규칙은 domain/order-status 의 canDeleteFile 이 정합니다 */
   deletable?: boolean;
+  /**
+   * 보는 사람의 소속. 기공소면 스캔 원본에 자물쇠가 붙습니다.
+   *
+   * ★ 여기서 감추는 것은 **거들 뿐**입니다. 진짜 문은 서버에 있습니다
+   *   (actions/order-file 의 fileBlockedFor). 목록만 고치면 파일 id 로
+   *   그대로 새어 나갑니다.
+   */
+  sector?: Sector;
 }
 
-export default function OrderFileList({ files, deletable = false }: OrderFileListProps) {
+export default function OrderFileList({
+  files,
+  deletable = false,
+  sector,
+}: OrderFileListProps) {
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -109,6 +123,19 @@ export default function OrderFileList({ files, deletable = false }: OrderFileLis
                   title={file.file_name}
                 >
                   {middleEllipsis(file.file_name)}
+                </span>
+              ) : isFileBlockedFor(sector, { kind: file.kind, fileName: file.file_name }) ? (
+                /*
+                  ★ 감추지 않고 **자물쇠를 채웁니다** (2026-08-20).
+                    아예 안 보이면 기공소는 "치과가 파일을 안 보냈나?" 하고
+                    전화합니다. 있다는 건 알되 못 받는 편이 낫습니다.
+                */
+                <span
+                  className="flex min-w-0 flex-1 items-baseline gap-1.5 text-[#98A2B3]"
+                  title={`${file.file_name} · 스캔 원본은 기공소에서 열 수 없습니다`}
+                >
+                  <span className="truncate">{middleEllipsis(file.file_name)}</span>
+                  <b className="shrink-0 text-[11px] font-bold text-[#B6BECB]">스캔 원본</b>
                 </span>
               ) : (
                 <button
@@ -188,6 +215,8 @@ export default function OrderFileList({ files, deletable = false }: OrderFileLis
 
 export interface DownloadAllButtonProps {
   files: OrderFileRow[];
+  /** 보는 사람의 소속. 기공소면 막힌 파일은 아예 안 셉니다 */
+  sector?: Sector;
 }
 
 /**
@@ -200,13 +229,23 @@ export interface DownloadAllButtonProps {
  * ★ 사이를 조금 띄웁니다.
  *   한꺼번에 쏘면 브라우저가 "여러 파일 내려받기" 를 막습니다.
  */
-export function DownloadAllButton({ files }: DownloadAllButtonProps) {
+export function DownloadAllButton({ files, sector }: DownloadAllButtonProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(0);
 
-  const ready = files.filter((f) => !f.upload_status || f.upload_status === 'uploaded');
+  /*
+    ★ 막힌 파일은 여기서도 빠집니다 (2026-08-20).
+      목록만 고치고 이걸 두면, 기공소가 '전체 받기' 를 눌러 스캔
+      원본을 그대로 가져갑니다. 서버가 막아 주긴 하지만 실패가
+      줄줄이 뜨는 화면이 됩니다 — 애초에 안 세는 편이 맞습니다.
+  */
+  const ready = files.filter(
+    (f) =>
+      (!f.upload_status || f.upload_status === 'uploaded') &&
+      !isFileBlockedFor(sector, { kind: f.kind, fileName: f.file_name }),
+  );
   if (ready.length === 0) return null;
 
   async function downloadAll() {

@@ -452,7 +452,7 @@ export default function OrderDetailScreen({
                 }
               >
                 File Count ({scanArrived.length}/{scanExpected})
-                <DownloadAllButton files={scanFiles} />
+                <DownloadAllButton files={scanFiles} sector={sector} />
               </span>
             }
           >
@@ -475,7 +475,7 @@ export default function OrderDetailScreen({
                   업로드된 스캔 파일이 없습니다.
                 </p>
               ) : (
-                <OrderFileList files={scanFiles} deletable={canRemoveScan} />
+                <OrderFileList files={scanFiles} deletable={canRemoveScan} sector={sector} />
               )}
             </div>
           </Card>
@@ -555,7 +555,7 @@ export default function OrderDetailScreen({
             /* ★ 올리기는 머리줄의 아이콘 하나입니다 — 본문은 목록만 씁니다 */
             right={
               <span className="ml-auto flex items-center gap-1.5">
-                <DownloadAllButton files={designFiles} />
+                <DownloadAllButton files={designFiles} sector={sector} />
                 {designSlot}
               </span>
             }
@@ -566,7 +566,7 @@ export default function OrderDetailScreen({
                   아직 디자인 파일이 없습니다.
                 </p>
               ) : (
-                <OrderFileList files={designFiles} deletable={canRemoveDesign} />
+                <OrderFileList files={designFiles} deletable={canRemoveDesign} sector={sector} />
               )}
             </div>
           </Card>

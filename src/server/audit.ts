@@ -22,7 +22,19 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 
-export type AuditAction = 'order.view' | 'order.list' | 'patient.search' | 'file.download';
+export type AuditAction =
+  | 'order.view'
+  | 'order.list'
+  | 'patient.search'
+  | 'file.download'
+  /**
+   * 막힌 내려받기 (2026-08-20).
+   *
+   * ★ '누가 무엇을 받았나' 만큼 **'누가 무엇을 받으려 했나'** 도 남겨야
+   *   합니다. 기공소가 스캔 원본을 자꾸 누르고 있다면 그건 설계 파일이
+   *   아직 안 올라갔다는 신호일 수도 있습니다 — 막고 끝낼 일이 아닙니다.
+   */
+  | 'file.blocked';
 
 export interface AuditEntry {
   action: AuditAction;

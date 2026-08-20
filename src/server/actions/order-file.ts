@@ -17,6 +17,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
+import { fileBlockedFor } from '@/server/domain/file-access';
 import { recordAccess } from '@/server/audit';
 import { changeOrderStatus } from '@/server/services/order-status';
 import {
@@ -52,6 +53,34 @@ export async function getOrderFileUrl(fileId: string): Promise<FileUrlResult> {
   } | null;
 
   if (!found) return { ok: false, error: '파일을 찾을 수 없습니다' };
+
+  /*
+    ★★ **여기가 진짜 문입니다** (사용자 결정 2026-08-20 —
+      "기공소는 쉐이드 파일만 봐야 하고 스캔 파일을 열어 봐서는 안 된다").
+
+      목록에서 감추는 것만으로는 못 막습니다. 파일 id 만 있으면 이
+      함수를 그대로 부를 수 있고, 그러면 서명 주소가 나갑니다.
+      **주소를 만들기 전에** 막아야 실제로 막힙니다 (설계서 §8.5 —
+      "화면에서 숨기는 것이 아니라 응답에 아예 담기지 않아야 한다").
+
+    ★ 보는 사람의 **소속**으로 가릅니다. 주문의 역할로 가르면 자사
+      제작에서 센터가 자기 주문의 스캔을 못 봅니다 — 통합 모델이라
+      센터가 기공소 자리를 겸하기 때문입니다.
+  */
+  const viewer = await getSession();
+  const blocked = fileBlockedFor(viewer?.orgType, {
+    kind: found.kind,
+    fileName: found.file_name,
+  });
+
+  if (blocked) {
+    /*
+      ★ 막힌 것도 기록에 남깁니다. '누가 무엇을 받았나' 만큼
+        '누가 무엇을 받으려 했나' 도 알아야 합니다.
+    */
+    await recordAccess({ action: 'file.blocked', targetId: fileId });
+    return { ok: false, error: blocked };
+  }
 
   const { data, error } = await supabase.storage
     .from(BUCKET)

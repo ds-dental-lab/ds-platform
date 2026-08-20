@@ -23,6 +23,7 @@ const ACTION_LABEL: Record<string, string> = {
   'order.list': '주문 목록 조회',
   'patient.search': '환자 검색',
   'file.download': '파일 내려받기',
+  'file.blocked': '내려받기 막힘',
 };
 
 const ACTION_COLOR: Record<string, string> = {
@@ -30,6 +31,7 @@ const ACTION_COLOR: Record<string, string> = {
   'order.list': '#5C6779',
   'patient.search': '#C2721B',
   'file.download': '#12855B',
+  'file.blocked': '#C2721B',
 };
 
 const RANGES = [
