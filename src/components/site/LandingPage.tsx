@@ -611,7 +611,7 @@ function Scope() {
               key={p.title}
               data-reveal
               style={{ transitionDelay: `${i * 80}ms` }}
-              className="flex flex-col items-center rounded-2xl bg-white px-5 py-7 text-center"
+              className="flex flex-col items-center rounded-2xl bg-white px-5 py-8 text-center"
             >
               {/*
                 ★ 제목이 카드에서 제일 먼저 읽히는 것이라 크게 잡았습니다.
@@ -622,16 +622,23 @@ function Scope() {
                   (min-h 2.6em = 1.3줄높이 × 2). 짧은 제목 아래가 조금
                   비지만, 그림 넷이 나란한 편이 훨씬 잘 읽힙니다.
               */}
-              <b className="flex min-h-[2.6em] items-center text-balance text-[19px] font-extrabold leading-[1.3] tracking-[-0.035em] text-[#16324F] sm:text-[20px]">
+              <b className="flex min-h-[2.6em] items-center text-balance text-[21px] font-extrabold leading-[1.3] tracking-[-0.04em] text-[#16324F] sm:text-[22px]">
                 {p.title}
               </b>
 
-              <span className="my-4 grid h-14 w-14 place-items-center rounded-2xl bg-[#EAF6F4] text-[#0E8C7F]">
-                <SiteArt name={p.art} className="h-8 w-8" strokeWidth={1.7} />
+              {/*
+                ★ 그림을 키우면서 **선도 같이 굵혔습니다**(1.7 → 1.95).
+                  선 굵기를 그대로 두고 크기만 키우면, 그림이 커질수록
+                  선이 상대적으로 가늘어져 오히려 흐려 보입니다.
+              */}
+              <span className="my-5 grid h-[68px] w-[68px] place-items-center rounded-2xl bg-[#EAF6F4] text-[#0E8C7F]">
+                <SiteArt name={p.art} className="h-10 w-10" strokeWidth={1.95} />
               </span>
 
-              <span className="text-[13px] leading-relaxed text-[#8A94A3]">{p.worry}</span>
-              <b className="mt-1 text-[14.5px] font-bold leading-relaxed text-[#1A2130]">
+              <span className="text-[14px] font-medium leading-relaxed text-[#7C8595]">
+                {p.worry}
+              </span>
+              <b className="mt-1.5 text-balance text-[16px] font-extrabold leading-[1.45] tracking-[-0.02em] text-[#1A2130]">
                 {p.answer}
               </b>
             </li>
