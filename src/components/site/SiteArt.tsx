@@ -28,7 +28,9 @@ export type SiteArtName =
   | 'inlay'
   | 'implant'
   | 'bridge'
-  | 'file';
+  | 'file'
+  | 'track'
+  | 'chart';
 
 /** 크라운 하나. 여러 그림이 같이 쓰므로 따로 뽑아 둡니다 */
 const TOOTH =
@@ -115,6 +117,26 @@ const ART: Record<SiteArtName, ReactNode> = {
     <>
       <path d="M4.4 12.6h23.2a2 2 0 0 1 2 2c0 5.4-2.2 11-5.3 11-2 0-2.1-3-3.1-3s-1.1 3-4 3-3-3-4-3-1.1 3-3.1 3c-3.1 0-5.3-5.6-5.3-11a2 2 0 0 1 2-2Z" />
       <path d="M12.6 12.6v10.2M19.4 12.6v10.2" strokeDasharray="2.4 2.2" strokeOpacity="0.65" />
+    </>
+  ),
+
+  // 진행 상황 — 점을 이어 가는 선. 지금 어디까지 왔는가
+  track: (
+    <>
+      <path d="M5 16h6M15 16h6M25 16h2" />
+      <circle cx="5" cy="16" r="2.4" fill="currentColor" stroke="none" />
+      <circle cx="13" cy="16" r="2.4" fill="currentColor" stroke="none" />
+      <circle cx="23" cy="16" r="2.4" />
+      <path d="M13 16l-2.6 6.4M13 16l2.6-6.4" strokeOpacity="0.35" />
+    </>
+  ),
+
+  // 통계 — 막대 셋. 리메이크 사유를 모아 봅니다
+  chart: (
+    <>
+      <path d="M4.6 27.4h22.8" />
+      <path d="M9.4 27.4V18M16 27.4V9.6M22.6 27.4v-6" />
+      <path d="M6.4 13.6l5-5.4 4.2 3 6.6-6.8" strokeOpacity="0.4" />
     </>
   ),
 

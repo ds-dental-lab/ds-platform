@@ -20,7 +20,7 @@
 import Link from 'next/link';
 import ContactForm from '@/components/site/ContactForm';
 import MillingStage from '@/components/site/MillingStage';
-import { SiteArt } from '@/components/site/SiteArt';
+import { SiteArt, type SiteArtName } from '@/components/site/SiteArt';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import ChannelTalk from '@/components/site/ChannelTalk';
 import ScrollReveal from '@/components/site/ScrollReveal';
@@ -515,39 +515,101 @@ function Contact() {
 
 // ---------- 취급 범위 · 스캐너 ----------
 
+/*
+  ★ 다섯 가지 약속 (사용자 요청 2026-08-18).
+    전에는 '취급 보철 · 스캐너' 두 칸이었습니다. 둘 다 **우리가 무엇을
+    할 수 있는가**였는데, 치과가 궁금한 것은 그게 아니라 **맡기면
+    무엇이 편해지는가**입니다. 그래서 다섯으로 늘리고 전부
+    '치과 쪽에서 좋아지는 것' 으로 다시 썼습니다.
+
+  ★ 다섯 가지 모두 **실제로 되는 것**입니다 — 지어낸 것이 없습니다.
+      ① 스캐너 무관   파일만 받으면 됩니다
+      ② 진행 공유     주문 상태·실시간 대화·배송조회가 이미 있습니다
+      ③ 모델리스 전 품목  제품 표 그대로입니다
+      ④ 리메이크 통계  사유를 모아 통계로 봅니다 (/design/stats)
+      ⑤ 의뢰내역 조회  주문목록 검색이 그것입니다
+    홈페이지에 적은 것을 화면이 못 하면 그게 제일 나쁩니다.
+
+  ★ 번호를 붙였습니다. 다섯은 그냥 늘어놓으면 '많다' 로만 읽히는데,
+    번호가 붙으면 세면서 읽습니다.
+*/
+
+const PROMISES: { art: SiteArtName; title: string; body: string }[] = [
+  {
+    art: 'scan',
+    title: '쓰시던 스캐너 그대로',
+    body: '구강스캔 파일(STL 등)만 보내 주시면 됩니다. 장비를 새로 맞추실 필요가 없습니다.',
+  },
+  {
+    art: 'track',
+    title: '지금 어디까지 왔는지 늘 보입니다',
+    body: '접수·디자인·제작·배송이 화면에 그대로 뜹니다. 진행이 궁금해 전화하실 일이 없습니다.',
+  },
+  {
+    art: 'bridge',
+    title: '크라운부터 임플란트까지, 모델 없이',
+    body: '크라운·브릿지, 인레이·온레이, 임플란트 보철과 어버트먼트를 모델리스로 제작합니다.',
+  },
+  {
+    art: 'chart',
+    title: '리메이크는 원인까지 남깁니다',
+    body: '사유를 모아 매달 들여다보고, 같은 일이 되풀이되지 않게 공정을 고칩니다.',
+  },
+  {
+    art: 'file',
+    title: '지난 의뢰가 한 화면에',
+    body: '환자·보철·날짜로 바로 찾습니다. 언제 무엇을 보내셨는지 한눈에 보입니다.',
+  },
+];
+
 function Scope() {
   return (
     <section className="border-b border-[#E8EBF0] bg-white">
-      <div className="mx-auto grid max-w-[1080px] gap-10 px-6 py-16 sm:grid-cols-2">
-        <div data-reveal className="flex gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#EAF2FE] text-[#1279E8]">
-            <SiteArt name="bridge" className="h-7 w-7" />
-          </span>
-          <div>
-            <h2 className="text-[21px] font-extrabold leading-snug tracking-[-0.035em]">
-              크라운부터 임플란트까지,<br />모두 가능합니다.
-            </h2>
-            <p className="mt-3.5 text-[13.5px] leading-relaxed text-[#4A5567]">
-              크라운·브릿지 / 인레이·온레이 / 임플란트 보철·어버트먼트를 제작합니다.
-              상세 수가는 수가표로 안내드립니다.
-            </p>
-          </div>
-        </div>
+      <div className="mx-auto max-w-[1080px] px-6 py-18 sm:py-24">
+        <p data-reveal className="text-[13px] font-bold tracking-[0.14em] text-[#1279E8]">
+          PROMISE
+        </p>
+        <h2
+          data-reveal
+          style={{ transitionDelay: '80ms' }}
+          className="mt-3 text-[26px] font-extrabold tracking-[-0.035em] sm:text-[30px]"
+        >
+          덴플로우가 지키는 다섯 가지
+        </h2>
+        <p
+          data-reveal
+          style={{ transitionDelay: '140ms' }}
+          className="mt-3.5 max-w-[560px] text-[14.5px] leading-relaxed text-[#4A5567]"
+        >
+          기공소를 바꾸실 때 제일 걱정되는 것부터 없앴습니다.
+        </p>
 
-        <div data-reveal style={{ transitionDelay: '110ms' }} className="flex gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#EAF2FE] text-[#1279E8]">
-            <SiteArt name="file" className="h-7 w-7" />
-          </span>
-          <div>
-            <h2 className="text-[21px] font-extrabold leading-snug tracking-[-0.035em]">
-              어떤 스캐너를 쓰셔도<br />받습니다.
-            </h2>
-            <p className="mt-3.5 text-[13.5px] leading-relaxed text-[#4A5567]">
-              구강스캔 파일(STL 등)을 보내 주시면 됩니다. 쓰시는 스캐너를 알려 주시면
-              맞춰 안내드리겠습니다.
-            </p>
-          </div>
-        </div>
+        {/* ★ 셋씩 놓으면 마지막 줄이 둘입니다. 왼쪽으로 붙여 두면
+              '모자란' 것이 아니라 '이어지는' 것으로 읽힙니다 */}
+        <ul className="mt-10 grid gap-x-8 gap-y-9 sm:grid-cols-2 lg:grid-cols-3">
+          {PROMISES.map((p, i) => (
+            <li
+              key={p.title}
+              data-reveal
+              /* 한 줄씩 물결처럼 — 같은 줄은 같이, 다음 줄은 조금 늦게 */
+              style={{ transitionDelay: `${(i % 3) * 70}ms` }}
+            >
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#EAF2FE] text-[#1279E8]">
+                  <SiteArt name={p.art} className="h-6 w-6" />
+                </span>
+                <b className="text-[13px] font-extrabold tabular-nums tracking-[0.1em] text-[#B6C2D4]">
+                  {String(i + 1).padStart(2, '0')}
+                </b>
+              </div>
+
+              <h3 className="mt-4 text-[17.5px] font-extrabold leading-snug tracking-[-0.035em]">
+                {p.title}
+              </h3>
+              <p className="mt-2.5 text-[13.5px] leading-relaxed text-[#4A5567]">{p.body}</p>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
