@@ -11,6 +11,7 @@ import {
   isSignupSector,
   checkSignup,
   signupFailure,
+  looksAlreadyRegistered,
   canReview,
   checkReviewable,
   checkRejectReason,
@@ -246,5 +247,34 @@ describe('가입 실패 문구', () => {
     ]) {
       expect(signupFailure(raw)).not.toMatch(/[a-z]{4,}/);
     }
+  });
+});
+
+
+/*
+  ★★ 인증 서버가 "성공" 이라고 해도 메일이 안 갈 때가 있습니다
+    (2026-08-21 — 사장님이 이미 쓰는 주소로 가입해 보고 "메일이 안
+    온다" 고 하셨습니다. 메일은 애초에 안 나갔습니다).
+*/
+describe('이미 가입된 주소 알아채기', () => {
+  it('identities 가 비어 있으면 이미 있는 주소입니다', () => {
+    expect(looksAlreadyRegistered({ identities: [] })).toBe(true);
+  });
+
+  it('진짜 새 가입은 identities 가 차 있습니다', () => {
+    expect(looksAlreadyRegistered({ identities: [{ provider: 'email' }] })).toBe(false);
+  });
+
+  // ★ 메일 확인 안 한 계정은 확인 메일을 다시 보내 줍니다 —
+  //   그건 진짜로 갔으니 '보냈습니다' 가 맞습니다
+  it('확인 안 된 계정의 재발송은 막지 않습니다', () => {
+    expect(looksAlreadyRegistered({ identities: [{ provider: 'email' }] })).toBe(false);
+  });
+
+  it('없거나 모양이 다르면 섣불리 단정하지 않습니다', () => {
+    expect(looksAlreadyRegistered(null)).toBe(false);
+    expect(looksAlreadyRegistered(undefined)).toBe(false);
+    expect(looksAlreadyRegistered({})).toBe(false);
+    expect(looksAlreadyRegistered({ identities: null })).toBe(false);
   });
 });

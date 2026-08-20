@@ -238,3 +238,30 @@ export function signupFailure(raw: string | null | undefined): string {
 
   return '가입하지 못했습니다. 잠시 뒤에 다시 해 주세요.';
 }
+
+/**
+ * 인증 서버가 "성공" 이라고 했지만 실은 **이미 있는 주소**인가.
+ *
+ * ★★ **화면이 거짓말을 하고 있었습니다** (2026-08-21).
+ *   사장님이 이미 쓰는 주소로 가입해 보고 "메일이 안 온다" 고
+ *   하셨습니다. 찔러 보니 메일은 애초에 안 나갔습니다 —
+ *   `confirmation_sent_at` 이 그대로였습니다.
+ *
+ * ★ 왜 오류가 안 오나. **주소 캐내기를 막으려고** 그렇습니다.
+ *   "이미 가입됨" 을 그대로 알려 주면, 주소를 하나씩 넣어 보며
+ *   "이 사람이 여기 회원이구나" 를 알아낼 수 있습니다.
+ *   그래서 인증 서버는 가짜 성공을 돌려줍니다.
+ *
+ * ★ 다만 **표시는 남습니다** — `identities` 가 빈 배열로 옵니다.
+ *   진짜 새 가입이면 한 개 이상 들어 있습니다.
+ *
+ * ★ 아직 메일 확인을 안 한 계정은 다릅니다. 그때는 확인 메일을
+ *   **다시 보내 주고** identities 도 채워서 줍니다 — 그건 진짜로
+ *   메일이 간 것이니 "보냈습니다" 가 맞습니다.
+ */
+export function looksAlreadyRegistered(
+  user: { identities?: unknown[] | null } | null | undefined,
+): boolean {
+  if (!user) return false;
+  return Array.isArray(user.identities) && user.identities.length === 0;
+}

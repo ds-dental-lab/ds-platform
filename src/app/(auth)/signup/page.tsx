@@ -37,6 +37,7 @@ import {
   SECTOR_HINT,
   checkSignup,
   signupFailure,
+  looksAlreadyRegistered,
   MIN_PASSWORD,
   type SignupSector,
 } from '@/server/domain/signup';
@@ -140,6 +141,20 @@ export default function SignupPage() {
           알 수 없습니다.
       */
       setError(signupFailure(signError.message));
+      return;
+    }
+
+    /*
+      ★★ **여기서 화면이 거짓말을 하고 있었습니다** (2026-08-21).
+        이미 가입된 주소로 신청하면 인증 서버가 **오류 대신 성공**을
+        돌려줍니다(주소 캐내기 방지). 그대로 믿고 "확인 메일을
+        보냈습니다" 를 띄웠는데, 메일은 애초에 안 나갑니다.
+        사장님이 오지 않을 메일을 기다리셨습니다.
+
+        빈 identities 가 그 표시입니다.
+    */
+    if (looksAlreadyRegistered(data.user)) {
+      setError('이미 가입된 이메일입니다. 로그인해 주세요.');
       return;
     }
 
