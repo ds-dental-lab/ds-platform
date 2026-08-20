@@ -28,38 +28,23 @@
  *
  * ★ 그래도 상한은 둡니다. 실수로 고른 동영상 한 개가 저장소를
  *   갉아먹는 것을 막는 마지막 선입니다.
+ *
+ * ★★ **버킷 값만 고치면 안 됩니다** (2026-08-20 에 데였습니다).
+ *   버킷과 별개로 **프로젝트 전체 상한**이 있습니다. 무료 요금제는
+ *   그 값이 50MB 고정이라, 버킷에 500MB 를 적어 둬도 50MB 를 넘으면
+ *   저장소가 `413 Maximum size exceeded` 로 거절합니다 — 파일을
+ *   보내기도 전에 크기만 보고요.
+ *   실제로 버킷을 100 → 300 → 500 으로 두 번 올렸는데 **둘 다 아무
+ *   효과가 없었고**, 치과가 진짜 파일을 올려 보고서야 알았습니다.
+ *
+ *   Pro 로 올리고 대시보드(Storage → Settings → Upload file size
+ *   limit)에서 500MB 로 푼 뒤에야 통과합니다. 2026-08-20 확인 —
+ *   150MB 통과, 501MB 부터 413.
+ *
+ *   ★ 다음에 이 값을 올릴 때도 **버킷만 보고 됐다고 하지 마세요.**
+ *     진짜 파일 크기로 자리 만들기를 해 봐야 압니다.
  */
 export const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
-
-/**
- * ★★ **지금 서버가 실제로 받는 한계는 50MB 입니다** (2026-08-20 실측).
- *
- *   버킷에 500MB 를 적어 뒀는데도 50MB 를 넘으면 저장소가
- *   `413 Maximum size exceeded` 로 거절합니다 — 파일을 보내기도 전에,
- *   크기만 보고 거절합니다.
- *
- *   **버킷 상한과 별개로 프로젝트 전체 상한이 있습니다.**
- *   무료 요금제는 그 값이 50MB 로 고정이고 못 올립니다.
- *   Pro 로 올려야 대시보드(Storage → Settings)에서 풀 수 있습니다.
- *
- *   ★ 그래서 버킷 값만 고치는 것은 **아무 효과가 없습니다.**
- *     100 → 300 → 500MB 로 두 번 올렸는데 둘 다 소용없었고,
- *     실제 파일을 올려 보고서야 알았습니다.
- *
- *   ★ Pro 로 올려 상한을 푼 뒤에는 **이 상수를 지우세요.**
- *     남겨 두면 풀린 뒤에도 화면이 계속 겁을 줍니다.
- */
-export const SERVER_CEILING_BYTES = 50 * 1024 * 1024;
-
-/**
- * 지금 요금제에서 못 받는 크기인가.
- *
- * ★ 미리 걸러 주는 것이 낫습니다. 서버가 어차피 거절하지만, 그때는
- *   '주문은 만들어졌는데 파일이 없는' 상태가 남습니다.
- */
-export function overServerCeiling(size: number): boolean {
-  return size > SERVER_CEILING_BYTES;
-}
 
 // ---------- 사진 줄이기 ----------
 //
@@ -183,26 +168,6 @@ export function tooBig(size: number): boolean {
 export function checkUploadBatch(
   files: { name: string; size: number }[],
 ): string | null {
-  /*
-    ★ 요금제 상한이 먼저입니다 (2026-08-20).
-      지금은 50MB 를 넘으면 서버가 받지 않습니다. 화면에서 미리 잡아야
-      '주문은 만들어졌는데 파일이 없는' 상태가 안 남습니다.
-      Pro 로 올려 상한을 풀면 이 검사를 지웁니다.
-  */
-  const overCeiling = files.filter((f) => overServerCeiling(f.size));
-
-  if (overCeiling.length > 0) {
-    const names = [...overCeiling]
-      .sort((a, b) => b.size - a.size)
-      .map((f) => `${f.name} (${formatBytes(f.size)})`)
-      .join(', ');
-
-    return (
-      `${names} — 지금은 ${formatBytes(SERVER_CEILING_BYTES)} 까지만 올릴 수 있습니다. ` +
-      '저장소 요금제 상한이라, 올리려면 관리자에게 문의해 주세요'
-    );
-  }
-
   const over = files.filter((f) => tooBig(f.size));
 
   if (over.length > 0) {

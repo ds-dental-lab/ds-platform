@@ -20,8 +20,6 @@ import {
   tooBig,
   formatBytes,
   MAX_ORDER_TOTAL_BYTES,
-  SERVER_CEILING_BYTES,
-  overServerCeiling,
   RESUMABLE_MIN_BYTES,
   TUS_CHUNK_BYTES,
   needsResumable,
@@ -126,14 +124,9 @@ describe('상한', () => {
 const file = (name: string, mb: number) => ({ name, size: mb * MB });
 
 describe('묶음 검사', () => {
-  /*
-    ★ 크기를 50MB 아래로 잡았습니다 (2026-08-20).
-      요금제 상한이 50MB 라 그 위는 지금 다 걸립니다. 여기서 보려는
-      것은 **총량 규칙**이므로, 상한에 안 걸리는 크기로 씁니다.
-      Pro 로 올려 상한을 풀면 150MB 로 되돌려도 됩니다.
-  */
   it('보통 주문은 통과합니다', () => {
-    expect(checkUploadBatch([file('a.stl', 50)])).toBeNull();
+    // 실제 한 건이 이만큼 옵니다 (2026-08-20 확인)
+    expect(checkUploadBatch([file('a.stl', 150)])).toBeNull();
     expect(checkUploadBatch([file('a.stl', 50), file('b.stl', 50), file('c.stl', 50)])).toBeNull();
     expect(checkUploadBatch(Array.from({ length: 10 }, (_, i) => file(`f${i}.stl`, 10)))).toBeNull();
   });
@@ -142,12 +135,7 @@ describe('묶음 검사', () => {
     expect(checkUploadBatch([])).toBeNull();
   });
 
-  // ★ 지금은 요금제 상한(50MB)이 먼저 걸리므로, 코드 상한(500MB)
-  //   자체는 tooBig 으로 따로 봅니다
   it('한 개가 상한을 넘으면 그 이름을 댑니다', () => {
-    expect(tooBig(600 * MB)).toBe(true);
-    expect(tooBig(499 * MB)).toBe(false);
-
     const msg = checkUploadBatch([file('작은거.stl', 10), file('너무큰거.stl', 600)]);
 
     expect(msg).toContain('너무큰거.stl');
@@ -156,7 +144,7 @@ describe('묶음 검사', () => {
 
   // ★ "이 중에 큰 게 있습니다" 로는 어느 것을 빼야 할지 모릅니다
   it('★ 여럿이 넘으면 큰 것부터 댑니다', () => {
-    const msg = checkUploadBatch([file('중간.stl', 80), file('제일큰.stl', 300)])!;
+    const msg = checkUploadBatch([file('중간.stl', 550), file('제일큰.stl', 900)])!;
 
     expect(msg.indexOf('제일큰.stl')).toBeLessThan(msg.indexOf('중간.stl'));
   });
@@ -166,19 +154,15 @@ describe('묶음 검사', () => {
     const folder = Array.from({ length: 30 }, (_, i) => file(`case${i}.stl`, 40));
 
     expect(folder.every((f) => !tooBig(f.size))).toBe(true);
-    expect(folder.every((f) => !overServerCeiling(f.size))).toBe(true);
     expect(checkUploadBatch(folder)).toContain('폴더째');
   });
 
   it('총량은 1GB 까지', () => {
     expect(MAX_ORDER_TOTAL_BYTES).toBe(1024 * MB);
-
-    // 45MB 짜리 스물둘 = 990MB — 하나하나는 요금제 상한 안에 들어옵니다
-    const under = Array.from({ length: 22 }, (_, i) => file(`f${i}.stl`, 45));
-    expect(checkUploadBatch(under)).toBeNull();
-
-    // 하나 더 얹으면 1035MB — 총량을 넘습니다
-    expect(checkUploadBatch([...under, file('one-more.stl', 45)])).not.toBeNull();
+    expect(checkUploadBatch([file('a.stl', 500), file('b.stl', 500)])).toBeNull();
+    expect(
+      checkUploadBatch([file('a.stl', 500), file('b.stl', 500), file('c.stl', 100)]),
+    ).not.toBeNull();
   });
 });
 
@@ -199,40 +183,5 @@ describe('이어올리기로 보낼 것', () => {
   // ★ Supabase 가 6MB 조각을 요구합니다. 다르면 통째로 거절합니다
   it('★ 조각은 6MB 여야 합니다 — 마음대로 못 바꿉니다', () => {
     expect(TUS_CHUNK_BYTES).toBe(6 * MB);
-  });
-});
-
-// =========================================================
-// ★★ 요금제 상한 — 버킷 값과 **다릅니다** (2026-08-20 실측)
-//
-//   버킷에 500MB 를 적어 뒀는데도 50MB 를 넘으면 저장소가 413 으로
-//   거절합니다. 프로젝트 전체 상한이 따로 있고, 무료 요금제는
-//   50MB 고정입니다. 버킷 값만 고치는 것은 아무 효과가 없습니다 —
-//   100 → 300 → 500 으로 두 번 올렸다가 실제 파일을 올려 보고 알았습니다.
-// =========================================================
-
-describe('요금제 상한', () => {
-  it('★ 지금 실제로 받는 한계는 50MB 입니다', () => {
-    expect(SERVER_CEILING_BYTES).toBe(50 * MB);
-    expect(overServerCeiling(50 * MB)).toBe(false);
-    expect(overServerCeiling(50 * MB + 1)).toBe(true);
-  });
-
-  // ★ 코드가 500MB 라고 해도 서버가 안 받으면 소용없습니다
-  it('★ 코드 상한보다 낮습니다 — 이 차이가 실패의 원인이었습니다', () => {
-    expect(SERVER_CEILING_BYTES).toBeLessThan(MAX_UPLOAD_BYTES);
-  });
-
-  // ★ 서버가 어차피 거절하지만, 그때는 '주문은 있는데 파일이 없는'
-  //   상태가 남습니다. 고르는 자리에서 미리 잡아야 합니다
-  it('★ 묶음 검사가 요금제 상한을 먼저 봅니다', () => {
-    const msg = checkUploadBatch([file('큰거.dxd', 150)]);
-
-    expect(msg).toContain('큰거.dxd');
-    expect(msg).toContain('50');
-  });
-
-  it('50MB 이하는 그대로 통과합니다', () => {
-    expect(checkUploadBatch([file('a.dxd', 50), file('b.dxd', 40)])).toBeNull();
   });
 });
