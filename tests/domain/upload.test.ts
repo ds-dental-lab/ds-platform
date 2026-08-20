@@ -180,8 +180,25 @@ describe('이어올리기로 보낼 것', () => {
     expect(needsResumable(5 * MB)).toBe(false);
   });
 
-  // ★ Supabase 가 6MB 조각을 요구합니다. 다르면 통째로 거절합니다
-  it('★ 조각은 6MB 여야 합니다 — 마음대로 못 바꿉니다', () => {
-    expect(TUS_CHUNK_BYTES).toBe(6 * MB);
+  /*
+    ★ 조각은 **6MB 의 배수**여야 합니다. 6MB 는 S3 조각의 하한이고,
+      배수로 키우는 것은 됩니다 — 150MB 를 실제로 올려 재 봤습니다
+      (6MB 15.4초 / 24MB 10.2초, 2026-08-21).
+
+    ★ 값을 못 박지 않고 **규칙**을 못 박습니다. 다음에 또 손댈 값이라,
+      숫자를 적어 두면 시험이 "바꾸지 말라" 는 말밖에 못 합니다.
+  */
+  it('★ 조각은 6MB 의 배수여야 합니다', () => {
+    expect(TUS_CHUNK_BYTES % (6 * MB)).toBe(0);
+    expect(TUS_CHUNK_BYTES).toBeGreaterThanOrEqual(6 * MB);
+  });
+
+  /*
+    ★ 조각이 이어올리기 문턱보다 작으면 안 됩니다.
+      그러면 '이어올리기로 보낼 만큼 큰 파일' 이 조각 하나에도
+      안 들어가는 뒤집힌 모양이 됩니다.
+  */
+  it('★ 조각은 이어올리기 문턱보다 작지 않습니다', () => {
+    expect(TUS_CHUNK_BYTES).toBeGreaterThanOrEqual(RESUMABLE_MIN_BYTES);
   });
 });
