@@ -139,6 +139,19 @@ async function createUpload(
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
+
+    /*
+      ★ 413 은 **요금제 상한**입니다 (2026-08-20 실측).
+        버킷에 500MB 를 적어 둬도 프로젝트 전체 상한(무료 50MB)이
+        낮으면 여기서 거절합니다 — 파일을 보내기도 전에 크기만 보고요.
+        "413 Maximum size exceeded" 만 보여 주면 무엇을 해야 하는지
+        아무도 모릅니다.
+    */
+    if (res.status === 413) {
+      onReason('파일이 너무 큽니다 — 저장소 요금제 상한(50MB)에 걸렸습니다');
+      return null;
+    }
+
     onReason(`자리 만들기 실패 (${res.status}) ${body.slice(0, 120)}`);
     return null;
   }

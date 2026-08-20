@@ -378,7 +378,9 @@ function putWithProgress(
         retryable: xhr.status >= 500,
         reason: ok
           ? undefined
-          : `서버가 거절했습니다 (${xhr.status}) ${(xhr.responseText || '').slice(0, 120)}`,
+          : xhr.status === 413
+            ? '파일이 너무 큽니다 — 저장소 요금제 상한(50MB)에 걸렸습니다'
+            : `서버가 거절했습니다 (${xhr.status}) ${(xhr.responseText || '').slice(0, 120)}`,
       });
     };
 
