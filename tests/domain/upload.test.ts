@@ -97,8 +97,10 @@ describe('줄인 것을 쓸까', () => {
 });
 
 describe('상한', () => {
-  it('100MB 까지입니다', () => {
-    expect(MAX_UPLOAD_BYTES).toBe(100 * MB);
+  // ★ 한 덩어리 150MB 가 실제로 옵니다 (2026-08-20 확인). 그 두 배로 잡았습니다
+  it('★ 300MB 까지입니다 — 150MB 한 덩어리가 들어와야 합니다', () => {
+    expect(MAX_UPLOAD_BYTES).toBe(300 * MB);
+    expect(tooBig(150 * MB)).toBe(false);
     expect(tooBig(MAX_UPLOAD_BYTES)).toBe(false);
     expect(tooBig(MAX_UPLOAD_BYTES + 1)).toBe(true);
   });
