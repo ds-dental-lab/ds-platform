@@ -537,7 +537,11 @@ function OrderFormBody({
     let orderNo = createdOrderNo;
 
     if (!orderId) {
-      const result = await submitOrder(payload);
+      /*
+        ★ 올릴 파일 수를 함께 보냅니다. 주문이 **업로드중**으로
+          태어나, 파일이 다 자리를 잡아야 접수가 됩니다 (§3-3).
+      */
+      const result = await submitOrder({ ...payload, plannedFileCount: pendingFiles.length });
 
       if (!result.ok) {
         setSaving(false);

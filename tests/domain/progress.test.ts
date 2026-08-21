@@ -212,3 +212,40 @@ describe('수거가 여러 건이면 제일 덜 온 것을 따른다', () => {
     expect(pickupPhase([])).toBeNull();
   });
 });
+
+/*
+  ★ 업로드중 (작업지시서 §3-3, 2026-08-21).
+    접수 앞에 칸 하나를 더 세웁니다 — 접수를 '지금' 으로 켜면 이미
+    접수된 것처럼 보입니다. 파일이 아직 다 안 왔는데요.
+*/
+describe('업로드중 진행 막대', () => {
+  it('업로드중 칸이 맨 앞에 켜지고 접수는 아직입니다', () => {
+    const steps = orderProgress({ status: 'uploading', isRepair: false, pickups: [] });
+
+    expect(labels(steps)[0]).toBe('업로드중');
+    expect(steps[0].state).toBe('current');
+    expect(steps.find((s) => s.label === '접수')?.state).toBe('todo');
+  });
+
+  /*
+    ★★ **취소로 그려진 적이 있습니다.** 업로드중에 음수 순번을 줬더니
+      `rank < 0` 을 취소로 보는 길로 빠졌습니다. 다시는 안 그러게 못박습니다.
+  */
+  it('★ 취소로 그려지지 않습니다', () => {
+    const steps = orderProgress({ status: 'uploading', isRepair: false, pickups: [] });
+
+    expect(labels(steps)).not.toContain('취소');
+    expect(steps.length).toBeGreaterThan(1);
+  });
+
+  it('켜진 칸은 하나뿐입니다', () => {
+    const steps = orderProgress({ status: 'uploading', isRepair: false, pickups: [] });
+    expect(steps.filter((s) => s.state === 'current')).toHaveLength(1);
+  });
+
+  // ★ 리페어는 디자인을 안 지납니다 — 여기서도 같습니다
+  it('리페어면 디자인 칸이 없습니다', () => {
+    const steps = orderProgress({ status: 'uploading', isRepair: true, pickups: [] });
+    expect(labels(steps)).not.toContain('디자인');
+  });
+});

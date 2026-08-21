@@ -7,6 +7,8 @@
 import { STATUS_LABEL, type OrderStatus } from '@/server/domain/order-status';
 
 const STATUS_STYLE: Record<OrderStatus, string> = {
+  // ★ 회색입니다. 아직 아무 일도 시작 안 된 자리라 눈에 덜 띄어야 합니다
+  uploading: 'bg-slate-100 text-slate-500',
   received: 'bg-blue-50 text-blue-700',
   rescan: 'bg-red-50 text-red-700',
   designing: 'bg-purple-50 text-purple-700',

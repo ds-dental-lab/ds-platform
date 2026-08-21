@@ -35,6 +35,15 @@ export interface ProgressStep {
  */
 const RANK: Record<OrderStatus, number> = {
   cancelled: -1,
+  /*
+    ★ 접수와 같은 자리입니다. 뒤로 간 것이 아니라 **접수 칸에 아직
+      도착하지 못한 것**입니다 — 재스캔과 같은 이치입니다.
+
+    ★★ 음수를 주면 안 됩니다. 아래에서 `rank < 0` 을 **취소**로
+      보기 때문에, 업로드중인 주문이 '취소' 로 그려집니다.
+      실제로 -0.5 를 넣었다가 그렇게 됐습니다.
+  */
+  uploading: 0,
   rescan: 0,
   received: 0,
   designing: 1,
@@ -104,6 +113,23 @@ export function orderProgress(input: ProgressInput): ProgressStep[] {
   // 취소된 주문은 과정이 없습니다. 거기서 멈춘 것입니다
   if (rank < 0) {
     return [{ key: 'cancelled', label: '취소', state: 'current' }];
+  }
+
+  /*
+    ★ 업로드중은 **접수 앞에 칸 하나를 더 세웁니다** (작업지시서 §3-3).
+      접수를 '지금' 으로 켜면 이미 접수된 것처럼 보입니다 — 파일이
+      아직 다 안 왔는데요. 무엇을 기다리는 중인지가 보여야 합니다.
+  */
+  if (input.status === 'uploading') {
+    return [
+      { key: 'uploading', label: '업로드중', state: 'current' },
+      { key: 'received', label: '접수', state: 'todo' },
+      ...(input.isRepair ? [] : [{ key: 'designing', label: '디자인', state: 'todo' as const }]),
+      { key: 'production_wait', label: '제작대기', state: 'todo' },
+      { key: 'production', label: '작업중', state: 'todo' },
+      { key: 'shipping', label: '배송중', state: 'todo' },
+      { key: 'completed', label: '완료', state: 'todo' },
+    ];
   }
 
   const phase = pickupPhase(input.pickups);

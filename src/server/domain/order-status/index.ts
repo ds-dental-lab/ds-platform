@@ -1,4 +1,21 @@
 ﻿export type OrderStatus =
+  /**
+   * 파일이 아직 다 안 올라온 주문. (작업지시서 §3-3)
+   *
+   * ★★ **왜 상태를 새로 만드나.**
+   *   파일 개수가 주문마다 다릅니다. 10개 중 8개만 올라간 주문이
+   *   '접수' 로 서면, 디자인센터는 그것을 정상으로 보고 작업을
+   *   시작합니다 — 빠진 두 개가 무엇이었는지는 아무도 모릅니다.
+   *   하루 30건이 들어오기 시작하면 매일 겪습니다.
+   *
+   * ★ 사람이 누르는 상태가 아닙니다. 마지막 파일이 자리를 잡는
+   *   순간 DB 가 스스로 '접수' 로 옮깁니다 (order_files 트리거).
+   *   그래서 이 상태에는 '다음으로' 버튼이 없습니다.
+   *
+   * ★ 실패가 하나라도 남아 있으면 여기 머무릅니다. 치과 화면이
+   *   "몇 개 중 몇 개" 와 다시 시도를 보여 줍니다.
+   */
+  | 'uploading'
   | 'received'
   | 'rescan'
   | 'designing'
@@ -11,6 +28,7 @@
 export type Sector = 'clinic' | 'design_center' | 'lab';
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
+  uploading: '업로드중',
   received: '접수',
   rescan: '재스캔',
   designing: '디자인',
@@ -22,6 +40,12 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
 };
 
 export const OWNER_SECTOR: Record<OrderStatus, Sector | null> = {
+  /*
+    ★ 업로드중은 **치과의 손**에 있습니다. 파일을 마저 올려야 넘어갑니다.
+      디자인센터를 적으면 아직 자료도 안 온 주문이 그쪽 '할 일' 로
+      올라갑니다 — 열어 봐야 할 것이 없는데 열게 만듭니다.
+  */
+  uploading: 'clinic',
   received: 'design_center',
   rescan: 'clinic',
   designing: 'design_center',
@@ -33,6 +57,13 @@ export const OWNER_SECTOR: Record<OrderStatus, Sector | null> = {
 };
 
 const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
+  /*
+    ★ 다음은 접수지만 **사람이 누르지 않습니다.** 마지막 파일이
+      자리를 잡는 순간 DB 가 옮깁니다. 여기 적어 두는 것은 '순서' 를
+      아는 곳(진행 막대·정렬)이 쓰기 때문이고, 버튼은
+      getAvailableActions 가 따로 막습니다.
+  */
+  uploading: 'received',
   received: 'designing',
   rescan: 'received',
   designing: 'production_wait',
@@ -104,6 +135,22 @@ export function canTransition(
 
   if (isFinal(from)) {
     return { allowed: false, reason: STATUS_LABEL[from] + ' 된 주문은 변경할 수 없습니다' };
+  }
+
+  /*
+    ★★ **업로드중은 사람이 못 밉니다** (작업지시서 §3-3).
+      마지막 파일이 자리를 잡는 순간 DB 가 스스로 접수로 옮깁니다.
+      여기를 열어 두면 치과가 파일이 덜 올라간 채로 '접수' 를 눌러
+      넘길 수 있고, 그러면 이 상태를 만든 이유가 통째로 사라집니다.
+
+    ★ 지우는 것은 막지 않습니다. 잘못 넣은 주문을 그만둘 길은 있어야
+      합니다 — 그건 상태 전이가 아니라 삭제입니다.
+  */
+  if (from === 'uploading') {
+    return {
+      allowed: false,
+      reason: '파일이 다 올라오면 저절로 접수됩니다. 남은 파일을 마저 올려 주세요',
+    };
   }
 
   if (to === 'cancelled') {
@@ -192,7 +239,12 @@ export type EditScope = 'full' | 'files' | 'none';
  */
 export function editScopeOf(status: OrderStatus, sector?: Sector): EditScope {
   if (sector === 'design_center') return 'full';
-  if (status === 'received') return 'full';
+  /*
+    ★ 업로드중은 접수와 같이 봅니다. 아직 아무도 그 사양으로 일을
+      시작하지 않았습니다 — 자료도 다 안 왔으니까요.
+      치과가 파일을 마저 올리러 들어오는 자리이기도 합니다.
+  */
+  if (status === 'uploading' || status === 'received') return 'full';
   if (status === 'rescan') return 'files';
   return 'none';
 }
@@ -250,7 +302,7 @@ export function canEditDueDate(status: OrderStatus, sector: Sector): boolean {
  * ★ 주문 취소 버튼을 없앴으므로 이 길이 유일한 출구입니다.
  *   접수·재스캔에서 막으면 그만둘 방법이 사라집니다.
  */
-const DELETABLE_STATUSES: OrderStatus[] = ['received', 'rescan'];
+const DELETABLE_STATUSES: OrderStatus[] = ['uploading', 'received', 'rescan'];
 
 /**
  * ★ 디자인센터는 **단계를 안 가립니다** (사용자 결정 2026-08-12).
@@ -383,6 +435,8 @@ export function isActionRequired(status: OrderStatus, sector: Sector): boolean {
 //   누르는 순간 기공소에 일이 넘어가기 때문입니다. 무엇이 끝났는지가
 //   아니라 무엇이 시작되는지를 알아야 손이 멈춥니다.
 const FORWARD_LABEL: Record<OrderStatus, string> = {
+  // ★ 빈 값 — 업로드중에는 앞으로 미는 버튼이 없습니다
+  uploading: '',
   received: '디자인 시작',
   rescan: '재업로드 완료',
   designing: '제작주문',
@@ -494,6 +548,7 @@ export function getActionsForRoles(status: OrderStatus, roles: Sector[]): Status
 }
 
 export const STATUS_ORDER: OrderStatus[] = [
+  'uploading',
   'received',
   'rescan',
   'designing',
@@ -566,8 +621,13 @@ export function canDeleteFile(
   return roles.includes('clinic') || roles.includes('design_center');
 }
 
-/** 파일을 더 올리거나 지울 수 있는 상태 */
-const FILE_EDITABLE_STATUSES: OrderStatus[] = ['received', 'rescan', 'designing'];
+/**
+ * 파일을 더 올리거나 지울 수 있는 상태.
+ *
+ * ★ 업로드중이 여기 없으면 **다시 시도를 못 합니다.** 파일이 덜
+ *   올라가서 만든 상태인데 파일을 못 만지면 영영 못 빠져나옵니다.
+ */
+const FILE_EDITABLE_STATUSES: OrderStatus[] = ['uploading', 'received', 'rescan', 'designing'];
 
 export function canEditFiles(status: OrderStatus): boolean {
   return FILE_EDITABLE_STATUSES.includes(status);

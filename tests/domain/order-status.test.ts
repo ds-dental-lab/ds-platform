@@ -14,6 +14,8 @@ import {
   canEditSpec,
   editScopeOf,
   canDeleteOrder,
+  isFinished,
+  canReturnToDesign,
   canRequestRemake,
   canRequestRepair,
   getNewOrderStatus,
@@ -32,11 +34,13 @@ import {
 } from '@/server/domain/order-status';
 
 describe('상태 목록', () => {
-  it('여덟 가지', () => {
-    expect(STATUS_ORDER).toHaveLength(8);
-    expect(STATUS_ORDER[2]).toBe('designing');
-    expect(STATUS_ORDER[3]).toBe('production_wait');
-    expect(STATUS_ORDER[7]).toBe('cancelled');
+  it('아홉 가지', () => {
+    // 업로드중이 맨 앞에 늘었습니다 (작업지시서 §3-3, 2026-08-21)
+    expect(STATUS_ORDER).toHaveLength(9);
+    expect(STATUS_ORDER[0]).toBe('uploading');
+    expect(STATUS_ORDER[3]).toBe('designing');
+    expect(STATUS_ORDER[4]).toBe('production_wait');
+    expect(STATUS_ORDER[8]).toBe('cancelled');
   });
 
   it('DB enum 이름과 같다', () => {
@@ -487,5 +491,81 @@ describe('상태 변경 알림 문구', () => {
       expect(statusChangeMessage(status).trim().length).toBeGreaterThan(0);
       expect(statusChangeMessage(status)).not.toContain('undefined');
     }
+  });
+});
+
+
+/*
+  ★★ 업로드중 (작업지시서 §3-3, 2026-08-21).
+    파일 개수가 주문마다 다릅니다. 10개 중 8개만 올라간 주문이
+    '접수' 로 서면 디자인센터는 정상으로 보고 작업을 시작합니다 —
+    빠진 둘이 무엇이었는지는 아무도 모릅니다.
+*/
+describe('업로드중', () => {
+  it('제일 앞 단계입니다', () => {
+    expect(STATUS_LABEL.uploading).toBe('업로드중');
+    expect(getNextStatus('uploading')).toBe('received');
+  });
+
+  // ★★ 이것이 이 상태의 전부입니다
+  it('사람이 앞으로 못 밉니다 — 세 섹터 모두', () => {
+    for (const sector of ['clinic', 'design_center', 'lab'] as const) {
+      const verdict = canTransition('uploading', 'received', sector);
+      expect(verdict.allowed).toBe(false);
+      expect(verdict.reason).toContain('저절로');
+    }
+  });
+
+  it('버튼이 하나도 없습니다', () => {
+    for (const sector of ['clinic', 'design_center', 'lab'] as const) {
+      expect(getAvailableActions('uploading', sector)).toEqual([]);
+    }
+  });
+
+  it('어디로도 손으로 못 옮깁니다', () => {
+    for (const to of STATUS_ORDER) {
+      if (to === 'uploading') continue;
+      for (const sector of ['clinic', 'design_center', 'lab'] as const) {
+        expect(canTransition('uploading', to, sector).allowed).toBe(false);
+      }
+    }
+  });
+
+  // ★ 공은 치과에 있습니다 — 파일을 마저 올려야 넘어갑니다
+  it('디자인센터의 할 일로 뜨지 않습니다', () => {
+    expect(isActionRequired('uploading', 'clinic')).toBe(true);
+    expect(isActionRequired('uploading', 'design_center')).toBe(false);
+    expect(isActionRequired('uploading', 'lab')).toBe(false);
+  });
+
+  /*
+    ★★ 여기가 막히면 **영영 못 빠져나옵니다.**
+      파일이 덜 올라가서 만든 상태인데 파일을 못 만지면,
+      다시 시도할 길도 그만둘 길도 없습니다.
+  */
+  it('파일을 다시 올리고 지울 수 있습니다', () => {
+    expect(canEditFiles('uploading')).toBe(true);
+    expect(canDeleteFile('scan', 'uploading', ['clinic'])).toBe(true);
+    expect(canDeleteFile('scan', 'uploading', ['design_center'])).toBe(true);
+  });
+
+  it('주문 자체를 지울 수 있습니다 — 그만둘 길', () => {
+    expect(canDeleteOrder('uploading', 'clinic')).toBe(true);
+  });
+
+  it('사양도 고칠 수 있습니다 — 아직 아무도 시작 안 했습니다', () => {
+    expect(editScopeOf('uploading', 'clinic')).toBe('full');
+    expect(canEditSpec('uploading', 'clinic')).toBe(true);
+  });
+
+  it('끝난 상태가 아닙니다', () => {
+    expect(isFinal('uploading')).toBe(false);
+    expect(isFinished('uploading')).toBe(false);
+  });
+
+  // ★ 아직 자료도 안 온 주문으로 되돌릴 것이 없습니다
+  it('재스캔·디자인수정 대상이 아닙니다', () => {
+    expect(canRequestRescan('uploading', 'design_center')).toBe(false);
+    expect(canReturnToDesign('uploading', 'design_center')).toBe(false);
   });
 });

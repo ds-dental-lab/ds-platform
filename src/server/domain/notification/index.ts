@@ -118,6 +118,13 @@ export function planStatusNotifications(
 /** 그 상태에서 다음으로 움직여야 하는 쪽 */
 function nextOwnerSlot(status: OrderStatus): RecipientSlot | null {
   const map: Record<OrderStatus, RecipientSlot | null> = {
+    /*
+      ★ 업로드중은 아무에게도 안 알립니다.
+        올리는 사람은 지금 그 화면을 보고 있습니다 — 자기가 하는 일을
+        자기에게 알리는 셈입니다. 디자인센터에 알리면 "왔나?" 하고
+        열어 봤다가 자료가 없는 일이 됩니다.
+    */
+    uploading: null,
     received: 'design',
     rescan: 'clinic',
     designing: 'design',

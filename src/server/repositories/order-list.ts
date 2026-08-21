@@ -245,6 +245,7 @@ function pickIssue(
 
 /** 상태는 이름이 아니라 진행 순서로 세웁니다 */
 const STATUS_RANK: Record<OrderStatus, number> = {
+  uploading: -1,
   rescan: 0,
   received: 1,
   designing: 2,

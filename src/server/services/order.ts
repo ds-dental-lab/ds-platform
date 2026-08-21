@@ -72,6 +72,21 @@ export interface CreateOrderInput {
   severedKeys?: string[];   // 사용자가 끊어 둔 브릿지 연결
   /** 제작옵션 — { 그룹id: 값id } (명세서 §4.2.8) */
   options?: Record<string, string>;
+  /**
+   * 이 주문에 지금부터 올릴 스캔 파일이 몇 개인가. (작업지시서 §3-3)
+   *
+   * ★ 하나라도 있으면 주문은 **업로드중**으로 태어납니다.
+   *   파일이 다 자리를 잡으면 DB 가 스스로 접수로 옮깁니다.
+   *
+   * ★ **수를 어디에 적어 두지는 않습니다.**
+   *   전에 `orders.scan_file_expected` 칸이 있었는데 바로 다음
+   *   마이그레이션이 걷어냈습니다 — 개수만으로는 '무엇이' 빠졌는지
+   *   모르기 때문입니다. 지금 매니페스트는 **올리기 전에 만들어 두는
+   *   order_files 줄**입니다. 이름과 크기가 거기 있습니다.
+   *
+   *   그래서 이 값은 '업로드중으로 시작할까' 를 정하는 데만 씁니다.
+   */
+  plannedFileCount?: number;
 }
 
 export type CreateOrderResult =
@@ -249,6 +264,9 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   const labels = await buildPatientLabels(supabase, input, owners.clinicOrgId);
   if (!labels) return { ok: false, error: '환자를 찾을 수 없습니다' };
 
+  // ★ 음수·소수·터무니없는 값이 와도 그대로 넣지 않습니다
+  const planned = Math.max(0, Math.floor(input.plannedFileCount ?? 0));
+
   // 주문 만들기
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -260,7 +278,16 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       patient_label: labels.plain,
       patient_label_masked: labels.masked,
       order_type: input.orderType ?? 'modelless',
-      status: 'received',
+      /*
+        ★★ 올릴 파일이 있으면 **업로드중**으로 시작합니다 (§3-3).
+          10개 중 8개만 올라간 주문이 '접수' 로 서면 디자인센터가
+          그것을 정상으로 보고 작업을 시작합니다 — 빠진 둘이
+          무엇이었는지는 아무도 모릅니다.
+
+        ★ 넘어가는 것은 사람이 아니라 마지막 파일입니다
+          (order_files 트리거).
+      */
+      status: planned > 0 ? 'uploading' : 'received',
       due_date: input.dueDate,
       notes: input.notes ?? null,
       created_by: user.id,

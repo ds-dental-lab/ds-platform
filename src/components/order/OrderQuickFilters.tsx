@@ -44,6 +44,14 @@ const RESCAN_ICON = (
 );
 
 const STATUS_ICON: Record<OrderStatus, React.ReactNode> = {
+  // 업로드중 — 위로 올라가는 화살표
+  uploading: (
+    <>
+      <path d="M12 19.5V6" />
+      <path d="M6.5 11.5 12 6l5.5 5.5" />
+      <path d="M4.5 3.5h15" />
+    </>
+  ),
   rescan: RESCAN_ICON,
   received: (
     <>

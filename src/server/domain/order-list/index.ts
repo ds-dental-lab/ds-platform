@@ -26,6 +26,13 @@ export const SECTOR_COLOR: Record<StatusSector, { color: string; label: string }
 
 /** 목록 필터에 나오는 상태와 그 담당 섹터. 취소는 목록 필터에 없습니다 */
 export const LIST_STATUSES: { status: OrderStatus; sector: StatusSector }[] = [
+  /*
+    ★ 업로드중은 **치과 색**입니다. 파일을 마저 올려야 넘어가므로
+      공이 치과에 있습니다 (작업지시서 §3-3).
+    ★ 기공소 목록에는 안 뜹니다 — statusesForSector 가 걸러냅니다.
+      배정 전 단계라 어차피 볼 일이 없습니다.
+  */
+  { status: 'uploading', sector: 'clinic' },
   { status: 'rescan', sector: 'clinic' },
   { status: 'received', sector: 'clinic' },
   { status: 'designing', sector: 'design' },

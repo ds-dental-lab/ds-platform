@@ -128,7 +128,9 @@ describe('상태 색은 섹터 기준', () => {
 
   it('★ 목록 필터에 취소는 없다', () => {
     expect(LIST_STATUSES.map((s) => s.status)).not.toContain('cancelled');
-    expect(LIST_STATUSES).toHaveLength(7);
+    // 업로드중이 늘어 여덟입니다 (작업지시서 §3-3, 2026-08-21)
+    expect(LIST_STATUSES).toHaveLength(8);
+    expect(LIST_STATUSES[0].status).toBe('uploading');
   });
 });
 
