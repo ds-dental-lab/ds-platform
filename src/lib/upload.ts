@@ -97,11 +97,24 @@ export type UploadProgressHandler = (progress: UploadProgress) => void;
  *   "몇 %" 를 보여주려면 XMLHttpRequest 의 upload.onprogress 가 필요합니다.
  *   그것 말고는 supabase-js 가 하는 일과 같습니다 (같은 REST 끝점).
  */
+export interface UploadOptions {
+  /**
+   * 사진을 줄일까. 기본은 줄입니다 (2026-08-14 — 저장소 아끼기).
+   *
+   * ★★ **쉐이드 촬영만 false 입니다** (2026-08-21).
+   *   그 기능은 **카톡의 압축을 피하려고** 만드는 것입니다. 우리가
+   *   또 줄이면 만드는 이유가 없어집니다. 색이 미세하게 움직이는
+   *   것만으로도 쉐이드 판별이 틀어집니다.
+   */
+  compress?: boolean;
+}
+
 export async function uploadOrderFiles(
   orderId: string,
   original: File[],
   onProgress?: UploadProgressHandler,
   kind: UploadKind = 'scan',
+  options: UploadOptions = {},
 ): Promise<UploadResult> {
   const supabase = createClient();
   const uploaded: UploadedFile[] = [];
@@ -117,8 +130,12 @@ export async function uploadOrderFiles(
 
       스캔·설계 파일은 안 건드립니다 — 규칙은 domain/upload 에 있고,
       못 줄이면 원본이 그대로 옵니다. 여기서 실패로 끝나는 길은 없습니다.
+
+    ★★ 쉐이드 촬영은 이 줄을 **건너뜁니다**(compress: false).
+      카톡의 압축을 피하려고 만드는 기능이라, 우리가 또 줄이면
+      만드는 이유가 없어집니다.
   */
-  const files = await compressImages(original);
+  const files = options.compress === false ? original : await compressImages(original);
 
   const [{ data: { user } }, { data: { session } }] = await Promise.all([
     supabase.auth.getUser(),
