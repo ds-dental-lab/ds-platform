@@ -32,7 +32,10 @@ const TABLES = [
   'order_bridge_members', 'order_no_counters', 'patients', 'pickup_requests',
   'remake_reasons',
   // 제품·단가
-  'prosthesis_types', 'prosthesis_materials', 'price_lists', 'surcharge_prices',
+  // ★ price_lists 를 뺐습니다 — **없는 표였습니다** (보안 점검 2026-08-21).
+  //   백업이 조용히 건너뛰고 있었습니다. 목록에 있는데 없는 표는
+  //   "받았다" 는 착각을 만듭니다.
+  'prosthesis_types', 'prosthesis_materials', 'surcharge_prices',
   'clinic_product_prices', 'lab_product_costs',
   'production_option_groups', 'production_option_values', 'clinic_option_presets',
   'implant_makers', 'implant_types', 'implant_sizes', 'implant_screws',
