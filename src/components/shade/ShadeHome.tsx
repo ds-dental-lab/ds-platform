@@ -13,11 +13,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import ShadeQuickShot from '@/components/shade/ShadeQuickShot';
 import { SHADE_STATUS_LABEL, type ShadeStatus } from '@/server/domain/shade-photo';
+import { matchesAny } from '@/server/domain/hangul';
 import type { ShadeCase } from '@/server/repositories/shade-photo';
 
 const CHIP: Record<ShadeStatus, string> = {
@@ -76,8 +76,20 @@ export default function ShadeHome({
   clinicOrgId?: string;
   unsortedCount?: number;
 }) {
-  const router = useRouter();
   const [q, setQ] = useState(keyword);
+
+  /*
+    ★★ **치는 대로 즉시** 좁힙니다. 서버에 물으면 글자마다 왕복이
+      생기고, 진료실에서는 그게 느림으로 느껴집니다.
+      최근 7일은 백 줄 남짓이라 브라우저가 거르는 편이 빠릅니다.
+
+    ★ 초성으로 찾습니다 — 'ㄱㅁㅅ' 로 김민서 (명세서 S1).
+      이름을 다 치고 있을 시간이 없습니다.
+  */
+  const shown = useMemo(
+    () => cases.filter((c) => matchesAny([c.patientLabel, c.orderNo], q)),
+    [cases, q],
+  );
 
   const now = new Date();
   const today = dayKey(now);
@@ -87,16 +99,11 @@ export default function ShadeHome({
 
   // 날짜별로 묶습니다 — 이미 최신순으로 왔으므로 순서가 유지됩니다
   const groups: { label: string; rows: ShadeCase[] }[] = [];
-  for (const c of cases) {
+  for (const c of shown) {
     const label = dayLabel(c.createdAt, today, yesterday);
     const last = groups[groups.length - 1];
     if (last && last.label === label) last.rows.push(c);
     else groups.push({ label, rows: [c] });
-  }
-
-  function search(e: React.FormEvent) {
-    e.preventDefault();
-    router.push(q.trim() ? `/m?q=${encodeURIComponent(q.trim())}` : '/m');
   }
 
   return (
@@ -143,18 +150,29 @@ export default function ShadeHome({
         </Link>
       )}
 
-      <form onSubmit={search} className="mt-4">
+      <div className="relative mt-4">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="환자명 · 주문번호 검색"
-          className="w-full rounded-xl border border-[var(--line)] bg-white px-4 py-3 text-[14.5px] outline-none placeholder:text-[#9FB0C0] focus:border-[var(--teal)]"
+          placeholder="환자명 검색 (ㄱㅁㅅ 가능)"
+          className="w-full rounded-xl border border-[var(--line)] bg-white px-4 py-3 pr-10 text-[14.5px] outline-none placeholder:text-[#9FB0C0] focus:border-[var(--teal)]"
         />
-      </form>
+
+        {q && (
+          <button
+            type="button"
+            onClick={() => setQ('')}
+            aria-label="지우기"
+            className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[15px] text-[#9FB0C0]"
+          >
+            &#10005;
+          </button>
+        )}
+      </div>
 
       {groups.length === 0 && (
         <p className="mt-12 text-center text-[14px] text-[var(--muted)]">
-          {keyword ? '찾는 의뢰가 없습니다' : '아직 촬영할 의뢰가 없습니다'}
+          {q.trim() ? '찾는 의뢰가 없습니다' : '아직 촬영할 의뢰가 없습니다'}
         </p>
       )}
 

@@ -6,6 +6,8 @@
 //   src/app/favicon.ico   16·32·48 세 장을 담은 ICO
 //   src/app/apple-icon.png 180x180 (아이폰 홈 화면)
 //   public/logo.png        512x512 (검색 결과 로고 · 구조화 데이터)
+//   public/pwa-192.png     192x192 (안드로이드 홈 화면)
+//   public/pwa-512.png     512x512 (설치 화면 · 스플래시)
 //
 // ★ 손으로 고치는 파일이 아닙니다. 마크를 바꾸면 icon.svg 만 고치고
 //   이것을 다시 돌리세요. 셋이 어긋나면 탭·홈화면·북마크에서
@@ -97,6 +99,25 @@ await sharp(Buffer.from(APPLE), { density: 512 })
   .png()
   .toFile(new URL('../public/logo.png', import.meta.url).pathname.replace(/^\//, ''));
 
+/*
+  홈 화면에 얹는 아이콘. (명세서 Phase 3 — "아이콘=brand 심볼")
+
+  ★ logo.png 를 그대로 쓰지 않습니다. 그건 **검색엔진에게 주는 그림**
+    이라 주소가 안 변해야 하는 파일입니다. 쓰임이 다른 것을 한 파일로
+    묶으면, 한쪽 사정으로 고칠 때 다른 쪽이 조용히 망가집니다.
+
+  ★ `maskable` 로 씁니다 — 안드로이드가 동그라미·네모로 잘라 갑니다.
+    APPLE 그림이 이미 여백을 넉넉히 둔 정사각이라 잘려도 마크가
+    살아남습니다.
+*/
+for (const size of [192, 512]) {
+  await sharp(Buffer.from(APPLE), { density: 512 })
+    .resize(size, size)
+    .png()
+    .toFile(new URL(`../public/pwa-${size}.png`, import.meta.url).pathname.replace(/^\//, ''));
+}
+
 console.log(`favicon.ico  ${sizes.join('·')} 세 장`);
 console.log('apple-icon.png  180x180');
 console.log('public/logo.png  512x512');
+console.log('public/pwa-192.png · pwa-512.png');

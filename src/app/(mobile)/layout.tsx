@@ -17,9 +17,34 @@
 //   지금처럼 기록에 남습니다.
 // =========================================================
 
+import type { Metadata, Viewport } from 'next';
 import { requireSector } from '@/server/policies/session';
+import PwaSetup from '@/components/shade/PwaSetup';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: '쉐이드 촬영',
+  /*
+    ★ 아이폰은 매니페스트를 잘 안 봅니다. 이 값들이 있어야 '홈 화면에
+      추가' 로 얹었을 때 주소창 없이 앱처럼 열립니다.
+  */
+  appleWebApp: { capable: true, title: '덴플로우', statusBarStyle: 'default' },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#16324F',
+  /*
+    ★★ **확대를 막지 않습니다.** 폰 화면을 못 키우게 하면 눈이 어두운
+      분들이 못 씁니다. 진료실에는 여러 사람이 씁니다.
+
+    ★ `viewportFit: cover` — 노치 있는 폰에서 아래 버튼이 홈바에
+      가리지 않게 합니다.
+  */
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
 
 export default async function MobileLayout({ children }: { children: React.ReactNode }) {
   await requireSector('clinic');
@@ -39,6 +64,7 @@ export default async function MobileLayout({ children }: { children: React.React
       }
     >
       {children}
+      <PwaSetup />
     </div>
   );
 }

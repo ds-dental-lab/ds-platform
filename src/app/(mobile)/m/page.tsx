@@ -14,20 +14,21 @@ import ShadeHome from '@/components/shade/ShadeHome';
 
 export const dynamic = 'force-dynamic';
 
-export default async function MobileHomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
-  const { q } = await searchParams;
+export default async function MobileHomePage() {
   const session = await requireSector('clinic');
-  const [cases, unsorted] = await Promise.all([listShadeCases(q), countUnsortedPhotos()]);
+
+  /*
+    ★ 검색어를 서버로 안 보냅니다. 최근 7일은 백 줄 남짓이라 통째로
+      내려 주고 **브라우저가 치는 대로** 좁힙니다 (domain/hangul).
+      초성 검색은 ilike 로 못 합니다.
+  */
+  const [cases, unsorted] = await Promise.all([listShadeCases(), countUnsortedPhotos()]);
 
   return (
     <ShadeHome
       cases={cases}
       clinicName={session.orgName ?? ''}
-      keyword={q ?? ''}
+      keyword=""
       clinicOrgId={session.orgId ?? undefined}
       unsortedCount={unsorted}
     />
