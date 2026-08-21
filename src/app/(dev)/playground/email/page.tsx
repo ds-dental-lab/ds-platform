@@ -16,6 +16,18 @@
 //   후하게 나옵니다. 글자만 여백을 갖습니다.
 // =========================================================
 
+import { invoiceHtml } from '@/server/mail/invoice-mail';
+
+const INVOICE = invoiceHtml({
+  partyType: 'clinic',
+  partyName: '[안양]선한이웃치과',
+  yearMonth: '2026-08',
+  invoiceNo: 'INV-26000489',
+  amount: 1_240_000,
+  dueDate: '2026-09-10',
+  siteUrl: 'https://denflow.kr',
+});
+
 export default function EmailPlayground() {
   return (
     <main>
@@ -35,6 +47,16 @@ export default function EmailPlayground() {
       </div>
 
       <div dangerouslySetInnerHTML={{ __html: CONFIRMATION }} />
+
+      <div className="px-6">
+        <h2 className="mt-6 font-semibold">③ 청구서 발행 알림 (우리가 직접 보냅니다)</h2>
+        <p className="mt-1 text-[12.5px] text-[#98A2B3]">
+          위 둘은 Supabase 가 보내는 인증 메일이고, 이건 우리 서버가 Resend 로 직접 보냅니다.
+          세부내역(환자 이름)은 일부러 안 싣습니다.
+        </p>
+      </div>
+
+      <div dangerouslySetInnerHTML={{ __html: INVOICE }} />
     </main>
   );
 }

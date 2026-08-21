@@ -33,6 +33,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitIssueInvoice, submitReopenBilling } from '@/server/actions/billing';
+import { useToast } from '@/components/ui/Toast';
 
 export interface CloseBarProps {
   partyOrgId: string;
@@ -63,6 +64,7 @@ export default function CloseBar({
   unpricedCount,
 }: CloseBarProps) {
   const router = useRouter();
+  const toast = useToast();
   const [refreshing, startTransition] = useTransition();
   const [asking, setAsking] = useState<'issue' | 'reopen' | null>(null);
   const [saving, setSaving] = useState(false);
@@ -85,6 +87,21 @@ export default function CloseBar({
     if (!result.ok) {
       setError(result.error);
       return;
+    }
+
+    /*
+      ★★ 발행은 됐는데 **메일이 못 나갔을 수 있습니다** (2026-08-21).
+        그때 아무 말도 안 하면, 치과가 못 받은 채 납부기한이 지납니다.
+        발행 자체는 되돌리지 않습니다 — 돈 문서는 확정됐고 메일만
+        못 간 것이라, 이유를 보여 주고 '재발송' 을 누르게 합니다.
+
+      ★ 잘 갔을 때도 **어디로 갔는지**를 말합니다. 그래야 사람이
+        "그 주소 아닌데" 를 알아챕니다.
+    */
+    if (kind === 'issue' && 'mailFailed' in result && result.mailFailed) {
+      setError(`발행은 됐지만 메일이 못 갔습니다: ${result.mailFailed}`);
+    } else if (kind === 'issue' && 'mailSentTo' in result && result.mailSentTo) {
+      toast(`${result.mailSentTo} 로 청구서를 보냈습니다`);
     }
 
     startTransition(() => router.refresh());

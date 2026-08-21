@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { checkPayment, summarize, checkCreditReason } from '@/server/domain/invoice';
 import { canManageMembers, type MemberRole } from '@/server/domain/member';
+import { sendInvoiceNotice } from '@/server/mail/invoice-notice';
 
 export type InvoiceActionResult = { ok: true } | { ok: false; error: string };
 
@@ -112,12 +113,16 @@ export async function submitUndoPayment(paymentId: string): Promise<InvoiceActio
 // ---------- 재발송 ----------
 
 /**
- * 다시 보냈다고 적습니다.
+ * 청구서를 다시 보냅니다.
  *
- * ★ 지금은 **기록만** 합니다. 실제로 메일이 나가지 않습니다.
- *   발송 서비스(도메인·API 키)가 아직 없습니다. 그때까지는 사람이
- *   보내고 여기에 눌러 둡니다 — "언제 다시 보냈나" 가 남아야 "안 왔다"
- *   는 말에 답할 수 있습니다. 발송이 붙으면 이 함수 안에서 보냅니다.
+ * ★ 전에는 **기록만** 했습니다 — 발송 서비스가 없어서, 사람이 직접
+ *   보내고 여기 눌러 두는 용도였습니다. 2026-08-21 에 진짜로 나갑니다.
+ *
+ * ★ 발행과 **같은 함수**를 씁니다. 두 군데에 따로 적으면 언젠가
+ *   한쪽만 고칩니다.
+ *
+ * ★ 세는 것은 보낸 뒤입니다. 먼저 세면 안 나갔는데 '보냄' 으로 남아
+ *   "안 왔다" 는 말에 답할 수 없습니다 (sendInvoiceNotice 안에서 합니다).
  */
 export async function submitResend(periodId: string): Promise<InvoiceActionResult> {
   const session = await requireDesign();
@@ -125,23 +130,17 @@ export async function submitResend(periodId: string): Promise<InvoiceActionResul
 
   const supabase = await createClient();
 
-  const { data: before } = await supabase
+  const { data } = await supabase
     .from('billing_periods')
-    .select('sent_count')
-    .eq('id', periodId)
-    .maybeSingle();
-
-  const count = (before as { sent_count: number } | null)?.sent_count ?? 0;
-
-  const { data, error } = await supabase
-    .from('billing_periods')
-    .update({ sent_count: count + 1, last_sent_at: new Date().toISOString() })
+    .select('id')
     .eq('id', periodId)
     .not('issued_at', 'is', null)
-    .select('id');
+    .maybeSingle();
 
-  if (error) return { ok: false, error: `적지 못했습니다: ${error.message}` };
-  if (!data || data.length === 0) return { ok: false, error: '발행된 청구서가 아닙니다' };
+  if (!data) return { ok: false, error: '발행된 청구서가 아닙니다' };
+
+  const sent = await sendInvoiceNotice(periodId);
+  if (!sent.ok) return { ok: false, error: `보내지 못했습니다: ${sent.reason}` };
 
   refresh();
 

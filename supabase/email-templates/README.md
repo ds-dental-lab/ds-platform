@@ -27,6 +27,22 @@ HTML 칸에 파일 내용을 통째로 붙여넣고 **제목(Subject)** 도 함�
 `resetPasswordForEmail` 이 `redirectTo: /reset` 을 주고, 그 화면이
 `PASSWORD_RECOVERY` 를 받아 비밀번호 칸으로 넘어갑니다.
 
+## ★ 청구서 메일은 여기 없습니다
+
+이 폴더는 **Supabase 가 보내는 인증 메일**(로그인·비밀번호 찾기) 전용입니다.
+대시보드에 붙여넣는 것들입니다.
+
+청구서는 **우리 서버가 Resend 로 직접 보냅니다** —
+`src/server/mail/invoice-mail.ts` (글) · `send.ts` (보내기).
+그래서 열쇠가 대시보드 말고 **우리 env** 에도 있어야 합니다:
+
+```
+RESEND_API_KEY=re_...
+```
+
+`.env.local` 과 Vercel → Settings → Environment Variables 양쪽에.
+없으면 발행은 되지만 메일이 안 나가고, 화면이 그 이유를 말합니다.
+
 ## 보기
 
 `npm run dev` 뒤 **http://localhost:3000/playground/email**

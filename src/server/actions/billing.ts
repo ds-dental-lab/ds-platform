@@ -20,9 +20,29 @@ import { todayInKst } from '@/server/domain/week';
 import { paymentDueDate } from '@/server/domain/invoice';
 import { missingContact, wantsEmail, type InvoiceMethod } from '@/server/domain/invoice-method';
 import { checkAdjustment } from '@/server/domain/billing';
+import { sendInvoiceNotice } from '@/server/mail/invoice-notice';
 
 export type BillingResult =
-  | { ok: true; lines: number; amount: number }
+  | {
+      ok: true;
+      lines: number;
+      amount: number;
+      /**
+       * 청구서 메일이 나간 주소. 발행에서만 채워집니다.
+       *
+       * ★ 발행은 됐다고 끝이 아닙니다. 화면이 "어디로 보냈는지" 를
+       *   말해 줘야 사람이 "그 주소 아닌데" 를 알아챕니다.
+       */
+      mailSentTo?: string;
+      /**
+       * 발행은 됐지만 메일이 못 나간 이유.
+       *
+       * ★★ 이것이 있어도 **발행은 성공**입니다. 돈 문서는 확정됐고
+       *   메일만 못 갔습니다. 되돌리면 번호만 태웁니다 — 대신 왜
+       *   못 갔는지를 그대로 보여 주고 다시 보내게 합니다.
+       */
+      mailFailed?: string;
+    }
   | { ok: false; error: string };
 
 function refresh() {
@@ -269,8 +289,24 @@ export async function submitIssueInvoice(
     return { ok: false, error: '이미 발행한 기간입니다' };
   }
 
+  /*
+    ★ 발행과 동시에 메일이 나갑니다 (사용자 결정 2026-08-21).
+      버튼을 따로 두면 누르는 것을 잊고, 치과는 청구서를 영영 못 받습니다.
+
+    ★★ **메일이 안 나가도 발행은 그대로 둡니다.**
+      발행은 돈 문서를 확정하는 일이고 메일은 곁다리입니다. 되돌리면
+      번호만 태우고 아무것도 안 남습니다. 대신 **왜 안 나갔는지를
+      그대로 알립니다** — 사람이 그 자리에서 다시 보낼 수 있게요.
+  */
+  const notice = await sendInvoiceNotice(data[0].id);
+
   refresh();
-  return { ok: true, lines: 0, amount: 0 };
+
+  if (!notice.ok) {
+    return { ok: true, lines: 0, amount: 0, mailFailed: notice.reason };
+  }
+
+  return { ok: true, lines: 0, amount: 0, mailSentTo: notice.to };
 }
 
 /** 입금 확인 */
