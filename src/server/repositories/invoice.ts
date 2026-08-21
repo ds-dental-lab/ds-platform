@@ -187,6 +187,17 @@ export interface PaymentRow {
   memo: string;
   authorName: string;
   createdAt: string;
+  /**
+   * 이미 되돌린 입금인가.
+   *
+   * ★★ 이게 없어서 **되돌린 줄에도 '되돌리기' 가 떠 있었습니다**
+   *   (사용자 신고 2026-08-21). 두 번 세 번 눌리면 음수 줄이 그만큼
+   *   쌓여 합계가 어긋납니다. 화면에서 먼저 감추고, 서버와 DB 가
+   *   각각 한 번 더 막습니다.
+   */
+  reversed: boolean;
+  /** 이 줄 자체가 되돌림인가. 되돌림을 되돌리진 않습니다 */
+  isReversal: boolean;
 }
 
 export async function listPayments(fromMonth?: string, toMonth?: string): Promise<PaymentRow[]> {
@@ -198,7 +209,7 @@ export async function listPayments(fromMonth?: string, toMonth?: string): Promis
   const { data, error } = await supabase
     .from('billing_payments')
     .select(
-      'id, period_id, amount, paid_on, memo, created_by, created_at, ' +
+      'id, period_id, amount, paid_on, memo, created_by, created_at, reverses_payment_id, ' +
         'period:billing_periods!inner(invoice_no, year_month, ' +
         'party:organizations!billing_periods_party_org_id_fkey(name))',
     )
@@ -214,6 +225,7 @@ export async function listPayments(fromMonth?: string, toMonth?: string): Promis
     memo: string | null;
     created_by: string | null;
     created_at: string;
+    reverses_payment_id: string | null;
     period: { invoice_no: string | null; year_month: string; party: { name: string } | null };
   }
 
@@ -226,6 +238,15 @@ export async function listPayments(fromMonth?: string, toMonth?: string): Promis
 
   const names = await loadUserNames(supabase, rows.map((r) => r.created_by));
 
+  /*
+    ★ 되돌려진 입금이 어느 것인지 — 되돌림 줄들이 가리키는 id 를 모읍니다.
+      **거른 뒤(rows)가 아니라 원본(data)에서** 모읍니다. 기간 필터에
+      걸려 되돌림 줄만 빠지면, 되돌려진 입금에 버튼이 다시 살아납니다.
+  */
+  const reversedIds = new Set(
+    (data as unknown as Raw[]).map((r) => r.reverses_payment_id).filter(Boolean) as string[],
+  );
+
   return rows.map((r) => ({
     id: r.id,
     periodId: r.period_id,
@@ -236,6 +257,8 @@ export async function listPayments(fromMonth?: string, toMonth?: string): Promis
     memo: r.memo ?? '',
     authorName: r.created_by ? (names.get(r.created_by) ?? '') : '',
     createdAt: r.created_at,
+    reversed: reversedIds.has(r.id),
+    isReversal: Boolean(r.reverses_payment_id),
   }));
 }
 

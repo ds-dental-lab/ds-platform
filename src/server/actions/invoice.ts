@@ -88,21 +88,51 @@ export async function submitUndoPayment(paymentId: string): Promise<InvoiceActio
 
   const { data } = await supabase
     .from('billing_payments')
-    .select('period_id, amount')
+    .select('period_id, amount, reverses_payment_id')
     .eq('id', paymentId)
     .maybeSingle();
 
-  const row = data as { period_id: string; amount: number } | null;
+  const row = data as {
+    period_id: string;
+    amount: number;
+    reverses_payment_id: string | null;
+  } | null;
+
   if (!row) return { ok: false, error: '입금 기록을 찾을 수 없습니다' };
+
+  /*
+    ★★ **되돌린 줄을 또 되돌리지 않습니다** (사용자 신고 2026-08-21).
+      전에는 누를 때마다 음수 줄이 하나씩 더 생겼습니다. 같은 입금
+      하나에 되돌림이 셋 붙어 합계가 10만원 어긋났습니다.
+  */
+  if (row.reverses_payment_id) {
+    return { ok: false, error: '되돌림 줄은 되돌릴 수 없습니다' };
+  }
+
+  const { data: already } = await supabase
+    .from('billing_payments')
+    .select('id')
+    .eq('reverses_payment_id', paymentId)
+    .limit(1);
+
+  if (already && already.length > 0) {
+    return { ok: false, error: '이미 되돌린 입금입니다' };
+  }
 
   const { error } = await supabase.from('billing_payments').insert({
     period_id: row.period_id,
     amount: -row.amount,
     memo: '되돌림',
     created_by: session.user.id,
+    // ★ 어느 입금을 되돌린 것인지 적습니다. DB 가 둘째 줄을 막습니다
+    reverses_payment_id: paymentId,
   });
 
-  if (error) return { ok: false, error: `되돌리지 못했습니다: ${error.message}` };
+  if (error) {
+    // 두 사람이 동시에 눌렀을 때 — 고유 색인이 막아 줍니다
+    const dup = error.message.includes('billing_payments_reversal_once');
+    return { ok: false, error: dup ? '이미 되돌린 입금입니다' : `되돌리지 못했습니다: ${error.message}` };
+  }
 
   await syncPaidAt(supabase, row.period_id);
   refresh();
@@ -167,14 +197,31 @@ export async function submitCancelInvoice(periodId: string): Promise<InvoiceActi
 
   const supabase = await createClient();
 
-  const { data: payments } = await supabase
-    .from('billing_payments')
-    .select('id')
-    .eq('period_id', periodId)
-    .limit(1);
+  /*
+    ★★ **줄 수가 아니라 남은 금액으로 봅니다** (사용자 신고 2026-08-21).
 
-  if (payments && payments.length > 0) {
-    return { ok: false, error: '입금이 적힌 청구서입니다. 입금을 먼저 되돌려 주세요' };
+      전에는 '입금 줄이 하나라도 있으면' 막고 "입금을 먼저 되돌려
+      주세요" 라고 말했습니다. 그런데 되돌리기는 줄을 지우지 않고
+      음수 줄을 **더 만듭니다**. 시키는 대로 할수록 줄이 늘어 더
+      못 하게 되는 안내였습니다.
+
+      다 되돌렸으면 남은 금액이 0 입니다 — 그때는 취소해도 됩니다.
+      기록은 그대로 남습니다(지우지 않는 것이 이 표의 규칙입니다).
+  */
+  const { data: payRows } = await supabase
+    .from('billing_payments')
+    .select('amount')
+    .eq('period_id', periodId);
+
+  const paid = ((payRows ?? []) as { amount: number }[]).reduce((sum, r) => sum + r.amount, 0);
+
+  if (paid !== 0) {
+    return {
+      ok: false,
+      error:
+        `입금 ${paid.toLocaleString('ko-KR')}원이 남아 있는 청구서입니다. ` +
+        '정산내역에서 입금을 되돌린 뒤에 취소해 주세요',
+    };
   }
 
   const { data, error } = await supabase

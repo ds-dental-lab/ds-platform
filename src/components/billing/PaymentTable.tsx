@@ -84,8 +84,12 @@ export default function PaymentTable({ rows }: { rows: PaymentRow[] }) {
                   <td className="px-4 py-3 text-[#4A5567]">{row.memo || '-'}</td>
                   <td className="px-4 py-3 text-[#98A2B3]">{row.authorName || '-'}</td>
                   <td className="px-4 py-3 text-right">
-                    {/* 되돌린 줄을 또 되돌리진 않습니다 */}
-                    {row.amount > 0 && (
+                    {/*
+                      ★ 되돌림 줄도, **이미 되돌린 입금**도 버튼이 없습니다.
+                        전에는 뒤엣것에 버튼이 남아 있어 두 번 세 번
+                        눌렸습니다 (사용자 신고 2026-08-21).
+                    */}
+                    {row.amount > 0 && !row.reversed && !row.isReversal && (
                       <button
                         type="button"
                         onClick={() => undo(row)}
