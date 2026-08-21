@@ -16,6 +16,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { canShoot } from '@/server/domain/shade-photo';
+import { publishShadePhotoAdded } from '@/server/events/shade-photo';
 import type { OrderStatus } from '@/server/domain/order-status';
 
 const BUCKET = 'order-files';
@@ -120,6 +121,17 @@ export async function submitMatchUnsorted(
   }
 
   if (moved === 0) return { ok: false, error: '사진을 옮기지 못했습니다. 잠시 뒤 다시 해 주세요' };
+
+  /*
+    ★ 미분류에서 붙인 것도 **똑같이 알립니다.** 찍은 길이 달랐을 뿐,
+      만드는 쪽에는 같은 일입니다.
+  */
+  await publishShadePhotoAdded({
+    orderId,
+    count: moved,
+    actorOrgId: session.orgId,
+    actorUserId: session.user.id,
+  });
 
   revalidatePath('/m', 'layout');
   revalidatePath(`/clinic/orders/${orderId}`);

@@ -124,3 +124,42 @@ export function groupUnsorted(rows: { session_id: string; created_at: string }[]
 
   return [...boxes.values()].sort((a, b) => b.takenAt.localeCompare(a.takenAt));
 }
+
+// ---------- 알림 (명세서 S4 — "기공소에 알림을 보냈습니다") ----------
+
+export interface ShadeNotice {
+  title: string;
+  body: string;
+}
+
+/**
+ * 쉐이드 사진이 붙었다는 알림.
+ *
+ * ★★ 화면이 "알림을 보냈습니다" 라고 **말만** 하고 있었습니다
+ *   (2026-08-21). 하지도 않은 일을 했다고 하는 것이라 먼저 고칩니다.
+ *
+ * ★ 환자 이름을 씁니다. 기공소는 이름으로 케이스를 찾습니다
+ *   ([[기공소가 보는 것]] — 이름은 봅니다).
+ *
+ * ★ 몇 장인지 적습니다. "왔다" 만으로는 세 장 중 한 장만 온 것을
+ *   못 알아챕니다.
+ */
+export function shadeNotice(orderNo: string, patientLabel: string, count: number): ShadeNotice {
+  return {
+    title: `쉐이드 사진 ${count}장이 왔습니다`,
+    body: `${orderNo} · ${patientLabel}`,
+  };
+}
+
+/** 웹푸시로 나갈 때의 모양. 같은 주문이면 갈아끼웁니다 */
+export function shadePushPayload(
+  orderId: string,
+  orderNo: string,
+  patientLabel: string,
+  count: number,
+  link: string,
+) {
+  const notice = shadeNotice(orderNo, patientLabel, count);
+
+  return { title: notice.title, body: notice.body, link, tag: `shade-${orderId}` };
+}

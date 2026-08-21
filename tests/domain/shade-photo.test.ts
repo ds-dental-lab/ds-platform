@@ -13,6 +13,8 @@ import {
   SHADE_CUTS,
   SHADE_STATUS_LABEL,
   HOME_DAYS,
+  shadeNotice,
+  shadePushPayload,
 } from '@/server/domain/shade-photo';
 import { LAB_OPEN_EXTENSIONS } from '@/server/domain/file-access';
 import { STATUS_ORDER } from '@/server/domain/order-status';
@@ -117,5 +119,47 @@ describe('시안에서 가져온 값', () => {
 
   it('홈은 최근 7일', () => {
     expect(HOME_DAYS).toBe(7);
+  });
+});
+
+
+/*
+  ★★ 화면이 "기공소에 알림을 보냈습니다" 라고 **말만** 하고 있었습니다
+    (2026-08-21). 하지도 않은 일을 했다고 하는 것이라 먼저 고쳤습니다.
+*/
+describe('쉐이드 알림 문구', () => {
+  it('몇 장인지 적습니다', () => {
+    expect(shadeNotice('ORD-260821-001', '김민서', 3).title).toBe('쉐이드 사진 3장이 왔습니다');
+  });
+
+  /*
+    ★ "왔다" 만으로는 세 장 중 한 장만 온 것을 못 알아챕니다.
+      장수가 제목에 있어야 목록에서 바로 보입니다.
+  */
+  it('한 장이어도 장수가 보입니다', () => {
+    expect(shadeNotice('ORD-1', '김', 1).title).toContain('1장');
+  });
+
+  // ★ 기공소는 환자 이름으로 케이스를 찾습니다
+  it('본문에 주문번호와 환자 이름', () => {
+    expect(shadeNotice('ORD-260821-001', '김민서', 2).body).toBe('ORD-260821-001 · 김민서');
+  });
+
+  /*
+    ★ 같은 주문이면 폰의 알림을 **갈아끼웁니다.** 세 번 찍었다고
+      폰에 세 줄이 쌓이면 그게 곧 카톡입니다.
+  */
+  it('★ 같은 주문은 같은 딱지(tag)', () => {
+    const a = shadePushPayload('order-1', 'ORD-1', '김', 1, '/lab/orders/order-1');
+    const b = shadePushPayload('order-1', 'ORD-1', '김', 3, '/lab/orders/order-1');
+
+    expect(a.tag).toBe(b.tag);
+    expect(a.tag).toContain('order-1');
+  });
+
+  it('누를 곳이 함께 갑니다', () => {
+    expect(shadePushPayload('o1', 'ORD-1', '김', 1, '/design/orders/o1').link).toBe(
+      '/design/orders/o1',
+    );
   });
 });

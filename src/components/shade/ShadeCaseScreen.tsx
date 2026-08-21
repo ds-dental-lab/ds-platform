@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { uploadOrderFiles } from '@/lib/upload';
+import { submitShadePhotoAdded } from '@/server/actions/shade-photo';
 import { shadePhotoName, SHADE_STATUS_LABEL } from '@/server/domain/shade-photo';
 import ShadeCamera from '@/components/shade/ShadeCamera';
 import type { ShadeCaseDetail } from '@/server/repositories/shade-photo';
@@ -77,6 +78,15 @@ export default function ShadeCaseScreen({
       );
       return;
     }
+
+    /*
+      ★ 다 올린 뒤에 알립니다 (2026-08-21).
+        전에는 완료 화면이 "알림을 보냈습니다" 라고 **말만** 했습니다.
+
+      ★ 알림이 실패해도 여기서 멈추지 않습니다. 사진은 이미 붙었고,
+        그것을 '실패' 로 보여 주면 사진이 안 갔다는 말로 읽힙니다.
+    */
+    await submitShadePhotoAdded(data.id, named.length);
 
     setCamera(false);
     setDone(named.length);
