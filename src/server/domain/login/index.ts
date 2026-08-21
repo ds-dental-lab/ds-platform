@@ -188,3 +188,49 @@ export function clearedKeepCookies(secure: boolean): string[] {
 
   return [KEEP_KEY, ALIVE_KEY].map((name) => `${name}=; Max-Age=0; ${tail}`);
 }
+
+// ---------- 로그인 뒤에 갈 곳 ----------
+
+/**
+ * 로그인 화면이 `?next=` 로 받은 주소를 쓸 수 있게 다듬습니다.
+ *
+ * ★★ **왜 필요한가** (2026-08-21 — 청구서 메일을 붙이며 드러났습니다).
+ *   치과가 메일의 '청구서 보기' 를 누르면 로그인 화면이 뜹니다.
+ *   그런데 어디로 가려 했는지를 안 기억해서, 로그인하면 HOME 으로
+ *   떨어집니다. 청구서는 직접 찾아 들어가야 합니다 — 메일로 부르는
+ *   흐름에서 이건 막다른 길입니다.
+ *
+ * ★★ **아무 주소나 받으면 안 됩니다.** 이것이 이 함수의 절반입니다.
+ *   `?next=https://남의사이트` 를 넣은 링크를 뿌리면, 우리 도메인을
+ *   달고 있는 로그인 화면이 사람을 남의 사이트로 보내 줍니다.
+ *   그 사이트가 우리 로그인 화면을 흉내 내면 그대로 넘어갑니다.
+ *
+ *   그래서 **우리 안의 주소만** 받습니다 —
+ *     · `/` 로 시작할 것
+ *     · `//` 로 시작하지 말 것 (`//evil.com` 은 남의 사이트입니다)
+ *     · `/\` 도 막습니다 (일부 브라우저가 `//` 로 읽습니다)
+ *     · 섹터 화면일 것 (로그인·가입 화면으로 되돌리면 제자리걸음)
+ *
+ * ★ 못 쓰는 값이면 조용히 null 입니다. 오류를 내면 로그인 자체가
+ *   막히는데, 그건 훨씬 나쁜 일입니다.
+ */
+/** '/' 뒤에 역슬래시 — 일부 브라우저가 '//' 처럼 읽어 남의 사이트로 갑니다 */
+const BACKSLASH_PREFIX = '/' + String.fromCharCode(92);
+
+export function safeNext(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+
+  // 공백·제어문자를 앞뒤에서 걷어냅니다 ('  /clinic' 같은 것)
+  const value = raw.trim();
+
+  if (!value.startsWith('/')) return null;
+  if (value.startsWith('//') || value.startsWith(BACKSLASH_PREFIX)) return null;
+
+  // 우리 화면은 이 셋뿐입니다
+  const allowed = ['/clinic', '/design', '/lab'];
+  if (!allowed.some((p) => value === p || value.startsWith(p + '/') || value.startsWith(p + '?'))) {
+    return null;
+  }
+
+  return value;
+}

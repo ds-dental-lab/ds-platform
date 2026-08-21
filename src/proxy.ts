@@ -135,9 +135,25 @@ export async function proxy(request: NextRequest) {
       pathname.startsWith("/lab")
     )
   ) {
-    const away = NextResponse.redirect(
-      new URL("/login", request.url)
-    );
+    /*
+      ★★ **어디로 가려 했는지를 실어 보냅니다** (2026-08-21).
+        청구서 메일의 '청구서 보기' 를 누르면 여기로 옵니다. 전에는
+        그냥 /login 으로 보내서, 로그인하면 HOME 으로 떨어졌습니다 —
+        치과는 청구서를 직접 찾아 들어가야 했습니다. 메일로 부르는
+        흐름에서 그건 막다른 길입니다.
+
+      ★ 물음표 뒤(search)까지 함께 싣습니다. 목록 필터가 걸린 주소로
+        부르는 일이 있습니다.
+
+      ★ 받는 쪽에서 **우리 안의 주소인지 다시 봅니다**(domain/login 의
+        safeNext). 여기서 만든 값이라 안전하지만, 사람이 주소창에
+        직접 ?next=https://... 를 넣을 수 있습니다.
+    */
+    const target = pathname + request.nextUrl.search;
+    const login = new URL("/login", request.url);
+    login.searchParams.set("next", target);
+
+    const away = NextResponse.redirect(login);
 
     /*
       ★ 여기서 쿠키를 옮겨 실어야 합니다.

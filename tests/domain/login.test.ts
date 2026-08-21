@@ -20,6 +20,7 @@ import {
   KEEP_KEY,
   ALIVE_KEY,
   KEEP_MAX_AGE,
+  safeNext,
 } from '@/server/domain/login';
 
 describe('원인마다 다른 말을 한다', () => {
@@ -170,5 +171,67 @@ describe('로그인 상태 유지', () => {
     cleared.forEach((c) => expect(c).toContain('Max-Age=0'));
     expect(cleared.join(' ')).toContain(KEEP_KEY);
     expect(cleared.join(' ')).toContain(ALIVE_KEY);
+  });
+});
+
+
+/*
+  ★★ 로그인 뒤에 갈 곳 (2026-08-21 — 청구서 메일을 붙이며 생겼습니다).
+
+    치과가 메일의 '청구서 보기' 를 누르면 로그인 화면이 뜹니다.
+    어디로 가려 했는지를 기억해야 로그인 뒤에 그 청구서로 갑니다.
+
+    ★ 그런데 이 칸은 **열린 문**이 되기 쉽습니다.
+      `?next=https://가짜덴플로우.kr` 을 넣은 링크를 뿌리면, 우리
+      도메인을 달고 있는 로그인 화면이 사람을 남의 사이트로 보내 줍니다.
+*/
+describe('로그인 뒤에 갈 곳', () => {
+  it('우리 화면이면 그대로 갑니다', () => {
+    expect(safeNext('/clinic/billing/2026-08')).toBe('/clinic/billing/2026-08');
+    expect(safeNext('/design/orders')).toBe('/design/orders');
+    expect(safeNext('/lab')).toBe('/lab');
+    expect(safeNext('/clinic/orders?status=received')).toBe('/clinic/orders?status=received');
+  });
+
+  // ★★ 여기가 이 함수의 전부입니다
+  it('남의 사이트로는 절대 안 보냅니다', () => {
+    for (const evil of [
+      'https://evil.com',
+      'http://evil.com',
+      '//evil.com',
+      '//denflow.kr.evil.com',
+      '/\evil.com',
+      'javascript:alert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      '\evil.com',
+    ]) {
+      expect(safeNext(evil)).toBeNull();
+    }
+  });
+
+  // ★ 로그인 화면으로 되돌리면 제자리걸음입니다
+  it('우리 화면이라도 로그인·가입으로는 안 보냅니다', () => {
+    expect(safeNext('/login')).toBeNull();
+    expect(safeNext('/signup')).toBeNull();
+    expect(safeNext('/reset')).toBeNull();
+    expect(safeNext('/')).toBeNull();
+  });
+
+  // ★ 앞에 비슷한 글자를 붙여 지나가려는 것
+  it('비슷한 이름으로 지나가지 못합니다', () => {
+    expect(safeNext('/clinicX')).toBeNull();
+    expect(safeNext('/designer-evil')).toBeNull();
+    expect(safeNext('/labs')).toBeNull();
+  });
+
+  it('빈 값이면 조용히 null — 로그인 자체는 막지 않습니다', () => {
+    expect(safeNext(null)).toBeNull();
+    expect(safeNext(undefined)).toBeNull();
+    expect(safeNext('')).toBeNull();
+    expect(safeNext('   ')).toBeNull();
+  });
+
+  it('앞뒤 공백은 걷어냅니다', () => {
+    expect(safeNext('  /clinic/billing/2026-08  ')).toBe('/clinic/billing/2026-08');
   });
 });

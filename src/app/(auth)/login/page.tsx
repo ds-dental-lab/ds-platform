@@ -16,6 +16,7 @@ import {
   REMEMBER_KEY,
   keepCookies,
   hasAuthCookie,
+  safeNext,
 } from '@/server/domain/login';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 
@@ -183,7 +184,19 @@ export default function LoginPage() {
       document.cookie = c;
     });
 
-    router.push('/');
+    /*
+      ★ 오려던 곳이 있으면 그리로 돌려보냅니다 (2026-08-21).
+        메일의 '청구서 보기' 를 누른 사람이 로그인 뒤에 HOME 으로
+        떨어지지 않게요. 못 쓰는 값이면 safeNext 가 null 을 주고,
+        그때는 평소대로 HOME 입니다.
+
+      ★ useSearchParams() 를 안 씁니다. 그 훅을 쓰면 이 화면을
+        **미리 만들어 둘 수 없게 되어**(Suspense 필요) 빌드가 막힙니다.
+        어차피 누를 때만 필요한 값이고, 그때는 브라우저 안이라
+        주소에서 바로 읽으면 됩니다.
+    */
+    const next = new URLSearchParams(window.location.search).get('next');
+    router.push(safeNext(next) ?? '/');
     router.refresh();
   }
 
