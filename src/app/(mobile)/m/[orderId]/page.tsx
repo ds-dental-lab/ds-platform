@@ -16,12 +16,28 @@ export const dynamic = 'force-dynamic';
 
 export default async function MobileCasePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orderId: string }>;
+  searchParams: Promise<{ attached?: string }>;
 }) {
   const { orderId } = await params;
+  const { attached } = await searchParams;
+
   const found = await getShadeCase(orderId);
   if (!found) notFound();
 
-  return <ShadeCaseScreen data={found} />;
+  /*
+    ★ 미분류함에서 붙이고 오면 ?attached=n 이 붙습니다. 그때는 바로
+      '첨부 완료' 를 보여 줍니다 — 어디로 갔는지 모른 채 끝나면
+      다음에도 못 믿고 카톡을 한 번 더 보냅니다.
+  */
+  const justAttached = Number(attached);
+
+  return (
+    <ShadeCaseScreen
+      data={found}
+      attached={Number.isFinite(justAttached) && justAttached > 0 ? justAttached : 0}
+    />
+  );
 }

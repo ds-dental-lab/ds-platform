@@ -29,13 +29,20 @@ function timeLabel(iso: string): string {
   return `${half} ${hour}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-export default function ShadeCaseScreen({ data }: { data: ShadeCaseDetail }) {
+export default function ShadeCaseScreen({
+  data,
+  attached = 0,
+}: {
+  data: ShadeCaseDetail;
+  /** 미분류함에서 방금 붙이고 왔으면 그 장수 */
+  attached?: number;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
   const [camera, setCamera] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(0);
+  const [done, setDone] = useState(attached);
   const [error, setError] = useState('');
 
   async function attach(shots: File[]) {

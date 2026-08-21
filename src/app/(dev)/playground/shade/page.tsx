@@ -12,6 +12,8 @@
 import { useState } from 'react';
 import ShadeHome from '@/components/shade/ShadeHome';
 import ShadeCaseScreen from '@/components/shade/ShadeCaseScreen';
+import ShadeMatch from '@/components/shade/ShadeMatch';
+import UnsortedBoxList from '@/components/shade/UnsortedBoxList';
 import type { ShadeCase, ShadeCaseDetail } from '@/server/repositories/shade-photo';
 
 const NOW = new Date();
@@ -65,7 +67,7 @@ const FRAME =
   'w-[375px] shrink-0 overflow-hidden rounded-[28px] border-[6px] border-[#1A2130] bg-[#F4F7FA]';
 
 export default function ShadePlayground() {
-  const [tab, setTab] = useState<'home' | 'detail' | 'done'>('home');
+  const [tab, setTab] = useState<'home' | 'detail' | 'done' | 'match' | 'box'>('home');
 
   return (
     <main
@@ -91,6 +93,8 @@ export default function ShadePlayground() {
             ['home', 'S1 홈'],
             ['detail', 'S2 상세 (쉐이드 대기)'],
             ['done', 'S2 상세 (촬영 완료)'],
+            ['match', 'S5 어디에 붙일까'],
+            ['box', 'S6 미분류함'],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -109,9 +113,28 @@ export default function ShadePlayground() {
       <div className="mt-5 flex gap-6 overflow-x-auto pb-4">
         <div className={FRAME} style={{ height: 760 }}>
           <div className="h-full overflow-y-auto">
-            {tab === 'home' && <ShadeHome cases={CASES} clinicName="미사바른치과" keyword="" />}
+            {tab === 'home' && (
+              <ShadeHome cases={CASES} clinicName="미사바른치과" keyword="" unsortedCount={4} />
+            )}
             {tab === 'detail' && <ShadeCaseScreen data={DETAIL} />}
             {tab === 'done' && <ShadeCaseScreen data={DETAIL_DONE} />}
+            {tab === 'match' && (
+              <ShadeMatch
+                sessionId="demo"
+                count={2}
+                cases={CASES}
+                skipHref="/m/unsorted"
+                skipLabel="나중에 분류 (미분류함으로)"
+              />
+            )}
+            {tab === 'box' && (
+              <UnsortedBoxList
+                boxes={[
+                  { sessionId: 'a', count: 3, takenAt: at(11, 20) },
+                  { sessionId: 'b', count: 1, takenAt: at(15, 40, 1) },
+                ]}
+              />
+            )}
           </div>
         </div>
 
@@ -126,7 +149,6 @@ export default function ShadePlayground() {
 
           <b className="mt-5 block text-[#16324F]">아직 안 만든 것</b>
           <ul className="mt-2 list-disc space-y-1.5 pl-4">
-            <li>미분류 촬영 · 미분류함 (명세 S5·S6, Phase 2)</li>
             <li>초성 검색 — 지금은 이름·주문번호로만</li>
             <li>사진 섬네일 — 원본이라 목록에 그대로 걸면 무겁습니다</li>
             <li>PWA 홈 화면 추가 (Phase 3)</li>

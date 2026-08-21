@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
+import ShadeQuickShot from '@/components/shade/ShadeQuickShot';
 import { SHADE_STATUS_LABEL, type ShadeStatus } from '@/server/domain/shade-photo';
 import type { ShadeCase } from '@/server/repositories/shade-photo';
 
@@ -65,10 +66,15 @@ export default function ShadeHome({
   cases,
   clinicName,
   keyword,
+  clinicOrgId,
+  unsortedCount = 0,
 }: {
   cases: ShadeCase[];
   clinicName: string;
   keyword: string;
+  /** 미분류 사진이 올라갈 자리. 없으면 '바로 촬영' 을 안 그립니다(시연 화면) */
+  clinicOrgId?: string;
+  unsortedCount?: number;
 }) {
   const router = useRouter();
   const [q, setQ] = useState(keyword);
@@ -108,6 +114,34 @@ export default function ShadeHome({
       <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[var(--muted)]">
         환자를 선택하면 사진이 해당 의뢰서에 자동 첨부됩니다
       </p>
+
+      {/*
+        ★ 미분류함이 비어 있으면 안 그립니다. 늘 0 인 입구는 자리만
+          차지하고 눈을 흐립니다.
+      */}
+      {unsortedCount > 0 && (
+        <Link
+          href="/m/unsorted"
+          className="mt-4 flex items-center gap-2.5 rounded-xl bg-[#FEF3E2] px-4 py-3 active:bg-[#FDE9CC]"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#B45309" strokeWidth="1.8" />
+            <path
+              d="M4.5 17l4.5-4.5 3.5 3 3-2.5 4 4"
+              stroke="#B45309"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="flex-1 text-[13.5px] font-bold text-[#B45309]">
+            미분류함에 사진 {unsortedCount}장
+          </span>
+          <span className="text-[13px] text-[#B45309]" aria-hidden="true">
+            &#8250;
+          </span>
+        </Link>
+      )}
 
       <form onSubmit={search} className="mt-4">
         <input
@@ -176,6 +210,8 @@ export default function ShadeHome({
           </ul>
         </section>
       ))}
+
+      {clinicOrgId && <ShadeQuickShot clinicOrgId={clinicOrgId} />}
     </main>
   );
 }

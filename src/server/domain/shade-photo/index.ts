@@ -90,3 +90,37 @@ export const SHADE_CUTS = ['① 쉐이드탭 포함', '② 정면', '③ 자유�
 
 /** 홈 목록에 세우는 기간. 그 이전은 검색으로만 (명세서 S1) */
 export const HOME_DAYS = 7;
+
+// ---------- 미분류 묶기 (명세서 S5·S6) ----------
+
+export interface UnsortedBox {
+  sessionId: string;
+  count: number;
+  /** 그 묶음을 찍기 시작한 시각 */
+  takenAt: string;
+}
+
+/**
+ * 미분류 사진을 **묶음 단위**로 셉니다.
+ *
+ * ★★ 매칭이 묶음 단위인 이유 — 한 환자를 세 장 찍었으면 세 장이 같이
+ *   가야 합니다. 장마다 고르게 하면 그게 곧 카톡에서 하던 그 일입니다.
+ *
+ * ★ 묶음의 시각은 **제일 먼저 찍은 장**입니다. 그때 그 환자를 봤습니다.
+ */
+export function groupUnsorted(rows: { session_id: string; created_at: string }[]): UnsortedBox[] {
+  const boxes = new Map<string, UnsortedBox>();
+
+  for (const r of rows) {
+    const box = boxes.get(r.session_id);
+
+    if (box) {
+      box.count += 1;
+      if (r.created_at < box.takenAt) box.takenAt = r.created_at;
+    } else {
+      boxes.set(r.session_id, { sessionId: r.session_id, count: 1, takenAt: r.created_at });
+    }
+  }
+
+  return [...boxes.values()].sort((a, b) => b.takenAt.localeCompare(a.takenAt));
+}

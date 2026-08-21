@@ -8,6 +8,7 @@
 // =========================================================
 
 import { listShadeCases } from '@/server/repositories/shade-photo';
+import { countUnsortedPhotos } from '@/server/repositories/unsorted-photo';
 import { requireSector } from '@/server/policies/session';
 import ShadeHome from '@/components/shade/ShadeHome';
 
@@ -20,7 +21,15 @@ export default async function MobileHomePage({
 }) {
   const { q } = await searchParams;
   const session = await requireSector('clinic');
-  const cases = await listShadeCases(q);
+  const [cases, unsorted] = await Promise.all([listShadeCases(q), countUnsortedPhotos()]);
 
-  return <ShadeHome cases={cases} clinicName={session.orgName ?? ''} keyword={q ?? ''} />;
+  return (
+    <ShadeHome
+      cases={cases}
+      clinicName={session.orgName ?? ''}
+      keyword={q ?? ''}
+      clinicOrgId={session.orgId ?? undefined}
+      unsortedCount={unsorted}
+    />
+  );
 }
