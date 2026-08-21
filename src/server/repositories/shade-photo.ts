@@ -10,7 +10,15 @@
 import 'server-only';
 
 import { createClient } from '@/lib/supabase/server';
-import { canShoot, shadeStatusOf, isPhoto, HOME_DAYS, type ShadeStatus } from '@/server/domain/shade-photo';
+import {
+  canShoot,
+  shadeStatusOf,
+  isPhoto,
+  thumbTransform,
+  HOME_DAYS,
+  THUMB_TTL,
+  type ShadeStatus,
+} from '@/server/domain/shade-photo';
 import type { OrderStatus } from '@/server/domain/order-status';
 
 export interface ShadeCase {
@@ -106,9 +114,24 @@ export async function listShadeCases(keyword?: string): Promise<ShadeCase[]> {
     });
 }
 
+export interface ShadePhotoView {
+  id: string;
+  fileName: string;
+  createdAt: string;
+  /**
+   * 목록 칸에 걸 줄인 사진. 못 만들면 빈 값입니다.
+   *
+   * ★ 원본 주소가 아닙니다. 진료실이 자기가 찍은 것을 **확인만**
+   *   하면 되고, 원본은 한 장이 수 MB 라 목록에 걸 수 없습니다.
+   */
+  thumbUrl: string;
+  /** 눌러서 크게 볼 때 */
+  viewUrl: string;
+}
+
 export interface ShadeCaseDetail extends ShadeCase {
   labName: string;
-  photos: { id: string; fileName: string; createdAt: string }[];
+  photos: ShadePhotoView[];
 }
 
 export async function getShadeCase(orderId: string): Promise<ShadeCaseDetail | null> {
@@ -119,7 +142,7 @@ export async function getShadeCase(orderId: string): Promise<ShadeCaseDetail | n
     .select(
       'id, order_no, patient_label, status, created_at, ' +
         'order_items(tooth_number, type_code, material_code), ' +
-        'order_files(id, file_name, kind, created_at, upload_status), ' +
+        'order_files(id, file_name, storage_path, kind, created_at, upload_status), ' +
         'lab:organizations!orders_lab_org_id_fkey(name), ' +
         'design:organizations!orders_design_org_id_fkey(name)',
     )
@@ -132,6 +155,7 @@ export async function getShadeCase(orderId: string): Promise<ShadeCaseDetail | n
   interface DetailFile {
     id: string;
     file_name: string;
+    storage_path: string;
     kind: string;
     created_at: string;
     upload_status: string;
@@ -160,9 +184,46 @@ export async function getShadeCase(orderId: string): Promise<ShadeCaseDetail | n
         알고 싶은 것이 아닙니다.
     */
     labName: row.lab?.name ?? row.design?.name ?? '',
-    photos: files
-      .filter((f) => f.kind !== 'design' && isPhoto(f.file_name) && f.upload_status === 'uploaded')
-      .sort((a, b) => a.created_at.localeCompare(b.created_at))
-      .map((f) => ({ id: f.id, fileName: f.file_name, createdAt: f.created_at })),
+    photos: await signPhotos(
+      supabase,
+      files
+        .filter((f) => f.kind !== 'design' && isPhoto(f.file_name) && f.upload_status === 'uploaded')
+        .sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    ),
   };
+}
+
+/**
+ * 줄인 사진의 주소를 만듭니다.
+ *
+ * ★★ **섬네일 파일을 따로 안 만듭니다.** 저장소가 줄여서 내줍니다.
+ *   원본은 손 하나 안 대고 그대로 남습니다 (domain/shade-photo).
+ *
+ * ★ 한 장이 실패해도 나머지는 보여 줍니다. 사진 한 장 때문에 화면이
+ *   통째로 비면 "안 올라갔나" 하고 또 찍습니다.
+ */
+async function signPhotos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rows: { id: string; file_name: string; storage_path: string; created_at: string }[],
+): Promise<ShadePhotoView[]> {
+  return Promise.all(
+    rows.map(async (f) => {
+      const [thumb, view] = await Promise.all([
+        supabase.storage
+          .from('order-files')
+          .createSignedUrl(f.storage_path, THUMB_TTL, { transform: thumbTransform('grid') }),
+        supabase.storage
+          .from('order-files')
+          .createSignedUrl(f.storage_path, THUMB_TTL, { transform: thumbTransform('view') }),
+      ]);
+
+      return {
+        id: f.id,
+        fileName: f.file_name,
+        createdAt: f.created_at,
+        thumbUrl: thumb.data?.signedUrl ?? '',
+        viewUrl: view.data?.signedUrl ?? '',
+      };
+    }),
+  );
 }

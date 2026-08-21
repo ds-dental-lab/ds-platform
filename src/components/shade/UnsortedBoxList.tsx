@@ -90,17 +90,27 @@ export default function UnsortedBoxList({ boxes }: { boxes: UnsortedBox[] }) {
               className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(22,50,79,0.06)]"
             >
               <Link href={`/m/unsorted/${b.sessionId}`} className="flex min-w-0 flex-1 items-center gap-3">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#F1F5F9]">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#94A3B8" strokeWidth="1.7" />
-                    <path
-                      d="M4.5 17l4.5-4.5 3.5 3 3-2.5 4 4"
-                      stroke="#94A3B8"
-                      strokeWidth="1.7"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                {/*
+                  ★★ 찍은 것이 보여야 붙일 의뢰서를 고를 수 있습니다.
+                    '사진 3장' 이라는 글자만으로는 무엇을 찍었는지
+                    모릅니다 — 결국 카톡으로 한 번 더 보냅니다.
+                */}
+                <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#F1F5F9]">
+                  {b.thumbUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={b.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#94A3B8" strokeWidth="1.7" />
+                      <path
+                        d="M4.5 17l4.5-4.5 3.5 3 3-2.5 4 4"
+                        stroke="#94A3B8"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
                 </span>
 
                 <span className="min-w-0">

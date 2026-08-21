@@ -15,6 +15,9 @@ import {
   HOME_DAYS,
   shadeNotice,
   shadePushPayload,
+  thumbTransform,
+  THUMB_EDGE,
+  VIEW_EDGE,
 } from '@/server/domain/shade-photo';
 import { LAB_OPEN_EXTENSIONS } from '@/server/domain/file-access';
 import { STATUS_ORDER } from '@/server/domain/order-status';
@@ -161,5 +164,36 @@ describe('쉐이드 알림 문구', () => {
     expect(shadePushPayload('o1', 'ORD-1', '김', 1, '/design/orders/o1').link).toBe(
       '/design/orders/o1',
     );
+  });
+});
+
+
+/*
+  ★★ **섬네일 파일을 안 만듭니다.** 명세는 "서버에서 별도 생성" 이라고
+    했지만 저장소가 줄여서 내줍니다. 원본은 손 하나 안 댑니다.
+*/
+describe('섬네일', () => {
+  it('목록은 칸을 채웁니다(cover)', () => {
+    const t = thumbTransform('grid');
+    expect(t.resize).toBe('cover');
+    expect(t.width).toBe(THUMB_EDGE);
+  });
+
+  /*
+    ★ 크게 볼 때는 잘리면 안 됩니다. 쉐이드탭이 가장자리에 있는
+      사진이 흔합니다.
+  */
+  it('★ 크게보기는 안 자릅니다(contain)', () => {
+    expect(thumbTransform('view').resize).toBe('contain');
+    expect(thumbTransform('view').width).toBe(VIEW_EDGE);
+  });
+
+  it('크게보기가 목록보다 큽니다', () => {
+    expect(VIEW_EDGE).toBeGreaterThan(THUMB_EDGE);
+  });
+
+  // ★ 목록은 여러 장이 한꺼번에 뜹니다 — 화질을 더 낮게
+  it('목록 화질이 더 낮습니다', () => {
+    expect(thumbTransform('grid').quality).toBeLessThan(thumbTransform('view').quality);
   });
 });

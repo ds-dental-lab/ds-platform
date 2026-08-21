@@ -57,9 +57,10 @@ const DETAIL_DONE: ShadeCaseDetail = {
   ...CASES[2],
   labName: '덴플로우 치과기공소',
   photos: [
-    { id: 'p1', fileName: 'ORD-260821-003_shade1.jpg', createdAt: at(8, 55) },
-    { id: 'p2', fileName: 'ORD-260821-003_shade2.jpg', createdAt: at(8, 56) },
-    { id: 'p3', fileName: 'ORD-260821-003_shade3.jpg', createdAt: at(8, 56) },
+    // 시연용 — 진짜 화면에서는 저장소가 줄여 준 주소가 들어옵니다
+    { id: 'p1', fileName: 'shade1.jpg', createdAt: at(8, 55), thumbUrl: '', viewUrl: '' },
+    { id: 'p2', fileName: 'shade2.jpg', createdAt: at(8, 56), thumbUrl: '', viewUrl: '' },
+    { id: 'p3', fileName: 'shade3.jpg', createdAt: at(8, 56), thumbUrl: '', viewUrl: '' },
   ],
 };
 
@@ -130,8 +131,8 @@ export default function ShadePlayground() {
             {tab === 'box' && (
               <UnsortedBoxList
                 boxes={[
-                  { sessionId: 'a', count: 3, takenAt: at(11, 20) },
-                  { sessionId: 'b', count: 1, takenAt: at(15, 40, 1) },
+                  { sessionId: 'a', count: 3, takenAt: at(11, 20), thumbUrl: '' },
+                  { sessionId: 'b', count: 1, takenAt: at(15, 40, 1), thumbUrl: '' },
                 ]}
               />
             )}

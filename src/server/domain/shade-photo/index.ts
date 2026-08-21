@@ -163,3 +163,53 @@ export function shadePushPayload(
 
   return { title: notice.title, body: notice.body, link, tag: `shade-${orderId}` };
 }
+
+// ---------- 섬네일 (명세서 §4 — 원본은 그대로, 목록용은 따로) ----------
+
+/**
+ * ★★ **섬네일 파일을 안 만듭니다.**
+ *   명세는 "서버에서 별도 생성" 이라고 적었지만, 저장소가 이미
+ *   줄여서 내줍니다(Supabase 이미지 변환). 실제로 재 봤습니다 —
+ *   191KB PNG 를 480px 로 달라니 91KB 로 왔습니다.
+ *
+ *   그러면 원본은 손 하나 안 대고 그대로 남고, 저장소도 두 배로
+ *   안 늘어납니다. **안 만드는 것이 만드는 것보다 낫습니다.**
+ *
+ * ★ 실제 크기 (2026-08-21 실측, 187KB PNG 기준)
+ *     목록용 320  →  65KB … 그런데 **브라우저가 받으면 24KB** 입니다.
+ *                    저장소가 `Accept: image/webp` 를 보고 WebP 로 줍니다.
+ *     크게보기 1280 → 160KB
+ *   ★ 잴 때 그 헤더를 안 보내면 세 배로 나옵니다 — 저도 한 번 속았습니다.
+ *
+ * ★ 줄인 것은 **보여 주기 위한 것**입니다. 쉐이드 판별은 원본으로
+ *   합니다 — 기공소는 파일을 내려받아 봅니다.
+ */
+
+/** 목록 칸에 거는 크기. 폰이 3열이라 한 칸이 120px 어름, 3배 화면까지 봅니다 */
+export const THUMB_EDGE = 320;
+
+/** 눌러서 크게 볼 때. 원본이 아니라 이것으로 충분합니다 */
+export const VIEW_EDGE = 1280;
+
+export interface ThumbTransform {
+  width: number;
+  height: number;
+  resize: 'cover' | 'contain';
+  quality: number;
+}
+
+/**
+ * 저장소에 줄여 달라고 할 때의 값.
+ *
+ * ★ 목록은 `cover` — 칸을 꽉 채워야 줄이 안 어그러집니다.
+ * ★ 크게 볼 때는 `contain` — 잘리면 안 됩니다. 쉐이드탭이 가장자리에
+ *   있는 사진이 흔합니다.
+ */
+export function thumbTransform(kind: 'grid' | 'view'): ThumbTransform {
+  return kind === 'grid'
+    ? { width: THUMB_EDGE, height: THUMB_EDGE, resize: 'cover', quality: 70 }
+    : { width: VIEW_EDGE, height: VIEW_EDGE, resize: 'contain', quality: 85 };
+}
+
+/** 주소가 살아 있는 시간(초). 화면을 열어 두고 보는 동안 넉넉히 */
+export const THUMB_TTL = 600;

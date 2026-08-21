@@ -45,6 +45,8 @@ export default function ShadeCaseScreen({
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(attached);
   const [error, setError] = useState('');
+  /** 크게 보고 있는 사진. 주소가 있으면 덮개가 뜹니다 */
+  const [viewing, setViewing] = useState('');
 
   async function attach(shots: File[]) {
     setBusy(true);
@@ -196,30 +198,35 @@ export default function ShadeCaseScreen({
         ) : (
           <ul className="mt-3 grid grid-cols-3 gap-2">
             {data.photos.map((p) => (
-              <li
-                key={p.id}
-                className="grid aspect-square place-items-center rounded-xl bg-white px-2 text-center text-[10.5px] leading-[1.35] text-[var(--muted)] shadow-[0_1px_2px_rgba(22,50,79,0.06)]"
-              >
+              <li key={p.id}>
                 {/*
-                  ★ 섬네일을 아직 안 만듭니다. 원본을 그대로 걸면
-                    진료실에서 수십 MB 를 내려받게 됩니다.
-                    지금은 '몇 장 있는지' 만 보여 줍니다.
+                  ★★ 원본이 아니라 **줄인 것**을 겁니다. 저장소가 줄여
+                    내줍니다 — 섬네일 파일을 따로 안 만듭니다
+                    (domain/shade-photo). 원본은 손 안 댑니다.
+
+                  ★ 눌러서 크게 볼 수 있어야 합니다. 찍고 나서 확인이
+                    안 되면 "제대로 찍혔나" 싶어 결국 카톡으로 한 번 더
+                    보냅니다 — 그러면 만든 이유가 없어집니다.
                 */}
-                <span>
-                  <svg
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="mx-auto mb-1"
-                    aria-hidden="true"
-                  >
-                    <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#94A3B8" strokeWidth="1.6" />
-                    <circle cx="8.5" cy="10" r="1.6" stroke="#94A3B8" strokeWidth="1.6" />
-                    <path d="M4.5 17l4.5-4.5 3.5 3 3-2.5 4 4" stroke="#94A3B8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  {timeLabel(p.createdAt)}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => p.viewUrl && setViewing(p.viewUrl)}
+                  className="block aspect-square w-full overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(22,50,79,0.06)]"
+                >
+                  {p.thumbUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={p.thumbUrl}
+                      alt={`${timeLabel(p.createdAt)} 촬영`}
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="grid h-full place-items-center text-[10.5px] text-[var(--muted)]">
+                      {timeLabel(p.createdAt)}
+                    </span>
+                  )}
+                </button>
               </li>
             ))}
           </ul>
@@ -251,6 +258,22 @@ export default function ShadeCaseScreen({
           쉐이드 촬영
         </button>
       </div>
+
+      {/* 크게 보기 — 아무 데나 누르면 닫힙니다 */}
+      {viewing && (
+        <button
+          type="button"
+          onClick={() => setViewing('')}
+          aria-label="닫기"
+          className="fixed inset-0 z-50 grid place-items-center bg-black/90 p-4"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={viewing} alt="" className="max-h-full max-w-full object-contain" />
+          <span className="absolute right-5 top-5 grid h-9 w-9 place-items-center rounded-full bg-white/15 text-[17px] text-white">
+            &#10005;
+          </span>
+        </button>
+      )}
 
       {camera && (
         <ShadeCamera
