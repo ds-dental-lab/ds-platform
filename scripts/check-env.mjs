@@ -140,6 +140,36 @@ if (url && anon && problems.length === 0) {
   }
 }
 
+// ---------- 7. 청구서 메일 열쇠 ----------
+//
+// ★ 이건 **Supabase 에 붙인 SMTP 와 다른 길**입니다.
+//   그건 로그인·비밀번호 찾기 전용이고, 청구서는 우리 서버가 Resend 로
+//   직접 보냅니다. 그래서 열쇠가 여기에도 있어야 합니다.
+//
+// ★ 없어도 **오류가 아닙니다.** 발행은 되고 메일만 안 나갑니다.
+//   대신 그 사실을 여기서 미리 알려 줍니다 — 청구서를 발행하고 나서
+//   "왜 안 갔지" 를 찾는 것보다 낫습니다.
+//
+// ★ 보내 보지는 않습니다. 점검 한 번에 메일이 한 통 나가면 안 됩니다.
+//   모양만 봅니다 (re_ 로 시작하는지 · 따옴표나 공백이 섞였는지).
+
+const resend = found.get('RESEND_API_KEY');
+
+if (!resend) {
+  notes.push(
+    'RESEND_API_KEY — 없음. 청구서 발행은 되지만 **메일이 안 나갑니다** ' +
+      '(Resend → API Keys 에서 만들어 넣어 주세요).',
+  );
+} else if (!resend.startsWith('re_')) {
+  problems.push(
+    'RESEND_API_KEY 가 re_ 로 시작하지 않습니다. Resend 의 API 키가 맞는지 확인해 주세요.',
+  );
+} else if (/["' ]/.test(resend)) {
+  problems.push('RESEND_API_KEY 에 따옴표나 빈칸이 섞였습니다. 등호 뒤에 값만 남겨 주세요.');
+} else {
+  notes.push(`RESEND_API_KEY — ${resend.length}자 (${resend.slice(0, 6)}…) ✓ 청구서 메일이 나갑니다`);
+}
+
 // ---------- 어느 DB 를 보고 있나 ----------
 //
 // ★ 2026-08-13 에 실제로 헷갈렸습니다.
