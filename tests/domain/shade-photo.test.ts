@@ -12,6 +12,7 @@ import {
   shadePhotoName,
   SHADE_CUTS,
   isAnterior,
+  SHOT_HINT,
   SHADE_STATUS_LABEL,
   HOME_DAYS,
   shadeNotice,
@@ -271,5 +272,33 @@ describe('전치부인가', () => {
 
   it('비어 있으면 아닙니다', () => {
     expect(isAnterior([])).toBe(false);
+  });
+});
+
+
+/*
+  ★★ 환자가 입을 벌리고 있고 한 손에 폰, 한 손에 쉐이드탭인 사람은
+    **문장을 안 읽습니다.** 눈에 스치는 것은 서너 단어가 전부입니다.
+    (사용자 요청 2026-08-23 — "안내문구가 너무 길어")
+*/
+describe('카메라 한 마디', () => {
+  it('★ 짧습니다 — 열다섯 자 안', () => {
+    for (const hint of Object.values(SHOT_HINT)) {
+      expect(hint.length).toBeLessThanOrEqual(15);
+    }
+  });
+
+  // ★ 문장이 아닙니다. 마침표·쉼표가 있으면 이미 읽을 것이 둘입니다
+  it('★ 문장이 아닙니다', () => {
+    for (const hint of Object.values(SHOT_HINT)) {
+      expect(hint).not.toMatch(/[.,·]/);
+      expect(hint).not.toContain('하세요');
+    }
+  });
+
+  // ★ 지금 안 하면 사진을 버리게 되는 것만 남깁니다
+  it('할 일이 하나씩 들어 있습니다', () => {
+    expect(SHOT_HINT.normal).toContain('쉐이드탭');
+    expect(SHOT_HINT.anterior).toContain('코');
   });
 });

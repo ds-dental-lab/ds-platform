@@ -22,7 +22,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { SHADE_CUTS } from '@/server/domain/shade-photo';
+import { SHADE_CUTS, SHOT_HINT } from '@/server/domain/shade-photo';
 
 export interface ShadeCameraProps {
   patientLabel: string;
@@ -192,10 +192,22 @@ export default function ShadeCamera({
         {/* 안내와 가이드선 — 오버레이라 찍힌 사진에는 안 담깁니다 */}
         {!fallback && (
           <>
-            <p className="absolute inset-x-3 top-3 rounded-xl bg-black/55 px-3.5 py-2.5 text-[12.5px] font-bold leading-[1.5] text-[#2DD4BF]">
-              {wide
-                ? '코 끝부터 턱까지 들어가게 찍으세요. 쉐이드탭은 치아 절단연과 나란히'
-                : '쉐이드탭을 치아 절단연과 나란히 놓고, 가이드 라인 안에 맞춰 촬영하세요'}
+            {/*
+              ★★ 한 줄, 한 마디입니다 (2026-08-23). 전에는 문장 하나가
+                두 줄로 깔려 있었는데, 환자가 입을 벌리고 있는 사람은
+                그걸 안 읽습니다.
+
+              ★ 크게(17px) · 굵게 · 흰 글자입니다. 티일은 카메라에
+                비치는 살빛·잇몸 위에서 잘 안 보입니다 — 예쁜 색보다
+                **읽히는 색**이 먼저입니다. 티일은 테두리로만 씁니다.
+
+              ★ 가운데 알약 모양 — 폭을 글자에 맞춥니다. 화면 전체를
+                가로지르면 그만큼 환자가 덜 보입니다.
+            */}
+            <p className="absolute inset-x-0 top-3 flex justify-center">
+              <span className="rounded-full bg-black/75 px-4 py-2 text-[17px] font-extrabold tracking-[-0.3px] text-white ring-1 ring-[#2DD4BF]/60">
+                {wide ? SHOT_HINT.anterior : SHOT_HINT.normal}
+              </span>
             </p>
 
             {/*
