@@ -81,12 +81,44 @@ export function shadePhotoName(orderNo: string, index: number, takenAt: Date): s
 }
 
 /**
- * 컷 체크리스트. (명세서 S3)
+ * 컷 체크리스트. (명세서 S3, 사용자 결정 2026-08-23 — 셋에서 **둘로**)
  *
  * ★ 순서는 **권장이지 강제가 아닙니다.** 셔터는 언제나 눌립니다 —
  *   바쁜 진료실에서 절차가 걸림돌이 되면 안 됩니다.
+ *
+ * ★★ 시안·명세는 셋이었습니다(③ 자유컷). 사장님이 둘로 줄였습니다 —
+ *   **원본 화질로 담기 때문에** 한 장이 크고, 한 케이스에 세 장이면
+ *   저장소가 금세 찹니다. 색을 정하는 데 실제로 쓰이는 것은 앞의
+ *   둘입니다. 셋째는 '있으면 좋은' 컷이었지, 없으면 못 만드는 컷이
+ *   아니었습니다.
+ *
+ * ★ 줄인 것은 **권장 장수**지 상한이 아닙니다. 셔터는 계속 눌립니다 —
+ *   필요하면 더 찍습니다.
  */
-export const SHADE_CUTS = ['① 쉐이드탭 포함', '② 정면', '③ 자유컷'] as const;
+export const SHADE_CUTS = ['① 쉐이드탭 포함', '② 정면'] as const;
+
+/**
+ * 전치부인가. (사용자 요청 2026-08-23 — "전치부 경우 코까지 보였으면")
+ *
+ * ★★ **왜 코까지 담는가.** 앞니는 색만 맞아서는 안 됩니다. 얼굴 안에서
+ *   봤을 때 맞아야 합니다 — 입술선·피부톤이 같이 보여야 기공소가
+ *   그 사람에게 맞는 색인지 판단합니다. 치아만 크게 찍은 사진은
+ *   색은 보이지만 **어울리는지는 안 보입니다.**
+ *
+ * ★ FDI 로 견치에서 견치까지입니다 (#13–#23, #33–#43).
+ *   소구치부터는 웃어도 잘 안 보이니 얼굴을 담을 이유가 적습니다.
+ */
+export function isAnterior(toothNumbers: readonly number[]): boolean {
+  return toothNumbers.some((n) => {
+    const quadrant = Math.floor(n / 10);
+    const position = n % 10;
+
+    if (quadrant < 1 || quadrant > 4) return false;
+
+    // 1~3번 = 중절치·측절치·견치
+    return position >= 1 && position <= 3;
+  });
+}
 
 /** 홈 목록에 세우는 기간. 그 이전은 검색으로만 (명세서 S1) */
 export const HOME_DAYS = 7;

@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   canShoot,
   shadeStatusOf,
+  isAnterior,
   isPhoto,
   thumbTransform,
   HOME_DAYS,
@@ -132,6 +133,11 @@ export interface ShadePhotoView {
 export interface ShadeCaseDetail extends ShadeCase {
   labName: string;
   photos: ShadePhotoView[];
+  /**
+   * 앞니가 섞여 있는가. 카메라 가이드를 **코까지** 넓힙니다
+   * (사용자 요청 2026-08-23).
+   */
+  anterior: boolean;
 }
 
 export async function getShadeCase(orderId: string): Promise<ShadeCaseDetail | null> {
@@ -184,6 +190,11 @@ export async function getShadeCase(orderId: string): Promise<ShadeCaseDetail | n
         알고 싶은 것이 아닙니다.
     */
     labName: row.lab?.name ?? row.design?.name ?? '',
+    /*
+      ★ 치식으로 정합니다. 사람에게 "앞니인가요" 를 또 묻지 않습니다 —
+        의뢰서에 이미 적혀 있는 것을 되묻는 것은 일을 늘리는 것입니다.
+    */
+    anterior: isAnterior((row.order_items ?? []).map((i) => i.tooth_number)),
     photos: await signPhotos(
       supabase,
       files

@@ -298,6 +298,8 @@ export default function ShadeCaseScreen({
           onClose={() => setCamera(false)}
           onAttach={attach}
           busy={busy}
+          /* ★ 의뢰서의 치식이 앞니면 가이드를 코까지 넓힙니다 */
+          anterior={data.anterior}
         />
       )}
     </>

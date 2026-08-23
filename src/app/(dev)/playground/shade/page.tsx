@@ -49,12 +49,15 @@ const CASES: ShadeCase[] = [
 
 const DETAIL: ShadeCaseDetail = {
   ...CASES[0],
+  // ★ 앞니 케이스 — 카메라 가이드가 코까지 넓어지는 것을 봅니다
+  anterior: true,
   labName: '덴플로우 치과기공소',
   photos: [],
 };
 
 const DETAIL_DONE: ShadeCaseDetail = {
   ...CASES[2],
+  anterior: false,
   labName: '덴플로우 치과기공소',
   photos: [
     // 시연용 — 진짜 화면에서는 저장소가 줄여 준 주소가 들어옵니다

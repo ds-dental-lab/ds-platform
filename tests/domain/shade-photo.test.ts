@@ -11,6 +11,7 @@ import {
   shadeStatusOf,
   shadePhotoName,
   SHADE_CUTS,
+  isAnterior,
   SHADE_STATUS_LABEL,
   HOME_DAYS,
   shadeNotice,
@@ -118,9 +119,15 @@ describe('사진 이름', () => {
 });
 
 describe('시안에서 가져온 값', () => {
-  it('컷은 셋', () => {
-    expect(SHADE_CUTS).toHaveLength(3);
+  /*
+    ★★ 시안·명세는 셋이었습니다. 사장님이 둘로 줄였습니다 (2026-08-23) —
+      원본 화질로 담아서 한 장이 큽니다. 색을 정하는 데 실제로 쓰이는
+      것은 앞의 둘입니다.
+  */
+  it('★ 컷은 둘 (셋에서 줄임)', () => {
+    expect(SHADE_CUTS).toHaveLength(2);
     expect(SHADE_CUTS[0]).toContain('쉐이드탭');
+    expect(SHADE_CUTS[1]).toContain('정면');
   });
 
   it('홈은 최근 7일', () => {
@@ -230,5 +237,39 @@ describe('전송 대기', () => {
   it('★ 못 보낸 것이 있으면 갈라서 말합니다', () => {
     expect(queueLabel(0, 2)).toBe('사진 2장을 못 보냈습니다');
     expect(queueLabel(1, 2)).toContain('못 보낸 것 2장');
+  });
+});
+
+
+/*
+  ★★ 앞니는 색만 맞아서는 안 됩니다. 얼굴 안에서 봤을 때 맞아야 합니다 —
+    입술선·피부톤이 같이 보여야 어울리는지가 보입니다.
+    (사용자 요청 2026-08-23 — "전치부 경우 코까지 보였으면 좋겠는데")
+*/
+describe('전치부인가', () => {
+  it('견치에서 견치까지가 전치부입니다', () => {
+    for (const n of [11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 42, 43]) {
+      expect(isAnterior([n])).toBe(true);
+    }
+  });
+
+  // ★ 소구치부터는 웃어도 잘 안 보입니다 — 얼굴을 담을 이유가 적습니다
+  it('★ 소구치·대구치는 아닙니다', () => {
+    for (const n of [14, 15, 16, 17, 18, 24, 26, 36, 37, 46, 48]) {
+      expect(isAnterior([n])).toBe(false);
+    }
+  });
+
+  /*
+    ★ 한 치아라도 앞니면 얼굴을 담습니다. #13-#16 브릿지에서 앞니가
+      섞여 있는데 구치부 기준으로 찍으면, 정작 사람 눈에 보이는 쪽을
+      못 맞춥니다.
+  */
+  it('★ 섞여 있으면 전치부로 봅니다', () => {
+    expect(isAnterior([13, 14, 15, 16])).toBe(true);
+  });
+
+  it('비어 있으면 아닙니다', () => {
+    expect(isAnterior([])).toBe(false);
   });
 });

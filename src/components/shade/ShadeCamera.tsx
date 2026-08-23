@@ -31,6 +31,11 @@ export interface ShadeCameraProps {
   /** 찍은 사진들을 넘깁니다. 올리는 것은 부모가 합니다 */
   onAttach: (shots: File[]) => void;
   busy?: boolean;
+  /**
+   * 앞니가 섞인 케이스인가. 가이드를 **코까지** 넓힙니다
+   * (사용자 요청 2026-08-23).
+   */
+  anterior?: boolean;
 }
 
 export default function ShadeCamera({
@@ -39,6 +44,7 @@ export default function ShadeCamera({
   onClose,
   onAttach,
   busy,
+  anterior = false,
 }: ShadeCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -47,6 +53,13 @@ export default function ShadeCamera({
   const [shots, setShots] = useState<File[]>([]);
   const [flash, setFlash] = useState(false);
   const [fallback, setFallback] = useState(false);
+
+  /*
+    ★★ 의뢰서의 치식으로 켜 둡니다 — 사람에게 "앞니인가요" 를 또 묻지
+      않습니다. 다만 **손으로 바꿀 수 있어야** 합니다: 미분류 촬영은
+      아직 어느 의뢰서인지 모르고, 그때는 찍는 사람만 압니다.
+  */
+  const [wide, setWide] = useState(anterior);
 
   useEffect(() => {
     let dead = false;
@@ -180,10 +193,58 @@ export default function ShadeCamera({
         {!fallback && (
           <>
             <p className="absolute inset-x-3 top-3 rounded-xl bg-black/55 px-3.5 py-2.5 text-[12.5px] font-bold leading-[1.5] text-[#2DD4BF]">
-              쉐이드탭을 치아 절단연과 나란히 놓고, 가이드 라인 안에 맞춰 촬영하세요
+              {wide
+                ? '코 끝부터 턱까지 들어가게 찍으세요. 쉐이드탭은 치아 절단연과 나란히'
+                : '쉐이드탭을 치아 절단연과 나란히 놓고, 가이드 라인 안에 맞춰 촬영하세요'}
             </p>
-            <span className="pointer-events-none absolute inset-x-6 top-[42%] border-t border-dashed border-[#2DD4BF]/70" />
-            <span className="pointer-events-none absolute inset-x-6 top-[58%] border-t border-dashed border-[#2DD4BF]/70" />
+
+            {/*
+              ★★ 전치부는 **얼굴이 함께** 들어가야 합니다. 앞니는 색만
+                맞아서는 안 되고 얼굴 안에서 맞아야 합니다 —
+                입술선·피부톤이 같이 보여야 어울리는지가 보입니다.
+                치아만 크게 찍은 사진은 색은 보이지만 어울리는지는
+                안 보입니다.
+            */}
+            {wide && (
+              <>
+                <span className="pointer-events-none absolute inset-x-8 top-[10%] bottom-[8%] rounded-[999px] border border-dashed border-[#2DD4BF]/55" />
+                <span className="pointer-events-none absolute inset-x-[38%] top-[19%] border-t border-dashed border-[#2DD4BF]/80" />
+                <span className="pointer-events-none absolute left-1/2 top-[19%] -translate-x-1/2 -translate-y-full pb-1 text-[10.5px] font-bold text-[#2DD4BF]">
+                  코 끝
+                </span>
+              </>
+            )}
+
+            {/* 치아 띠 — 넓게 찍을 때는 아래로 내려옵니다 */}
+            <span
+              className={
+                'pointer-events-none absolute inset-x-6 border-t border-dashed border-[#2DD4BF]/70 ' +
+                (wide ? 'top-[56%]' : 'top-[42%]')
+              }
+            />
+            <span
+              className={
+                'pointer-events-none absolute inset-x-6 border-t border-dashed border-[#2DD4BF]/70 ' +
+                (wide ? 'top-[70%]' : 'top-[58%]')
+              }
+            />
+
+            {/*
+              ★ 손으로도 바꿉니다. 미분류 촬영은 어느 의뢰서인지 모르고,
+                의뢰서가 있어도 치식이 실제와 다를 수 있습니다.
+                찍는 사람이 환자를 보고 있습니다 — 그 사람 말이 맞습니다.
+            */}
+            <button
+              type="button"
+              onClick={() => setWide((v) => !v)}
+              aria-pressed={wide}
+              className={
+                'absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full px-3.5 py-2 text-[12px] font-bold ' +
+                (wide ? 'bg-[var(--teal)] text-white' : 'bg-black/55 text-[#8FA6BC]')
+              }
+            >
+              전치부 · 코까지
+            </button>
           </>
         )}
 
