@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>denflow · 진료실 프로토타입</title>
+<style>
+  :root{
+    --ink:#16324F; --teal:#14B8A6; --teal-d:#0E9384; --muted:#5B7186;
+    --line:#E3E9EF; --bg:#F4F7FA; --mist:#EAF6F4; --warn:#F59E0B;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{ font-family:Pretendard,'Apple SD Gothic Neo','Noto Sans KR',sans-serif; background:#DDE4EA; display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
+
+  /* 폰 프레임 */
+  .phone{ width:390px; max-width:100%; height:780px; max-height:96vh; background:var(--bg); border-radius:38px; box-shadow:0 24px 70px rgba(22,50,79,.35), 0 0 0 10px #10202F; overflow:hidden; position:relative; display:flex; flex-direction:column; }
+  @media (max-width:430px){ body{ padding:0; background:var(--bg);} .phone{ width:100%; height:100vh; max-height:none; border-radius:0; box-shadow:none; } }
+
+  .screen{ position:absolute; inset:0; display:none; flex-direction:column; background:var(--bg); }
+  .screen.on{ display:flex; }
+
+  /* 공통 헤더 */
+  .hd{ padding:52px 20px 14px; background:#fff; border-bottom:1px solid var(--line); }
+  .hd .row{ display:flex; align-items:center; justify-content:space-between; }
+  .brand{ display:flex; align-items:center; gap:8px; }
+  .brand svg{ display:block; }
+  .clinic{ font-size:12px; color:var(--muted); background:var(--bg); border:1px solid var(--line); padding:5px 10px; border-radius:20px; font-weight:600; }
+  .hd h2{ font-size:20px; font-weight:800; color:var(--ink); margin-top:14px; letter-spacing:-0.3px; }
+  .hd .sub{ font-size:12.5px; color:var(--muted); margin-top:4px; }
+
+  .search{ margin:12px 20px 0; display:flex; align-items:center; gap:8px; background:#fff; border:1.5px solid var(--line); border-radius:12px; padding:11px 14px; }
+  .search input{ border:none; outline:none; flex:1; font-size:14px; font-family:inherit; color:var(--ink); background:transparent; }
+  .search svg{ flex:none; }
+
+  .list{ flex:1; overflow-y:auto; padding:12px 20px 110px; }
+  .day{ font-size:11.5px; font-weight:700; letter-spacing:1.5px; color:#9DB0C2; margin:14px 2px 8px; }
+  .case{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:15px 16px; margin-bottom:10px; display:flex; align-items:center; gap:13px; cursor:pointer; transition:transform .08s; }
+  .case:active{ transform:scale(.985); }
+  .tooth-ic{ width:42px; height:42px; border-radius:12px; background:var(--mist); display:flex; align-items:center; justify-content:center; flex:none; }
+  .case .info{ flex:1; min-width:0; }
+  .case .nm{ font-size:15.5px; font-weight:700; color:var(--ink); }
+  .case .dt{ font-size:12px; color:var(--muted); margin-top:3px; }
+  .chip{ font-size:11px; font-weight:700; padding:5px 9px; border-radius:8px; flex:none; }
+  .chip.wait{ background:#FEF3E2; color:#B45309; }
+  .chip.done{ background:var(--mist); color:var(--teal-d); }
+
+  /* FAB */
+  .fab{ position:absolute; left:20px; right:20px; bottom:26px; background:var(--ink); color:#fff; border:none; border-radius:16px; padding:17px; font-size:15.5px; font-weight:700; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:9px; cursor:pointer; box-shadow:0 10px 26px rgba(22,50,79,.35); }
+  .fab:active{ transform:scale(.98); }
+  .fab small{ font-weight:500; opacity:.65; font-size:12px; }
+
+  /* 케이스 상세 */
+  .back{ display:flex; align-items:center; gap:6px; background:none; border:none; color:var(--muted); font-size:14px; font-family:inherit; font-weight:600; cursor:pointer; padding:0; }
+  .detail-card{ margin:16px 20px 0; background:#fff; border:1px solid var(--line); border-radius:18px; padding:20px; }
+  .detail-card .nm{ font-size:21px; font-weight:800; color:var(--ink); }
+  .detail-card .meta{ margin-top:12px; display:grid; grid-template-columns:64px 1fr; row-gap:9px; font-size:13.5px; }
+  .detail-card .meta b{ color:#9DB0C2; font-weight:700; font-size:11px; letter-spacing:1px; padding-top:2px; }
+  .detail-card .meta span{ color:#2A4460; }
+  .photos{ margin:16px 20px 0; }
+  .photos h4{ font-size:13px; font-weight:700; color:var(--ink); margin-bottom:9px; }
+  .thumbrow{ display:flex; gap:8px; flex-wrap:wrap; }
+  .thumb{ width:64px; height:64px; border-radius:12px; overflow:hidden; border:1px solid var(--line); position:relative; }
+  .thumb.empty{ border-style:dashed; display:flex; align-items:center; justify-content:center; color:#B6C4D2; font-size:11px; text-align:center; line-height:1.4; }
+  .shoot-btn{ margin:auto 20px 26px; background:var(--teal); color:#fff; border:none; border-radius:16px; padding:17px; font-size:16px; font-weight:800; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:9px; cursor:pointer; box-shadow:0 10px 24px rgba(20,184,166,.35); }
+  .shoot-btn:active{ transform:scale(.98); }
+
+  /* 카메라 */
+  .cam{ background:#0B1620; }
+  .cam-top{ padding:52px 20px 12px; display:flex; align-items:center; justify-content:space-between; color:#fff; }
+  .cam-top .who{ font-size:14px; font-weight:700; }
+  .cam-top .who small{ display:block; font-weight:500; font-size:11px; color:#7A93A8; margin-top:2px; }
+  .cam-x{ background:rgba(255,255,255,.12); border:none; color:#fff; width:34px; height:34px; border-radius:50%; font-size:16px; cursor:pointer; }
+  .finder{ flex:1; margin:6px 16px; border-radius:22px; position:relative; overflow:hidden; background:radial-gradient(120% 90% at 50% 40%, #3A2A2E 0%, #241A1E 55%, #150F12 100%); }
+  .guide{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  .guide svg{ width:82%; }
+  .guide-tip{ position:absolute; left:14px; right:14px; top:14px; background:rgba(11,22,32,.78); backdrop-filter:blur(4px); color:#fff; border-radius:12px; padding:10px 14px; font-size:12.5px; line-height:1.5; display:flex; gap:9px; align-items:center; }
+  .guide-tip b{ color:#2DD4BF; }
+  .flash{ position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; transition:opacity .12s; }
+  .cam-bottom{ padding:14px 20px 30px; }
+  .cuts{ display:flex; gap:8px; margin-bottom:14px; }
+  .cut{ flex:1; text-align:center; font-size:11.5px; font-weight:700; color:#7A93A8; background:rgba(255,255,255,.07); border-radius:10px; padding:8px 4px; border:1px solid transparent; }
+  .cut.now{ color:#2DD4BF; border-color:#2DD4BF; background:rgba(45,212,191,.1); }
+  .cut.ok{ color:#0B1620; background:#2DD4BF; }
+  .shutter-row{ display:flex; align-items:center; justify-content:space-between; }
+  .cam-thumbs{ display:flex; gap:6px; width:88px; }
+  .cam-thumbs .t{ width:38px; height:38px; border-radius:9px; overflow:hidden; border:1.5px solid rgba(255,255,255,.35); }
+  .shutter{ width:72px; height:72px; border-radius:50%; border:5px solid #fff; background:rgba(255,255,255,.25); cursor:pointer; }
+  .shutter:active{ background:#fff; }
+  .attach{ width:88px; text-align:right; }
+  .attach button{ background:var(--teal); color:#fff; border:none; border-radius:12px; padding:11px 14px; font-size:13px; font-weight:800; font-family:inherit; cursor:pointer; display:none; }
+  .attach button.show{ display:inline-block; }
+
+  /* 완료 */
+  .done-wrap{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 34px; text-align:center; }
+  .done-ic{ width:92px; height:92px; border-radius:50%; background:var(--mist); display:flex; align-items:center; justify-content:center; margin-bottom:22px; animation:pop .4s ease; }
+  @keyframes pop{ from{ transform:scale(.5); opacity:0;} to{ transform:scale(1); opacity:1;} }
+  .done-wrap h3{ font-size:20px; font-weight:800; color:var(--ink); }
+  .done-wrap p{ font-size:13.5px; color:var(--muted); margin-top:10px; line-height:1.7; }
+  .done-wrap p b{ color:var(--teal-d); }
+  .done-actions{ padding:0 20px 30px; display:flex; flex-direction:column; gap:9px; }
+  .btn-main{ background:var(--ink); color:#fff; border:none; border-radius:14px; padding:16px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; }
+  .btn-sub{ background:#fff; color:var(--ink); border:1.5px solid var(--line); border-radius:14px; padding:15px; font-size:14.5px; font-weight:700; font-family:inherit; cursor:pointer; }
+
+  /* 미분류 매칭 */
+  .match-note{ margin:14px 20px 4px; background:var(--mist); border:1px solid #D3EEE9; border-radius:13px; padding:13px 15px; font-size:12.5px; color:#0E6E63; line-height:1.55; display:flex; gap:9px; }
+  .toast{ position:absolute; left:20px; right:20px; bottom:24px; background:#10212F; color:#fff; border-radius:13px; padding:14px 16px; font-size:13px; display:flex; align-items:center; gap:9px; opacity:0; transform:translateY(8px); transition:all .25s; pointer-events:none; }
+  .toast.show{ opacity:1; transform:none; }
+  ::-webkit-scrollbar{ width:0; }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <!-- ① 홈: 오늘 의뢰 목록 -->
+  <div class="screen on" id="s-home">
+    <div class="hd">
+      <div class="row">
+        <div class="brand">
+          <svg viewBox="0 0 480 120" width="96" height="24">
+            <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="9">
+              <path d="M8 80 H 36 C 46 80, 40 44, 58 34 C 66 30, 70 40, 78 40 C 86 40, 90 30, 98 34 C 116 44, 110 80, 120 80" stroke="#16324F"/>
+              <path d="M120 80 H 148" stroke="#14B8A6"/>
+            </g>
+            <text x="176" y="73" font-family="Poppins,sans-serif" font-size="46" font-weight="600"><tspan fill="#16324F">den</tspan><tspan fill="#14B8A6">flow</tspan></text>
+          </svg>
+        </div>
+        <span class="clinic">미사바른치과</span>
+      </div>
+      <h2>쉐이드 촬영</h2>
+      <div class="sub">환자를 선택하면 사진이 해당 의뢰서에 자동 첨부됩니다</div>
+    </div>
+    <div class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9DB0C2" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input placeholder="환자명 검색 (초성 가능)">
+    </div>
+    <div class="list">
+      <div class="day">오늘 · 8월 21일 (금)</div>
+      <div class="case" onclick="openDetail('김민서','Zirconia Crown · #26','오전 10:42','wait')">
+        <div class="tooth-ic"><svg width="22" height="22" viewBox="0 0 120 120"><path d="M18 84 C14 60,22 38,40 32 C50 28.5,55 38,60 38 C65 38,70 28.5,80 32 C98 38,106 60,102 84" fill="none" stroke="#14B8A6" stroke-width="10" stroke-linecap="round"/></svg></div>
+        <div class="info"><div class="nm">김민서</div><div class="dt">Zirconia Crown · #26 · 오전 10:42 작성</div></div>
+        <span class="chip wait">쉐이드 대기</span>
+      </div>
+      <div class="case" onclick="openDetail('박정호','Custom Abutment + Zir · #36','오전 9:15','wait')">
+        <div class="tooth-ic"><svg width="22" height="22" viewBox="0 0 120 120"><path d="M18 84 C14 60,22 38,40 32 C50 28.5,55 38,60 38 C65 38,70 28.5,80 32 C98 38,106 60,102 84" fill="none" stroke="#14B8A6" stroke-width="10" stroke-linecap="round"/></svg></div>
+        <div class="info"><div class="nm">박정호</div><div class="dt">Custom Abutment + Zir · #36 · 오전 9:15 작성</div></div>
+        <span class="chip wait">쉐이드 대기</span>
+      </div>
+      <div class="case" onclick="openDetail('이수아','Inlay (Hybrid) · #46','오전 8:50','done')">
+        <div class="tooth-ic"><svg width="22" height="22" viewBox="0 0 120 120"><path d="M18 84 C14 60,22 38,40 32 C50 28.5,55 38,60 38 C65 38,70 28.5,80 32 C98 38,106 60,102 84" fill="none" stroke="#B6C4D2" stroke-width="10" stroke-linecap="round"/></svg></div>
+        <div class="info"><div class="nm">이수아</div><div class="dt">Inlay (Hybrid) · #46 · 오전 8:50 작성</div></div>
+        <span class="chip done">촬영 완료</span>
+      </div>
+      <div class="day">어제 · 8월 20일 (목)</div>
+      <div class="case" onclick="openDetail('최유진','PMMA Temp · #11','어제','done')">
+        <div class="tooth-ic"><svg width="22" height="22" viewBox="0 0 120 120"><path d="M18 84 C14 60,22 38,40 32 C50 28.5,55 38,60 38 C65 38,70 28.5,80 32 C98 38,106 60,102 84" fill="none" stroke="#B6C4D2" stroke-width="10" stroke-linecap="round"/></svg></div>
+        <div class="info"><div class="nm">최유진</div><div class="dt">PMMA Temp · #11 · 어제 작성</div></div>
+        <span class="chip done">촬영 완료</span>
+      </div>
+    </div>
+    <button class="fab" onclick="startQuick()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      바로 촬영 <small>· 나중에 분류</small>
+    </button>
+  </div>
+
+  <!-- ② 케이스 상세 -->
+  <div class="screen" id="s-detail">
+    <div class="hd">
+      <button class="back" onclick="go('s-home')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg> 오늘 의뢰
+      </button>
+    </div>
+    <div class="detail-card">
+      <div class="nm" id="d-name">김민서</div>
+      <div class="meta">
+        <b>의뢰</b><span id="d-work">Zirconia Crown · #26</span>
+        <b>작성</b><span id="d-time">오전 10:42 · 미사바른치과</span>
+        <b>기공소</b><span>덴플로우 치과기공소</span>
+      </div>
+    </div>
+    <div class="photos">
+      <h4>쉐이드 사진</h4>
+      <div class="thumbrow" id="d-thumbs">
+        <div class="thumb empty">아직 없음</div>
+      </div>
+    </div>
+    <button class="shoot-btn" onclick="startCam(false)">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      쉐이드 촬영
+    </button>
+  </div>
+
+  <!-- ③ 카메라 -->
+  <div class="screen cam" id="s-cam">
+    <div class="cam-top">
+      <div class="who"><span id="c-name">김민서</span><small id="c-work">Zirconia Crown · #26</small></div>
+      <button class="cam-x" onclick="closeCam()">✕</button>
+    </div>
+    <div class="finder">
+      <div class="guide">
+        <svg viewBox="0 0 320 200">
+          <!-- 치아 일러스트 -->
+          <g opacity="0.9">
+            <rect x="60" y="70" width="34" height="52" rx="12" fill="#F0E9DC"/>
+            <rect x="99" y="62" width="36" height="60" rx="12" fill="#F2ECDF"/>
+            <rect x="140" y="60" width="38" height="64" rx="13" fill="#F4EEE2"/>
+            <rect x="183" y="66" width="35" height="58" rx="12" fill="#F1EADD"/>
+          </g>
+          <!-- 쉐이드가이드 -->
+          <g>
+            <rect x="228" y="58" width="30" height="58" rx="9" fill="#EFE5CF" stroke="#2DD4BF" stroke-width="2.5" stroke-dasharray="5 4"/>
+            <rect x="234" y="118" width="18" height="26" rx="4" fill="#8FA3B5"/>
+            <text x="243" y="93" text-anchor="middle" font-size="13" font-weight="700" fill="#7A6B4E" font-family="sans-serif">A2</text>
+          </g>
+          <!-- 정렬 가이드 라인 -->
+          <line x1="40" y1="60" x2="280" y2="60" stroke="#2DD4BF" stroke-width="1.4" stroke-dasharray="3 5" opacity="0.65"/>
+          <line x1="40" y1="124" x2="280" y2="124" stroke="#2DD4BF" stroke-width="1.4" stroke-dasharray="3 5" opacity="0.65"/>
+        </svg>
+      </div>
+      <div class="guide-tip">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+        <span><b>쉐이드가이드를 절단연에 나란히</b></span>
+      </div>
+      <div class="flash" id="flash"></div>
+    </div>
+    <div class="cam-bottom">
+      <div class="cuts">
+        <div class="cut now" id="cut0">① 쉐이드가이드 포함</div>
+        <div class="cut" id="cut1">② 정면</div>
+      </div>
+      <div class="shutter-row">
+        <div class="cam-thumbs" id="c-thumbs"></div>
+        <button class="shutter" onclick="snap()"></button>
+        <div class="attach"><button id="attachBtn" onclick="finish()">첨부 0</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ 완료 -->
+  <div class="screen" id="s-done">
+    <div class="done-wrap">
+      <div class="done-ic">
+        <svg width="44" height="44" viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="none" stroke="#14B8A6" stroke-width="3"/><path d="M15 24.5 L21.5 31 L33 18.5" fill="none" stroke="#14B8A6" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h3 id="done-title">첨부 완료</h3>
+      <p id="done-msg"><b>김민서 · Zirconia Crown</b> 의뢰서에<br>사진 2장이 원본 화질로 첨부됐어요.<br>덴플로우 치과기공소에 알림을 보냈습니다.</p>
+    </div>
+    <div class="done-actions">
+      <button class="btn-main" onclick="resetHome()">오늘 의뢰로 돌아가기</button>
+      <button class="btn-sub" onclick="go('s-cam')">추가 촬영</button>
+    </div>
+  </div>
+
+  <!-- ⑤ 미분류 매칭 -->
+  <div class="screen" id="s-match">
+    <div class="hd">
+      <h2>어느 의뢰서에 첨부할까요?</h2>
+      <div class="sub">방금 찍은 사진 <b id="m-count">2</b>장 · 최근 의뢰서 순</div>
+    </div>
+    <div class="match-note">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0E9384" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span>지금 건너뛰어도 사진은 <b>미분류함</b>에 안전하게 보관되고, 데스크에서 나중에 분류할 수 있어요.</span>
+    </div>
+    <div class="list">
+      <div class="case" onclick="matchTo('김민서','Zirconia Crown · #26')">
+        <div class="tooth-ic"><svg width="22" height="22" viewBox="0 0 120 120"><path d="M18 84 C14 60,22 38,40 32 C50 28.5,55 38,60 38 C65 38,70 28.5,80 32 C98 38,106 60,102 84" fill="none" stroke="#14B8A6" stroke-width="10" stroke-linecap="round"/></svg></div>
+        <div class="info"><div class="nm">김민서</div><div class="dt">Zirconia Crown · #26 · 오전 10:42</div></div>
+        <span class="chip wait">쉐이드 대기</span>
+      </div>
+      <div class="case" onclick="matchTo('박정호','Custom Abutment + Zir · #36')">
+        <div class="tooth-ic"><svg width="22" height="22" viewBox="0 0 120 120"><path d="M18 84 C14 60,22 38,40 32 C50 28.5,55 38,60 38 C65 38,70 28.5,80 32 C98 38,106 60,102 84" fill="none" stroke="#14B8A6" stroke-width="10" stroke-linecap="round"/></svg></div>
+        <div class="info"><div class="nm">박정호</div><div class="dt">Custom Abutment + Zir · #36 · 오전 9:15</div></div>
+        <span class="chip wait">쉐이드 대기</span>
+      </div>
+    </div>
+    <div class="done-actions">
+      <button class="btn-sub" onclick="skipMatch()">나중에 분류 (미분류함으로)</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">
+    <svg width="16" height="16" viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="none" stroke="#2DD4BF" stroke-width="4"/><path d="M15 24.5 L21.5 31 L33 18.5" fill="none" stroke="#2DD4BF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span id="toast-msg"></span>
+  </div>
+</div>
+
+<script>
+let cur = { name:'김민서', work:'Zirconia Crown · #26' };
+let shots = 0, quick = false;
+
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+}
+function openDetail(name, work, time, st){
+  cur = { name, work };
+  document.getElementById('d-name').textContent = name;
+  document.getElementById('d-work').textContent = work;
+  document.getElementById('d-time').textContent = time + ' · 미사바른치과';
+  const tr = document.getElementById('d-thumbs');
+  tr.innerHTML = st==='done'
+    ? thumbHTML()+thumbHTML()
+    : '<div class="thumb empty">아직 없음</div>';
+  go('s-detail');
+}
+function thumbHTML(){
+  return '<div class="thumb"><svg width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" fill="#241A1E"/><rect x="10" y="24" width="12" height="20" rx="4" fill="#F0E9DC"/><rect x="25" y="21" width="13" height="23" rx="4" fill="#F4EEE2"/><rect x="42" y="22" width="11" height="21" rx="3.5" fill="#EFE5CF"/></svg></div>';
+}
+function startCam(isQuick){
+  quick = isQuick;
+  shots = 0;
+  document.getElementById('c-thumbs').innerHTML='';
+  ['cut0','cut1'].forEach((c,i)=>{ const el=document.getElementById(c); el.className='cut'+(i===0?' now':''); });
+  const b=document.getElementById('attachBtn'); b.className=''; b.textContent='첨부 0';
+  document.getElementById('c-name').textContent = quick ? '미분류 촬영' : cur.name;
+  document.getElementById('c-work').textContent = quick ? '촬영 후 의뢰서를 선택합니다' : cur.work;
+  go('s-cam');
+}
+function startQuick(){ startCam(true); }
+function snap(){
+  const f=document.getElementById('flash');
+  f.style.opacity=.85; setTimeout(()=>f.style.opacity=0,120);
+  if(shots<2){
+    const cutEl=document.getElementById('cut'+shots);
+    cutEl.className='cut ok';
+    if(shots<1) document.getElementById('cut'+(shots+1)).className='cut now';
+  }
+  shots++;
+  if(shots<=2){
+    document.getElementById('c-thumbs').insertAdjacentHTML('beforeend',
+      '<div class="t"><svg width="38" height="38" viewBox="0 0 64 64"><rect width="64" height="64" fill="#241A1E"/><rect x="10" y="24" width="12" height="20" rx="4" fill="#F0E9DC"/><rect x="25" y="21" width="13" height="23" rx="4" fill="#F4EEE2"/><rect x="42" y="22" width="11" height="21" rx="3.5" fill="#EFE5CF"/></svg></div>');
+  }
+  const b=document.getElementById('attachBtn');
+  b.textContent='첨부 '+Math.min(shots,2);
+  b.classList.add('show');
+}
+function closeCam(){ go(quick ? 's-home' : 's-detail'); }
+function finish(){
+  if(quick){
+    document.getElementById('m-count').textContent=Math.min(shots,2);
+    go('s-match');
+  } else {
+    document.getElementById('done-title').textContent='첨부 완료';
+    document.getElementById('done-msg').innerHTML='<b>'+cur.name+' · '+cur.work.split(' · ')[0]+'</b> 의뢰서에<br>사진 '+Math.min(shots,2)+'장이 원본 화질로 첨부됐어요.<br>덴플로우 치과기공소에 알림을 보냈습니다.';
+    go('s-done');
+  }
+}
+function matchTo(name, work){
+  document.getElementById('done-title').textContent='첨부 완료';
+  document.getElementById('done-msg').innerHTML='<b>'+name+' · '+work.split(' · ')[0]+'</b> 의뢰서에<br>사진 '+Math.min(shots,2)+'장이 원본 화질로 첨부됐어요.<br>덴플로우 치과기공소에 알림을 보냈습니다.';
+  go('s-done');
+}
+function skipMatch(){
+  go('s-home');
+  toast('미분류함에 '+Math.min(shots,2)+'장 보관됨 · 데스크에서 분류할 수 있어요');
+}
+function resetHome(){ go('s-home'); toast(cur.name+' 촬영 완료 · 기공소 알림 전송됨'); }
+function toast(msg){
+  const t=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+</script>
+</body>
+</html>
