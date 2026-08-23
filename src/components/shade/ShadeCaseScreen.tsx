@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { uploadOrderFiles } from '@/lib/upload';
 import { submitShadePhotoAdded } from '@/server/actions/shade-photo';
+import { enqueuePhotos } from '@/lib/photo-queue';
 import { shadePhotoName, SHADE_STATUS_LABEL } from '@/server/domain/shade-photo';
 import ShadeCamera from '@/components/shade/ShadeCamera';
 import type { ShadeCaseDetail } from '@/server/repositories/shade-photo';
@@ -73,11 +74,26 @@ export default function ShadeCaseScreen({
     setBusy(false);
 
     if (!result.ok) {
+      /*
+        ★★ **못 보낸 사진을 폰에 담아 둡니다** (명세서 §5).
+          전에는 여기서 끝이라 찍은 사진이 사라졌습니다 — 환자는
+          이미 일어났고 다시 찍을 수 없습니다.
+          연결이 돌아오면 저절로 다시 갑니다 (PhotoQueueBar).
+      */
+      const stuck = named.filter((f) => result.failed.includes(f.name));
+      await enqueuePhotos(stuck, { orderId: data.id }, result.failures[0]?.reason ?? '');
+
+      setCamera(false);
       setError(
-        `사진 ${result.failed.length}장을 올리지 못했습니다. ` +
-          (result.failures[0]?.reason ?? '') +
-          ' 잠시 뒤 다시 눌러 주세요.',
+        `사진 ${result.failed.length}장을 아직 못 보냈습니다. ` +
+          '폰에 담아 뒀다가 연결되면 저절로 보냅니다.',
       );
+
+      // 올라간 것이 있으면 그만큼은 알립니다
+      const done = named.length - result.failed.length;
+      if (done > 0) await submitShadePhotoAdded(data.id, done);
+
+      startTransition(() => router.refresh());
       return;
     }
 

@@ -18,6 +18,9 @@ import {
   thumbTransform,
   THUMB_EDGE,
   VIEW_EDGE,
+  shouldRetry,
+  queueLabel,
+  QUEUE_MAX_TRIES,
 } from '@/server/domain/shade-photo';
 import { LAB_OPEN_EXTENSIONS } from '@/server/domain/file-access';
 import { STATUS_ORDER } from '@/server/domain/order-status';
@@ -195,5 +198,37 @@ describe('섬네일', () => {
   // ★ 목록은 여러 장이 한꺼번에 뜹니다 — 화질을 더 낮게
   it('목록 화질이 더 낮습니다', () => {
     expect(thumbTransform('grid').quality).toBeLessThan(thumbTransform('view').quality);
+  });
+});
+
+
+/*
+  ★★ 진료실 와이파이는 자주 약합니다. 전에는 올리다 끊기면 그 자리에서
+    실패하고 **찍은 사진이 사라졌습니다** — 환자는 이미 일어났고
+    다시 찍을 수 없습니다.
+*/
+describe('전송 대기', () => {
+  it('처음에는 다시 해 봅니다', () => {
+    expect(shouldRetry(0)).toBe(true);
+    expect(shouldRetry(QUEUE_MAX_TRIES - 1)).toBe(true);
+  });
+
+  /*
+    ★ 무한정 하지 않습니다. 다섯 번을 실패했으면 연결 문제가 아니라
+      다른 사정입니다 — 조용히 계속 두드리면 배터리만 먹습니다.
+  */
+  it('★ 다섯 번이면 멈춥니다', () => {
+    expect(shouldRetry(QUEUE_MAX_TRIES)).toBe(false);
+    expect(shouldRetry(QUEUE_MAX_TRIES + 1)).toBe(false);
+  });
+
+  it('기다리는 것만 있으면 장수만', () => {
+    expect(queueLabel(3, 0)).toBe('전송 대기 3장');
+  });
+
+  // ★ 못 보낸 것은 따로 셉니다. 섞어 세면 '기다리는 중' 으로 읽힙니다
+  it('★ 못 보낸 것이 있으면 갈라서 말합니다', () => {
+    expect(queueLabel(0, 2)).toBe('사진 2장을 못 보냈습니다');
+    expect(queueLabel(1, 2)).toContain('못 보낸 것 2장');
   });
 });

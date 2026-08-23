@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import ShadeQuickShot from '@/components/shade/ShadeQuickShot';
+import PhotoQueueBar from '@/components/shade/PhotoQueueBar';
 import { SHADE_STATUS_LABEL, type ShadeStatus } from '@/server/domain/shade-photo';
 import { matchesAny } from '@/server/domain/hangul';
 import type { ShadeCase } from '@/server/repositories/shade-photo';
@@ -108,6 +109,12 @@ export default function ShadeHome({
 
   return (
     <main className="mx-auto min-h-screen max-w-[480px] px-5 pb-28 pt-6">
+      {/*
+        ★ 못 보낸 사진이 있으면 **맨 위에** 붙습니다. 안 보이면
+          아무도 다시 안 보냅니다.
+      */}
+      <PhotoQueueBar />
+
       <div className="flex items-center justify-between">
         <DenFlowLogo markHeight={20} fontSize={19} />
         <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[12.5px] font-semibold text-[var(--muted)]">

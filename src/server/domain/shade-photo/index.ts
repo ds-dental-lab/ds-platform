@@ -213,3 +213,37 @@ export function thumbTransform(kind: 'grid' | 'view'): ThumbTransform {
 
 /** 주소가 살아 있는 시간(초). 화면을 열어 두고 보는 동안 넉넉히 */
 export const THUMB_TTL = 600;
+
+// ---------- 전송 대기 (명세서 §5 · 엣지케이스 "업로드 중 네트워크 끊김") ----------
+
+/**
+ * ★★ **왜 필요한가.** 진료실 와이파이는 자주 약합니다. 지금까지는
+ *   올리다 끊기면 그 자리에서 실패하고, 찍은 사진이 **사라졌습니다.**
+ *   환자는 이미 일어났고 다시 찍을 수 없습니다.
+ *
+ * ★ 그래서 폰 안에 들고 있다가 연결이 돌아오면 다시 보냅니다.
+ *   사진은 그 폰을 떠나기 전까지 안 없어집니다.
+ */
+
+/** 몇 번까지 스스로 다시 해 보는가 */
+export const QUEUE_MAX_TRIES = 5;
+
+/**
+ * 이 사진을 또 보내 볼까.
+ *
+ * ★ 무한정 하지 않습니다. 다섯 번을 실패했으면 연결 문제가 아니라
+ *   다른 사정입니다(파일이 깨졌거나 주문이 지워졌거나). 그때는
+ *   사람에게 보여 주고 정하게 합니다 — 조용히 계속 두드리면
+ *   배터리만 먹고 아무도 모릅니다.
+ */
+export function shouldRetry(tries: number): boolean {
+  return tries < QUEUE_MAX_TRIES;
+}
+
+/** 전송 대기 띠에 쓸 말 */
+export function queueLabel(waiting: number, stuck: number): string {
+  if (stuck > 0 && waiting === 0) return `사진 ${stuck}장을 못 보냈습니다`;
+  if (stuck > 0) return `전송 대기 ${waiting}장 · 못 보낸 것 ${stuck}장`;
+
+  return `전송 대기 ${waiting}장`;
+}

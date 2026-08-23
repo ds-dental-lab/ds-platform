@@ -15,6 +15,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { uploadUnsortedPhotos } from '@/lib/upload-unsorted';
+import { enqueuePhotos } from '@/lib/photo-queue';
 import ShadeCamera from '@/components/shade/ShadeCamera';
 
 export default function ShadeQuickShot({ clinicOrgId }: { clinicOrgId: string }) {
@@ -41,9 +42,20 @@ export default function ShadeQuickShot({ clinicOrgId }: { clinicOrgId: string })
     const result = await uploadUnsortedPhotos(clinicOrgId, named);
     setBusy(false);
 
-    if (!result.ok && result.uploaded === 0) {
-      setError(`사진을 올리지 못했습니다. ${result.reason ?? ''} 잠시 뒤 다시 해 주세요.`);
-      return;
+    if (!result.ok) {
+      /*
+        ★★ 못 보낸 것은 폰에 담아 둡니다 (명세서 §5). 연결이 돌아오면
+          저절로 다시 갑니다 — 미분류함으로 들어갑니다.
+      */
+      const stuck = named.filter((f) => result.failed.includes(f.name));
+      await enqueuePhotos(stuck, { clinicOrgId }, result.reason ?? '');
+
+      setOpen(false);
+
+      if (result.uploaded === 0) {
+        setError('사진을 아직 못 보냈습니다. 폰에 담아 뒀다가 연결되면 저절로 보냅니다.');
+        return;
+      }
     }
 
     setOpen(false);
