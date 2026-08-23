@@ -56,11 +56,35 @@ export default function LoginPage() {
     if (!hasAuthCookie(document.cookie.split('; ').map((c) => c.split('=')[0]))) return;
 
     let alive = true;
+    const query = new URLSearchParams(window.location.search);
 
-    createClient()
-      .auth.getClaims()
+    /*
+      ★★ **`?switch=1` 이면 안 보냅니다 — 대신 로그아웃합니다**
+        (2026-08-23, 사장님이 폰에서 막혔습니다).
+
+        404 화면의 '다른 계정으로 로그인' 이 여기로 옵니다. 그런데
+        여기가 로그인된 사람을 무조건 제 홈으로 돌려보내고 있어서,
+        **그 버튼을 눌러도 계정을 바꿀 수가 없었습니다.** 눌렀는데
+        아까 그 자리로 돌아오니, 사장님 말대로 "어떻게 해도 안 되는"
+        것이 맞았습니다.
+
+        계정을 바꾸겠다고 스스로 온 사람에게는 로그인 칸을 내주는
+        것이 맞습니다.
+    */
+    const client = createClient();
+
+    if (query.get('switch')) {
+      void client.auth.signOut().then(() => alive && router.refresh());
+      return () => {
+        alive = false;
+      };
+    }
+
+    client.auth
+      .getClaims()
       .then(({ data }) => {
-        if (alive && data?.claims?.sub) router.replace('/');
+        // ★ 오려던 곳이 있으면 그 곳으로. 여기서도 next 를 지킵니다
+        if (alive && data?.claims?.sub) router.replace(safeNext(query.get('next')) ?? '/');
       })
       .catch(() => {
         // 못 풀었으면 그냥 로그인 화면입니다

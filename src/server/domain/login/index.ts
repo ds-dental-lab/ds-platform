@@ -226,8 +226,15 @@ export function safeNext(raw: string | null | undefined): string | null {
   if (!value.startsWith('/')) return null;
   if (value.startsWith('//') || value.startsWith(BACKSLASH_PREFIX)) return null;
 
-  // 우리 화면은 이 셋뿐입니다
-  const allowed = ['/clinic', '/design', '/lab'];
+  /*
+    우리 화면은 이것뿐입니다.
+
+    ★★ `/m` 을 2026-08-23 에 더했습니다. 진료실 폰 화면이 생겼는데
+      이 목록이 그대로여서, 폰에서 로그인하면 **촬영 화면이 아니라
+      데스크톱 홈으로 떨어졌습니다.** 환자 앞에서 다시 찾아 들어가야
+      했습니다.
+  */
+  const allowed = ['/clinic', '/design', '/lab', '/m'];
   if (!allowed.some((p) => value === p || value.startsWith(p + '/') || value.startsWith(p + '?'))) {
     return null;
   }

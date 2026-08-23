@@ -193,6 +193,21 @@ describe('로그인 뒤에 갈 곳', () => {
     expect(safeNext('/clinic/orders?status=received')).toBe('/clinic/orders?status=received');
   });
 
+  /*
+    ★★ 진료실 폰 화면. 이게 빠져 있어서 폰에서 로그인하면 촬영 화면이
+      아니라 데스크톱 홈으로 떨어졌습니다 (2026-08-23).
+  */
+  it('★ 진료실 폰 화면도 갑니다', () => {
+    expect(safeNext('/m')).toBe('/m');
+    expect(safeNext('/m/unsorted')).toBe('/m/unsorted');
+  });
+
+  // ★ 앞글자만 같은 남의 길에는 안 속습니다
+  it('★ /m 으로 시작만 하는 딴 주소는 아닙니다', () => {
+    expect(safeNext('/mail')).toBeNull();
+    expect(safeNext('/master')).toBeNull();
+  });
+
   // ★★ 여기가 이 함수의 전부입니다
   it('남의 사이트로는 절대 안 보냅니다', () => {
     for (const evil of [

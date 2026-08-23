@@ -67,9 +67,16 @@ export default function NotFound() {
             내 홈으로
           </Link>
 
-          {/* ★ 사장님이 부탁한 출구 — 계정이 달라서 막힌 경우입니다 */}
+          {/*
+            ★ 사장님이 부탁한 출구 — 계정이 달라서 막힌 경우입니다.
+
+            ★★ **`?switch=1` 이 꼭 있어야 합니다** (2026-08-23).
+              그냥 /login 으로 보내면, 이미 로그인한 사람은 로그인 칸을
+              못 보고 제 홈으로 되튕깁니다 — 버튼이 있는데 아무 일도
+              안 일어납니다. 이 표시가 붙어야 로그아웃하고 칸을 내줍니다.
+          */}
           <Link
-            href="/login"
+            href="/login?switch=1"
             className="grid h-[42px] place-items-center rounded-[8px] border border-[#DDE2EA] bg-white text-[13.5px] font-semibold text-[#4A5567] hover:bg-[#F4F6F9]"
           >
             다른 계정으로 로그인

@@ -8,8 +8,13 @@
 //   드는 폰에서는 그 자리가 곧 화면의 절반입니다.
 //   여기는 껍데기가 없습니다 — 화면 하나가 곧 전부입니다.
 //
-// ★ 치과만 들어옵니다. 센터·기공소가 주소를 쳐도 404 입니다
-//   (403 이 아닌 이유는 설계서 §8.6 — 있다는 사실도 안 알립니다).
+// ★ 치과만 들어옵니다. 센터·기공소는 못 씁니다.
+//
+// ★★ 다만 **404 로 가리지 않습니다** (2026-08-23). 설계서 §8.6 의
+//   404 규칙은 자료가 걸린 화면을 위한 것이고, /m 은 그런 화면이
+//   아닙니다. 가렸더니 사장님이 폰에서 그 화면을 보고 **고장인지
+//   규칙인지 구분을 못 했습니다** — 가려서 지킨 것은 없고 잃은 것만
+//   있었습니다. 이제 무슨 계정인지 적어 주고 나갈 길을 냅니다.
 //
 // ★ 로그인은 **지금 계정 그대로** 씁니다 (사용자 결정 2026-08-21).
 //   명세의 '공용계정 + PIN' 을 안 만든 이유 — 인증을 하나 더 두면
@@ -18,8 +23,10 @@
 // =========================================================
 
 import type { Metadata, Viewport } from 'next';
-import { requireSector } from '@/server/policies/session';
+import { redirect } from 'next/navigation';
+import { getSession } from '@/server/policies/session';
 import PwaSetup from '@/components/shade/PwaSetup';
+import WrongSector from '@/components/shade/WrongSector';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +54,16 @@ export const viewport: Viewport = {
 };
 
 export default async function MobileLayout({ children }: { children: React.ReactNode }) {
-  await requireSector('clinic');
+  const session = await getSession();
+
+  /*
+    ★★ 로그인 뒤에 **여기로 돌아옵니다** (next=/m).
+      전에는 그냥 /login 이라 로그인하면 데스크톱 홈으로 떨어졌습니다.
+      환자가 입을 벌리고 있는데 다시 찾아 들어가야 했습니다.
+  */
+  if (!session) redirect('/login?next=%2Fm');
+
+  const wrongSector = session.orgType !== 'clinic';
 
   return (
     <div
@@ -63,8 +79,8 @@ export default async function MobileLayout({ children }: { children: React.React
         } as React.CSSProperties
       }
     >
-      {children}
-      <PwaSetup />
+      {wrongSector ? <WrongSector orgName={session.orgName ?? ''} /> : children}
+      {!wrongSector && <PwaSetup />}
     </div>
   );
 }
