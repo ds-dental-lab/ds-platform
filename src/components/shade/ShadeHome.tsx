@@ -13,6 +13,7 @@
 'use client';
 
 import Link from 'next/link';
+import { arrivalSummary, type ArrivalState } from '@/server/domain/arrival';
 import { useMemo, useState } from 'react';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import ShadeQuickShot from '@/components/shade/ShadeQuickShot';
@@ -69,6 +70,7 @@ export default function ShadeHome({
   keyword,
   clinicOrgId,
   unsortedCount = 0,
+  arrivalStates = [],
 }: {
   cases: ShadeCase[];
   clinicName: string;
@@ -76,6 +78,8 @@ export default function ShadeHome({
   /** 미분류 사진이 올라갈 자리. 없으면 '바로 촬영' 을 안 그립니다(시연 화면) */
   clinicOrgId?: string;
   unsortedCount?: number;
+  /** 오늘 오기로 한 것들의 상태. 건수와 '몇 건 아직' 을 홈에서 바로 보여 줍니다 */
+  arrivalStates?: ArrivalState[];
 }) {
   const [q, setQ] = useState(keyword);
 
@@ -128,6 +132,41 @@ export default function ShadeHome({
       <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[var(--muted)]">
         환자를 선택하면 사진이 해당 의뢰서에 자동 첨부됩니다
       </p>
+
+      {/*
+        ★★ **오늘 도착** (사용자 요청 2026-08-24). 비어 있어도 그립니다 —
+          미분류함과 다릅니다. '없음' 이 곧 알고 싶던 답이라서,
+          안 그리면 답을 얻으려고 눌러야 합니다.
+
+        ★ 건수와 '몇 건 아직' 을 여기 적습니다. 누르지 않고도 끝나는
+          것이 제일 빠릅니다.
+      */}
+      <Link
+        href="/m/today"
+        className="mt-4 flex items-center gap-2.5 rounded-xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(22,50,79,0.06)] active:bg-[#F7FAFC]"
+      >
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M3 7.5h10v9H3zM13 10.5h4l3 3v3h-7z"
+            stroke="var(--ink)"
+            strokeWidth="1.7"
+            strokeLinejoin="round"
+          />
+          <circle cx="7" cy="18" r="1.6" stroke="var(--ink)" strokeWidth="1.7" />
+          <circle cx="17" cy="18" r="1.6" stroke="var(--ink)" strokeWidth="1.7" />
+        </svg>
+
+        <span className="min-w-0 flex-1">
+          <b className="block text-[14.5px] font-bold text-[var(--ink)]">오늘 도착</b>
+          <span className="mt-0.5 block truncate text-[12px] text-[var(--muted)]">
+            {arrivalSummary(arrivalStates)}
+          </span>
+        </span>
+
+        <span className="text-[13px] text-[#9FB0C0]" aria-hidden="true">
+          &#8250;
+        </span>
+      </Link>
 
       {/*
         ★ 미분류함이 비어 있으면 안 그립니다. 늘 0 인 입구는 자리만

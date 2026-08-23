@@ -185,9 +185,15 @@ export async function getShadeCase(orderId: string): Promise<ShadeCaseDetail | n
     createdAt: row.created_at,
     photoCount: files.filter((f) => f.kind !== 'design' && isPhoto(f.file_name)).length,
     /*
-      ★ 만드는 곳을 보여 줍니다. 기공소가 정해지기 전이면 센터입니다 —
-        진료실은 '어디서 만드나' 를 알고 싶은 것이지 우리 조직도를
-        알고 싶은 것이 아닙니다.
+      ★ 만드는 곳을 보여 줍니다. 진료실은 '어디서 만드나' 를 알고 싶은
+        것이지 우리 조직도를 알고 싶은 것이 아닙니다.
+
+      ★★ **치과 화면에서 lab 은 언제나 null 입니다** (2026-08-24 확인).
+        RLS 가 하청 기공소를 가립니다 — 그게 맞습니다, 어디에 맡겼는지는
+        우리 사정입니다. 그러니 여기서 나오는 것은 늘 센터 이름이고,
+        '기공소가 정해지면 기공소를 보여 준다' 는 앞의 주석은 틀렸습니다.
+        지우지 않고 남겨 둡니다 — 나중에 RLS 가 열리면 그때는 정말로
+        기공소가 나와야 합니다.
     */
     labName: row.lab?.name ?? row.design?.name ?? '',
     /*

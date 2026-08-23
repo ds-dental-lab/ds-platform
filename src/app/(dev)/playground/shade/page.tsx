@@ -118,7 +118,13 @@ export default function ShadePlayground() {
         <div className={FRAME} style={{ height: 760 }}>
           <div className="h-full overflow-y-auto">
             {tab === 'home' && (
-              <ShadeHome cases={CASES} clinicName="미사바른치과" keyword="" unsortedCount={4} />
+              <ShadeHome
+                cases={CASES}
+                clinicName="미사바른치과"
+                keyword=""
+                unsortedCount={4}
+                arrivalStates={['making', 'onTheWay', 'arrived']}
+              />
             )}
             {tab === 'detail' && <ShadeCaseScreen data={DETAIL} />}
             {tab === 'done' && <ShadeCaseScreen data={DETAIL_DONE} />}

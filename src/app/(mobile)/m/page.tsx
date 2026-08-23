@@ -9,6 +9,7 @@
 
 import { listShadeCases } from '@/server/repositories/shade-photo';
 import { countUnsortedPhotos } from '@/server/repositories/unsorted-photo';
+import { listArrivingToday } from '@/server/repositories/arrival';
 import { requireSector } from '@/server/policies/session';
 import ShadeHome from '@/components/shade/ShadeHome';
 
@@ -22,7 +23,15 @@ export default async function MobileHomePage() {
       내려 주고 **브라우저가 치는 대로** 좁힙니다 (domain/hangul).
       초성 검색은 ilike 로 못 합니다.
   */
-  const [cases, unsorted] = await Promise.all([listShadeCases(), countUnsortedPhotos()]);
+  /*
+    ★ 셋을 **함께** 보냅니다. 서로를 안 쓰는데 줄줄이 기다리면 왕복이
+      셋입니다 — 그 차이가 그대로 화면 뜨는 시간입니다.
+  */
+  const [cases, unsorted, arrivals] = await Promise.all([
+    listShadeCases(),
+    countUnsortedPhotos(),
+    listArrivingToday(),
+  ]);
 
   return (
     <ShadeHome
@@ -31,6 +40,12 @@ export default async function MobileHomePage() {
       keyword=""
       clinicOrgId={session.orgId ?? undefined}
       unsortedCount={unsorted}
+      /*
+        ★★ 건수를 **홈에서 바로** 보여 줍니다. 누르지 않고도 답이
+          나오는 것이 제일 빠릅니다 — 아침에 폰을 드는 이유가
+          "오늘 뭐 오나" 하나입니다.
+      */
+      arrivalStates={arrivals.map((a) => a.state)}
     />
   );
 }
