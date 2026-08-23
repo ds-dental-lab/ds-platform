@@ -236,6 +236,20 @@ export default function ShadeHome({
         </section>
       ))}
 
+      {/*
+        ★★ **되돌아갈 길** (2026-08-23). 폰으로 들어온 치과를 여기로
+          보내기 시작했으니, 여기서 나가는 길도 있어야 합니다.
+          없으면 폰 쓰는 치과 관리자가 주문등록·정산에 영영 못
+          들어갑니다 — 덫 하나를 없애면서 다른 덫을 놓는 셈입니다.
+
+        ★ 작게 둡니다. 이 화면의 일은 촬영이고, 저기 갈 일은 드뭅니다.
+      */}
+      <p className="mt-9 pb-24 text-center">
+        <Link href="/clinic" className="text-[12.5px] text-[#9FB0C0] underline underline-offset-4">
+          주문등록 · 정산은 전체 화면에서
+        </Link>
+      </p>
+
       {clinicOrgId && <ShadeQuickShot clinicOrgId={clinicOrgId} />}
     </main>
   );
