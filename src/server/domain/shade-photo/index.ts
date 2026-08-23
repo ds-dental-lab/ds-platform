@@ -95,15 +95,15 @@ export function shadePhotoName(orderNo: string, index: number, takenAt: Date): s
  * ★ 줄인 것은 **권장 장수**지 상한이 아닙니다. 셔터는 계속 눌립니다 —
  *   필요하면 더 찍습니다.
  */
-export const SHADE_CUTS = ['① 쉐이드탭 포함', '② 정면'] as const;
+export const SHADE_CUTS = ['① 쉐이드가이드 포함', '② 정면'] as const;
 
 /**
  * 카메라에 띄우는 한 마디. (사용자 요청 2026-08-23 —
  *   "안내문구가 너무 길어. 간단 명료하게, 눈에 잘 보이게")
  *
- * ★★ 전에는 문장이었습니다 — "쉐이드탭을 치아 절단연과 나란히 놓고,
+ * ★★ 전에는 문장이었습니다 — "쉐이드가이드를 치아 절단연과 나란히 놓고,
  *   가이드 라인 안에 맞춰 촬영하세요". 환자가 입을 벌리고 있고 한 손에
- *   폰, 한 손에 쉐이드탭인 사람은 **문장을 안 읽습니다.** 눈에 스치는
+ *   폰, 한 손에 쉐이드가이드인 사람은 **문장을 안 읽습니다.** 눈에 스치는
  *   것은 서너 단어가 전부입니다.
  *
  * ★ 그래서 지금 안 하면 사진을 버리게 되는 것 **하나만** 남겼습니다.
@@ -111,7 +111,7 @@ export const SHADE_CUTS = ['① 쉐이드탭 포함', '② 정면'] as const;
  *   보이는 것을 글로 또 쓰면 글자만 늘어납니다.
  */
 export const SHOT_HINT = {
-  normal: '쉐이드탭을 절단연에 나란히',
+  normal: '쉐이드가이드를 절단연에 나란히',
   anterior: '코 끝까지 나오게',
 } as const;
 
@@ -252,7 +252,7 @@ export interface ThumbTransform {
  * 저장소에 줄여 달라고 할 때의 값.
  *
  * ★ 목록은 `cover` — 칸을 꽉 채워야 줄이 안 어그러집니다.
- * ★ 크게 볼 때는 `contain` — 잘리면 안 됩니다. 쉐이드탭이 가장자리에
+ * ★ 크게 볼 때는 `contain` — 잘리면 안 됩니다. 쉐이드가이드이 가장자리에
  *   있는 사진이 흔합니다.
  */
 export function thumbTransform(kind: 'grid' | 'view'): ThumbTransform {

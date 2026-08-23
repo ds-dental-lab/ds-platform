@@ -127,7 +127,7 @@ describe('시안에서 가져온 값', () => {
   */
   it('★ 컷은 둘 (셋에서 줄임)', () => {
     expect(SHADE_CUTS).toHaveLength(2);
-    expect(SHADE_CUTS[0]).toContain('쉐이드탭');
+    expect(SHADE_CUTS[0]).toContain('쉐이드가이드');
     expect(SHADE_CUTS[1]).toContain('정면');
   });
 
@@ -191,7 +191,7 @@ describe('섬네일', () => {
   });
 
   /*
-    ★ 크게 볼 때는 잘리면 안 됩니다. 쉐이드탭이 가장자리에 있는
+    ★ 크게 볼 때는 잘리면 안 됩니다. 쉐이드가이드이 가장자리에 있는
       사진이 흔합니다.
   */
   it('★ 크게보기는 안 자릅니다(contain)', () => {
@@ -277,14 +277,21 @@ describe('전치부인가', () => {
 
 
 /*
-  ★★ 환자가 입을 벌리고 있고 한 손에 폰, 한 손에 쉐이드탭인 사람은
+  ★★ 환자가 입을 벌리고 있고 한 손에 폰, 한 손에 쉐이드가이드인 사람은
     **문장을 안 읽습니다.** 눈에 스치는 것은 서너 단어가 전부입니다.
     (사용자 요청 2026-08-23 — "안내문구가 너무 길어")
 */
 describe('카메라 한 마디', () => {
-  it('★ 짧습니다 — 열다섯 자 안', () => {
+  /*
+    ★ 재는 것은 **어절**입니다. 글자 수는 이름이 길어지면 따라 늘어나니까
+      (쉐이드탭 → 쉐이드가이드) 그것만으로는 문장이 되는 것을 못 막습니다.
+      눈에 스치는 것이 서너 단어라는 것이 진짜 규칙입니다.
+  */
+  it('★ 짧습니다 — 세 어절 안', () => {
     for (const hint of Object.values(SHOT_HINT)) {
-      expect(hint.length).toBeLessThanOrEqual(15);
+      expect(hint.trim().split(/\s+/).length).toBeLessThanOrEqual(3);
+      // 한 줄에 들어가야 합니다 (폰 폭 375px 기준)
+      expect(hint.length).toBeLessThanOrEqual(16);
     }
   });
 
@@ -298,7 +305,7 @@ describe('카메라 한 마디', () => {
 
   // ★ 지금 안 하면 사진을 버리게 되는 것만 남깁니다
   it('할 일이 하나씩 들어 있습니다', () => {
-    expect(SHOT_HINT.normal).toContain('쉐이드탭');
+    expect(SHOT_HINT.normal).toContain('쉐이드가이드');
     expect(SHOT_HINT.anterior).toContain('코');
   });
 });
