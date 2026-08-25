@@ -40,6 +40,8 @@ import { ISSUE_META, type IssueType } from '@/server/domain/order-list';
 import MoneyTrend from '@/components/home/MoneyTrend';
 import { PICKUP_KIND_LABEL, PICKUP_STATUS_LABEL } from '@/lib/format/pickup';
 import { WORK_LABEL, WORK_SECTORS, homeLeftLayout } from '@/server/domain/worklist';
+import RetentionNudge from '@/components/home/RetentionNudge';
+import type { RetentionNudge as Nudge } from '@/server/repositories/retention';
 import type { HomeSummary, HomePickup, HomeWork } from '@/server/repositories/home';
 
 /** 섹터마다 세는 상태가 다릅니다 */
@@ -129,9 +131,21 @@ const HOME_PATH: Record<
   },
 };
 
+/** 계정정보가 어느 주소에 있는가 — 파기 화면이 그 아래입니다 */
+const SECTOR_BASE: Record<Sector, string> = {
+  clinic: '/clinic',
+  design_center: '/design',
+  lab: '/lab',
+};
+
 export interface HomeScreenProps {
   sector: Sector;
   summary: HomeSummary;
+  /**
+   * 파기 알림. 관리자가 아니거나 알릴 것이 없으면 null 입니다
+   * (사용자 요청 2026-08-25).
+   */
+  retention?: Nudge | null;
   /**
    * 금액을 볼 수 있는 사람인가 (관리자).
    *
@@ -146,6 +160,7 @@ export default function HomeScreen({
   sector,
   summary,
   canSeeMoney = true,
+  retention = null,
 }: HomeScreenProps) {
   const money = MONEY_LABEL[sector];
   const path = HOME_PATH[sector];
@@ -163,9 +178,19 @@ export default function HomeScreen({
   */
   const { showTrend, workGrows, statusGrows } = homeLeftLayout(sector, canSeeMoney);
 
+  /*
+    ★★ 띠는 세 칸 **위**에 답니다. 칸 안에 넣으면 homeLeftLayout 이
+      맞춰 둔 세 칸의 높이가 어긋납니다 — 카드 하나 넣고 뺄 때마다
+      셋이 틀어지는 것을 겪어서 규칙으로 옮겨 둔 자리입니다.
+  */
   return (
-    /*
-      ★ 화면 높이만큼 세웁니다 (사용자 지적 2026-08-15 — "home화면 아래
+    <>
+      {retention && (
+        <RetentionNudge nudge={retention} href={`${SECTOR_BASE[sector]}/account/retention`} />
+      )}
+
+      {/*
+        ★ 화면 높이만큼 세웁니다 (사용자 지적 2026-08-15 — "home화면 아래
         비어잇는거 확인햇어").
 
         전에는 금액 추이가 왼쪽 칸을 길게 만들어 주어, 그 높이에 나머지
@@ -177,8 +202,8 @@ export default function HomeScreen({
 
       ★ **넓은 화면에서만** 겁니다. 좁은 화면은 카드가 세로로 쌓이는데,
         거기에 높이를 강제하면 카드 하나가 화면을 통째로 차지합니다.
-    */
-    <div className="grid grid-cols-1 gap-3.5 lg:min-h-[calc(100vh-76px)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
+      */}
+      <div className="grid grid-cols-1 gap-3.5 lg:min-h-[calc(100vh-76px)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
       {/* ================= 왼쪽 ================= */}
       <div className="flex flex-col gap-3.5">
         {canSeeMoney && (
@@ -421,7 +446,8 @@ export default function HomeScreen({
           )}
         </Card>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

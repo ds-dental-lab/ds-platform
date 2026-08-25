@@ -17,6 +17,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import {
+  canManage,
   cutoffFor,
   RETENTION_TARGETS,
   type RetentionPlan,
@@ -70,6 +71,61 @@ export async function getRetentionBoard(): Promise<RetentionBoard | null> {
   }
 
   return { plans, runs: await listRuns(supabase, session.orgId) };
+}
+
+export interface RetentionNudge {
+  /** 지금 지울 수 있는 것이 몇 건인가 */
+  due: number;
+  /** 보관기간을 **한 항목도** 안 정했는가 */
+  unset: boolean;
+}
+
+/**
+ * HOME 에 띄울 한 줄. (사용자 요청 2026-08-25)
+ *
+ * ★★ **파기는 저절로 안 돕니다 — 사람이 눌러야 합니다**
+ *   (actions/retention 에 그렇게 정해 뒀습니다: 밤사이 배치가 환자
+ *   파일을 지웠는데 뭐가 지워졌는지 아무도 모르는 상태가 더 나쁩니다).
+ *
+ *   그런데 그 화면은 계정정보 안쪽에 있어서, **들어가 봐야만** 지울
+ *   것이 쌓인 줄 압니다. 안 들어가면 180일이 지나도 영원히 쌓입니다.
+ *   실제로 이 시스템은 파기가 **한 번도 안 돌았습니다**.
+ *   버튼을 사람에게 맡겼으면, 누를 때가 됐다는 것은 우리가 알려야
+ *   합니다.
+ *
+ * ★★ **안 정한 것도 알립니다.** 기간을 안 정하면 셀 것도 없어서
+ *   배지가 영영 안 뜹니다 — 제일 위험한 상태가 제일 조용합니다.
+ *
+ * ★ 관리자만 봅니다. 지울 수 있는 사람에게만 알리는 것이 맞습니다.
+ * ★ 못 읽으면 아무것도 안 띄웁니다. 배지 하나 때문에 HOME 이
+ *   무너지면 안 됩니다.
+ */
+export async function getRetentionNudge(): Promise<RetentionNudge | null> {
+  const session = await getSession();
+  if (!session?.orgId || !canManage(session.role)) return null;
+
+  const supabase = await createClient();
+
+  const { data: rows } = await supabase
+    .from('retention_settings')
+    .select('target, keep_days')
+    .eq('org_id', session.orgId);
+
+  const keep = new Map<RetentionTarget, number | null>();
+  for (const r of (rows ?? []) as { target: RetentionTarget; keep_days: number | null }[]) {
+    keep.set(r.target, r.keep_days);
+  }
+
+  const set = RETENTION_TARGETS.filter((t) => keep.get(t) != null);
+  if (set.length === 0) return { due: 0, unset: true };
+
+  let due = 0;
+  for (const target of set) {
+    const cutoff = cutoffFor(keep.get(target) ?? null);
+    if (cutoff) due += await countDue(supabase, target, cutoff.toISOString(), session.orgId);
+  }
+
+  return { due, unset: false };
 }
 
 /**

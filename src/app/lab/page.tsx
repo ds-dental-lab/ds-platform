@@ -6,6 +6,7 @@
 // =========================================================
 
 import { getHomeSummary } from '@/server/repositories/home';
+import { getRetentionNudge } from '@/server/repositories/retention';
 import { getSession } from '@/server/policies/session';
 import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 import HomeScreen from '@/components/home/HomeScreen';
@@ -15,8 +16,15 @@ import UnreadChatStrip from '@/components/home/UnreadChatStrip';
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const summary = await getHomeSummary();
-  const session = await getSession();
+  /*
+    ★ 셋을 함께 보냅니다 — 서로를 안 쓰는데 줄줄이 기다릴 이유가 없습니다.
+    ★ 파기 알림은 관리자가 아니면 null 입니다 (repositories/retention).
+  */
+  const [summary, session, retention] = await Promise.all([
+    getHomeSummary(),
+    getSession(),
+    getRetentionNudge(),
+  ]);
 
   return (
     <>
@@ -28,6 +36,7 @@ export default async function HomePage() {
         sector="lab"
         summary={summary}
         canSeeMoney={canSeeMoney(session?.role as MemberRole | null)}
+        retention={retention}
       />
     </>
   );
