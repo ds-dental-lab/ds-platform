@@ -7,6 +7,8 @@
 
 import { getHomeSummary } from '@/server/repositories/home';
 import { getRetentionNudge } from '@/server/repositories/retention';
+import { getStorageUsed } from '@/server/repositories/storage-usage';
+import { canManage } from '@/server/domain/retention';
 import { getSession } from '@/server/policies/session';
 import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 import HomeScreen from '@/components/home/HomeScreen';
@@ -26,6 +28,14 @@ export default async function HomePage() {
     getRetentionNudge(),
   ]);
 
+  /*
+    ★★ **센터 관리자만** 봅니다 (사용자 요청 2026-08-25). 요금제를
+      쥔 사람이 그 사람뿐입니다 — 치과·기공소에 띄우면 자기가 어쩔
+      수 없는 일로 걱정만 합니다. 그래서 이 값은 /design 에서만
+      읽습니다.
+  */
+  const storageUsed = canManage(session?.role ?? null) ? await getStorageUsed() : null;
+
   return (
     <>
       {/* ★ 접수가 들어오면 새로고침 없이 올라옵니다 (사용자 요청 2026-08-13) */}
@@ -37,6 +47,7 @@ export default async function HomePage() {
         summary={summary}
         canSeeMoney={canSeeMoney(session?.role as MemberRole | null)}
         retention={retention}
+        storageUsed={storageUsed}
       />
     </>
   );

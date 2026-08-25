@@ -41,6 +41,7 @@ import MoneyTrend from '@/components/home/MoneyTrend';
 import { PICKUP_KIND_LABEL, PICKUP_STATUS_LABEL } from '@/lib/format/pickup';
 import { WORK_LABEL, WORK_SECTORS, homeLeftLayout } from '@/server/domain/worklist';
 import RetentionNudge from '@/components/home/RetentionNudge';
+import StorageBar from '@/components/home/StorageBar';
 import type { RetentionNudge as Nudge } from '@/server/repositories/retention';
 import type { HomeSummary, HomePickup, HomeWork } from '@/server/repositories/home';
 
@@ -147,6 +148,11 @@ export interface HomeScreenProps {
    */
   retention?: Nudge | null;
   /**
+   * 저장소가 몇 바이트 찼나. **센터 관리자에게만** 넘어옵니다
+   * (사용자 요청 2026-08-25). 못 셌으면 null 입니다.
+   */
+  storageUsed?: number | null;
+  /**
    * 금액을 볼 수 있는 사람인가 (관리자).
    *
    * ★ 사용자에게는 금액 카드와 추이가 **아예 없습니다**
@@ -161,6 +167,7 @@ export default function HomeScreen({
   summary,
   canSeeMoney = true,
   retention = null,
+  storageUsed = null,
 }: HomeScreenProps) {
   const money = MONEY_LABEL[sector];
   const path = HOME_PATH[sector];
@@ -185,6 +192,12 @@ export default function HomeScreen({
   */
   return (
     <>
+      {/*
+        ★ 저장소가 먼저입니다. 가득 차면 업로드가 **멈추고**, 파기는
+          늦어도 요금만 붙습니다 — 급한 것을 위에 둡니다.
+      */}
+      {storageUsed !== null && <StorageBar used={storageUsed} />}
+
       {retention && (
         <RetentionNudge nudge={retention} href={`${SECTOR_BASE[sector]}/account/retention`} />
       )}

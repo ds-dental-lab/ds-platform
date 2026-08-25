@@ -97,12 +97,21 @@ export interface RetentionNudge {
  *   배지가 영영 안 뜹니다 — 제일 위험한 상태가 제일 조용합니다.
  *
  * ★ 관리자만 봅니다. 지울 수 있는 사람에게만 알리는 것이 맞습니다.
+ *
+ * ★★ **치과에는 안 띄웁니다** (사용자 지적 2026-08-25).
+ *   치과는 우리 거래처지 이 판을 운영하는 사람이 아닙니다. 보관기간을
+ *   정하는 것은 우리가 권할 일이지, 진료실 HOME 에 매일 띄워 놓고
+ *   재촉할 일이 아닙니다 — 그러면 그냥 늘 켜져 있는 잔소리가 되고,
+ *   그때부터 아무도 안 읽습니다.
+ *   화면(계정정보 → 보관기간·파기)은 그대로 열립니다.
+ *
  * ★ 못 읽으면 아무것도 안 띄웁니다. 배지 하나 때문에 HOME 이
  *   무너지면 안 됩니다.
  */
 export async function getRetentionNudge(): Promise<RetentionNudge | null> {
   const session = await getSession();
   if (!session?.orgId || !canManage(session.role)) return null;
+  if (session.orgType === 'clinic') return null;
 
   const supabase = await createClient();
 
