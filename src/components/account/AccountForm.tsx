@@ -295,7 +295,26 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
                    화면(`/{sector}/account/audit`)도 주소로는 열립니다.
           */}
           <div className="mr-auto flex flex-wrap items-center gap-2">
-            {editable && (
+            {/*
+              ★★ **치과에는 안 답니다** (사용자 지적 2026-08-25 —
+                "치과 이용자 혼란만 줄 것 같아").
+
+                맞습니다. 이 화면은 '무엇을 언제 지울지' 를 정하는
+                곳인데, 치과가 정하는 값은 **자기 열람 기록**에만
+                닿습니다. 환자 파일은 센터 쪽 파기가 이미 걷어 갑니다
+                (repositories/retention 의 order_file 조건에는 조직
+                필터가 없고 RLS 가 범위를 정합니다 — 센터는 모든
+                주문에 얹혀 있습니다).
+
+                즉 치과에게는 **바꿀 것은 거의 없고 겁만 나는 화면**
+                이었습니다. 공개되는 처리방침도 센터 설정만 읽습니다
+                (public_privacy_policy 가 design_center 를 고릅니다).
+
+              ★ 주소로는 그대로 열립니다. 길을 안 낸 것이지 권한을
+                뺀 것이 아닙니다 — 치과가 요청하면 그 화면을 쓸 수
+                있어야 합니다.
+            */}
+            {editable && org.orgType !== 'clinic' && (
               <Link href={`${basePath}/account/retention`} className={SUB_LINK}>
                 보관기간·파기
               </Link>

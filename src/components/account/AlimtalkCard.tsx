@@ -68,7 +68,8 @@ export default function AlimtalkCard({ phone, on, events, recent }: AlimtalkCard
   }
 
   return (
-    <section className="mx-auto mt-3.5 max-w-[900px] rounded-lg border border-[#E8EBF0] bg-white">
+    /* ★ 위 카드들과 같은 720px — 900 이라 혼자 넓었습니다 (2026-08-25) */
+    <section className="mx-auto mt-3.5 max-w-[720px] rounded-lg border border-[#E8EBF0] bg-white">
       <div className="flex flex-wrap items-center gap-3 border-b border-[#E8EBF0] px-6 py-4">
         <div>
           <h2 className="text-[15px] font-bold tracking-tight text-[#1A2130]">내 알림톡</h2>
