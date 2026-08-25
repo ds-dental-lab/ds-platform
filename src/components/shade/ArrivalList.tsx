@@ -1,18 +1,17 @@
 // =========================================================
 // 놓을 위치: src/components/shade/ArrivalList.tsx
 //
-// 오늘 도착할 보철물. (사용자 요청 2026-08-24)
+// 오늘 받을 것. (사용자 요청 2026-08-24, 좁힘 2026-08-24)
 //
-// ★★ 아침에 **서서 보는** 화면입니다. 데스크톱 배송조회는 한 주를
-//   달력으로 펼친 것이라 앉아서 보는 것이고요. 여기서 알고 싶은 것은
-//   딱 하나 — 오늘 뭐 오나.
+// ★★ 한 가지 질문에만 답합니다 — *오늘 것 중에 아직 안 온 게 있나.*
 //
-// ★ 안 온 것이 위입니다. 도착한 것은 이미 손에 있어서 볼 이유가
-//   없습니다.
+// ★★ **받은 것은 안 세웁니다.** 「수령 완료」는 치과가 자기 손으로
+//   누르는 것이라 되돌려 보여 줘도 새 정보가 아닙니다. 목록에 섞이면
+//   정작 봐야 할 줄이 그만큼 밀립니다.
 // =========================================================
 
 import Link from 'next/link';
-import { ARRIVAL_LABEL, arrivalSummary } from '@/server/domain/arrival';
+import { ARRIVAL_LABEL, pendingSummary, isPending, arrivalRank } from '@/server/domain/arrival';
 import type { ArrivalRow } from '@/server/repositories/arrival';
 
 const TONE = {
@@ -22,7 +21,12 @@ const TONE = {
 } as const;
 
 export default function ArrivalList({ rows }: { rows: ArrivalRow[] }) {
-  const summary = arrivalSummary(rows.map((r) => r.state));
+  const summary = pendingSummary(rows.map((r) => r.state));
+
+  // ★ 세우는 것은 아직 안 온 것뿐입니다
+  const pending = rows
+    .filter((r) => isPending(r.state))
+    .sort((a, b) => arrivalRank(a.state) - arrivalRank(b.state));
 
   return (
     <main className="mx-auto min-h-screen max-w-[480px] px-5 pb-10 pt-5">
@@ -31,17 +35,27 @@ export default function ArrivalList({ rows }: { rows: ArrivalRow[] }) {
       </Link>
 
       <h1 className="mt-4 text-[23px] font-extrabold tracking-[-0.4px] text-[var(--ink)]">
-        오늘 도착
+        오늘 받을 것
       </h1>
-      <p className="mt-1.5 text-[13px] text-[var(--muted)]">{summary}</p>
+      {/*
+        ★ 날짜 기준을 적어 둡니다. '도착일' 이 아니라 **요청시한**
+          입니다 — 오늘까지 해 달라고 한 것입니다. 안 적으면 택배
+          도착 예정으로 읽습니다.
+      */}
+      <p className="mt-1.5 text-[13px] text-[var(--muted)]">
+        {summary}
+        <span className="mt-0.5 block text-[11.5px] text-[#9FB0C0]">
+          오늘까지 요청한 것 기준입니다
+        </span>
+      </p>
 
-      {rows.length === 0 ? (
+      {pending.length === 0 ? (
         <p className="mt-14 text-center text-[14px] text-[var(--muted)]">
-          오늘 받기로 한 것이 없습니다
+          {rows.length === 0 ? '오늘 받기로 한 것이 없습니다' : '오늘 것은 다 받았습니다'}
         </p>
       ) : (
         <ul className="mt-5 space-y-2.5">
-          {rows.map((r) => (
+          {pending.map((r) => (
             <li
               key={r.id}
               className="rounded-2xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(22,50,79,0.06)]"

@@ -13,7 +13,7 @@
 'use client';
 
 import Link from 'next/link';
-import { arrivalSummary, type ArrivalState } from '@/server/domain/arrival';
+import { pendingSummary, type ArrivalState } from '@/server/domain/arrival';
 import { useMemo, useState } from 'react';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import ShadeQuickShot from '@/components/shade/ShadeQuickShot';
@@ -134,7 +134,7 @@ export default function ShadeHome({
       </p>
 
       {/*
-        ★★ **오늘 도착** (사용자 요청 2026-08-24). 비어 있어도 그립니다 —
+        ★★ **오늘 받을 것** (사용자 요청 2026-08-24). 비어 있어도 그립니다 —
           미분류함과 다릅니다. '없음' 이 곧 알고 싶던 답이라서,
           안 그리면 답을 얻으려고 눌러야 합니다.
 
@@ -157,9 +157,9 @@ export default function ShadeHome({
         </svg>
 
         <span className="min-w-0 flex-1">
-          <b className="block text-[14.5px] font-bold text-[var(--ink)]">오늘 도착</b>
+          <b className="block text-[14.5px] font-bold text-[var(--ink)]">오늘 받을 것</b>
           <span className="mt-0.5 block truncate text-[12px] text-[var(--muted)]">
-            {arrivalSummary(arrivalStates)}
+            {pendingSummary(arrivalStates)}
           </span>
         </span>
 

@@ -1,14 +1,15 @@
 // =========================================================
 // 놓을 위치: tests/domain/arrival.test.ts
 //
-// 오늘 도착할 보철물. (사용자 요청 2026-08-24)
+// 오늘 받을 것. (사용자 요청 2026-08-24, 좁힘 2026-08-24)
 // =========================================================
 
 import { describe, it, expect } from 'vitest';
 import {
   arrivalStateOf,
   arrivalRank,
-  arrivalSummary,
+  pendingSummary,
+  isPending,
   ARRIVAL_LABEL,
   type ArrivalState,
 } from '@/server/domain/arrival';
@@ -60,21 +61,37 @@ describe('목록 자리', () => {
   });
 });
 
+/*
+  ★★ **받은 것은 안 세웁니다** (2026-08-24 좁힘). 「수령 완료」는 치과가
+    자기 손으로 누르는 것이라, 되돌려 보여 줘도 새 정보가 아닙니다.
+    사장님 지적 — "배송추적은 달 수가 없어서 의미가 있나 싶다".
+    맞습니다. 이 화면은 추적이 아니고, 답하는 질문은 하나입니다 —
+    *오늘 것 중에 아직 안 온 게 있나.*
+*/
+describe('세울 것 고르기', () => {
+  it('★ 받은 것은 안 세웁니다', () => {
+    expect(isPending('arrived')).toBe(false);
+    expect(isPending('making')).toBe(true);
+    expect(isPending('onTheWay')).toBe(true);
+  });
+});
+
 describe('머리말 한 줄', () => {
   /*
-    ★ 숫자만 세지 않습니다. '3건' 만으로는 그중 둘이 아직 안 왔다는
-      것을 모릅니다 — 세어 보려면 목록을 끝까지 읽어야 합니다.
+    ★★ **남은 것만** 셉니다. 전에는 '3건 중 2건이 아직' 이었는데,
+      앞의 3은 답이 아니라 계산거리였습니다 — 알고 싶은 것은
+      '아직 안 온 게 있나' 이고 그 답은 2입니다.
   */
-  it('★ 남은 것을 짚어 줍니다', () => {
-    expect(arrivalSummary(['arrived', 'making', 'onTheWay'])).toBe('3건 중 2건이 아직입니다');
+  it('★ 남은 것만 셉니다', () => {
+    expect(pendingSummary(['arrived', 'making', 'onTheWay'])).toBe('2건이 아직입니다');
   });
 
-  it('다 왔으면 다 왔다고', () => {
-    expect(arrivalSummary(['arrived', 'arrived'])).toBe('2건 모두 도착했습니다');
-  });
-
-  // ★ 없는 날이 대부분입니다. 빈 화면에도 말을 겁니다
-  it('없으면 없다고', () => {
-    expect(arrivalSummary([])).toBe('오늘 도착 예정이 없습니다');
+  /*
+    ★ 다 받은 날은 다 받았다고 말합니다. 빈 화면과 같은 말이면
+      오늘 것이 아예 없었던 것인지 다 받은 것인지 구분이 안 됩니다.
+  */
+  it('★ 다 받은 날과 없는 날은 다릅니다', () => {
+    expect(pendingSummary(['arrived', 'arrived'])).toBe('2건 모두 받았습니다');
+    expect(pendingSummary([])).toBe('오늘 받기로 한 것이 없습니다');
   });
 });
