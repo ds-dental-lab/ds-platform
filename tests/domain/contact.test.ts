@@ -4,7 +4,14 @@
 // =========================================================
 
 import { describe, it, expect } from 'vitest';
-import { checkContact, digits, isContactKind, type ContactForm } from '@/server/domain/contact';
+import {
+  checkContact,
+  digits,
+  isContactKind,
+  isScanner,
+  isPainPoint,
+  type ContactForm,
+} from '@/server/domain/contact';
 
 const form = (over: Partial<ContactForm> = {}): ContactForm => ({
   clinicName: '행복치과',
@@ -14,6 +21,8 @@ const form = (over: Partial<ContactForm> = {}): ContactForm => ({
   kind: 'price_list',
   message: '',
   agreed: true,
+  scanner: 'owned',
+  painPoints: [],
   ...over,
 });
 
@@ -77,5 +86,51 @@ describe('요청 종류', () => {
 
   it('★ 화면이 보낸 값을 믿지 않습니다', () => {
     expect(checkContact(form({ kind: 'etc' })).ok).toBe(false);
+  });
+});
+
+
+/*
+  ★ 질문 둘을 더했습니다 (사용자 요청 2026-08-28). 네이버폼으로 옮기는
+    대신 여기 넣었습니다 — 문의가 두 군데로 갈리지 않게.
+*/
+describe('구강스캐너 보유 여부', () => {
+  it('셋 중 하나입니다', () => {
+    expect(isScanner('owned')).toBe(true);
+    expect(isScanner('planned')).toBe(true);
+    expect(isScanner('none')).toBe(true);
+    expect(isScanner('')).toBe(false);
+    expect(isScanner('yes')).toBe(false);
+  });
+
+  /*
+    ★ 꼭 받습니다. 셋 중 하나를 누르는 일이라 걸림돌이 아니고,
+      상담 통화의 첫마디를 정합니다 — 보유중이면 모델리스, 미보유면
+      인상재·수거 이야기부터입니다.
+  */
+  it('★ 안 고르면 못 보냅니다', () => {
+    const v = checkContact(form({ scanner: '' }));
+    expect(v.ok === false && v.reason).toContain('스캐너');
+  });
+});
+
+describe('불만족점', () => {
+  it('넷 중에서 고릅니다', () => {
+    for (const p of ['price', 'lead_time', 'quality', 'other']) expect(isPainPoint(p)).toBe(true);
+    expect(isPainPoint('etc')).toBe(false);
+  });
+
+  // ★ 만족하는 사람에게 억지로 고르게 하지 않습니다
+  it('★ 비워도 됩니다', () => {
+    expect(checkContact(form({ painPoints: [] })).ok).toBe(true);
+  });
+
+  it('여러 개 됩니다', () => {
+    expect(checkContact(form({ painPoints: ['price', 'quality'] })).ok).toBe(true);
+  });
+
+  // ★ 화면이 보낸 값을 믿지 않습니다 — 목록에 없는 값은 막습니다
+  it('★ 엉뚱한 값은 막습니다', () => {
+    expect(checkContact(form({ painPoints: ['price', 'hack'] })).ok).toBe(false);
   });
 });

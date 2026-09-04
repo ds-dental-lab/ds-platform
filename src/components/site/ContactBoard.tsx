@@ -13,7 +13,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitContactDone } from '@/server/actions/contact-review';
-import { KIND_LABEL } from '@/server/domain/contact';
+import { KIND_LABEL, SCANNER_LABEL, PAIN_LABEL } from '@/server/domain/contact';
 import type { ContactRow } from '@/server/repositories/contact';
 
 export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; done: ContactRow[] }) {
@@ -94,6 +94,29 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
                     {row.email}
                   </a>
                 </div>
+
+                {/*
+                  ★ 전화 걸기 전에 눈에 들어와야 하는 둘 — 스캐너가 있는지,
+                    무엇이 불만인지. 이걸 알고 거는 통화와 모르고 거는 통화는
+                    첫마디부터 다릅니다. 옛 문의(안 물었던 때)는 안 그립니다.
+                */}
+                {(row.scanner || row.painPoints.length > 0) && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {row.scanner && (
+                      <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[12.5px] font-semibold text-[#334155]">
+                        스캐너 {SCANNER_LABEL[row.scanner]}
+                      </span>
+                    )}
+                    {row.painPoints.map((p) => (
+                      <span
+                        key={p}
+                        className="rounded bg-[#FDF1E7] px-1.5 py-0.5 text-[12.5px] font-semibold text-[#C67717]"
+                      >
+                        {PAIN_LABEL[p]}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {row.message && (
                   <p className="mt-2.5 whitespace-pre-wrap rounded-md bg-[#F8F9FB] px-3 py-2.5 text-[13.5px] leading-relaxed text-[#4A5567]">

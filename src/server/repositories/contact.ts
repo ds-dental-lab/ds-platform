@@ -6,7 +6,12 @@
 
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
-import type { ContactKind, ContactStatus } from '@/server/domain/contact';
+import type {
+  ContactKind,
+  ContactStatus,
+  ContactScanner,
+  PainPoint,
+} from '@/server/domain/contact';
 
 export interface ContactRow {
   id: string;
@@ -20,6 +25,9 @@ export interface ContactRow {
   createdAt: string;
   handledAt: string | null;
   memo: string;
+  /** 옛 문의는 null — 그때는 안 물었습니다 */
+  scanner: ContactScanner | null;
+  painPoints: PainPoint[];
 }
 
 interface Raw {
@@ -34,6 +42,8 @@ interface Raw {
   created_at: string;
   handled_at: string | null;
   memo: string | null;
+  scanner: ContactScanner | null;
+  pain_points: PainPoint[] | null;
 }
 
 /**
@@ -46,7 +56,8 @@ export async function listContacts(): Promise<{ fresh: ContactRow[]; done: Conta
 
   const { data } = await supabase
     .from('contact_requests')
-    .select('id, clinic_name, person_name, tel, email, kind, message, status, created_at, handled_at, memo')
+    // ★ 한 줄 그대로 둡니다 — 이어 붙이면 supabase-js 가 열 이름을 못 읽어 타입이 깨집니다
+    .select('id, clinic_name, person_name, tel, email, kind, message, status, created_at, handled_at, memo, scanner, pain_points')
     .order('created_at', { ascending: false });
 
   const rows = ((data ?? []) as Raw[]).map((r) => ({
@@ -61,6 +72,8 @@ export async function listContacts(): Promise<{ fresh: ContactRow[]; done: Conta
     createdAt: r.created_at,
     handledAt: r.handled_at,
     memo: r.memo ?? '',
+    scanner: r.scanner,
+    painPoints: r.pain_points ?? [],
   }));
 
   return {

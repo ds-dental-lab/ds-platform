@@ -16,7 +16,15 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { submitContact } from '@/server/actions/contact';
-import { KIND_LABEL, CONSENT, type ContactKind } from '@/server/domain/contact';
+import {
+  KIND_LABEL,
+  SCANNER_LABEL,
+  PAIN_LABEL,
+  CONSENT,
+  type ContactKind,
+  type ContactScanner,
+  type PainPoint,
+} from '@/server/domain/contact';
 
 export default function ContactForm() {
   const [clinicName, setClinicName] = useState('');
@@ -26,6 +34,13 @@ export default function ContactForm() {
   const [kind, setKind] = useState<ContactKind>('price_list');
   const [message, setMessage] = useState('');
   const [agreed, setAgreed] = useState(false);
+  // ★ 스캐너는 기본값을 안 둡니다. 미리 골라 두면 안 읽고 넘어갑니다
+  const [scanner, setScanner] = useState<ContactScanner | ''>('');
+  const [painPoints, setPainPoints] = useState<PainPoint[]>([]);
+
+  function togglePain(p: PainPoint) {
+    setPainPoints((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
+  }
 
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -36,7 +51,7 @@ export default function ContactForm() {
     setSending(true);
 
     const result = await submitContact({
-      clinicName, personName, tel, email, kind, message, agreed,
+      clinicName, personName, tel, email, kind, message, agreed, scanner, painPoints,
     });
 
     setSending(false);
@@ -106,6 +121,57 @@ export default function ContactForm() {
               {KIND_LABEL[k]}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/*
+        ★ 질문 둘 (사용자 요청 2026-08-28). 네이버폼으로 옮기는 대신
+          여기 넣었습니다 — 문의가 두 군데로 갈리지 않게.
+      */}
+      <div className="mt-5">
+        <Label required>구강스캐너 보유 여부</Label>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {(Object.keys(SCANNER_LABEL) as ContactScanner[]).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={scanner === v}
+              onClick={() => setScanner(v)}
+              className={
+                'h-12 rounded-lg border px-3 text-[14px] font-semibold transition ' +
+                (scanner === v
+                  ? 'border-[#1279E8] bg-[#F2F7FE] text-[#1279E8] shadow-[0_0_0_3px_rgba(18,121,232,.10)]'
+                  : 'border-[#DDE2EA] text-[#4A5567] hover:border-[#B6C6DC]')
+              }
+            >
+              {SCANNER_LABEL[v]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <Label>현재 거래 기공소에 불만족하는 점 (복수 선택 · 선택)</Label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {(Object.keys(PAIN_LABEL) as PainPoint[]).map((v) => {
+            const on = painPoints.includes(v);
+            return (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={on}
+                onClick={() => togglePain(v)}
+                className={
+                  'h-10 rounded-full border px-4 text-[13.5px] font-semibold transition ' +
+                  (on
+                    ? 'border-[#1279E8] bg-[#1279E8] text-white'
+                    : 'border-[#DDE2EA] text-[#4A5567] hover:border-[#B6C6DC]')
+                }
+              >
+                {PAIN_LABEL[v]}
+              </button>
+            );
+          })}
         </div>
       </div>
 

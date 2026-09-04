@@ -31,6 +31,9 @@ export async function submitContact(form: ContactForm): Promise<ContactResult> {
     email: form.email.trim(),
     kind: form.kind,
     message: form.message.trim() || null,
+    scanner: form.scanner,
+    // ★ 같은 값을 두 번 누르는 화면 버그가 있어도 표에는 한 번만
+    pain_points: [...new Set(form.painPoints)],
   });
 
   if (error) return { ok: false, error: '보내지 못했습니다. 잠시 뒤에 다시 시도해 주세요' };
