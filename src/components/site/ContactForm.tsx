@@ -158,19 +158,30 @@ export default function ContactForm() {
           "뭘 써야 하지" 하고 멈추게만 합니다.
       */}
 
-      {/* ★ 동의 문구는 domain/contact 가 쥡니다 — 화면과 저장이 같은 글을 봐야 합니다 */}
-      <label className="mt-8 flex cursor-pointer gap-3 rounded-lg bg-[#F7FAFF] p-4">
+      {/*
+        ★ 동의는 **한 줄**입니다 (사용자 요청 2026-09-04). 전에는 회색
+          상자에 세 줄이었는데, 아무도 안 읽고 폼만 무거워 보였습니다.
+          항목·목적·파기는 처리방침에 다 있고 링크가 바로 옆입니다.
+        ★ 문구는 domain/contact 가 쥡니다 — 화면과 처리방침이 같은 뜻이어야 합니다.
+        ★ 체크박스는 남깁니다. 수가표 보낸 뒤 "검토해 보셨나요" 전화는
+          요청 이행이 아니라 영업 연락이라 동의가 있어야 떳떳하고,
+          agreed_at 한 줄이 나중에 "동의한 적 없다" 에 답합니다.
+      */}
+      <label className="mt-7 flex cursor-pointer items-start gap-2.5">
         <input
           type="checkbox"
           checked={agreed}
           onChange={(e) => setAgreed(e.target.checked)}
-          className="mt-0.5 h-[17px] w-[17px] shrink-0 accent-[#1279E8]"
+          className="mt-[3px] h-[17px] w-[17px] shrink-0 accent-[#1279E8]"
         />
         <span className="text-[13.5px] leading-relaxed text-[#4A5567]">
-          <b className="font-bold text-[#1A2130]">개인정보 수집·이용에 동의합니다</b> (필수)
-          <br />
-          수집 항목 {CONSENT.items} · 목적 {CONSENT.purpose} · {CONSENT.keep}.{' '}
-          <Link href="/privacy" target="_blank" className="font-semibold text-[#1279E8] underline">
+          {CONSENT.line}. <b className="font-bold text-[#1A2130]">동의합니다</b>
+          <span className="text-[#D8453F]"> *</span>
+          <Link
+            href="/privacy"
+            target="_blank"
+            className="ml-2 font-semibold text-[#1279E8] underline underline-offset-2"
+          >
             처리방침
           </Link>
         </span>
