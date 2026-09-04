@@ -35,7 +35,18 @@ export type FileUrlResult =
   | { ok: true; url: string; fileName: string; /** 상태가 함께 넘어갔으면 true */ advanced?: boolean }
   | { ok: false; error: string };
 
-export async function getOrderFileUrl(fileId: string): Promise<FileUrlResult> {
+/**
+ * @param mode 'download'(기본) 은 받기, 'open' 은 새 탭에서 바로 보기.
+ *
+ * ★ 'open' 은 대화 첨부용입니다 (2026-09-04). 서명 주소에 download 를 붙이면
+ *   브라우저가 html 뷰어·사진을 그리지 않고 내려받기만 합니다.
+ *   '바로 보기' 는 그 한 글자를 빼는 것입니다. 나머지(RLS·기공소 잠금·
+ *   열람 기록·제작 시작)는 똑같이 지나갑니다.
+ */
+export async function getOrderFileUrl(
+  fileId: string,
+  mode: 'download' | 'open' = 'download',
+): Promise<FileUrlResult> {
   const supabase = await createClient();
 
   const { data: file } = await supabase
@@ -84,7 +95,11 @@ export async function getOrderFileUrl(fileId: string): Promise<FileUrlResult> {
 
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(found.storage_path, TTL_SECONDS, { download: found.file_name });
+    .createSignedUrl(
+      found.storage_path,
+      TTL_SECONDS,
+      mode === 'open' ? undefined : { download: found.file_name },
+    );
 
   if (error || !data) {
     return { ok: false, error: `내려받지 못했습니다: ${error?.message ?? '알 수 없는 오류'}` };

@@ -13,14 +13,16 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { publishOrderMessage } from '@/server/events';
 import { signalOrderChanged } from '@/server/events/signal';
+import { attachmentNotice } from '@/server/domain/chat-attachment';
 
 export type MessageResult = { ok: true } | { ok: false; error: string };
 
 const MAX_LENGTH = 200;
 
-function checkBody(body: string): string | null {
+function checkBody(body: string, hasFile = false): string | null {
   const trimmed = body.trim();
-  if (!trimmed) return '내용을 입력해 주세요';
+  // ★ 파일이 붙어 있으면 글은 비어도 됩니다 — 카드가 곧 내용입니다 (2026-09-04)
+  if (!trimmed && !hasFile) return '내용을 입력해 주세요';
   if (trimmed.length > MAX_LENGTH) return `${MAX_LENGTH}자까지 쓸 수 있습니다`;
   return null;
 }
@@ -32,17 +34,46 @@ function refreshAll() {
   revalidatePath('/lab/orders', 'layout');
 }
 
+/**
+ * @param fileId 대화에 붙일 파일 — 그 주문의 order_files 줄 (2026-09-04).
+ *   대화가 파일을 갖지 않고 가리킵니다. 파일은 이미 lib/upload 로
+ *   올라가 있어야 합니다.
+ */
 export async function submitOrderMessage(
   orderId: string,
   body: string,
+  fileId: string | null = null,
 ): Promise<MessageResult> {
   const session = await getSession();
   if (!session?.orgId || !session.orgType) {
     return { ok: false, error: '소속 조직이 있어야 글을 쓸 수 있습니다' };
   }
 
-  const problem = checkBody(body);
+  const problem = checkBody(body, Boolean(fileId));
   if (problem) return { ok: false, error: problem };
+
+  const supabase = await createClient();
+
+  /*
+    ★★ 가리키는 파일이 **이 주문의** 파일인지 확인합니다.
+      화면이 보낸 id 를 그대로 믿으면 남의 주문 파일 id 를 붙여
+      내 대화에서 열어 볼 길이 생깁니다. RLS 가 그 파일을 보여 주더라도
+      (같은 조직의 다른 주문) 주문이 어긋나면 막습니다.
+  */
+  let fileName = '';
+  if (fileId) {
+    const { data: file } = await supabase
+      .from('order_files')
+      .select('id, file_name, order_id, upload_status')
+      .eq('id', fileId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    const found = file as { file_name: string; order_id: string; upload_status: string } | null;
+    if (!found || found.order_id !== orderId) return { ok: false, error: '붙일 파일을 찾을 수 없습니다' };
+    if (found.upload_status !== 'uploaded') return { ok: false, error: '파일이 아직 다 올라가지 않았습니다' };
+    fileName = found.file_name;
+  }
 
   // after() 안에서도 쓰므로 좁혀진 값을 꺼내 둡니다
   const author = {
@@ -51,8 +82,8 @@ export async function submitOrderMessage(
     name: session.orgName ?? '',
   };
   const text = body.trim();
-
-  const supabase = await createClient();
+  // ★ 글 없이 파일만 보냈으면 종·푸시에는 무엇이 왔는지 적어 줍니다
+  const noticeText = text || (fileName ? attachmentNotice(fileName) : '');
 
   const { error } = await supabase.from('order_messages').insert({
     order_id: orderId,
@@ -60,7 +91,8 @@ export async function submitOrderMessage(
     author_user_id: session.user.id,
     author_name: session.orgName ?? '',
     author_sector: session.orgType,
-    body: body.trim(),
+    body: text,
+    file_id: fileId,
   });
 
   if (error) return { ok: false, error: `보내지 못했습니다: ${error.message}` };
@@ -82,7 +114,7 @@ export async function submitOrderMessage(
       authorUserId: session.user.id,
       authorSector: author.sector,
       authorName: author.name,
-      body: text,
+      body: noticeText,
     });
 
     // ★ 신호는 알림 다음입니다 (2026-08-19).

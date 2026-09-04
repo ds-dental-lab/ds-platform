@@ -5,6 +5,8 @@ import { needsResumable } from '@/server/domain/upload';
 
 /** 올라간 파일 한 건. 화면이 진행 상황을 그리는 데 씁니다 */
 export interface UploadedFile {
+  /** order_files 의 줄 id. 대화에 붙일 때 이걸 가리킵니다 (2026-09-04) */
+  id: string;
   path: string;
   name: string;
   size: number;
@@ -52,8 +54,14 @@ export interface UploadResult {
   failures: FailedFile[];
 }
 
-/** 스캔은 치과가, 디자인은 디자인센터가 올립니다 (설계서 §8.3) */
-export type UploadKind = 'scan' | 'design';
+/**
+ * 스캔은 치과가, 디자인은 디자인센터가 올립니다 (설계서 §8.3).
+ *
+ * ★ photo·etc 는 **대화 첨부**입니다 (2026-09-04). 대화가 파일을 갖지
+ *   않고 이 표를 가리키기 때문에 여기로 들어옵니다. 설계(design)로
+ *   넣으면 기공소가 받을 때 '제작' 으로 넘어가 버립니다.
+ */
+export type UploadKind = 'scan' | 'design' | 'photo' | 'etc';
 
 /**
  * 지금 어디까지 갔는가. 화면이 이대로 그립니다.
@@ -280,7 +288,8 @@ export async function uploadOrderFiles(
       failed.push(file.name);
       failures.push({ fileName: file.name, reason: `올렸지만 기록을 못 남겼습니다: ${rowError.message}` });
     } else {
-      uploaded.push({ path, name: file.name, size: file.size, type: file.type });
+      // ★ id 는 미리 만든 줄(rowId)의 것입니다. 줄을 못 만들었던 드문 경우는 빈 글자
+      uploaded.push({ id: rowId, path, name: file.name, size: file.size, type: file.type });
     }
 
     sentByPath[path] = file.size;
@@ -530,7 +539,8 @@ export async function retryOrderFiles(
       continue;
     }
 
-    const { error } = rowId
+    // ★ 줄 id 를 돌려주려고 둘 다 select 합니다 — 대화가 이 id 를 가리킵니다
+    const { data: savedRows, error } = rowId
       ? await supabase
           .from('order_files')
           .update({
@@ -541,21 +551,26 @@ export async function retryOrderFiles(
             upload_status: 'uploaded',
           })
           .eq('id', rowId)
-      : await supabase.from('order_files').insert({
-          order_id: orderId,
-          kind,
-          storage_path: path,
-          file_name: file.name,
-          file_size: file.size,
-          mime_type: file.type || null,
-          uploaded_by: user?.id ?? null,
-          upload_status: 'uploaded',
-        });
+          .select('id')
+      : await supabase
+          .from('order_files')
+          .insert({
+            order_id: orderId,
+            kind,
+            storage_path: path,
+            file_name: file.name,
+            file_size: file.size,
+            mime_type: file.type || null,
+            uploaded_by: user?.id ?? null,
+            upload_status: 'uploaded',
+          })
+          .select('id');
 
     if (error) {
       failed.push(file.name);
     } else {
-      uploaded.push({ path, name: file.name, size: file.size, type: file.type });
+      const id = rowId || ((savedRows ?? [])[0] as { id: string } | undefined)?.id || '';
+      uploaded.push({ id, path, name: file.name, size: file.size, type: file.type });
     }
 
     sentBytes += file.size;

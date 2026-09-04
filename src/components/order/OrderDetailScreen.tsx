@@ -221,7 +221,13 @@ export default function OrderDetailScreen({
   });
   const hasPontic = placements.some((p) => p.isPontic);
 
-  const scanFiles = order.files.filter((f) => f.kind !== 'design');
+  /*
+    ★ 스캔 칸은 **scan 만** 셉니다 (2026-09-04). 전에는 design 이 아닌
+      전부였는데, 대화 첨부(photo·etc)가 생기면서 그 칸에 exocad html
+      뷰어가 '스캔' 으로 서게 됐습니다. 대화 첨부는 대화에서 봅니다.
+      (올라온 수 / 보낸 수) 셈도 스캔만 세는 것이 맞습니다.
+  */
+  const scanFiles = order.files.filter((f) => f.kind === 'scan');
   const designFiles = order.files.filter((f) => f.kind === 'design');
 
   /*
@@ -640,7 +646,7 @@ export default function OrderDetailScreen({
 
       {/* ================= 대화 (aside.dt-memo) ================= */}
       <aside className="flex min-h-[460px] w-full shrink-0 flex-col self-stretch border-y border-l border-[#E8EBF0] bg-white xl:w-[320px]">
-        <OrderChat orderId={order.id} messages={messages} />
+        <OrderChat orderId={order.id} messages={messages} sector={sector} />
       </aside>
     </div>
   );
