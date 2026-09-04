@@ -10,7 +10,7 @@
 // ★ 보내고 나면 화면을 통째로 바꿉니다.
 //   "보냈습니다" 를 폼 아래에 작게 띄우면 두 번 세 번 누릅니다.
 //
-// ★★ 세 토막으로 나눴습니다 (사용자 지적 2026-09-04 — "글씨가 빽빽해
+// ★★ 두 토막으로 나눴습니다 (사용자 지적 2026-09-04 — "글씨가 빽빽해
 //   보인다. 보기 편하게 구분지어줘"). 질문이 여덟 개가 되니 한 덩어리로
 //   두면 어디까지가 한 질문인지 눈이 못 가릅니다. 번호와 선으로 끊어서
 //   "지금 몇 번째인지" 가 보이게 했습니다.
@@ -37,7 +37,6 @@ export default function ContactForm() {
   const [clinicName, setClinicName] = useState('');
   const [tel, setTel] = useState('');
   const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
   const [agreed, setAgreed] = useState(false);
   // ★ 스캐너는 기본값을 안 둡니다. 미리 골라 두면 안 읽고 넘어갑니다
   const [scanner, setScanner] = useState<ContactScanner | ''>('');
@@ -56,7 +55,7 @@ export default function ContactForm() {
     setSending(true);
 
     const result = await submitContact({
-      clinicName, tel, email, message, agreed, scanner, painPoints,
+      clinicName, tel, email, agreed, scanner, painPoints,
     });
 
     setSending(false);
@@ -153,16 +152,11 @@ export default function ContactForm() {
         </div>
       </Section>
 
-      {/* ---------- 03 더 하실 말씀 ---------- */}
-      <Section no="03" title="더 하실 말씀" optional>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={3}
-          placeholder="쓰시는 스캐너, 월 물량, 원하시는 납기 등을 적어 주시면 맞춰 안내드리겠습니다."
-          className="w-full rounded-lg border border-[#DDE2EA] px-3.5 py-3 text-[14px] leading-relaxed outline-none focus:border-[#1279E8]"
-        />
-      </Section>
+      {/*
+        ★ '더 하실 말씀' 칸도 뺐습니다 (사용자 요청 2026-09-04).
+          쓰시는 스캐너·물량·납기는 전화에서 물으면 됩니다 — 빈 칸은
+          "뭘 써야 하지" 하고 멈추게만 합니다.
+      */}
 
       {/* ★ 동의 문구는 domain/contact 가 쥡니다 — 화면과 저장이 같은 글을 봐야 합니다 */}
       <label className="mt-8 flex cursor-pointer gap-3 rounded-lg bg-[#F7FAFF] p-4">
@@ -201,7 +195,7 @@ export default function ContactForm() {
 /**
  * 한 토막. 번호와 제목, 위에 선.
  *
- * ★ 번호는 "지금 몇 번째인지" 를 보여 줍니다. 세 토막이면 끝이 보여서
+ * ★ 번호는 "지금 몇 번째인지" 를 보여 줍니다. 두 토막이면 끝이 보여서
  *   사람이 덜 지칩니다 — 끝이 안 보이는 폼은 중간에 닫습니다.
  */
 function Section({

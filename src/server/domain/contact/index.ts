@@ -72,7 +72,10 @@ export interface ContactForm {
   */
   tel: string;
   email: string;
-  message: string;
+  /*
+    ★ 문의사항 칸도 뺐습니다 (사용자 요청 2026-09-04). 표의 message 열은
+      옛 문의 때문에 남아 있습니다 — 새 문의는 null 입니다.
+  */
   agreed: boolean;
   /** 구강스캐너 보유 여부. 꼭 받습니다 */
   scanner: string;

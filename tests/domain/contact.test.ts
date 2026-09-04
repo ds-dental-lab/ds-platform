@@ -17,7 +17,6 @@ const form = (over: Partial<ContactForm> = {}): ContactForm => ({
   clinicName: '행복치과',
   tel: '010-1234-5678',
   email: 'won@clinic.co.kr',
-  message: '',
   agreed: true,
   scanner: 'owned',
   painPoints: [],
@@ -60,9 +59,6 @@ describe('필수 칸', () => {
     expect(checkContact(form({ email: 'won' })).ok).toBe(false);
   });
 
-  it('문의사항은 비워도 됩니다', () => {
-    expect(checkContact(form({ message: '' })).ok).toBe(true);
-  });
 });
 
 describe('동의', () => {
