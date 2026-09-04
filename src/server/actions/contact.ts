@@ -28,7 +28,7 @@ export async function submitContact(form: ContactForm): Promise<ContactResult> {
     clinic_name: form.clinicName.trim(),
     tel: form.tel.trim(),
     email: form.email.trim(),
-    kind: form.kind,
+    // ★ kind 는 안 보냅니다 — 표의 default 'price_list' 가 채웁니다 (2026-09-04)
     message: form.message.trim() || null,
     scanner: form.scanner,
     // ★ 같은 값을 두 번 누르는 화면 버그가 있어도 표에는 한 번만

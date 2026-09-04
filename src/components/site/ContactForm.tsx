@@ -10,7 +10,7 @@
 // ★ 보내고 나면 화면을 통째로 바꿉니다.
 //   "보냈습니다" 를 폼 아래에 작게 띄우면 두 번 세 번 누릅니다.
 //
-// ★★ 네 토막으로 나눴습니다 (사용자 지적 2026-09-04 — "글씨가 빽빽해
+// ★★ 세 토막으로 나눴습니다 (사용자 지적 2026-09-04 — "글씨가 빽빽해
 //   보인다. 보기 편하게 구분지어줘"). 질문이 여덟 개가 되니 한 덩어리로
 //   두면 어디까지가 한 질문인지 눈이 못 가릅니다. 번호와 선으로 끊어서
 //   "지금 몇 번째인지" 가 보이게 했습니다.
@@ -26,11 +26,9 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { submitContact } from '@/server/actions/contact';
 import {
-  KIND_LABEL,
   SCANNER_LABEL,
   PAIN_LABEL,
   CONSENT,
-  type ContactKind,
   type ContactScanner,
   type PainPoint,
 } from '@/server/domain/contact';
@@ -39,7 +37,6 @@ export default function ContactForm() {
   const [clinicName, setClinicName] = useState('');
   const [tel, setTel] = useState('');
   const [email, setEmail] = useState('');
-  const [kind, setKind] = useState<ContactKind>('price_list');
   const [message, setMessage] = useState('');
   const [agreed, setAgreed] = useState(false);
   // ★ 스캐너는 기본값을 안 둡니다. 미리 골라 두면 안 읽고 넘어갑니다
@@ -59,7 +56,7 @@ export default function ContactForm() {
     setSending(true);
 
     const result = await submitContact({
-      clinicName, tel, email, kind, message, agreed, scanner, painPoints,
+      clinicName, tel, email, message, agreed, scanner, painPoints,
     });
 
     setSending(false);
@@ -111,19 +108,14 @@ export default function ContactForm() {
         </div>
       </Section>
 
-      {/* ---------- 02 원하시는 것 ---------- */}
-      <Section no="02" title="무엇을 도와드릴까요" required>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {(Object.keys(KIND_LABEL) as ContactKind[]).map((k) => (
-            <Choice key={k} on={kind === k} onClick={() => setKind(k)} align="left">
-              {KIND_LABEL[k]}
-            </Choice>
-          ))}
-        </div>
-      </Section>
+      {/*
+        ★ '무엇을 도와드릴까요'(수가표만 / 방문 상담) 토막은 뺐습니다
+          (사용자 판단 2026-09-04 — "방문상담 이런 건 전화로도 해결").
+          고르는 칸 하나가 늘 뿐, 어차피 전화해서 정합니다.
+      */}
 
-      {/* ---------- 03 진료실 상황 ---------- */}
-      <Section no="03" title="진료실 상황">
+      {/* ---------- 02 진료실 상황 ---------- */}
+      <Section no="02" title="진료실 상황">
         <Label required>구강스캐너 보유 여부</Label>
         <div className="mt-2.5 grid grid-cols-3 gap-2">
           {(Object.keys(SCANNER_LABEL) as ContactScanner[]).map((v) => (
@@ -161,8 +153,8 @@ export default function ContactForm() {
         </div>
       </Section>
 
-      {/* ---------- 04 더 하실 말씀 ---------- */}
-      <Section no="04" title="더 하실 말씀" optional>
+      {/* ---------- 03 더 하실 말씀 ---------- */}
+      <Section no="03" title="더 하실 말씀" optional>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -209,7 +201,7 @@ export default function ContactForm() {
 /**
  * 한 토막. 번호와 제목, 위에 선.
  *
- * ★ 번호는 "지금 몇 번째인지" 를 보여 줍니다. 네 토막이면 끝이 보여서
+ * ★ 번호는 "지금 몇 번째인지" 를 보여 줍니다. 세 토막이면 끝이 보여서
  *   사람이 덜 지칩니다 — 끝이 안 보이는 폼은 중간에 닫습니다.
  */
 function Section({
@@ -280,7 +272,7 @@ function Label({
   );
 }
 
-/** 하나만 고르는 단추. kind 와 scanner 가 같은 모양을 씁니다 */
+/** 하나만 고르는 단추 (스캐너). 용건 단추도 같이 쓰다가 그쪽이 빠졌습니다 */
 function Choice({
   on,
   onClick,

@@ -9,6 +9,13 @@
 //   봅니다 — 나머지는 전화해서 물어보면 됩니다.
 // =========================================================
 
+/**
+ * 요청 종류 — **옛 문의에만** 남아 있습니다 (2026-09-04 부터 안 묻습니다).
+ *
+ * ★ "방문 상담" 은 전화로 잡으면 됩니다 (사용자 판단). 폼에서 고르게
+ *   하면 고르는 칸 하나가 늘 뿐, 어차피 전화해서 정합니다.
+ *   표는 default 'price_list' 라 새 문의는 전부 수가표 요청입니다.
+ */
 export type ContactKind = 'price_list' | 'visit';
 
 export const KIND_LABEL: Record<ContactKind, string> = {
@@ -65,7 +72,6 @@ export interface ContactForm {
   */
   tel: string;
   email: string;
-  kind: string;
   message: string;
   agreed: boolean;
   /** 구강스캐너 보유 여부. 꼭 받습니다 */
@@ -101,8 +107,6 @@ export function checkContact(form: ContactForm): Verdict {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, reason: '이메일 모양이 아닙니다' };
   }
-
-  if (!isContactKind(form.kind)) return { ok: false, reason: '무엇을 원하시는지 골라 주세요' };
 
   /*
     ★ 스캐너는 꼭 받습니다 — 셋 중 하나를 누르는 일이라 걸림돌이

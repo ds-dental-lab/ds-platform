@@ -70,16 +70,15 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
                   {row.personName && (
                     <span className="text-[14px] text-[#4A5567]">{row.personName}</span>
                   )}
-                  <span
-                    className={
-                      'rounded px-1.5 py-0.5 text-[12.5px] font-bold ' +
-                      (row.kind === 'visit'
-                        ? 'bg-[#FDF1E7] text-[#C67717]'
-                        : 'bg-[#EAF2FE] text-[#1279E8]')
-                    }
-                  >
-                    {KIND_LABEL[row.kind]}
-                  </span>
+                  {/*
+                    ★ 새 문의는 전부 수가표 요청이라 딱지를 안 답니다 —
+                      다 같은 딱지면 정보가 아닙니다. 옛 '방문 상담' 만 남깁니다.
+                  */}
+                  {row.kind === 'visit' && (
+                    <span className="rounded bg-[#FDF1E7] px-1.5 py-0.5 text-[12.5px] font-bold text-[#C67717]">
+                      {KIND_LABEL[row.kind]}
+                    </span>
+                  )}
                   <span className="ml-auto text-[13px] tabular-nums text-[#98A2B3]">
                     {row.createdAt.slice(0, 10)}
                   </span>

@@ -17,7 +17,6 @@ const form = (over: Partial<ContactForm> = {}): ContactForm => ({
   clinicName: '행복치과',
   tel: '010-1234-5678',
   email: 'won@clinic.co.kr',
-  kind: 'price_list',
   message: '',
   agreed: true,
   scanner: 'owned',
@@ -76,15 +75,15 @@ describe('동의', () => {
   });
 });
 
-describe('요청 종류', () => {
+/*
+  ★ 폼에서는 더 안 묻습니다 (2026-09-04 — 방문 상담은 전화로).
+    옛 문의의 딱지를 그리는 데만 남아 있습니다.
+*/
+describe('요청 종류 (옛 문의용)', () => {
   it('수가표·방문 둘뿐입니다', () => {
     expect(isContactKind('price_list')).toBe(true);
     expect(isContactKind('visit')).toBe(true);
     expect(isContactKind('etc')).toBe(false);
-  });
-
-  it('★ 화면이 보낸 값을 믿지 않습니다', () => {
-    expect(checkContact(form({ kind: 'etc' })).ok).toBe(false);
   });
 });
 
