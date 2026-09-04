@@ -34,13 +34,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 1,
     },
-    {
-      // 거래처가 되려면 지나는 문이라 같이 내밉니다
-      url: `${SITE_URL}/signup`,
-      lastModified: HOME_UPDATED,
-      changeFrequency: 'yearly',
-      priority: 0.5,
-    },
+    /*
+      ★★ /signup 을 **뺐습니다** (사용자 지적 2026-09-04).
+        "거래처가 되려면 지나는 문" 이라며 넣어 뒀는데, 네이버가 상호
+        검색에 홈페이지 대신 **가입 페이지를 첫 결과로** 내보냈습니다.
+        제목에 옛 상호(DS 덴탈랩)까지 캐시된 채로요.
+
+        가입 페이지는 검색에서 들어올 이유가 없습니다 — 홈페이지에서
+        '거래 신청' 을 누르면 갑니다. 검색이 잡아야 할 것은 간판 하나,
+        홈페이지입니다. (auth)/signup/layout 에서 noindex 도 같이 겁니다.
+    */
     {
       url: `${SITE_URL}/terms`,
       lastModified: TERMS_UPDATED,
