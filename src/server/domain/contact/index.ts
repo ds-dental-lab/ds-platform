@@ -58,7 +58,11 @@ export const STATUS_LABEL: Record<ContactStatus, string> = {
 
 export interface ContactForm {
   clinicName: string;
-  personName: string;
+  /*
+    ★ 담당자 성함은 안 받습니다 (사용자 요청 2026-09-04). 치과명과
+      번호만 있으면 전화해서 물어보면 됩니다 — 칸이 하나 줄면 그만큼
+      더 보냅니다. 표의 person_name 열은 옛 문의 때문에 남아 있습니다.
+  */
   tel: string;
   email: string;
   kind: string;
@@ -87,7 +91,6 @@ export function digits(tel: string): string {
 
 export function checkContact(form: ContactForm): Verdict {
   if (!form.clinicName.trim()) return { ok: false, reason: '치과명을 넣어 주세요' };
-  if (!form.personName.trim()) return { ok: false, reason: '성함을 넣어 주세요' };
 
   const tel = digits(form.tel);
   if (!tel) return { ok: false, reason: '연락처를 넣어 주세요' };
@@ -124,7 +127,8 @@ export function checkContact(form: ContactForm): Verdict {
  *   아무도 답하지 못합니다.
  */
 export const CONSENT = {
-  items: '치과명, 담당자 성함, 연락처, 이메일',
+  // ★ 2026-09-04 부터 성함을 안 받습니다 — 화면·저장·처리방침이 같은 글을 봅니다
+  items: '치과명, 연락처, 이메일',
   purpose: '수가표 제공 및 상담 응대',
   keep: '목적을 이룬 뒤 파기하며, 동의를 철회하시면 곧바로 파기합니다',
 };

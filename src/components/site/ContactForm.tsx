@@ -5,10 +5,19 @@
 //
 // ★ 홈페이지에서 제일 중요한 칸입니다.
 //   보고 마음이 동한 사람이 전화를 걸까 말까 망설이는 그 순간에,
-//   이름과 연락처만 남기고 갈 수 있어야 합니다.
+//   치과명과 연락처만 남기고 갈 수 있어야 합니다.
 //
 // ★ 보내고 나면 화면을 통째로 바꿉니다.
 //   "보냈습니다" 를 폼 아래에 작게 띄우면 두 번 세 번 누릅니다.
+//
+// ★★ 네 토막으로 나눴습니다 (사용자 지적 2026-09-04 — "글씨가 빽빽해
+//   보인다. 보기 편하게 구분지어줘"). 질문이 여덟 개가 되니 한 덩어리로
+//   두면 어디까지가 한 질문인지 눈이 못 가릅니다. 번호와 선으로 끊어서
+//   "지금 몇 번째인지" 가 보이게 했습니다.
+//
+// ★ 담당자 성함은 안 받습니다 (사용자 요청 2026-09-04). 치과명과
+//   번호만 있으면 전화해서 물어보면 됩니다 — 칸이 하나 줄면 그만큼
+//   더 보냅니다.
 // =========================================================
 
 'use client';
@@ -28,7 +37,6 @@ import {
 
 export default function ContactForm() {
   const [clinicName, setClinicName] = useState('');
-  const [personName, setPersonName] = useState('');
   const [tel, setTel] = useState('');
   const [email, setEmail] = useState('');
   const [kind, setKind] = useState<ContactKind>('price_list');
@@ -51,7 +59,7 @@ export default function ContactForm() {
     setSending(true);
 
     const result = await submitContact({
-      clinicName, personName, tel, email, kind, message, agreed, scanner, painPoints,
+      clinicName, tel, email, kind, message, agreed, scanner, painPoints,
     });
 
     setSending(false);
@@ -84,110 +92,88 @@ export default function ContactForm() {
 
   return (
     <div className="rounded-2xl border border-[#E8EBF0] bg-white p-7 sm:p-9">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="치과명" required>
-          <Input value={clinicName} onChange={setClinicName} placeholder="○○치과의원" />
-        </Field>
+      {/* ---------- 01 연락처 ---------- */}
+      <Section no="01" title="연락처" first>
+        <div className="grid gap-4">
+          <Field label="치과명" required>
+            <Input value={clinicName} onChange={setClinicName} placeholder="○○치과의원" />
+          </Field>
 
-        <Field label="원장님 · 담당자 성함" required>
-          <Input value={personName} onChange={setPersonName} placeholder="홍길동" />
-        </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="연락처" required>
+              <Input value={tel} onChange={setTel} placeholder="010-0000-0000" type="tel" />
+            </Field>
 
-        <Field label="연락처" required>
-          <Input value={tel} onChange={setTel} placeholder="010-0000-0000" type="tel" />
-        </Field>
+            <Field label="이메일" required hint="수가표를 이 주소로 보내 드립니다">
+              <Input value={email} onChange={setEmail} placeholder="doctor@clinic.co.kr" type="email" />
+            </Field>
+          </div>
+        </div>
+      </Section>
 
-        <Field label="이메일" required hint="수가표를 이 주소로 보내 드립니다">
-          <Input value={email} onChange={setEmail} placeholder="doctor@clinic.co.kr" type="email" />
-        </Field>
-      </div>
-
-      <div className="mt-5">
-        <Label required>무엇을 도와드릴까요</Label>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+      {/* ---------- 02 원하시는 것 ---------- */}
+      <Section no="02" title="무엇을 도와드릴까요" required>
+        <div className="grid gap-2 sm:grid-cols-2">
           {(Object.keys(KIND_LABEL) as ContactKind[]).map((k) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={kind === k}
-              onClick={() => setKind(k)}
-              className={
-                'h-12 rounded-lg border px-4 text-left text-[14px] font-semibold transition ' +
-                (kind === k
-                  ? 'border-[#1279E8] bg-[#F2F7FE] text-[#1279E8] shadow-[0_0_0_3px_rgba(18,121,232,.10)]'
-                  : 'border-[#DDE2EA] text-[#4A5567] hover:border-[#B6C6DC]')
-              }
-            >
+            <Choice key={k} on={kind === k} onClick={() => setKind(k)} align="left">
               {KIND_LABEL[k]}
-            </button>
+            </Choice>
           ))}
         </div>
-      </div>
+      </Section>
 
-      {/*
-        ★ 질문 둘 (사용자 요청 2026-08-28). 네이버폼으로 옮기는 대신
-          여기 넣었습니다 — 문의가 두 군데로 갈리지 않게.
-      */}
-      <div className="mt-5">
+      {/* ---------- 03 진료실 상황 ---------- */}
+      <Section no="03" title="진료실 상황">
         <Label required>구강스캐너 보유 여부</Label>
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="mt-2.5 grid grid-cols-3 gap-2">
           {(Object.keys(SCANNER_LABEL) as ContactScanner[]).map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={scanner === v}
-              onClick={() => setScanner(v)}
-              className={
-                'h-12 rounded-lg border px-3 text-[14px] font-semibold transition ' +
-                (scanner === v
-                  ? 'border-[#1279E8] bg-[#F2F7FE] text-[#1279E8] shadow-[0_0_0_3px_rgba(18,121,232,.10)]'
-                  : 'border-[#DDE2EA] text-[#4A5567] hover:border-[#B6C6DC]')
-              }
-            >
+            <Choice key={v} on={scanner === v} onClick={() => setScanner(v)}>
               {SCANNER_LABEL[v]}
-            </button>
+            </Choice>
           ))}
         </div>
-      </div>
 
-      <div className="mt-5">
-        <Label>현재 거래 기공소에 불만족하는 점 (복수 선택 · 선택)</Label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {(Object.keys(PAIN_LABEL) as PainPoint[]).map((v) => {
-            const on = painPoints.includes(v);
-            return (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={on}
-                onClick={() => togglePain(v)}
-                className={
-                  'h-10 rounded-full border px-4 text-[13.5px] font-semibold transition ' +
-                  (on
-                    ? 'border-[#1279E8] bg-[#1279E8] text-white'
-                    : 'border-[#DDE2EA] text-[#4A5567] hover:border-[#B6C6DC]')
-                }
-              >
-                {PAIN_LABEL[v]}
-              </button>
-            );
-          })}
+        <div className="mt-6">
+          <Label hint="여러 개 골라도 됩니다 · 없으면 비워 두세요">
+            지금 거래하는 기공소에 불만족하는 점
+          </Label>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {(Object.keys(PAIN_LABEL) as PainPoint[]).map((v) => {
+              const on = painPoints.includes(v);
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => togglePain(v)}
+                  className={
+                    'h-10 rounded-full border px-4 text-[13.5px] font-semibold transition ' +
+                    (on
+                      ? 'border-[#1279E8] bg-[#1279E8] text-white'
+                      : 'border-[#DDE2EA] text-[#4A5567] hover:border-[#B6C6DC]')
+                  }
+                >
+                  {PAIN_LABEL[v]}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      </Section>
 
-      <div className="mt-5">
-        <Label>문의사항 (선택)</Label>
+      {/* ---------- 04 더 하실 말씀 ---------- */}
+      <Section no="04" title="더 하실 말씀" optional>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={3}
           placeholder="쓰시는 스캐너, 월 물량, 원하시는 납기 등을 적어 주시면 맞춰 안내드리겠습니다."
-          className="mt-2 w-full rounded-lg border border-[#DDE2EA] px-3.5 py-3 text-[14px] leading-relaxed outline-none focus:border-[#1279E8]"
+          className="w-full rounded-lg border border-[#DDE2EA] px-3.5 py-3 text-[14px] leading-relaxed outline-none focus:border-[#1279E8]"
         />
-      </div>
+      </Section>
 
       {/* ★ 동의 문구는 domain/contact 가 쥡니다 — 화면과 저장이 같은 글을 봐야 합니다 */}
-      <label className="mt-5 flex cursor-pointer gap-3 rounded-lg bg-[#F7FAFF] p-4">
+      <label className="mt-8 flex cursor-pointer gap-3 rounded-lg bg-[#F7FAFF] p-4">
         <input
           type="checkbox"
           checked={agreed}
@@ -220,6 +206,42 @@ export default function ContactForm() {
 
 // ---------- 조각 ----------
 
+/**
+ * 한 토막. 번호와 제목, 위에 선.
+ *
+ * ★ 번호는 "지금 몇 번째인지" 를 보여 줍니다. 네 토막이면 끝이 보여서
+ *   사람이 덜 지칩니다 — 끝이 안 보이는 폼은 중간에 닫습니다.
+ */
+function Section({
+  no,
+  title,
+  required,
+  optional,
+  first,
+  children,
+}: {
+  no: string;
+  title: string;
+  required?: boolean;
+  optional?: boolean;
+  first?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={first ? '' : 'mt-8 border-t border-[#EEF1F5] pt-7'}>
+      <div className="mb-4 flex items-baseline gap-2.5">
+        <span className="text-[12px] font-extrabold tracking-[0.12em] text-[#1279E8]">{no}</span>
+        <h3 className="text-[15.5px] font-extrabold tracking-[-0.02em] text-[#1A2130]">
+          {title}
+          {required && <span className="ml-1 text-[#D8453F]">*</span>}
+          {optional && <span className="ml-1.5 text-[13px] font-semibold text-[#98A2B3]">선택</span>}
+        </h3>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 function Field({
   label,
   required,
@@ -240,12 +262,51 @@ function Field({
   );
 }
 
-function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
+function Label({
+  children,
+  required,
+  hint,
+}: {
+  children: React.ReactNode;
+  required?: boolean;
+  hint?: string;
+}) {
   return (
-    <span className="block text-[13.5px] font-bold text-[#4A5567]">
+    <span className="block text-[14px] font-bold text-[#4A5567]">
       {children}
       {required && <span className="ml-1 text-[#D8453F]">*</span>}
+      {hint && <span className="ml-2 text-[12.5px] font-medium text-[#98A2B3]">{hint}</span>}
     </span>
+  );
+}
+
+/** 하나만 고르는 단추. kind 와 scanner 가 같은 모양을 씁니다 */
+function Choice({
+  on,
+  onClick,
+  align = 'center',
+  children,
+}: {
+  on: boolean;
+  onClick: () => void;
+  align?: 'left' | 'center';
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={
+        'h-12 rounded-lg border px-4 text-[14px] font-semibold transition ' +
+        (align === 'left' ? 'text-left ' : 'text-center ') +
+        (on
+          ? 'border-[#1279E8] bg-[#F2F7FE] text-[#1279E8] shadow-[0_0_0_3px_rgba(18,121,232,.10)]'
+          : 'border-[#DDE2EA] text-[#4A5567] hover:border-[#B6C6DC]')
+      }
+    >
+      {children}
+    </button>
   );
 }
 

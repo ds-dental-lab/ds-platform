@@ -66,7 +66,10 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
               <li key={row.id} className="px-[18px] py-4">
                 <div className="flex flex-wrap items-baseline gap-2">
                   <b className="text-[14.5px] font-extrabold text-[#1A2130]">{row.clinicName}</b>
-                  <span className="text-[14px] text-[#4A5567]">{row.personName}</span>
+                  {/* ★ 옛 문의에만 있습니다 — 없으면 자리도 안 잡습니다 */}
+                  {row.personName && (
+                    <span className="text-[14px] text-[#4A5567]">{row.personName}</span>
+                  )}
                   <span
                     className={
                       'rounded px-1.5 py-0.5 text-[12.5px] font-bold ' +
@@ -154,7 +157,7 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
             {done.map((row) => (
               <li key={row.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-[18px] py-3 text-[14px]">
                 <b className="font-semibold text-[#1A2130]">{row.clinicName}</b>
-                <span className="text-[#7C8595]">{row.personName}</span>
+                {row.personName && <span className="text-[#7C8595]">{row.personName}</span>}
                 <span className="tabular-nums text-[#98A2B3]">{row.tel}</span>
                 {row.memo && <span className="text-[#7C8595]">— {row.memo}</span>}
                 <span className="ml-auto text-[13px] tabular-nums text-[#98A2B3]">
@@ -171,7 +174,8 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
           <div className="w-full max-w-md rounded-lg bg-white p-6">
             <h3 className="text-base font-bold text-[#1A2130]">연락 완료로 표시</h3>
             <p className="mt-1.5 text-[14px] text-[#4A5567]">
-              {asking.clinicName} · {asking.personName}
+              {asking.clinicName}
+              {asking.personName && ` · ${asking.personName}`}
             </p>
 
             <label className="mb-1.5 mt-4 block text-[14px] font-semibold text-[#4A5567]">

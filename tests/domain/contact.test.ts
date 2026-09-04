@@ -15,7 +15,6 @@ import {
 
 const form = (over: Partial<ContactForm> = {}): ContactForm => ({
   clinicName: '행복치과',
-  personName: '김원장',
   tel: '010-1234-5678',
   email: 'won@clinic.co.kr',
   kind: 'price_list',
@@ -53,7 +52,7 @@ describe('필수 칸', () => {
   });
 
   it('치과명을 먼저 묻습니다', () => {
-    const v = checkContact(form({ clinicName: '', personName: '' }));
+    const v = checkContact(form({ clinicName: '', tel: '' }));
 
     expect(v.ok === false && v.reason).toContain('치과명');
   });

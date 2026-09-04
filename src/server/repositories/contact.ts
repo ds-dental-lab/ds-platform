@@ -16,6 +16,7 @@ import type {
 export interface ContactRow {
   id: string;
   clinicName: string;
+  /** 옛 문의에만 있습니다 — 2026-09-04 부터 안 받습니다 */
   personName: string;
   tel: string;
   email: string;
@@ -33,7 +34,7 @@ export interface ContactRow {
 interface Raw {
   id: string;
   clinic_name: string;
-  person_name: string;
+  person_name: string | null;
   tel: string;
   email: string;
   kind: ContactKind;
@@ -63,7 +64,7 @@ export async function listContacts(): Promise<{ fresh: ContactRow[]; done: Conta
   const rows = ((data ?? []) as Raw[]).map((r) => ({
     id: r.id,
     clinicName: r.clinic_name,
-    personName: r.person_name,
+    personName: r.person_name ?? '',
     tel: r.tel,
     email: r.email,
     kind: r.kind,

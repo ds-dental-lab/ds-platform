@@ -26,7 +26,6 @@ export async function submitContact(form: ContactForm): Promise<ContactResult> {
 
   const { error } = await supabase.from('contact_requests').insert({
     clinic_name: form.clinicName.trim(),
-    person_name: form.personName.trim(),
     tel: form.tel.trim(),
     email: form.email.trim(),
     kind: form.kind,
