@@ -84,6 +84,19 @@ function siteVerification(): Record<string, string> {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko" className="h-full antialiased">
+      <head>
+        {/*
+          ★ 큰 PNG 아이콘 하나를 더 답니다 (사용자 요청 2026-09-04 — PC
+            바로가기가 이 모양으로 나오게). favicon.ico·icon.svg·
+            apple-icon 은 Next 가 파일 규약으로 이미 답니다. 그런데
+            크롬의 '바로가기 만들기' 는 페이지의 <link rel="icon"> 중
+            **제일 큰 래스터**를 집는데, SVG 는 크기가 없어 48px ICO 를
+            골라 흐릿하게 나옵니다. 512 PNG 가 있으면 그걸 씁니다.
+          ★ 파일은 manifest 와 같은 /pwa-512.png — make-icons.mjs 가
+            icon.svg 에서 만듭니다. 손으로 고치는 파일이 아닙니다.
+        */}
+        <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512.png" />
+      </head>
       {/*
         ★ body 를 flex 로 두면 안 됩니다.
           create-next-app 이 남긴 `flex flex-col` 인데, 이 안의 페이지는
