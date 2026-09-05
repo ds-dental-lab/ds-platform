@@ -17,6 +17,7 @@
 //   승인 전에는 소속이 없어 RLS 가 전부 가립니다 — 화면을 따로
 //   잠글 필요가 없습니다. 대신 **왜 안 보이는지**는 말해 줘야 합니다.
 // =========================================================
+import { LEAKED_PASSWORD_MESSAGE } from '../password-reset';
 
 /** 스스로 가입할 수 있는 곳. 디자인센터는 여기 없습니다 */
 export const SIGNUP_SECTORS = ['clinic', 'lab'] as const;
@@ -221,7 +222,8 @@ export function signupFailure(raw: string | null | undefined): string {
   }
 
   if (text.includes('weak') || text.includes('easy to guess') || text.includes('pwned')) {
-    return '흔히 쓰이거나 이미 유출된 적 있는 비밀번호입니다. 다른 것으로 지어 주세요.';
+    // ★ 문장은 password-reset 이 쥡니다 — 가입과 찾기가 같은 말을 해야 합니다
+    return LEAKED_PASSWORD_MESSAGE;
   }
 
   if (text.includes('at least')) {

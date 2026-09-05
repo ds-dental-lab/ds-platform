@@ -30,6 +30,21 @@ export const MAX_CODE = 10;
 /** 비밀번호 최소 길이 — 회원가입과 같은 값입니다 */
 export const MIN_PASSWORD = 8;
 
+/**
+ * 유출 비밀번호에 막혔을 때 보여 주는 말. 가입·비밀번호 찾기가 같이 씁니다.
+ *
+ * ★ **어떻게 지으면 되는지**를 같이 적습니다 (사용자 요청 2026-09-05).
+ *   사장님이 시험하다 이 문구를 만나고 "에러가 뜬다" 고 하셨습니다 —
+ *   막은 게 맞는데, "다른 것으로 지어 주세요" 만으로는 무엇이 되는지
+ *   몰라서 같은 종류를 또 칩니다. 통과하는 방법 한 줄이 있어야 끝납니다.
+ *
+ * ★ 한 곳에만 둡니다. 전에는 가입과 찾기에 같은 문장이 따로 있었습니다 —
+ *   그런 것은 언젠가 한쪽만 고쳐집니다.
+ */
+export const LEAKED_PASSWORD_MESSAGE =
+  '흔히 쓰이거나 이미 유출된 적 있는 비밀번호입니다. ' +
+  '단어 두 개에 숫자를 섞으면 대개 통과합니다 — 예: 사과나무2026';
+
 /** 재발송을 다시 누를 수 있을 때까지 (초) */
 export const RESEND_COOLDOWN = 60;
 
@@ -167,7 +182,7 @@ export function passwordSaveFailure(raw: string | null | undefined): SaveFailure
 
   if (text.includes('weak') || text.includes('easy to guess') || text.includes('pwned')) {
     return {
-      message: '흔히 쓰이거나 이미 유출된 적 있는 비밀번호입니다. 다른 것으로 지어 주세요.',
+      message: LEAKED_PASSWORD_MESSAGE,
       retry: true,
     };
   }
