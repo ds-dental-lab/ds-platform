@@ -9,7 +9,11 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { clearedKeepCookies } from '@/server/domain/login';
 
-export default function LogoutButton() {
+/**
+ * @param className 모양을 바꿔야 하는 자리(진료실 폰 홈)에서 넘깁니다.
+ *   안 넘기면 전처럼 테두리 단추입니다. 하는 일은 같습니다.
+ */
+export default function LogoutButton({ className }: { className?: string } = {}) {
   const router = useRouter();
 
   async function handleLogout() {
@@ -27,8 +31,9 @@ export default function LogoutButton() {
 
   return (
     <button
+      type="button"
       onClick={handleLogout}
-      className="mt-6 rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+      className={className ?? 'mt-6 rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50'}
     >
       로그아웃
     </button>

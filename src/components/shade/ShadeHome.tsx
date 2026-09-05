@@ -13,6 +13,7 @@
 'use client';
 
 import Link from 'next/link';
+import LogoutButton from '@/components/logout-button';
 import { pendingSummary, type ArrivalState } from '@/server/domain/arrival';
 import { useMemo, useState } from 'react';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
@@ -121,9 +122,21 @@ export default function ShadeHome({
 
       <div className="flex items-center justify-between">
         <DenFlowLogo markHeight={20} fontSize={19} />
-        <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[12.5px] font-semibold text-[var(--muted)]">
-          {clinicName}
-        </span>
+        <div className="flex items-center gap-2.5">
+          <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[12.5px] font-semibold text-[var(--muted)]">
+            {clinicName}
+          </span>
+          {/*
+            ★★ 로그아웃이 없었습니다 (사용자 지적 2026-09-05). 사장님 폰이
+              치과 계정에 잠겨 있어서, 친구가 치과로 가입했는데 **승인을
+              못 했습니다** — 승인은 센터 계정만 하는데 나갈 길이 없었습니다.
+              폰 하나로 계정을 오가는 사람이 있습니다. 어느 화면이든
+              나가는 문은 있어야 합니다.
+            ★ 작게 둡니다. 이 화면의 일은 촬영이고 로그아웃은 드뭅니다 —
+              크면 실수로 누릅니다.
+          */}
+          <LogoutButton className="text-[12px] text-[#9FB0C0] underline underline-offset-4" />
+        </div>
       </div>
 
       <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.5px] text-[var(--ink)]">
