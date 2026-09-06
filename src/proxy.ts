@@ -127,8 +127,23 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
 
+  /*
+    ★ 깨우는 핑은 문 앞에서 돌려보내지 않습니다 (2026-09-06).
+      Vercel 은 화면마다 다른 함수 프로세스를 띄웁니다 — `/` 와 /api/warm 을
+      1분마다 불러 200 을 받아도 /clinic 첫 화면은 2초(콜드 스타트)였습니다.
+      /clinic 자체가 불려야 그 프로세스가 깨어 있습니다. 그런데 로그인
+      없이 오면 여기서 /login 으로 돌려보내 화면 함수는 실행되지 않습니다.
+
+      그래서 DB 시계(pg_cron)가 보내는 핑에는 표시 헤더를 달고, 그 요청만
+      통과시킵니다. 통과해도 화면 쪽 requireSector 가 세션이 없으니 곧장
+      /login 으로 보냅니다 — 자료는 한 줄도 안 나가고, 함수만 깨어납니다.
+      헤더를 누가 흉내 내도 얻는 건 같은 redirect 뿐입니다.
+  */
+  const warmPing = request.headers.get("x-denflow-warm") === "1";
+
   if (
     !signedIn &&
+    !warmPing &&
     (
       pathname.startsWith("/clinic") ||
       pathname.startsWith("/design") ||
