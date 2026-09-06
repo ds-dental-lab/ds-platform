@@ -45,3 +45,7 @@ next-env.d.ts
 
 # 운영 DB 를 받아 둔 폴더 — 환자 실명이 들어 있습니다
 backup/
+scripts_*.mjs
+.alert-test.json
+.chat-test.json
+.arr-made.json
