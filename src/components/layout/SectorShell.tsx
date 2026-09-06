@@ -368,10 +368,21 @@ export default function SectorShell({
               );
             }
 
+            const href = item.href;
+
             return (
               <Link
                 key={item.label}
-                href={item.href}
+                href={href}
+                /*
+                  ★ 마우스를 올리는 순간 **그 화면 전체**를 미리 받습니다 (2026-09-06).
+                    Link 는 보이는 순간 뼈대(loading.tsx)까지만 미리 받아서, 누르면
+                    내용은 그때 서버에 다녀와야 했습니다 — 탭마다 0.3~0.5초.
+                    올렸다 누르기까지 보통 0.2~0.4초가 걸리므로 그 사이에
+                    내용이 와 있습니다. 받아 둔 것은 30초만 씁니다
+                    (next.config staleTimes.static) — 20초 자동 갱신과 같은 결.
+                */
+                onMouseEnter={() => router.prefetch(href)}
                 title={collapsed ? item.label : undefined}
                 className={base + (active ? '' : ' text-[#4A5567] hover:bg-[#F4F6F9]')}
                 style={

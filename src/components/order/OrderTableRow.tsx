@@ -27,6 +27,13 @@ export default function OrderTableRow({ href, label, children }: OrderTableRowPr
   return (
     <tr
       onClick={() => router.push(href)}
+      /*
+        ★ 줄에 마우스를 올리면 상세를 미리 받습니다 (2026-09-06 — "주문상세
+          누를 때 느리다"). 줄을 훑다가 누르기까지의 틈에 내용이 옵니다.
+          목록에 열 줄이 있어도 올린 줄만 받으니 서버를 더 두드리지 않습니다.
+      */
+      onMouseEnter={() => router.prefetch(href)}
+      onFocus={() => router.prefetch(href)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
