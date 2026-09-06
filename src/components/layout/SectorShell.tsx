@@ -389,6 +389,15 @@ export default function SectorShell({
                     (next.config staleTimes.static) — 20초 자동 갱신과 같은 결.
                 */
                 onMouseEnter={() => router.prefetch(href, { kind: 'full' as PrefetchKind })}
+                /*
+                  ★ 보이는 순간의 자동 미리 받기는 끕니다 (운영에서 확인 2026-09-06).
+                    사이드바는 늘 보이니 화면을 옮길 때마다 탭 일곱 개를 전부,
+                    그것도 두 번씩(14회) 미리 받고 있었습니다. 뼈대만 받는
+                    요청이라도 레이아웃(세션·알림 조회)은 매번 돕니다. 서버가
+                    잠에서 깨는 중에 14개가 몰리면 첫 화면이 더 늦어집니다.
+                    위의 hover 미리 받기가 진짜 내용을 받으니 이건 필요 없습니다.
+                */
+                prefetch={false}
                 title={collapsed ? item.label : undefined}
                 className={base + (active ? '' : ' text-[#4A5567] hover:bg-[#F4F6F9]')}
                 style={
