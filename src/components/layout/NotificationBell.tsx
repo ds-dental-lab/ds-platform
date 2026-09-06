@@ -21,6 +21,7 @@ import UnreadPing, {
   subscribePingSound,
 } from '@/components/layout/UnreadPing';
 import PushToggle from '@/components/layout/PushToggle';
+import SwitchPill from '@/components/layout/SwitchPill';
 import type { NotificationRow } from '@/server/repositories/notification';
 
 export interface NotificationBellProps {
@@ -98,23 +99,6 @@ export default function NotificationBell({
             <div className="flex items-center gap-3 border-b border-[#E8EBF0] px-4 py-2.5">
               <span className="text-[14px] font-bold text-[#1A2130]">알림</span>
 
-              {/*
-                ★ 못 끄는 소리는 결국 스피커를 끄게 만듭니다.
-                  그러면 정작 필요한 때 못 듣습니다. 여기서 끕니다.
-              */}
-              <span className="ml-auto flex items-center gap-3">
-                {/* ★ 탭을 안 볼 때는 소리도 안 납니다 — 그 구멍을 PC 알림이 메웁니다 */}
-                <PushToggle vapidKey={pushKey} />
-
-                <button
-                  onClick={() => setPingSound(!sound)}
-                  title={sound ? '새 알림에 소리가 납니다' : '소리가 꺼져 있습니다'}
-                  className="text-[13px] text-[#98A2B3] hover:text-[#4A5567]"
-                >
-                  소리 {sound ? '켬' : '끔'}
-                </button>
-              </span>
-
               {unreadCount > 0 && (
                 <button
                   onClick={() =>
@@ -123,11 +107,30 @@ export default function NotificationBell({
                       setOpen(false);
                     })
                   }
-                  className="shrink-0 text-[13px] text-[#98A2B3] hover:text-[#4A5567]"
+                  className="ml-auto shrink-0 text-[13px] text-[#98A2B3] hover:text-[#4A5567]"
                 >
                   전부 읽음
                 </button>
               )}
+            </div>
+
+            {/*
+              ★★ 스위치 둘은 **제 줄**에 둡니다 (2026-09-06). 제목 줄에 같이
+                넣으면 320px 안에 '알림 · PC 알림 스위치 · 소리 스위치 · 전부
+                읽음' 이 다 서야 해서 줄이 꺾이고, 꺾이면 '꺼짐' 이 두 줄로
+                갈라져 무엇의 상태인지 못 읽습니다.
+
+              ★ 못 끄는 소리는 결국 스피커를 끄게 만듭니다 — 여기서 끕니다.
+                탭을 안 볼 때는 소리도 안 납니다 — 그 구멍을 PC 알림이 메웁니다.
+            */}
+            <div className="flex items-center gap-5 border-b border-[#E8EBF0] bg-[#FAFBFC] px-4 py-2">
+              <PushToggle vapidKey={pushKey} />
+              <SwitchPill
+                label="소리"
+                on={sound}
+                onToggle={() => setPingSound(!sound)}
+                title={sound ? '새 알림에 두 음이 납니다' : '소리가 꺼져 있습니다'}
+              />
             </div>
 
             {notifications.length === 0 ? (

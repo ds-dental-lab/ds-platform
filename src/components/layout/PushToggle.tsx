@@ -17,6 +17,7 @@
 
 import { useEffect, useState } from 'react';
 import { savePushSubscription, deletePushSubscription } from '@/server/actions/push';
+import SwitchPill from '@/components/layout/SwitchPill';
 
 type PushState =
   | 'loading'
@@ -137,34 +138,42 @@ export default function PushToggle({ vapidKey }: { vapidKey: string | null }) {
 
   if (state === 'loading' || state === 'unsupported') return null;
 
+  /*
+    ★ 스위치 모양입니다 (사용자 지적 2026-09-06 — "켠 상태인지 헷갈려").
+      'PC 알림 끔' 이라는 글자는 "꺼져 있다" 와 "누르면 끈다" 로 둘 다
+      읽혀서, 켜 놓고도 꺼진 줄 알거나 그 반대가 됩니다. 초록 손잡이가
+      오른쪽에 붙어 있으면 누구나 켜짐으로 읽습니다.
+  */
   if (state === 'denied') {
     return (
-      <span
-        className="text-[13px] text-[#98A2B3]"
+      <SwitchPill
+        label="PC 알림"
+        on={false}
+        onToggle={() => undefined}
+        disabled
         title="브라우저가 알림을 차단하고 있습니다. 주소창 왼쪽 자물쇠 → 알림 → 허용으로 바꾼 뒤 다시 눌러 주세요."
-      >
-        PC 알림 차단됨
-      </span>
+      />
     );
   }
 
   return (
-    <button
-      onClick={() => (state === 'on' ? turnOff() : turnOn())}
-      disabled={busy}
-      title={
-        state === 'on'
-          ? '탭을 안 보고 있어도 새 대화가 PC 알림으로 뜹니다'
-          : '켜면 탭을 안 보고 있어도 새 대화가 PC 알림으로 뜹니다'
-      }
-      className="text-[13px] text-[#98A2B3] hover:text-[#4A5567] disabled:opacity-50"
-    >
-      PC 알림 {busy ? '켜는 중…' : state === 'on' ? '켬' : '끔'}
+    <span className="inline-flex flex-col items-start gap-0.5">
+      <SwitchPill
+        label="PC 알림"
+        on={state === 'on'}
+        busy={busy}
+        onToggle={() => (state === 'on' ? turnOff() : turnOn())}
+        title={
+          state === 'on'
+            ? '탭을 안 보고 있어도 새 알림이 PC 오른쪽 아래에 뜹니다'
+            : '켜면 탭을 안 보고 있어도 새 알림이 PC 오른쪽 아래에 뜹니다'
+        }
+      />
       {error && (
-        <span className="ml-1.5 font-semibold text-[#D8453F]" title={error}>
-          — {error}
+        <span className="max-w-[220px] text-[11.5px] font-semibold leading-tight text-[#D8453F]" title={error}>
+          {error}
         </span>
       )}
-    </button>
+    </span>
   );
 }
