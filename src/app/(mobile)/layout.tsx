@@ -25,13 +25,19 @@
 import type { Metadata, Viewport } from 'next';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/server/policies/session';
+import { SITE_TITLE } from '@/server/domain/site';
 import PwaSetup from '@/components/shade/PwaSetup';
 import WrongSector from '@/components/shade/WrongSector';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: '쉐이드 촬영',
+  /*
+    ★ 상호만 둡니다 (2026-09-06). 전에는 '쉐이드 촬영' 이었는데 이 껍데기를
+      센터도 쓰게 되어 센터 화면 탭에 '쉐이드 촬영' 이 떴습니다.
+      화면마다 제 이름은 그 페이지가 답니다 (generateMetadata).
+  */
+  title: { default: SITE_TITLE, template: `%s · ${SITE_TITLE}` },
   /*
     ★ 아이폰은 매니페스트를 잘 안 봅니다. 이 값들이 있어야 '홈 화면에
       추가' 로 얹었을 때 주소창 없이 앱처럼 열립니다.
@@ -63,7 +69,12 @@ export default async function MobileLayout({ children }: { children: React.React
   */
   if (!session) redirect('/login?next=%2Fm');
 
-  const wrongSector = session.orgType !== 'clinic';
+  /*
+    ★ 센터도 들어옵니다 (2026-09-06 — 센터 관리자 폰 화면: 문의·승인·
+      주문 찾기). 기공소만 밖입니다 — 기공소가 폰으로 할 일은 아직
+      없습니다. 생기면 여기 한 줄입니다.
+  */
+  const wrongSector = session.orgType !== 'clinic' && session.orgType !== 'design_center';
 
   return (
     <div

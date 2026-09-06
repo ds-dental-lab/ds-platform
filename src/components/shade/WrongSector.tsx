@@ -35,13 +35,13 @@ export default function WrongSector({ orgName }: { orgName: string }) {
         </span>
 
         <h1 className="mt-5 text-[21px] font-extrabold tracking-[-0.4px] text-[var(--ink)]">
-          치과 계정으로 들어와야 합니다
+          치과·센터 계정으로 들어와야 합니다
         </h1>
 
         <p className="mt-3 text-[14px] leading-[1.7] text-[var(--muted)]">
-          이 화면은 진료실에서 쉐이드 사진을 찍는 곳이라
+          이 화면은 진료실 촬영과 센터의 문의·승인을 위한 곳이라
           <br />
-          <b className="text-[var(--ink)]">치과 계정</b>만 씁니다.
+          <b className="text-[var(--ink)]">치과·센터 계정</b>만 씁니다.
           {orgName && (
             <>
               <br />
@@ -61,7 +61,7 @@ export default function WrongSector({ orgName }: { orgName: string }) {
             href="/login?switch=1&next=%2Fm"
             className="block rounded-xl bg-[var(--ink)] py-3.5 text-[15px] font-bold text-white"
           >
-            치과 계정으로 로그인
+            치과·센터 계정으로 로그인
           </Link>
 
           <Link

@@ -65,7 +65,14 @@ export default async function Home() {
       ★ 되돌아갈 길은 /m 안에 둡니다. 안 그러면 폰 쓰는 치과 관리자가
         정산·주문목록에 영영 못 들어갑니다 (새 덫을 놓는 셈입니다).
     */
-    if (session.orgType === "clinic" && isPhone((await headers()).get("user-agent"))) {
+    /*
+      ★ 센터도 폰이면 /m 입니다 (2026-09-06). 관리자가 폰으로 여는 이유는
+        문의 전화·가입 승인·주문 찾기 셋뿐이고, 그건 /m 이 합니다.
+        데스크톱 HOME 은 폰에서 못 씁니다 — 사장님이 그 화면을 찍어
+        보내 주신 적이 있습니다.
+    */
+    const phoneSectors = ["clinic", "design_center"];
+    if (phoneSectors.includes(session.orgType) && isPhone((await headers()).get("user-agent"))) {
       redirect("/m");
     }
 
