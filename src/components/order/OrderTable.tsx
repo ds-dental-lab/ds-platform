@@ -50,9 +50,9 @@ const COLUMNS: Column[] = [
   { key: 'received_at', label: '접수일', width: '10%', align: 'center' },
   { key: 'clinic_name', label: '치과', width: '16%', align: 'center' },
   { key: 'patient_label', label: '환자명', width: '10%', align: 'center' },
-  { key: 'teeth', label: '치식', width: '17%', align: 'center' },
+  { key: 'teeth', label: '치식', width: '15%', align: 'center' },
   { key: 'lab_name', label: '기공소', width: '13%', align: 'center' },
-  { key: 'issue', label: '이슈', width: '8%', align: 'center' },
+  { key: 'issue', label: '이슈', width: '10%', align: 'center' },
   { key: 'remake_count', label: '리메이크', width: '7%', align: 'center' },
 ];
 
@@ -234,8 +234,16 @@ export default function OrderTable({
                     </td>
                   )}
 
-                  <td className="px-3 py-2 text-center">
-                    <span className="inline-flex items-center gap-1">
+                  {/*
+                    ★ 한 줄에 셋까지 섭니다 — 📷 · 이슈 딱지 · 💬. 이슈 딱지
+                      (재스캔·리메이크·리페어·아날로그)는 **하나만** 옵니다
+                      (repositories/order-list 의 pickIssue — 안 풀린 것 하나).
+                      그래서 겹쳐 쌓이는 일은 없고, 셋이 다 있을 때 줄이 꺾여
+                      딱지가 두 줄이 되는 것만 막으면 됩니다 — nowrap 으로 못 박고
+                      열 폭을 조금 넓혔습니다 (2026-09-06).
+                  */}
+                  <td className="whitespace-nowrap px-2 py-2 text-center">
+                    <span className="inline-flex items-center gap-1.5">
                       {issue && (
                         <span
                           className="inline-block rounded-full px-[9px] py-[3px] text-[11px] font-bold"

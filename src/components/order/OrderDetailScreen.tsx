@@ -279,11 +279,15 @@ export default function OrderDetailScreen({
         흐르게 뒀습니다 — 머리줄·치식도·아래 단추줄은 늘 제자리입니다.
         제일 자주 누르는 단추가 스크롤 밖으로 나가지 않습니다.
 
-      ★ `h-` 가 아니라 **`max-h-`** 입니다.
-        높이를 못 박으면 큰 모니터에서 화면이 남아, 아래 단추줄만
-        저 밑에 붙고 그 위가 통째로 비어 보입니다(실제로 1180px 창에서
-        272px 이 비었습니다). 상한만 두면 내용이 짧을 때는 제 키대로
-        서고, 넘칠 때만 가운데가 흐릅니다.
+      ★ `max-h-` 와 `min-h-` 를 **둘 다** 겁니다 (2026-09-06).
+        처음엔 상한만 뒀습니다 — 높이를 못 박으니 큰 모니터에서 아래
+        단추줄만 저 밑에 붙고 그 위가 통째로 비었기 때문입니다(1180px
+        창에서 272px). 그런데 상한만 두니 이번엔 **카드 아래 페이지가**
+        비었습니다 — 치과 화면은 담당자·기공소 줄이 없어 한 줄 짧아서
+        1080px 모니터에서 230px 이 남았습니다 (사용자 지적 "왜 아래에
+        칸이 남지"). 그래서 카드를 화면에 꽉 채우되, 빈 자리가 단추줄
+        위에 몰리지 않게 **칸(.dt-cols)이 남은 높이를 받아** 위 두 줄에
+        고르게 나눕니다 (grid-rows 1fr). 대화창도 같이 길어집니다.
 
       ★ 창이 낮으면(820px 미만) 이 규칙을 안 겁니다.
         노트북에서 억지로 한 화면에 밀어 넣으면 칸마다 두세 줄만 보이는
@@ -291,7 +295,7 @@ export default function OrderDetailScreen({
         62 = 상단바 48 + 아래 여백 14.
     */
     <div
-      className="-mx-3.5 -mt-3.5 flex flex-wrap items-stretch gap-3 xl:flex-nowrap [@media(min-height:820px)]:max-h-[calc(100vh-62px)] [@media(min-height:820px)]:overflow-hidden"
+      className="-mx-3.5 -mt-3.5 flex flex-wrap items-stretch gap-3 xl:flex-nowrap [@media(min-height:820px)]:min-h-[calc(100vh-62px)] [@media(min-height:820px)]:max-h-[calc(100vh-62px)] [@media(min-height:820px)]:overflow-hidden"
       title={`주문번호 ${order.order_no}`}
     >
       {/*
@@ -385,7 +389,18 @@ export default function OrderDetailScreen({
         {extraSlot && <div className="px-[18px] pb-3.5">{extraSlot}</div>}
 
         {/* ---------- .dt-cols ---------- */}
-        <div className="grid min-h-0 grid-cols-1 items-stretch gap-2.5 overflow-y-auto px-[18px] pb-3 lg:grid-cols-[1.6fr_1fr]">
+        {/*
+          ★ flex-1 로 남은 높이를 받고, 줄 수만큼 **딱 맞는** 행 틀을 줍니다.
+            행 틀을 넉넉히 4줄로 두면 치과(3줄)에서 빈 4행에도 gap 이 붙어
+            아래에 10px 이 또 남습니다. 위 두 줄이 1fr 로 늘고 기타 요청사항
+            (·담당자 줄)은 제 키대로 섭니다.
+        */}
+        <div
+          className={
+            'grid min-h-0 flex-1 grid-cols-1 items-stretch gap-2.5 overflow-y-auto px-[18px] pb-3 lg:grid-cols-[1.6fr_1fr] ' +
+            (showCost ? 'lg:grid-rows-[1fr_1fr_auto_auto]' : 'lg:grid-rows-[1fr_1fr_auto]')
+          }
+        >
           {/* g-a — 제작보철 */}
           <Card
             className="lg:col-start-1 lg:row-start-1"

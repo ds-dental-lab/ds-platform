@@ -57,9 +57,14 @@ export default function ShadePhotoButton({ orderId, orderNo, patientLabel }: Sha
         onKeyDown={stop}
         title={`${patientLabel} 쉐이드 사진 붙이기`}
         aria-label={`${patientLabel} 쉐이드 사진 붙이기`}
-        className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-full text-[#98A2B3] hover:bg-[#EAF6F4] hover:text-[#0E9384]"
+        /*
+          ★ 28px, 아이콘 17px (사용자 요청 2026-09-06 — "좀 더 키워줬으면").
+            22px 는 💬 뱃지와 같은 높이였는데 그림 하나뿐이라 작아 보였습니다.
+            늘 옅은 초록 바탕을 깔아 '누르는 것' 으로 읽히게 합니다.
+        */
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#EAF6F4] text-[#0E9384] hover:bg-[#D2EFEA]"
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
           <path d="M4 8.5h3l1.5-2h7L17 8.5h3v10H4z" />
           <circle cx="12" cy="13" r="3.2" />
         </svg>
