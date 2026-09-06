@@ -21,6 +21,8 @@ import {
 } from '@/server/domain/order-list';
 import { STATUS_LABEL } from '@/server/domain/order-status';
 import OrderTableRow from '@/components/order/OrderTableRow';
+import ShadePhotoButton from '@/components/order/ShadePhotoButton';
+import { canShoot } from '@/server/domain/shade-photo';
 import type { OrderRow } from '@/server/repositories/order-list';
 import type { IsoDate } from '@/server/domain/week';
 
@@ -65,6 +67,11 @@ export interface OrderTableProps {
   showLab: boolean;
   /** 주문 id → 안 읽은 대화 수. 있으면 💬 뱃지가 붙습니다 */
   unreadChat?: Record<string, number>;
+  /**
+   * 📷 쉐이드 사진 단추를 낼 것인가 — **치과 목록만** (2026-09-06).
+   * 센터·기공소 목록에는 안 냅니다. 사진을 찍는 건 진료실입니다.
+   */
+  shadeShortcut?: boolean;
 }
 
 export default function OrderTable({
@@ -77,6 +84,7 @@ export default function OrderTable({
   dir,
   showLab,
   unreadChat = {},
+  shadeShortcut = false,
 }: OrderTableProps) {
   const columns = showLab ? COLUMNS : COLUMNS.filter((c) => c.key !== 'lab_name');
 
@@ -235,6 +243,20 @@ export default function OrderTable({
                         >
                           {issue.label}
                         </span>
+                      )}
+
+                      {/*
+                        ★ 📷 쉐이드 사진 (사용자 요청 2026-09-06). 치과 목록에만,
+                          그리고 **찍을 수 있는 단계**(canShoot)에만 섭니다 —
+                          배송 나간 뒤에 쉐이드를 찍는 일은 없습니다.
+                          줄 전체가 링크라 단추가 스스로 전파를 막습니다.
+                      */}
+                      {shadeShortcut && canShoot(row.status) && (
+                        <ShadePhotoButton
+                          orderId={row.id}
+                          orderNo={row.order_no}
+                          patientLabel={row.patient_label}
+                        />
                       )}
 
                       {/*

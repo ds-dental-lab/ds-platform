@@ -119,6 +119,8 @@ export default async function OrderListScreen({
           dir={q.dir}
           showLab={showLab}
           unreadChat={unreadChat}
+          /* ★ 📷 는 치과 목록에만 — 사진을 찍는 건 진료실입니다 (2026-09-06) */
+          shadeShortcut={sector === 'clinic'}
         />
 
         <OrderPager
