@@ -13,8 +13,10 @@
 
 'use server';
 
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { checkContact, type ContactForm } from '@/server/domain/contact';
+import { publishContactRequested } from '@/server/events/approval-alert';
 
 export type ContactResult = { ok: true } | { ok: false; error: string };
 
@@ -36,6 +38,14 @@ export async function submitContact(form: ContactForm): Promise<ContactResult> {
   });
 
   if (error) return { ok: false, error: '보내지 못했습니다. 잠시 뒤에 다시 시도해 주세요' };
+
+  /*
+    ★ 센터 관리자에게 푸시·메일 (2026-09-05). 종은 표 트리거가 넣습니다.
+      보낸 사람을 기다리게 하지 않습니다 — after() 는 응답을 보낸 뒤에
+      돕니다. 실패해도 문의는 이미 남았습니다.
+  */
+  const clinicName = form.clinicName.trim();
+  after(() => publishContactRequested({ clinicName }));
 
   return { ok: true };
 }

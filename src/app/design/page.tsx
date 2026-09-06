@@ -14,6 +14,7 @@ import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 import HomeScreen from '@/components/home/HomeScreen';
 import AutoRefresh from '@/components/layout/AutoRefresh';
 import UnreadChatStrip from '@/components/home/UnreadChatStrip';
+import ApprovalStrip from '@/components/home/ApprovalStrip';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +41,12 @@ export default async function HomePage() {
     <>
       {/* ★ 접수가 들어오면 새로고침 없이 올라옵니다 (사용자 요청 2026-08-13) */}
       <AutoRefresh />
+      {/*
+        ★ 가입 신청·수가표 문의가 기다리면 맨 위에 띠가 섭니다 (2026-09-05).
+          사장님이 "알림이 오는 게 없어" — 실제로 아무것도 없었습니다.
+          관리자만 봅니다 (승인·응대는 관리자 일입니다).
+      */}
+      <ApprovalStrip manager={canManage(session?.role ?? null)} />
       {/* 안 읽은 대화가 있으면 맨 위에 띠가 섭니다 (2026-08-19) */}
       <UnreadChatStrip orderPath="/design/orders" />
       <HomeScreen

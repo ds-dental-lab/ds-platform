@@ -30,6 +30,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { notifySignupRequested } from '@/server/actions/signup-notify';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import {
   SIGNUP_SECTORS,
@@ -157,6 +158,15 @@ export default function SignupPage() {
       setError('이미 가입된 이메일입니다. 로그인해 주세요.');
       return;
     }
+
+    /*
+      ★ 센터에 알립니다 (2026-09-05 — "실제로 해보니까 알림이 오는 게 없어").
+        신청서는 DB 트리거가 만들고 종도 트리거가 넣지만, 푸시·메일은
+        Node 가 해야 해서 여기서 한 번 찔러 줍니다. 기다리지 않습니다 —
+        가입한 사람이 센터 알림 때문에 멈춰 있을 이유가 없습니다.
+        (한 번만 가도록 서버가 표시를 찍습니다 — events/approval-alert)
+    */
+    if (data.user?.id) void notifySignupRequested(data.user.id);
 
     // 메일 확인이 켜져 있으면 여기서 세션이 없습니다
     if (!data.session) {
