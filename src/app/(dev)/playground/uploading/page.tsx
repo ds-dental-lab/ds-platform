@@ -1,7 +1,7 @@
 // =========================================================
 // 놓을 위치: src/app/(dev)/playground/uploading/page.tsx
 //
-// '업로드중' 상태가 화면에 어떻게 서는지. (작업지시서 §3-3)
+// '스캔 대기' 상태가 화면에 어떻게 서는지. (작업지시서 §3-3)
 // 진짜 화면은 로그인이 필요해서 모양은 여기서 봅니다.
 // =========================================================
 
@@ -14,7 +14,7 @@ import { statusesForSector, colorOfStatus } from '@/server/domain/order-list';
 export default function UploadingPlayground() {
   return (
     <main className="mx-auto max-w-3xl p-8">
-      <h1 className="text-2xl font-bold">업로드중 상태</h1>
+      <h1 className="text-2xl font-bold">스캔 대기 상태</h1>
 
       <section className="mt-7">
         <h2 className="mb-2 font-semibold">① 배지 — 아홉 가지</h2>
@@ -26,7 +26,7 @@ export default function UploadingPlayground() {
       </section>
 
       <section className="mt-8">
-        <h2 className="mb-2 font-semibold">② 진행 막대 — 업로드중</h2>
+        <h2 className="mb-2 font-semibold">② 진행 막대 — 스캔 대기</h2>
         <div className="rounded-lg border bg-white p-4">
           <OrderProgress steps={orderProgress({ status: 'uploading', isRepair: false, pickups: [] })} />
         </div>

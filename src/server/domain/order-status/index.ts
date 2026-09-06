@@ -28,7 +28,17 @@
 export type Sector = 'clinic' | 'design_center' | 'lab';
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
-  uploading: '업로드중',
+  /*
+    ★ '업로드중' 이 아니라 **'스캔 대기'** 입니다 (사용자 결정 2026-09-06 —
+      "치과에서 뭔 소린지 모를 것 같은데").
+      '업로드' 는 우리 말이고, 무엇보다 **틀린 말**입니다 — 이 상태의
+      대부분은 올리다 말고 닫은 것이라 아무것도 올라가고 있지 않은데
+      '중' 이라고 하면 기다리게 만듭니다.
+      '스캔 대기' 는 왜 접수가 안 됐는지(스캔이 없다)와 누가 할 일인지
+      (치과)를 한 단어에 담고, 올라가는 중이든 끊겼든 참입니다.
+      코드 값(uploading)은 그대로입니다 — 표·주석은 그 이름으로 부릅니다.
+  */
+  uploading: '스캔 대기',
   received: '접수',
   rescan: '재스캔',
   designing: '디자인',

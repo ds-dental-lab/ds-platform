@@ -122,7 +122,8 @@ export function orderProgress(input: ProgressInput): ProgressStep[] {
   */
   if (input.status === 'uploading') {
     return [
-      { key: 'uploading', label: '업로드중', state: 'current' },
+      // ★ 말은 STATUS_LABEL 과 같아야 합니다 — '스캔 대기' (2026-09-06)
+      { key: 'uploading', label: '스캔 대기', state: 'current' },
       { key: 'received', label: '접수', state: 'todo' },
       ...(input.isRepair ? [] : [{ key: 'designing', label: '디자인', state: 'todo' as const }]),
       { key: 'production_wait', label: '제작대기', state: 'todo' },
