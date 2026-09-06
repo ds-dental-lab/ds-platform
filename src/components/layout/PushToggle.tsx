@@ -28,6 +28,13 @@ type PushState =
 export default function PushToggle({ vapidKey }: { vapidKey: string | null }) {
   const [state, setState] = useState<PushState>('loading');
   const [busy, setBusy] = useState(false);
+  /*
+    ★ 왜 못 켰는지를 **말합니다** (2026-09-06). 전에는 실패하면 조용히
+      '끔' 으로 되돌아갔습니다 — 사장님이 켰다고 하셨는데 서버에는
+      기기가 0개였고, 화면은 아무 말도 안 했습니다. 눌렀는데 아무 일도
+      안 일어난 것처럼 보이면 사람은 "됐나 보다" 하고 갑니다.
+  */
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -57,11 +64,14 @@ export default function PushToggle({ vapidKey }: { vapidKey: string | null }) {
   async function turnOn() {
     if (!vapidKey) return;
     setBusy(true);
+    setError('');
 
     try {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         setState(permission === 'denied' ? 'denied' : 'off');
+        // ★ 창을 그냥 닫으면 'default' 로 돌아옵니다 — 허용을 안 누른 것입니다
+        if (permission !== 'denied') setError('브라우저 창에서 "허용" 을 눌러야 켜집니다');
         return;
       }
 
@@ -86,12 +96,20 @@ export default function PushToggle({ vapidKey }: { vapidKey: string | null }) {
         // 서버가 못 받았으면 브라우저 쪽도 되돌립니다 — 반쪽 구독을 안 남깁니다
         await subscription.unsubscribe();
         setState('off');
+        setError(result.error);
         return;
       }
 
       setState('on');
-    } catch {
+    } catch (e) {
       setState('off');
+      /*
+        ★ 브라우저가 뱉은 말을 그대로 붙입니다. 흔한 것 —
+          applicationServerKey 형식이 틀림(열쇠 값에 공백·줄바꿈),
+          서비스워커 등록 실패(https 아님), 푸시 서비스 연결 실패.
+          "못 켰습니다" 만으로는 어느 쪽인지 알 수 없습니다.
+      */
+      setError(`켜지 못했습니다: ${(e as Error)?.message ?? '알 수 없는 오류'}`);
     } finally {
       setBusy(false);
     }
@@ -141,7 +159,12 @@ export default function PushToggle({ vapidKey }: { vapidKey: string | null }) {
       }
       className="text-[13px] text-[#98A2B3] hover:text-[#4A5567] disabled:opacity-50"
     >
-      PC 알림 {state === 'on' ? '켬' : '끔'}
+      PC 알림 {busy ? '켜는 중…' : state === 'on' ? '켬' : '끔'}
+      {error && (
+        <span className="ml-1.5 font-semibold text-[#D8453F]" title={error}>
+          — {error}
+        </span>
+      )}
     </button>
   );
 }
