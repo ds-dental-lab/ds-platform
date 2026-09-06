@@ -13,6 +13,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+/*
+  ★ Next 16 의 router.prefetch 는 기본이 'auto'(뼈대만)라 내용까지 받으려면
+    kind 'full' 을 줘야 합니다. 그 enum 은 공개 경로에 없어 타입만 빌려 오고
+    값은 글자 'full' 그대로 넣습니다 (enum 값이 그 글자입니다).
+*/
+import type { PrefetchKind } from 'next/dist/client/components/router-reducer/router-reducer-types';
 
 export interface OrderTableRowProps {
   href: string;
@@ -32,8 +38,8 @@ export default function OrderTableRow({ href, label, children }: OrderTableRowPr
           누를 때 느리다"). 줄을 훑다가 누르기까지의 틈에 내용이 옵니다.
           목록에 열 줄이 있어도 올린 줄만 받으니 서버를 더 두드리지 않습니다.
       */
-      onMouseEnter={() => router.prefetch(href)}
-      onFocus={() => router.prefetch(href)}
+      onMouseEnter={() => router.prefetch(href, { kind: 'full' as PrefetchKind })}
+      onFocus={() => router.prefetch(href, { kind: 'full' as PrefetchKind })}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();

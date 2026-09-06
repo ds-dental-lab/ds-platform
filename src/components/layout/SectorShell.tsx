@@ -18,6 +18,12 @@ import { useState } from 'react';
 import { visibleNav, type NavIcon } from '@/server/domain/nav';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+/*
+  ★ Next 16 의 router.prefetch 는 기본이 'auto'(뼈대만)라 내용까지 받으려면
+    kind 'full' 을 줘야 합니다. 그 enum 은 공개 경로에 없어 타입만 빌려 오고
+    값은 글자 'full' 그대로 넣습니다 (enum 값이 그 글자입니다).
+*/
+import type { PrefetchKind } from 'next/dist/client/components/router-reducer/router-reducer-types';
 import { createClient } from '@/lib/supabase/client';
 import { clearedKeepCookies } from '@/server/domain/login';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
@@ -382,7 +388,7 @@ export default function SectorShell({
                     내용이 와 있습니다. 받아 둔 것은 30초만 씁니다
                     (next.config staleTimes.static) — 20초 자동 갱신과 같은 결.
                 */
-                onMouseEnter={() => router.prefetch(href)}
+                onMouseEnter={() => router.prefetch(href, { kind: 'full' as PrefetchKind })}
                 title={collapsed ? item.label : undefined}
                 className={base + (active ? '' : ' text-[#4A5567] hover:bg-[#F4F6F9]')}
                 style={
