@@ -222,7 +222,7 @@ describe('업로드중 진행 막대', () => {
   it('업로드중 칸이 맨 앞에 켜지고 접수는 아직입니다', () => {
     const steps = orderProgress({ status: 'uploading', isRepair: false, pickups: [] });
 
-    expect(labels(steps)[0]).toBe('업로드중');
+    expect(labels(steps)[0]).toBe('스캔 대기');
     expect(steps[0].state).toBe('current');
     expect(steps.find((s) => s.label === '접수')?.state).toBe('todo');
   });

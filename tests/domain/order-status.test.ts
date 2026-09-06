@@ -503,7 +503,8 @@ describe('상태 변경 알림 문구', () => {
 */
 describe('업로드중', () => {
   it('제일 앞 단계입니다', () => {
-    expect(STATUS_LABEL.uploading).toBe('업로드중');
+    // ★ 화면 말은 '스캔 대기' (사용자 결정 2026-09-06 — '업로드중' 은 치과 말이 아니고 틀린 말)
+    expect(STATUS_LABEL.uploading).toBe('스캔 대기');
     expect(getNextStatus('uploading')).toBe('received');
   });
 
