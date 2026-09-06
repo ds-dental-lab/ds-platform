@@ -449,11 +449,14 @@ export default function OrderChat({ orderId, messages, sector }: OrderChatProps)
             </>
           )}
 
-          {/* 누가 함께 보는지는 알려 둡니다 — 기공소까지 읽는다는 걸 모르면 곤란합니다 */}
-          <span className="min-w-0 flex-1 text-[11px] leading-tight text-[#98A2B3]">
-            치과 · 디자인센터 · 배정된 기공소가 함께 봅니다.
-            {attachable && ' 기공소는 사진만 열 수 있습니다.'}
-          </span>
+          {/*
+            ★ 설명 문구를 뺐습니다 (사용자 요청 2026-09-06). 전에는 '치과 ·
+              디자인센터 · 배정된 기공소가 함께 봅니다' 를 늘 깔아 뒀는데,
+              매번 같은 자리에 같은 글이 있으면 배경이 되어 아무도 안 읽고
+              칸만 좁아집니다. 누가 보는지는 위 말풍선의 딱지(치과·센터·기공소)가
+              이미 말합니다. 빈 자리는 전송 단추를 오른쪽에 붙이는 데 씁니다.
+          */}
+          <span className="flex-1" />
 
           <span className="shrink-0 text-[11px] text-[#C4CBD6]">
             {draft.length}/{MAX_LENGTH}
