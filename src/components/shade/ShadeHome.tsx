@@ -131,9 +131,6 @@ export default function ShadeHome({
       <div className="relative flex items-center justify-between">
         <DenFlowLogo markHeight={20} fontSize={19} />
         <div className="flex items-center gap-2.5">
-          <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[12.5px] font-semibold text-[var(--muted)]">
-            {clinicName}
-          </span>
           <PushBell vapidKey={pushKey} description="센터의 답과 오늘 도착 안내가 이 폰으로 옵니다" />
           {/*
             ★★ 로그아웃이 없었습니다 (사용자 지적 2026-09-05). 사장님 폰이
@@ -144,11 +141,18 @@ export default function ShadeHome({
             ★ 작게 둡니다. 이 화면의 일은 촬영이고 로그아웃은 드뭅니다 —
               크면 실수로 누릅니다.
           */}
-          <LogoutButton className="text-[12px] text-[#9FB0C0] underline underline-offset-4" />
+          <LogoutButton className="whitespace-nowrap text-[12px] text-[#9FB0C0] underline underline-offset-4" />
         </div>
       </div>
 
-      <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.5px] text-[var(--ink)]">
+      {/*
+        ★ 누구 계정인지는 제목 위 한 줄로 (2026-09-07). 머리줄에 로고·이름표·
+          종·로그아웃 넷을 세우면 폰 폭(390px)에 안 들어가 로그아웃이 잘렸습니다.
+      */}
+      <span className="mt-5 inline-block max-w-full truncate rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[12.5px] font-semibold text-[var(--muted)]">
+        {clinicName}
+      </span>
+      <h1 className="mt-2 text-[26px] font-extrabold tracking-[-0.5px] text-[var(--ink)]">
         쉐이드 촬영
       </h1>
       <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[var(--muted)]">
@@ -176,7 +180,7 @@ export default function ShadeHome({
             </svg>
             <b className="text-[14px] font-bold text-[var(--ink)]">오늘 받을 것</b>
           </span>
-          <span className="mt-1.5 block truncate text-[12px] text-[var(--muted)]">{pendingSummary(arrivalStates)}</span>
+          <span className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-[var(--muted)]">{pendingSummary(arrivalStates)}</span>
         </Link>
 
         <Link
@@ -194,7 +198,7 @@ export default function ShadeHome({
             </svg>
             <b className="text-[14px] font-bold text-[var(--ink)]">대화</b>
           </span>
-          <span className="mt-1.5 block truncate text-[12px] text-[var(--muted)]">
+          <span className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-[var(--muted)]">
             {unreadChats > 0 ? `안 읽은 글 ${unreadChats}` : '센터와 주고받은 글'}
           </span>
           {unreadChats > 0 && (

@@ -36,15 +36,19 @@ export default function CenterHome({
       <div className="relative flex items-center justify-between">
         <DenFlowLogo markHeight={20} fontSize={19} />
         <div className="flex items-center gap-2.5">
-          <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[12.5px] font-semibold text-[var(--muted)]">
-            {orgName}
-          </span>
           <PushBell vapidKey={pushKey} description="치과의 대화와 가입·문의 신청이 이 폰으로 옵니다" />
-          <LogoutButton className="text-[12px] text-[#9FB0C0] underline underline-offset-4" />
+          <LogoutButton className="whitespace-nowrap text-[12px] text-[#9FB0C0] underline underline-offset-4" />
         </div>
       </div>
 
-      <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.5px] text-[var(--ink)]">
+      {/*
+        ★ 누구 계정인지는 제목 위 한 줄로 (2026-09-07). 머리줄에 로고·이름표·
+          종·로그아웃 넷을 세우면 폰 폭(390px)에 안 들어가 로그아웃이 잘렸습니다.
+      */}
+      <span className="mt-5 inline-block max-w-full truncate rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[12.5px] font-semibold text-[var(--muted)]">
+        {orgName}
+      </span>
+      <h1 className="mt-2 text-[26px] font-extrabold tracking-[-0.5px] text-[var(--ink)]">
         {manager ? '처리할 일' : '주문 찾기'}
       </h1>
       <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[var(--muted)]">
