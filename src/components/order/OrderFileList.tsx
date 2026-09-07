@@ -120,7 +120,7 @@ export default function OrderFileList({
               key={file.id}
               className={
                 'group flex items-baseline gap-2 rounded px-2 py-1 text-[13.5px] ' +
-                (missing ? 'bg-[#FDF2F2]' : 'bg-white hover:bg-[#F4F8FE]')
+                (missing ? 'bg-[#F8F9FB]' : 'bg-white hover:bg-[#F4F8FE]')
               }
             >
               <span className="shrink-0 text-[11px] text-[#C4CBD6]">
@@ -128,10 +128,8 @@ export default function OrderFileList({
               </span>
 
               {missing ? (
-                <span
-                  className="min-w-0 flex-1 truncate text-[#B3312C] line-through"
-                  title={file.file_name}
-                >
+                /* ★ 취소선·빨강을 뺐습니다 — 지워진 게 아니라 아직 안 온 것입니다 (2026-09-07) */
+                <span className="min-w-0 flex-1 truncate text-[#98A2B3]" title={file.file_name}>
                   {middleEllipsis(file.file_name)}
                 </span>
               ) : isFileBlockedFor(sector, { kind: file.kind, fileName: file.file_name }) ? (
@@ -160,7 +158,9 @@ export default function OrderFileList({
               )}
 
               {missing && (
-                <b className="shrink-0 text-[11px] font-bold text-[#B3312C]">안 올라감</b>
+                <span className="shrink-0 rounded bg-[#EEF1F5] px-1.5 py-0.5 text-[10.5px] font-semibold text-[#5B7186]">
+                  올리는 중 멈춤
+                </span>
               )}
 
               {deletable && (
