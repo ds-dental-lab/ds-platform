@@ -160,7 +160,7 @@ export default function OrderFileList({
               )}
 
               {missing && (
-                <b className="shrink-0 text-[11px] font-bold text-[#B3312C]">안 올라감</b>
+                <b className="shrink-0 text-[11px] font-bold text-[#B3312C]">아직 안 옴</b>
               )}
 
               {deletable && (
