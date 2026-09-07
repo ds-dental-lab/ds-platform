@@ -17,6 +17,8 @@ import { listShadeCases } from '@/server/repositories/shade-photo';
 import { countUnsortedPhotos } from '@/server/repositories/unsorted-photo';
 import { listArrivingToday } from '@/server/repositories/arrival';
 import { countApprovalQueue } from '@/server/repositories/approval-alert';
+import { unreadChatByOrder } from '@/server/repositories/notification';
+import { sumUnread } from '@/server/domain/chat-room';
 import type { Metadata } from 'next';
 import { requireSession, getSession } from '@/server/policies/session';
 import { canManageMembers, type MemberRole } from '@/server/domain/member';
@@ -38,9 +40,21 @@ export default async function MobileHomePage() {
   if (session.orgType === 'design_center') {
     const manager = canManageMembers(session.role as MemberRole | null);
     // ★ 관리자만 셉니다 — 디자이너에게는 카드도 없고 셀 일도 없습니다
-    const counts = manager ? await countApprovalQueue() : { signups: 0, contacts: 0 };
+    // ★ 대화는 전원 — 둘을 함께 보냅니다
+    const [queue, unread] = await Promise.all([
+      manager ? countApprovalQueue() : Promise.resolve({ signups: 0, contacts: 0 }),
+      unreadChatByOrder(),
+    ]);
+    const counts = { ...queue, chats: sumUnread(unread) };
 
-    return <CenterHome orgName={session.orgName ?? ''} counts={counts} manager={manager} />;
+    return (
+      <CenterHome
+        orgName={session.orgName ?? ''}
+        counts={counts}
+        manager={manager}
+        pushKey={process.env.VAPID_PUBLIC_KEY ?? null}
+      />
+    );
   }
 
   // ---------- 치과 ----------
@@ -51,10 +65,11 @@ export default async function MobileHomePage() {
     ★ 셋을 **함께** 보냅니다. 서로를 안 쓰는데 줄줄이 기다리면 왕복이
       셋입니다 — 그 차이가 그대로 화면 뜨는 시간입니다.
   */
-  const [cases, unsorted, arrivals] = await Promise.all([
+  const [cases, unsorted, arrivals, unread] = await Promise.all([
     listShadeCases(),
     countUnsortedPhotos(),
     listArrivingToday(),
+    unreadChatByOrder(),
   ]);
 
   return (
@@ -70,6 +85,8 @@ export default async function MobileHomePage() {
           "오늘 뭐 오나" 하나입니다.
       */
       arrivalStates={arrivals.map((a) => a.state)}
+      unreadChats={sumUnread(unread)}
+      pushKey={process.env.VAPID_PUBLIC_KEY ?? null}
     />
   );
 }

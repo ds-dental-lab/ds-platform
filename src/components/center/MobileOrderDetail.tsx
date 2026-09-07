@@ -97,10 +97,18 @@ export default function MobileOrderDetail({
         )}
       </dl>
 
+      {/* ★ 전화로 못 끝낸 말은 대화로 — 치과와 같은 창입니다 (2026-09-06) */}
+      <Link
+        href={`/m/chats/${order.id}`}
+        className="mt-8 block rounded-xl bg-[var(--ink)] py-3.5 text-center text-[14.5px] font-bold text-white active:opacity-90"
+      >
+        대화 열기
+      </Link>
+
       {/* ★ 고치는 일은 PC 에서 — 링크 하나로 그 주문으로 갑니다 */}
       <Link
         href={`/design/orders/${order.id}`}
-        className="mt-8 block rounded-xl border border-[var(--line)] bg-white py-3.5 text-center text-[14.5px] font-bold text-[var(--muted)]"
+        className="mt-2.5 block rounded-xl border border-[var(--line)] bg-white py-3.5 text-center text-[14.5px] font-bold text-[var(--muted)]"
       >
         전체 화면에서 열기
       </Link>

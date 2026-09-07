@@ -13,16 +13,20 @@
 import Link from 'next/link';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import LogoutButton from '@/components/logout-button';
+import PushToggle from '@/components/layout/PushToggle';
 import { centerCards, type CenterCounts } from '@/server/domain/center-mobile';
 
 export default function CenterHome({
   orgName,
   counts,
   manager,
+  pushKey,
 }: {
   orgName: string;
   counts: CenterCounts;
   manager: boolean;
+  /** 웹푸시 공개키. 없으면 스위치가 안 그려집니다 */
+  pushKey: string | null;
 }) {
   const cards = centerCards(counts, manager);
 
@@ -44,6 +48,17 @@ export default function CenterHome({
       <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[var(--muted)]">
         {manager ? '폰으로 바로 전화하고 승인합니다' : '치과가 전화하면 여기서 케이스를 찾습니다'}
       </p>
+
+      {/*
+        ★ 폰 알림 (사용자 요청 2026-09-06 — "핸드폰으로도 알림이 올 수 있나").
+          푸시는 기기마다 켭니다. 이 스위치가 없으면 폰을 등록할 길이
+          없어서 대화·승인 요청이 PC 에만 떴습니다. 아이폰은 홈 화면에
+          설치한 앱에서만 켜집니다 — 사파리 탭에서는 스위치 자체가 안 뜹니다.
+      */}
+      <div className="mt-4 flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-[0_1px_2px_rgba(22,50,79,0.06)]">
+        <span className="text-[13.5px] font-semibold text-[var(--ink)]">새 대화·신청을 이 폰으로</span>
+        <PushToggle vapidKey={pushKey} label="폰 알림" />
+      </div>
 
       <ul className="mt-6 space-y-3">
         {cards.map((card) => (

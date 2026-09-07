@@ -14,6 +14,7 @@
 
 import Link from 'next/link';
 import LogoutButton from '@/components/logout-button';
+import PushToggle from '@/components/layout/PushToggle';
 import { pendingSummary, type ArrivalState } from '@/server/domain/arrival';
 import { useMemo, useState } from 'react';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
@@ -72,6 +73,8 @@ export default function ShadeHome({
   clinicOrgId,
   unsortedCount = 0,
   arrivalStates = [],
+  unreadChats = 0,
+  pushKey = null,
 }: {
   cases: ShadeCase[];
   clinicName: string;
@@ -79,6 +82,10 @@ export default function ShadeHome({
   /** 미분류 사진이 올라갈 자리. 없으면 '바로 촬영' 을 안 그립니다(시연 화면) */
   clinicOrgId?: string;
   unsortedCount?: number;
+  /** 안 읽은 대화 수 — 홈의 '대화' 카드에 붙습니다 */
+  unreadChats?: number;
+  /** 웹푸시 공개키. 없으면 스위치가 안 그려집니다 */
+  pushKey?: string | null;
   /** 오늘 오기로 한 것들의 상태. 건수와 '몇 건 아직' 을 홈에서 바로 보여 줍니다 */
   arrivalStates?: ArrivalState[];
 }) {
@@ -180,6 +187,46 @@ export default function ShadeHome({
           &#8250;
         </span>
       </Link>
+
+      {/*
+        ★ 대화 (사용자 요청 2026-09-06 — "카톡처럼 실시간으로 대응").
+          센터가 답하면 여기서 바로 봅니다. 안 읽은 수가 빨간 동그라미로.
+      */}
+      <Link
+        href="/m/chats"
+        className="mt-2.5 flex items-center gap-2.5 rounded-xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(22,50,79,0.06)] active:bg-[#F7FAFC]"
+      >
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z"
+            stroke="var(--ink)"
+            strokeWidth="1.7"
+            strokeLinejoin="round"
+          />
+        </svg>
+
+        <span className="min-w-0 flex-1">
+          <b className="block text-[14.5px] font-bold text-[var(--ink)]">대화</b>
+          <span className="mt-0.5 block truncate text-[12px] text-[var(--muted)]">
+            {unreadChats > 0 ? '답을 기다리는 대화가 있습니다' : '디자인센터와 주고받은 글'}
+          </span>
+        </span>
+
+        {unreadChats > 0 && (
+          <span className="min-w-[20px] rounded-full bg-[#D8453F] px-1.5 py-0.5 text-center text-[11px] font-bold leading-none text-white">
+            {unreadChats > 99 ? '99+' : unreadChats}
+          </span>
+        )}
+        <span className="text-[13px] text-[#9FB0C0]" aria-hidden="true">
+          &#8250;
+        </span>
+      </Link>
+
+      {/* ★ 폰 알림 — 푸시는 기기마다 켭니다. 아이폰은 홈 화면에 설치한 앱에서만 뜹니다 */}
+      <div className="mt-2.5 flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-[0_1px_2px_rgba(22,50,79,0.06)]">
+        <span className="text-[13.5px] font-semibold text-[var(--ink)]">센터의 답을 이 폰으로</span>
+        <PushToggle vapidKey={pushKey} label="폰 알림" />
+      </div>
 
       {/*
         ★ 미분류함이 비어 있으면 안 그립니다. 늘 0 인 입구는 자리만

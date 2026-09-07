@@ -20,10 +20,12 @@ import { buildAbbr, type ProsthesisCatalog } from '../prosthesis';
 export interface CenterCounts {
   contacts: number;
   signups: number;
+  /** 안 읽은 대화 — 전원이 봅니다 (디자이너도 치과와 대화합니다) */
+  chats: number;
 }
 
 export interface CenterCard {
-  key: 'contacts' | 'signups' | 'orders';
+  key: 'contacts' | 'signups' | 'chats' | 'orders';
   title: string;
   hint: string;
   href: string;
@@ -57,6 +59,20 @@ export function centerCards(counts: CenterCounts, manager: boolean): CenterCard[
       count: counts.signups,
     });
   }
+
+  /*
+    ★ 대화는 전원 — 승인·문의는 관리자 일이지만 치과가 말을 걸면 담당
+      디자이너가 답해야 합니다 (사용자 요청 2026-09-06 — "카톡처럼").
+      안 읽은 게 있으면 숫자가 붙고, 주문 찾기보다 위입니다 — 기다리는
+      사람이 있는 쪽이 급합니다.
+  */
+  cards.push({
+    key: 'chats',
+    title: '대화',
+    hint: counts.chats > 0 ? '답을 기다리는 대화가 있습니다' : '새 대화가 없습니다',
+    href: '/m/chats',
+    count: counts.chats,
+  });
 
   cards.push({
     key: 'orders',

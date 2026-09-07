@@ -26,7 +26,17 @@ type PushState =
   | 'off'
   | 'on';
 
-export default function PushToggle({ vapidKey }: { vapidKey: string | null }) {
+/*
+  ★ 이름을 받습니다 (2026-09-06). PC 종 안에서는 'PC 알림', 폰 홈에서는
+    '폰 알림' — 같은 스위치인데 자리마다 사람이 부르는 말이 다릅니다.
+*/
+export default function PushToggle({
+  vapidKey,
+  label = 'PC 알림',
+}: {
+  vapidKey: string | null;
+  label?: string;
+}) {
   const [state, setState] = useState<PushState>('loading');
   const [busy, setBusy] = useState(false);
   /*
@@ -147,7 +157,7 @@ export default function PushToggle({ vapidKey }: { vapidKey: string | null }) {
   if (state === 'denied') {
     return (
       <SwitchPill
-        label="PC 알림"
+        label={label}
         on={false}
         onToggle={() => undefined}
         disabled
@@ -159,14 +169,14 @@ export default function PushToggle({ vapidKey }: { vapidKey: string | null }) {
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
       <SwitchPill
-        label="PC 알림"
+        label={label}
         on={state === 'on'}
         busy={busy}
         onToggle={() => (state === 'on' ? turnOff() : turnOn())}
         title={
           state === 'on'
-            ? '탭을 안 보고 있어도 새 알림이 PC 오른쪽 아래에 뜹니다'
-            : '켜면 탭을 안 보고 있어도 새 알림이 PC 오른쪽 아래에 뜹니다'
+            ? '이 기기를 안 보고 있어도 새 알림이 뜹니다'
+            : '켜면 이 기기를 안 보고 있어도 새 알림이 뜹니다'
         }
       />
       {error && (

@@ -31,9 +31,21 @@ self.addEventListener('push', (event) => {
   );
 });
 
+/*
+  ★ 폰이면 대화방으로 갑니다 (2026-09-06). 서버는 어느 기기가 받을지
+    모르고 PC 주문상세 주소를 싣습니다. 폰에서 그 화면은 좁아 못 씁니다 —
+    같은 주문의 폰 대화방(/m/chats/…)으로 바꿔 엽니다. 기공소는 폰 화면이
+    없으니 그대로 둡니다.
+*/
+function phoneLink(link) {
+  const phone = /Android|iPhone|iPod/i.test(self.navigator.userAgent || '');
+  const m = phone && /^\/(clinic|design)\/orders\/([0-9a-f-]{36})$/.exec(link);
+  return m ? '/m/chats/' + m[2] : link;
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const link = (event.notification.data && event.notification.data.link) || '/';
+  const link = phoneLink((event.notification.data && event.notification.data.link) || '/');
 
   event.waitUntil(
     (async () => {

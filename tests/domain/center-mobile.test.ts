@@ -14,26 +14,29 @@ import {
 import { FALLBACK_TYPES } from '@/server/domain/prosthesis';
 
 describe('홈 카드', () => {
-  it('관리자는 셋 — 문의·승인·주문 찾기 순', () => {
-    const cards = centerCards({ contacts: 2, signups: 1 }, true);
-    expect(cards.map((c) => c.key)).toEqual(['contacts', 'signups', 'orders']);
+  it('관리자는 넷 — 문의·승인·대화·주문 찾기 순', () => {
+    const cards = centerCards({ contacts: 2, signups: 1, chats: 3 }, true);
+    expect(cards.map((c) => c.key)).toEqual(['contacts', 'signups', 'chats', 'orders']);
     expect(cards[0].count).toBe(2);
     expect(cards[1].count).toBe(1);
-    expect(cards[2].count).toBeNull();
+    expect(cards[2].count).toBe(3);
+    expect(cards[3].count).toBeNull();
   });
 
   /*
-    ★ 디자이너에게는 주문 찾기 하나뿐입니다. 승인·문의는 자기 일이
-      아니고, 보이면 눌러 봐야 404 입니다.
+    ★ 디자이너에게는 대화와 주문 찾기입니다. 승인·문의는 자기 일이
+      아니고, 보이면 눌러 봐야 404 입니다. 대화는 전원 — 치과가 말을
+      걸면 담당 디자이너가 답합니다 (2026-09-06).
   */
-  it('★ 디자이너는 주문 찾기 하나', () => {
-    const cards = centerCards({ contacts: 5, signups: 5 }, false);
-    expect(cards.map((c) => c.key)).toEqual(['orders']);
+  it('★ 디자이너는 대화·주문 찾기 둘', () => {
+    const cards = centerCards({ contacts: 5, signups: 5, chats: 0 }, false);
+    expect(cards.map((c) => c.key)).toEqual(['chats', 'orders']);
   });
 
   it('기다리는 게 있으면 말이 달라집니다', () => {
-    expect(centerCards({ contacts: 1, signups: 0 }, true)[0].hint).toContain('전화');
-    expect(centerCards({ contacts: 0, signups: 0 }, true)[0].hint).toContain('없습니다');
+    expect(centerCards({ contacts: 1, signups: 0, chats: 0 }, true)[0].hint).toContain('전화');
+    expect(centerCards({ contacts: 0, signups: 0, chats: 0 }, true)[0].hint).toContain('없습니다');
+    expect(centerCards({ contacts: 0, signups: 0, chats: 2 }, false)[0].hint).toContain('기다리는');
   });
 });
 
