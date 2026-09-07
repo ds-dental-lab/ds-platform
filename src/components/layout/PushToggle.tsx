@@ -191,6 +191,52 @@ export default function PushToggle({
   );
 }
 
+// ---------- 폰 홈 머리줄의 종 ----------
+
+/**
+ * 폰 홈 오른쪽 위의 종. (사용자 지적 2026-09-07 — "너무 복잡해 보여")
+ *
+ * ★ 알림 카드를 홈 본문에서 뺐습니다. 촬영·전화 응대하러 들어온 화면에
+ *   설정 카드가 서 있으면 매번 눈이 걸립니다. 종 하나만 두고 누르면
+ *   그 카드가 머리줄 아래로 펼쳐집니다.
+ * ★ 색이 상태입니다 — 켜짐은 초록, 꺼짐·차단·못 켬은 회색에 빨간 점.
+ *   빨간 점이 "아직 안 켰다" 를 말하므로 글자가 필요 없습니다.
+ */
+export function PushBell({ vapidKey, description }: { vapidKey: string | null; description: string }) {
+  const { state } = usePush(vapidKey);
+  const [open, setOpen] = useState(false);
+
+  if (state === 'loading') return null;
+  const on = state === 'on';
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={on ? '알림 켜짐' : '알림 설정'}
+        aria-expanded={open}
+        className={
+          'relative grid h-9 w-9 place-items-center rounded-full border transition-colors ' +
+          (on
+            ? 'border-[var(--mist)] bg-[var(--mist)] text-[#0E9384]'
+            : 'border-[var(--line)] bg-white text-[var(--muted)]') +
+          (open ? ' ring-2 ring-[var(--teal)]/40' : '')
+        }
+      >
+        <BellIcon />
+        {!on && <span className="absolute right-[7px] top-[7px] h-2 w-2 rounded-full bg-[#D8453F]" aria-hidden="true" />}
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-20">
+          <PushCard vapidKey={vapidKey} description={description} className="mt-2 border border-[var(--line)] shadow-[0_8px_24px_rgba(22,50,79,0.12)]" />
+        </div>
+      )}
+    </>
+  );
+}
+
 // ---------- 폰 홈의 카드 ----------
 
 /**

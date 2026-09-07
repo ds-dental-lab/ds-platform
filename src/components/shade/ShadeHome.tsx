@@ -14,7 +14,7 @@
 
 import Link from 'next/link';
 import LogoutButton from '@/components/logout-button';
-import { PushCard } from '@/components/layout/PushToggle';
+import { PushBell } from '@/components/layout/PushToggle';
 import { pendingSummary, type ArrivalState } from '@/server/domain/arrival';
 import { useMemo, useState } from 'react';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
@@ -127,12 +127,14 @@ export default function ShadeHome({
       */}
       <PhotoQueueBar />
 
-      <div className="flex items-center justify-between">
+      {/* ★ relative — 종을 누르면 알림 카드가 이 줄 아래로 펼쳐집니다 */}
+      <div className="relative flex items-center justify-between">
         <DenFlowLogo markHeight={20} fontSize={19} />
         <div className="flex items-center gap-2.5">
           <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[12.5px] font-semibold text-[var(--muted)]">
             {clinicName}
           </span>
+          <PushBell vapidKey={pushKey} description="센터의 답과 오늘 도착 안내가 이 폰으로 옵니다" />
           {/*
             ★★ 로그아웃이 없었습니다 (사용자 지적 2026-09-05). 사장님 폰이
               치과 계정에 잠겨 있어서, 친구가 치과로 가입했는데 **승인을
@@ -154,76 +156,54 @@ export default function ShadeHome({
       </p>
 
       {/*
-        ★★ **오늘 받을 것** (사용자 요청 2026-08-24). 비어 있어도 그립니다 —
-          미분류함과 다릅니다. '없음' 이 곧 알고 싶던 답이라서,
-          안 그리면 답을 얻으려고 눌러야 합니다.
+        ★ 타일 둘을 나란히 (사용자 지적 2026-09-07 — "너무 복잡해 보여").
+          전에는 큰 카드가 셋(오늘 받을 것·대화·알림) 세로로 쌓여, 촬영하러
+          들어온 사람이 목록을 보기 전에 화면 반을 지나야 했습니다.
+          오늘 받을 것과 대화는 작은 타일 둘로 한 줄에, 알림은 위의 종으로.
 
-        ★ 건수와 '몇 건 아직' 을 여기 적습니다. 누르지 않고도 끝나는
-          것이 제일 빠릅니다.
+        ★ 오늘 받을 것은 비어 있어도 그립니다 — '없음' 이 곧 알고 싶던 답입니다.
       */}
-      <Link
-        href="/m/today"
-        className="mt-4 flex items-center gap-2.5 rounded-xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(22,50,79,0.06)] active:bg-[#F7FAFC]"
-      >
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M3 7.5h10v9H3zM13 10.5h4l3 3v3h-7z"
-            stroke="var(--ink)"
-            strokeWidth="1.7"
-            strokeLinejoin="round"
-          />
-          <circle cx="7" cy="18" r="1.6" stroke="var(--ink)" strokeWidth="1.7" />
-          <circle cx="17" cy="18" r="1.6" stroke="var(--ink)" strokeWidth="1.7" />
-        </svg>
-
-        <span className="min-w-0 flex-1">
-          <b className="block text-[14.5px] font-bold text-[var(--ink)]">오늘 받을 것</b>
-          <span className="mt-0.5 block truncate text-[12px] text-[var(--muted)]">
-            {pendingSummary(arrivalStates)}
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
+        <Link
+          href="/m/today"
+          className="rounded-2xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(22,50,79,0.06)] active:bg-[#F7FAFC]"
+        >
+          <span className="flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 7.5h10v9H3zM13 10.5h4l3 3v3h-7z" stroke="var(--ink)" strokeWidth="1.7" strokeLinejoin="round" />
+              <circle cx="7" cy="18" r="1.6" stroke="var(--ink)" strokeWidth="1.7" />
+              <circle cx="17" cy="18" r="1.6" stroke="var(--ink)" strokeWidth="1.7" />
+            </svg>
+            <b className="text-[14px] font-bold text-[var(--ink)]">오늘 받을 것</b>
           </span>
-        </span>
+          <span className="mt-1.5 block truncate text-[12px] text-[var(--muted)]">{pendingSummary(arrivalStates)}</span>
+        </Link>
 
-        <span className="text-[13px] text-[#9FB0C0]" aria-hidden="true">
-          &#8250;
-        </span>
-      </Link>
-
-      {/*
-        ★ 대화 (사용자 요청 2026-09-06 — "카톡처럼 실시간으로 대응").
-          센터가 답하면 여기서 바로 봅니다. 안 읽은 수가 빨간 동그라미로.
-      */}
-      <Link
-        href="/m/chats"
-        className="mt-2.5 flex items-center gap-2.5 rounded-xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(22,50,79,0.06)] active:bg-[#F7FAFC]"
-      >
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z"
-            stroke="var(--ink)"
-            strokeWidth="1.7"
-            strokeLinejoin="round"
-          />
-        </svg>
-
-        <span className="min-w-0 flex-1">
-          <b className="block text-[14.5px] font-bold text-[var(--ink)]">대화</b>
-          <span className="mt-0.5 block truncate text-[12px] text-[var(--muted)]">
-            {unreadChats > 0 ? '답을 기다리는 대화가 있습니다' : '디자인센터와 주고받은 글'}
+        <Link
+          href="/m/chats"
+          className="relative rounded-2xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(22,50,79,0.06)] active:bg-[#F7FAFC]"
+        >
+          <span className="flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z"
+                stroke="var(--ink)"
+                strokeWidth="1.7"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <b className="text-[14px] font-bold text-[var(--ink)]">대화</b>
           </span>
-        </span>
-
-        {unreadChats > 0 && (
-          <span className="min-w-[20px] rounded-full bg-[#D8453F] px-1.5 py-0.5 text-center text-[11px] font-bold leading-none text-white">
-            {unreadChats > 99 ? '99+' : unreadChats}
+          <span className="mt-1.5 block truncate text-[12px] text-[var(--muted)]">
+            {unreadChats > 0 ? `안 읽은 글 ${unreadChats}` : '센터와 주고받은 글'}
           </span>
-        )}
-        <span className="text-[13px] text-[#9FB0C0]" aria-hidden="true">
-          &#8250;
-        </span>
-      </Link>
-
-      {/* ★ 폰 알림 — 푸시는 기기마다 켭니다. 아이폰은 홈 화면에 설치한 앱에서만 뜹니다 */}
-      <PushCard vapidKey={pushKey} description="센터의 답과 오늘 도착 안내가 이 폰으로 옵니다" className="mt-2.5" />
+          {unreadChats > 0 && (
+            <span className="absolute right-3 top-3 min-w-[20px] rounded-full bg-[#D8453F] px-1.5 py-0.5 text-center text-[11px] font-bold leading-none text-white">
+              {unreadChats > 99 ? '99+' : unreadChats}
+            </span>
+          )}
+        </Link>
+      </div>
 
       {/*
         ★ 미분류함이 비어 있으면 안 그립니다. 늘 0 인 입구는 자리만

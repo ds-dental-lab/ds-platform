@@ -13,7 +13,7 @@
 import Link from 'next/link';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import LogoutButton from '@/components/logout-button';
-import { PushCard } from '@/components/layout/PushToggle';
+import { PushBell } from '@/components/layout/PushToggle';
 import { centerCards, type CenterCounts } from '@/server/domain/center-mobile';
 
 export default function CenterHome({
@@ -32,12 +32,14 @@ export default function CenterHome({
 
   return (
     <main className="mx-auto min-h-screen max-w-[480px] px-5 pb-10 pt-6">
-      <div className="flex items-center justify-between">
+      {/* ★ relative — 종을 누르면 알림 카드가 이 줄 아래로 펼쳐집니다 */}
+      <div className="relative flex items-center justify-between">
         <DenFlowLogo markHeight={20} fontSize={19} />
         <div className="flex items-center gap-2.5">
           <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[12.5px] font-semibold text-[var(--muted)]">
             {orgName}
           </span>
+          <PushBell vapidKey={pushKey} description="치과의 대화와 가입·문의 신청이 이 폰으로 옵니다" />
           <LogoutButton className="text-[12px] text-[#9FB0C0] underline underline-offset-4" />
         </div>
       </div>
@@ -48,14 +50,6 @@ export default function CenterHome({
       <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[var(--muted)]">
         {manager ? '폰으로 바로 전화하고 승인합니다' : '치과가 전화하면 여기서 케이스를 찾습니다'}
       </p>
-
-      {/*
-        ★ 폰 알림 (사용자 요청 2026-09-06 — "핸드폰으로도 알림이 올 수 있나").
-          푸시는 기기마다 켭니다. 이 스위치가 없으면 폰을 등록할 길이
-          없어서 대화·승인 요청이 PC 에만 떴습니다. 아이폰은 홈 화면에
-          설치한 앱에서만 켜집니다 — 사파리 탭에서는 스위치 자체가 안 뜹니다.
-      */}
-      <PushCard vapidKey={pushKey} description="치과의 대화와 가입·문의 신청이 이 폰으로 옵니다" />
 
       <ul className="mt-6 space-y-3">
         {cards.map((card) => (
