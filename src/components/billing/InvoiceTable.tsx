@@ -5,7 +5,7 @@
 //
 // 오른쪽 기능 넷
 //   ⬇ 내려받기   청구서를 열고 인쇄창을 띄웁니다 ('PDF로 저장')
-//   ↩ 재발송     다시 보냈다고 적습니다 (실제 발송은 아직 없습니다)
+//   ↩ 재발송     청구서 메일을 지금 주소로 다시 보냅니다 (2026-08-21 부터 실제 발송)
 //   🗑 취소       발행을 무르고 마감 상태로 되돌립니다
 //   💳 정산       입금을 적습니다. 미납이 0이 되면 '완료' 가 됩니다
 //
@@ -77,9 +77,8 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
       return;
     }
 
-    setNote(
-      `${row.invoiceNo} 를 다시 보냈다고 적었습니다. (실제 발송은 아직 붙어 있지 않습니다)`,
-    );
+    // ★ 옛 글("기록만 남김")이 남아 있었습니다 — 8월 21일부터 진짜로 나갑니다 (사용자 지적 2026-09-07)
+    setNote(`${row.invoiceNo} 청구서 메일을 다시 보냈습니다.`);
     startTransition(() => router.refresh());
   }
 
@@ -224,7 +223,7 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
                         <DownloadIcon />
                       </Icon>
                       <Icon
-                        label="재발송 기록"
+                        label="청구서 메일 다시 보내기"
                         onClick={() => resend(row)}
                         disabled={busy(row.periodId)}
                       >
