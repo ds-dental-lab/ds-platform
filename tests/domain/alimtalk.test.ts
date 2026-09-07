@@ -95,9 +95,9 @@ describe('무슨 일에 누가 받는가', () => {
 
   // ★ 리메이크·리페어 (사용자 요청 2026-09-07). 대화는 일부러 없습니다 —
   //   "알림이 너무 많아질 것 같다"
-  it('★ 리메이크는 센터, 리페어는 수거할 곳(기공소)', () => {
+  it('★ 리메이크도 리페어도 센터 — 리페어는 센터가 수거를 접수합니다', () => {
     expect(ALIMTALK_RULES.remake_received.audience).toBe('design_center');
-    expect(ALIMTALK_RULES.repair_requested.audience).toBe('lab');
+    expect(ALIMTALK_RULES.repair_requested.audience).toBe('design_center');
     expect(ALIMTALK_RULES.repair_requested.label).toContain('수거');
     expect(Object.keys(ALIMTALK_RULES)).not.toContain('order_message');
   });

@@ -101,10 +101,11 @@ export const ALIMTALK_RULES: Record<AlimtalkEvent, AlimtalkRule> = {
   */
   remake_received: { audience: 'design_center', label: '리메이크 접수' },
   /*
-    ★ 리페어는 **수거**가 먼저입니다 — 보철물이 치과에 있습니다. 인앱 알림과
-      같은 자리(배정된 기공소, 자사 제작이면 센터)로 "수거 요청해 주세요".
+    ★ 리페어는 **수거**가 먼저입니다 — 보철물이 치과에 있습니다.
+      받는 곳은 **센터**입니다 (사용자 결정 2026-09-07 — "센터가 받는 걸로").
+      인앱 알림은 기공소에도 가지만, 수거를 접수하는 손은 센터에 있습니다.
   */
-  repair_requested: { audience: 'lab', label: '리페어 접수 · 수거 요청' },
+  repair_requested: { audience: 'design_center', label: '리페어 접수 · 수거 요청' },
   // 디자인센터가 제작을 넘겼습니다 → 만들 곳
   production_requested: { audience: 'lab', label: '제작 의뢰' },
   // 디자인센터가 스캔을 다시 요청했습니다 → 다시 찍을 곳

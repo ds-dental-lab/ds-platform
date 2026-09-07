@@ -240,7 +240,7 @@ export async function publishRepairRequested(event: {
     // ★ 기공소가 이 이름으로 케이스를 찾아 수거합니다 — 가리면 못 찾습니다
     const { data } = await supabase
       .from('orders')
-      .select('order_no, patient_label')
+      .select('order_no, patient_label, design_org_id')
       .eq('id', event.repairOrderId)
       .maybeSingle();
 
@@ -249,6 +249,7 @@ export async function publishRepairRequested(event: {
     const order = data as unknown as {
       order_no: string;
       patient_label: string;
+      design_org_id: string | null;
     };
 
     const { data: saved } = await supabase
@@ -283,13 +284,13 @@ export async function publishRepairRequested(event: {
       },
     });
 
-    // ★ 알림톡도 같은 자리로 — "수거 요청해 주세요" (사용자 요청 2026-09-07)
+    // ★ 알림톡은 센터로 — "수거 요청해 주세요" (사용자 결정 2026-09-07)
     await queueAlimtalk('repair_requested', {
       orderId: event.repairOrderId,
       orderNo: order.order_no,
       patientLabel: order.patient_label,
       clinicOrgId: null,
-      designOrgId: null,
+      designOrgId: order.design_org_id,
       labOrgId: event.labOrgId,
       extra: event.notes ? `요청: ${event.notes}` : undefined,
     });
