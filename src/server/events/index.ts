@@ -175,21 +175,18 @@ export async function publishOrderCreated(event: {
     if (!order?.design_org_id) return;
 
     /*
-      ★ 접수 알림톡은 **새 주문일 때만** 입니다 (2026-08-14).
-        리메이크도 디자인센터가 받아야 하지만 문구가 달라야 합니다 —
+      ★ 리메이크는 접수와 **다른 사건**으로 쌓습니다 (사용자 결정 2026-09-07).
         "새 주문" 이라고 보내면 이미 한 번 틀어진 건이 새 건으로 읽힙니다.
-        템플릿이 정해지면 여기서 갈라 줍니다.
+        템플릿은 접수와 같고 '리메이크' 표시만 붙습니다 (domain/alimtalk).
     */
-    if (event.kind !== 'remake') {
-      await queueAlimtalk('order_received', {
-        orderId: event.orderId,
-        orderNo: order.order_no,
-        patientLabel: order.patient_label,
-        clinicOrgId: null,
-        designOrgId: order.design_org_id,
-        labOrgId: null,
-      });
-    }
+    await queueAlimtalk(event.kind === 'remake' ? 'remake_received' : 'order_received', {
+      orderId: event.orderId,
+      orderNo: order.order_no,
+      patientLabel: order.patient_label,
+      clinicOrgId: null,
+      designOrgId: order.design_org_id,
+      labOrgId: null,
+    });
 
     const remake = event.kind === 'remake';
     const eventType = remake ? 'order.remake_requested' : 'order.created';
@@ -284,6 +281,17 @@ export async function publishRepairRequested(event: {
         parentOrderId: event.parentOrderId,
         intendedChannel: 'kakao',
       },
+    });
+
+    // ★ 알림톡도 같은 자리로 — "수거 요청해 주세요" (사용자 요청 2026-09-07)
+    await queueAlimtalk('repair_requested', {
+      orderId: event.repairOrderId,
+      orderNo: order.order_no,
+      patientLabel: order.patient_label,
+      clinicOrgId: null,
+      designOrgId: null,
+      labOrgId: event.labOrgId,
+      extra: event.notes ? `요청: ${event.notes}` : undefined,
     });
   } catch (error) {
     console.error('[events] 리페어 이벤트 처리 실패', error);

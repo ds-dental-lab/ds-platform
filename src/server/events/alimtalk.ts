@@ -39,15 +39,22 @@ export interface AlimtalkTarget {
   clinicOrgId: string | null;
   designOrgId: string | null;
   labOrgId: string | null;
+  /** 문구에 덧붙일 한 줄 — 리페어의 요청 내용 같은 것 */
+  extra?: string;
 }
 
 /** 대기열에 적을 문구. 템플릿이 정해지면 이 자리만 바꿉니다 */
 function compose(event: AlimtalkEvent, order: AlimtalkTarget): { title: string; body: string } {
   const rule = ALIMTALK_RULES[event];
 
+  const lines = [`${order.orderNo} · ${order.patientLabel}`];
+  if (order.extra) lines.push(order.extra);
+  // ★ 리페어는 할 일이 문구에 있어야 합니다 — 제목만 보고 넘기면 보철물이 치과에 남습니다
+  if (event === 'repair_requested') lines.push('보철물 수거를 접수해 주세요.');
+
   return {
     title: `[DenFlow] ${rule.label}`,
-    body: `${order.orderNo} · ${order.patientLabel}`,
+    body: lines.join('\n'),
   };
 }
 

@@ -71,8 +71,18 @@ export function canReceive(person: { phone: string | null; alimtalkOn: boolean }
 
 // ---------- 무슨 일에 누가 받는가 ----------
 
-/** 알림톡이 나가는 순간들 (사용자 확정 2026-08-14) */
-export type AlimtalkEvent = 'order_received' | 'production_requested' | 'rescan_requested';
+/**
+ * 알림톡이 나가는 순간들 (사용자 확정 2026-08-14, 리메이크·리페어 추가 2026-09-07)
+ *
+ * ★ 대화(order.message)는 **일부러 없습니다** (사용자 결정 2026-09-07 —
+ *   "알림이 너무 많아질 것 같다"). 대화는 푸시와 화면이 맡습니다.
+ */
+export type AlimtalkEvent =
+  | 'order_received'
+  | 'remake_received'
+  | 'repair_requested'
+  | 'production_requested'
+  | 'rescan_requested';
 
 export interface AlimtalkRule {
   /** 어느 자리의 사람들이 받는가 */
@@ -84,6 +94,17 @@ export interface AlimtalkRule {
 export const ALIMTALK_RULES: Record<AlimtalkEvent, AlimtalkRule> = {
   // 치과가 주문을 넣었습니다 → 받아서 시작할 곳
   order_received: { audience: 'design_center', label: '새 주문 접수' },
+  /*
+    ★ 리메이크는 접수와 **같은 템플릿에 표시만** 붙습니다 (사용자 결정
+      2026-09-07). 카카오 템플릿의 #{구분} 변수에 '리메이크' 가 들어갑니다.
+      여기서 사건을 따로 두는 이유는 대기열·통계에서 구분하기 위해서입니다.
+  */
+  remake_received: { audience: 'design_center', label: '리메이크 접수' },
+  /*
+    ★ 리페어는 **수거**가 먼저입니다 — 보철물이 치과에 있습니다. 인앱 알림과
+      같은 자리(배정된 기공소, 자사 제작이면 센터)로 "수거 요청해 주세요".
+  */
+  repair_requested: { audience: 'lab', label: '리페어 접수 · 수거 요청' },
   // 디자인센터가 제작을 넘겼습니다 → 만들 곳
   production_requested: { audience: 'lab', label: '제작 의뢰' },
   // 디자인센터가 스캔을 다시 요청했습니다 → 다시 찍을 곳
