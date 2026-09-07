@@ -223,9 +223,9 @@ export default function ShadeHome({
       </Link>
 
       {/* ★ 폰 알림 — 푸시는 기기마다 켭니다. 아이폰은 홈 화면에 설치한 앱에서만 뜹니다 */}
-      <div className="mt-2.5 flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-[0_1px_2px_rgba(22,50,79,0.06)]">
-        <span className="text-[13.5px] font-semibold text-[var(--ink)]">센터의 답을 이 폰으로</span>
-        <PushToggle vapidKey={pushKey} label="폰 알림" />
+      <div className="mt-2.5 flex items-start justify-between gap-3 rounded-xl bg-white px-4 py-3 shadow-[0_1px_2px_rgba(22,50,79,0.06)]">
+        <span className="shrink-0 pt-1 text-[13.5px] font-semibold text-[var(--ink)]">센터의 답을 이 폰으로</span>
+        <PushToggle vapidKey={pushKey} label="폰 알림" explain />
       </div>
 
       {/*

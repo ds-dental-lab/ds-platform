@@ -33,9 +33,17 @@ type PushState =
 export default function PushToggle({
   vapidKey,
   label = 'PC 알림',
+  explain = false,
 }: {
   vapidKey: string | null;
   label?: string;
+  /**
+   * 이유를 **글자로** 보입니다 (사용자 지적 2026-09-07 — 폰에서 "눌러도
+   * 아무 반응 없어"). PC 는 마우스를 올리면 title 이 뜨지만 폰에는 그게
+   * 없어서, 차단돼 잠긴 스위치가 그냥 죽은 스위치로 보였습니다.
+   * 못 켜는 폰(사파리 탭)에도 스위치 대신 무엇을 해야 하는지 적습니다.
+   */
+  explain?: boolean;
 }) {
   const [state, setState] = useState<PushState>('loading');
   const [busy, setBusy] = useState(false);
@@ -146,7 +154,17 @@ export default function PushToggle({
     }
   }
 
-  if (state === 'loading' || state === 'unsupported') return null;
+  if (state === 'loading') return null;
+
+  if (state === 'unsupported') {
+    if (!explain) return null;
+    return (
+      <span className="max-w-[230px] text-right text-[12px] leading-snug text-[#98A2B3]">
+        이 브라우저에서는 못 켭니다. 아이폰은 사파리에서 <b className="font-bold">공유 → 홈 화면에 추가</b>
+        로 설치한 앱을 열면 켤 수 있습니다.
+      </span>
+    );
+  }
 
   /*
     ★ 스위치 모양입니다 (사용자 지적 2026-09-06 — "켠 상태인지 헷갈려").
@@ -155,19 +173,22 @@ export default function PushToggle({
       오른쪽에 붙어 있으면 누구나 켜짐으로 읽습니다.
   */
   if (state === 'denied') {
+    const why = '브라우저가 알림을 차단하고 있습니다. 주소창 왼쪽 자물쇠 → 알림 → 허용으로 바꾼 뒤 다시 눌러 주세요.';
     return (
-      <SwitchPill
-        label={label}
-        on={false}
-        onToggle={() => undefined}
-        disabled
-        title="브라우저가 알림을 차단하고 있습니다. 주소창 왼쪽 자물쇠 → 알림 → 허용으로 바꾼 뒤 다시 눌러 주세요."
-      />
+      <span className="inline-flex flex-col items-end gap-1">
+        <SwitchPill label={label} on={false} onToggle={() => undefined} disabled title={why} />
+        {explain && (
+          <span className="max-w-[230px] text-right text-[12px] leading-snug text-[#D8453F]">
+            알림이 <b className="font-bold">차단</b>되어 있습니다. 안드로이드는 주소창 자물쇠 → 권한 → 알림 → 허용,
+            설치한 앱이면 폰 설정 → 앱 → 덴플로우 → 알림 → 허용으로 바꾼 뒤 이 화면을 다시 여세요.
+          </span>
+        )}
+      </span>
     );
   }
 
   return (
-    <span className="inline-flex flex-col items-start gap-0.5">
+    <span className={'inline-flex flex-col gap-0.5 ' + (explain ? 'items-end' : 'items-start')}>
       <SwitchPill
         label={label}
         on={state === 'on'}
@@ -180,9 +201,18 @@ export default function PushToggle({
         }
       />
       {error && (
-        <span className="max-w-[220px] text-[11.5px] font-semibold leading-tight text-[#D8453F]" title={error}>
+        <span
+          className={
+            'max-w-[230px] text-[11.5px] font-semibold leading-tight text-[#D8453F] ' + (explain ? 'text-right' : '')
+          }
+          title={error}
+        >
           {error}
         </span>
+      )}
+      {/* ★ 폰에서는 켠 뒤에도 한 줄 — 켜졌다는 확인이 스위치 색 하나뿐이면 못 믿습니다 */}
+      {explain && state === 'on' && !error && (
+        <span className="text-[12px] text-[#0E9384]">이 폰으로 알림이 옵니다</span>
       )}
     </span>
   );
