@@ -29,6 +29,8 @@ export interface ContactRow {
   /** 옛 문의는 null — 그때는 안 물었습니다 */
   scanner: ContactScanner | null;
   painPoints: PainPoint[];
+  /** 수가표를 메일로 보낸 때. 안 보냈으면 null (2026-09-07) */
+  priceSheetSentAt: string | null;
 }
 
 interface Raw {
@@ -45,6 +47,7 @@ interface Raw {
   memo: string | null;
   scanner: ContactScanner | null;
   pain_points: PainPoint[] | null;
+  price_sheet_sent_at: string | null;
 }
 
 /**
@@ -58,7 +61,7 @@ export async function listContacts(): Promise<{ fresh: ContactRow[]; done: Conta
   const { data } = await supabase
     .from('contact_requests')
     // ★ 한 줄 그대로 둡니다 — 이어 붙이면 supabase-js 가 열 이름을 못 읽어 타입이 깨집니다
-    .select('id, clinic_name, person_name, tel, email, kind, message, status, created_at, handled_at, memo, scanner, pain_points')
+    .select('id, clinic_name, person_name, tel, email, kind, message, status, created_at, handled_at, memo, scanner, pain_points, price_sheet_sent_at')
     .order('created_at', { ascending: false });
 
   const rows = ((data ?? []) as Raw[]).map((r) => ({
@@ -75,6 +78,7 @@ export async function listContacts(): Promise<{ fresh: ContactRow[]; done: Conta
     memo: r.memo ?? '',
     scanner: r.scanner,
     painPoints: r.pain_points ?? [],
+    priceSheetSentAt: r.price_sheet_sent_at,
   }));
 
   return {

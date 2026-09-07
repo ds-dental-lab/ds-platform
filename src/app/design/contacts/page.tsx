@@ -8,6 +8,7 @@
 
 import { requireManagerSector } from '@/server/policies/session';
 import { listContacts } from '@/server/repositories/contact';
+import { getPriceSheetDefaults } from '@/server/repositories/price-sheet';
 import ContactBoard from '@/components/site/ContactBoard';
 
 export const dynamic = 'force-dynamic';
@@ -15,18 +16,19 @@ export const dynamic = 'force-dynamic';
 export default async function ContactsPage() {
   await requireManagerSector('design_center');
 
-  const { fresh, done } = await listContacts();
+  // ★ 둘은 서로를 안 씁니다 — 함께 보냅니다
+  const [{ fresh, done }, priceSheet] = await Promise.all([listContacts(), getPriceSheetDefaults()]);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-1">
       <header>
         <h1 className="text-[19px] font-extrabold tracking-[-0.03em] text-[#1A2130]">수가표 요청</h1>
         <p className="mt-1 text-[14px] text-[#7C8595]">
-          홈페이지에서 남긴 문의입니다. 연락한 뒤 처리로 표시해 주세요.
+          홈페이지에서 남긴 문의입니다. 전화하고 수가표를 보낸 뒤 처리로 표시해 주세요.
         </p>
       </header>
 
-      <ContactBoard fresh={fresh} done={done} />
+      <ContactBoard fresh={fresh} done={done} priceSheet={priceSheet} />
     </div>
   );
 }

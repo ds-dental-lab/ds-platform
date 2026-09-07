@@ -15,11 +15,23 @@ import { useRouter } from 'next/navigation';
 import { submitContactDone } from '@/server/actions/contact-review';
 import { KIND_LABEL, SCANNER_LABEL, PAIN_LABEL } from '@/server/domain/contact';
 import type { ContactRow } from '@/server/repositories/contact';
+import type { PriceRow } from '@/server/domain/price-sheet';
+import PriceSheetDialog from '@/components/contact/PriceSheetDialog';
 
-export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; done: ContactRow[] }) {
+export default function ContactBoard({
+  fresh,
+  done,
+  priceSheet,
+}: {
+  fresh: ContactRow[];
+  done: ContactRow[];
+  /** 수가표 기본값 — 보내기 창에 채워집니다 */
+  priceSheet: PriceRow[];
+}) {
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
   const [asking, setAsking] = useState<ContactRow | null>(null);
+  const [sending, setSending] = useState<ContactRow | null>(null);
   const [memo, setMemo] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -126,16 +138,34 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
                   </p>
                 )}
 
-                <button
-                  onClick={() => {
-                    setError('');
-                    setMemo('');
-                    setAsking(row);
-                  }}
-                  className="mt-3 h-8 rounded-md border border-[#DDE2EA] px-3 text-[13.5px] font-semibold text-[#4A5567] hover:border-[#12855B] hover:text-[#12855B]"
-                >
-                  연락 완료로 표시
-                </button>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {/*
+                    ★ 수가표 보내기 (사용자 요청 2026-09-07). 전화 → 수가표 → 처리
+                      순이라 이 단추가 먼저 섭니다. 보냈으면 날짜가 붙고 다시
+                      보낼 수도 있습니다 — 조정해서 두 번 보내는 일이 있습니다.
+                  */}
+                  <button
+                    onClick={() => setSending(row)}
+                    className="h-8 rounded-md bg-[#1279E8] px-3 text-[13.5px] font-bold text-white hover:bg-[#0F68C9]"
+                  >
+                    {row.priceSheetSentAt ? '수가표 다시 보내기' : '수가표 보내기'}
+                  </button>
+                  {row.priceSheetSentAt && (
+                    <span className="text-[12.5px] font-semibold text-[#12855B]">
+                      보냄 · {row.priceSheetSentAt.slice(0, 10)}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      setError('');
+                      setMemo('');
+                      setAsking(row);
+                    }}
+                    className="h-8 rounded-md border border-[#DDE2EA] px-3 text-[13.5px] font-semibold text-[#4A5567] hover:border-[#12855B] hover:text-[#12855B]"
+                  >
+                    연락 완료로 표시
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -167,6 +197,20 @@ export default function ContactBoard({ fresh, done }: { fresh: ContactRow[]; don
           </ul>
         )}
       </section>
+
+      {sending && (
+        <PriceSheetDialog
+          contactId={sending.id}
+          clinicName={sending.clinicName}
+          email={sending.email}
+          defaults={priceSheet}
+          onClose={() => setSending(null)}
+          onSent={() => {
+            setSending(null);
+            startTransition(() => router.refresh());
+          }}
+        />
+      )}
 
       {asking && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-6">

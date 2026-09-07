@@ -19,6 +19,8 @@ import { useState, useTransition } from 'react';
 import { submitContactDone } from '@/server/actions/contact-review';
 import { SCANNER_LABEL, PAIN_LABEL } from '@/server/domain/contact';
 import type { ContactRow } from '@/server/repositories/contact';
+import type { PriceRow } from '@/server/domain/price-sheet';
+import PriceSheetDialog from '@/components/contact/PriceSheetDialog';
 
 function when(iso: string): string {
   const d = new Date(iso);
@@ -26,10 +28,11 @@ function when(iso: string): string {
   return `${d.getMonth() + 1}/${d.getDate()} ${two(d.getHours())}:${two(d.getMinutes())}`;
 }
 
-export default function MobileContacts({ rows }: { rows: ContactRow[] }) {
+export default function MobileContacts({ rows, priceSheet }: { rows: ContactRow[]; priceSheet: PriceRow[] }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [asking, setAsking] = useState<ContactRow | null>(null);
+  const [sending, setSending] = useState<ContactRow | null>(null);
   const [memo, setMemo] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -103,20 +106,48 @@ export default function MobileContacts({ rows }: { rows: ContactRow[] }) {
 
             <p className="mt-2 truncate text-[12.5px] text-[var(--muted)]">{r.email}</p>
 
-            <button
-              type="button"
-              onClick={() => {
-                setError('');
-                setMemo('');
-                setAsking(r);
-              }}
-              className="mt-3 h-10 w-full rounded-xl border border-[var(--line)] text-[14px] font-bold text-[var(--muted)] active:bg-[#F7FAFC]"
-            >
-              처리함
-            </button>
+            {/* ★ 전화 → 수가표 → 처리함. 수가표는 폰에서도 보냅니다 (사용자 요청 2026-09-07) */}
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSending(r)}
+                className="h-11 flex-1 rounded-xl bg-[#1279E8] text-[14px] font-bold text-white active:bg-[#0F68C9]"
+              >
+                {r.priceSheetSentAt ? '수가표 다시 보내기' : '수가표 보내기'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setError('');
+                  setMemo('');
+                  setAsking(r);
+                }}
+                className="h-11 flex-1 rounded-xl border border-[var(--line)] text-[14px] font-bold text-[var(--muted)] active:bg-[#F7FAFC]"
+              >
+                처리함
+              </button>
+            </div>
+            {r.priceSheetSentAt && (
+              <p className="mt-2 text-[12px] font-semibold text-[#12855B]">수가표 보냄 · {when(r.priceSheetSentAt)}</p>
+            )}
           </li>
         ))}
       </ul>
+
+      {sending && (
+        <PriceSheetDialog
+          phone
+          contactId={sending.id}
+          clinicName={sending.clinicName}
+          email={sending.email}
+          defaults={priceSheet}
+          onClose={() => setSending(null)}
+          onSent={() => {
+            setSending(null);
+            startTransition(() => router.refresh());
+          }}
+        />
+      )}
 
       {asking && (
         <div className="fixed inset-0 z-50 grid place-items-end bg-black/40">

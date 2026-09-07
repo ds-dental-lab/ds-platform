@@ -7,6 +7,7 @@
 
 import { requireManagerSector } from '@/server/policies/session';
 import { listContacts } from '@/server/repositories/contact';
+import { getPriceSheetDefaults } from '@/server/repositories/price-sheet';
 import MobileContacts from '@/components/center/MobileContacts';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export const metadata = { title: '수가표 문의' };
 export default async function MobileContactsPage() {
   await requireManagerSector('design_center');
 
-  const { fresh } = await listContacts();
+  const [{ fresh }, priceSheet] = await Promise.all([listContacts(), getPriceSheetDefaults()]);
 
-  return <MobileContacts rows={fresh} />;
+  return <MobileContacts rows={fresh} priceSheet={priceSheet} />;
 }
