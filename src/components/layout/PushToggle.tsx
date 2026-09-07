@@ -1,7 +1,10 @@
 // =========================================================
 // 놓을 위치: src/components/layout/PushToggle.tsx
 //
-// PC 알림(웹푸시) 켬/끔. 종 안에 삽니다 — 소리 스위치 옆.
+// 웹푸시 켬/끔. 두 얼굴이 있습니다 —
+//   PushToggle  PC 종 안의 작은 스위치 (소리 스위치 옆)
+//   PushCard    폰 홈의 카드 (종 아이콘 · 제목 · 무엇이 오는지 · 스위치)
+// 둘은 같은 usePush 를 쓰므로 켜고 끄는 규칙이 한 벌입니다.
 //
 // ★ 계정이 아니라 **그 브라우저**의 설정입니다 (소리와 같은 결).
 //   사무실 PC 에서는 켜고 집에서는 끌 수 있어야 합니다. 그래서 서버가
@@ -26,25 +29,7 @@ type PushState =
   | 'off'
   | 'on';
 
-/*
-  ★ 이름을 받습니다 (2026-09-06). PC 종 안에서는 'PC 알림', 폰 홈에서는
-    '폰 알림' — 같은 스위치인데 자리마다 사람이 부르는 말이 다릅니다.
-*/
-export default function PushToggle({
-  vapidKey,
-  label = 'PC 알림',
-  explain = false,
-}: {
-  vapidKey: string | null;
-  label?: string;
-  /**
-   * 이유를 **글자로** 보입니다 (사용자 지적 2026-09-07 — 폰에서 "눌러도
-   * 아무 반응 없어"). PC 는 마우스를 올리면 title 이 뜨지만 폰에는 그게
-   * 없어서, 차단돼 잠긴 스위치가 그냥 죽은 스위치로 보였습니다.
-   * 못 켜는 폰(사파리 탭)에도 스위치 대신 무엇을 해야 하는지 적습니다.
-   */
-  explain?: boolean;
-}) {
+function usePush(vapidKey: string | null) {
   const [state, setState] = useState<PushState>('loading');
   const [busy, setBusy] = useState(false);
   /*
@@ -154,48 +139,25 @@ export default function PushToggle({
     }
   }
 
-  if (state === 'loading') return null;
+  const toggle = () => (state === 'on' ? turnOff() : turnOn());
 
-  if (state === 'unsupported') {
-    if (!explain) return null;
-    /*
-      ★ 어느 폰인지에 따라 다른 말을 합니다 (사용자 스크린샷 2026-09-07 —
-        갤럭시인데 아이폰 안내가 떴음). 갤럭시에서 못 켜는 건 거의 다
-        **네이버·카톡 앱 안의 브라우저**로 열었을 때입니다. 그 안에서는
-        푸시가 안 됩니다 — 크롬으로 열면 됩니다.
-    */
-    const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    /*
-      ★ 안드로이드는 **누르면 크롬이 바로 뜨는 단추**를 답니다 (사용자 요청
-        2026-09-07 — "네이버도 되게는 못해?"). 앱 안 브라우저(네이버·카톡)는
-        웹푸시 자체가 없어 우리가 어쩔 수 없고, 사람이 주소를 다시 치게
-        하면 아무도 안 합니다. intent 주소는 안드로이드가 "이 주소를 크롬으로
-        열어라" 로 알아듣는 형식입니다 — 크롬이 없으면 스토어로 갑니다.
-        아이폰은 그런 길이 없어 글로만 안내합니다.
-    */
-    const here = window.location.pathname + window.location.search;
-    const chromeIntent = `intent://denflow.kr${here}#Intent;scheme=https;package=com.android.chrome;end`;
-    return (
-      <span className="flex max-w-[230px] flex-col items-end gap-1.5 text-right text-[12px] leading-snug text-[#98A2B3]">
-        {ios ? (
-          <>
-            사파리에서 <b className="font-bold">공유 → 홈 화면에 추가</b>로 설치한 앱을 열면 켤 수 있습니다.
-          </>
-        ) : (
-          <>
-            <span>네이버·카톡 안의 브라우저에서는 못 켭니다.</span>
-            <a
-              href={chromeIntent}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--ink,#16324F)] px-3.5 py-2 text-[13px] font-bold text-white active:opacity-90"
-            >
-              크롬으로 열기
-            </a>
-            <span>크롬에서 켜고, 메뉴의 <b className="font-bold">홈 화면에 추가</b>로 설치하면 앱처럼 씁니다.</span>
-          </>
-        )}
-      </span>
-    );
-  }
+  return { state, busy, error, toggle };
+}
+
+const DENIED_HINT = '브라우저가 알림을 차단하고 있습니다. 주소창 왼쪽 자물쇠 → 알림 → 허용으로 바꾼 뒤 다시 눌러 주세요.';
+
+// ---------- PC 종 안의 작은 스위치 ----------
+
+export default function PushToggle({
+  vapidKey,
+  label = 'PC 알림',
+}: {
+  vapidKey: string | null;
+  label?: string;
+}) {
+  const { state, busy, error, toggle } = usePush(vapidKey);
+
+  if (state === 'loading' || state === 'unsupported') return null;
 
   /*
     ★ 스위치 모양입니다 (사용자 지적 2026-09-06 — "켠 상태인지 헷갈려").
@@ -204,27 +166,16 @@ export default function PushToggle({
       오른쪽에 붙어 있으면 누구나 켜짐으로 읽습니다.
   */
   if (state === 'denied') {
-    const why = '브라우저가 알림을 차단하고 있습니다. 주소창 왼쪽 자물쇠 → 알림 → 허용으로 바꾼 뒤 다시 눌러 주세요.';
-    return (
-      <span className="inline-flex flex-col items-end gap-1">
-        <SwitchPill label={label} on={false} onToggle={() => undefined} disabled title={why} />
-        {explain && (
-          <span className="max-w-[230px] text-right text-[12px] leading-snug text-[#D8453F]">
-            알림이 <b className="font-bold">차단</b>되어 있습니다. 안드로이드는 주소창 자물쇠 → 권한 → 알림 → 허용,
-            설치한 앱이면 폰 설정 → 앱 → 덴플로우 → 알림 → 허용으로 바꾼 뒤 이 화면을 다시 여세요.
-          </span>
-        )}
-      </span>
-    );
+    return <SwitchPill label={label} on={false} onToggle={() => undefined} disabled title={DENIED_HINT} />;
   }
 
   return (
-    <span className={'inline-flex flex-col gap-0.5 ' + (explain ? 'items-end' : 'items-start')}>
+    <span className="inline-flex flex-col items-start gap-0.5">
       <SwitchPill
         label={label}
         on={state === 'on'}
         busy={busy}
-        onToggle={() => (state === 'on' ? turnOff() : turnOn())}
+        onToggle={toggle}
         title={
           state === 'on'
             ? '이 기기를 안 보고 있어도 새 알림이 뜹니다'
@@ -232,19 +183,130 @@ export default function PushToggle({
         }
       />
       {error && (
-        <span
-          className={
-            'max-w-[230px] text-[11.5px] font-semibold leading-tight text-[#D8453F] ' + (explain ? 'text-right' : '')
-          }
-          title={error}
-        >
+        <span className="max-w-[220px] text-[11.5px] font-semibold leading-tight text-[#D8453F]" title={error}>
           {error}
         </span>
       )}
-      {/* ★ 폰에서는 켠 뒤에도 한 줄 — 켜졌다는 확인이 스위치 색 하나뿐이면 못 믿습니다 */}
-      {explain && state === 'on' && !error && (
-        <span className="text-[12px] text-[#0E9384]">이 폰으로 알림이 옵니다</span>
-      )}
     </span>
+  );
+}
+
+// ---------- 폰 홈의 카드 ----------
+
+/**
+ * 폰 홈에 서는 알림 카드. (사용자 지적 2026-09-07 — "멘트가 연계성이
+ * 떨어진다, 이쁘게 구성해 줘")
+ *
+ * ★ 한 카드에 한 문장입니다 — 제목 '알림 받기', 그 아래 **무엇이 오는지**
+ *   (치과: 센터의 답과 도착 안내 / 센터: 치과의 대화와 신청), 오른쪽에
+ *   스위치. 켜지면 그 줄이 "켜져 있습니다" 로 바뀝니다.
+ * ★ 못 켜는 상태(차단·앱 안 브라우저)는 스위치 대신 카드 아래에 **할 일**을
+ *   적습니다. 폰에는 마우스 올림이 없어 title 로는 아무것도 못 전합니다.
+ */
+export function PushCard({
+  vapidKey,
+  description,
+  className = 'mt-4',
+}: {
+  vapidKey: string | null;
+  /** 켜면 무엇이 오는가 — 한 줄 */
+  description: string;
+  className?: string;
+}) {
+  const { state, busy, error, toggle } = usePush(vapidKey);
+
+  const on = state === 'on';
+  const canToggle = state === 'on' || state === 'off';
+
+  const line = on ? '켜져 있습니다 · 이 폰으로 알림이 옵니다' : description;
+
+  return (
+    <section className={className + ' rounded-2xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(22,50,79,0.06)]'}>
+      <div className="flex items-center gap-3">
+        <span
+          className={
+            'grid h-10 w-10 shrink-0 place-items-center rounded-full ' +
+            (on ? 'bg-[var(--mist)] text-[#0E9384]' : 'bg-[#F1F5F9] text-[var(--muted)]')
+          }
+          aria-hidden="true"
+        >
+          <BellIcon />
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <b className="block text-[14.5px] font-bold text-[var(--ink)]">알림 받기</b>
+          <span className={'mt-0.5 block text-[12.5px] leading-snug ' + (on ? 'text-[#0E9384]' : 'text-[var(--muted)]')}>
+            {line}
+          </span>
+        </span>
+
+        {canToggle && (
+          <SwitchPill label="" size="lg" on={on} busy={busy} onToggle={toggle} title={on ? '끄기' : '켜기'} />
+        )}
+        {state === 'denied' && (
+          <SwitchPill label="" size="lg" on={false} onToggle={() => undefined} disabled title={DENIED_HINT} />
+        )}
+      </div>
+
+      {error && <p className="mt-2.5 text-[12.5px] font-semibold leading-snug text-[#D8453F]">{error}</p>}
+
+      {state === 'denied' && (
+        <p className="mt-2.5 border-t border-[var(--line)] pt-2.5 text-[12.5px] leading-snug text-[#D8453F]">
+          이 브라우저가 알림을 <b className="font-bold">차단</b>하고 있습니다. 주소창 자물쇠 → 권한 → 알림 → 허용
+          (설치한 앱이면 폰 설정 → 앱 → 덴플로우 → 알림)으로 바꾼 뒤 이 화면을 다시 여세요.
+        </p>
+      )}
+
+      {state === 'unsupported' && <UnsupportedHint />}
+    </section>
+  );
+}
+
+/**
+ * 못 켜는 브라우저일 때의 안내.
+ *
+ * ★ 어느 폰인지에 따라 다른 말을 합니다 (사용자 스크린샷 2026-09-07 —
+ *   갤럭시인데 아이폰 안내가 떴음). 갤럭시에서 못 켜는 건 거의 다
+ *   **네이버·카톡 앱 안의 브라우저**로 열었을 때입니다.
+ * ★ 안드로이드는 **누르면 크롬이 바로 뜨는 단추**를 답니다 (사용자 요청
+ *   2026-09-07 — "네이버도 되게는 못해?"). intent 주소는 안드로이드가
+ *   "이 주소를 크롬으로 열어라" 로 알아듣는 형식입니다 — 크롬이 없으면
+ *   스토어로 갑니다. 아이폰은 그런 길이 없어 글로만 안내합니다.
+ */
+function UnsupportedHint() {
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const here = window.location.pathname + window.location.search;
+  const chromeIntent = `intent://denflow.kr${here}#Intent;scheme=https;package=com.android.chrome;end`;
+
+  if (ios) {
+    return (
+      <p className="mt-2.5 border-t border-[var(--line)] pt-2.5 text-[12.5px] leading-snug text-[var(--muted)]">
+        사파리에서 <b className="font-bold text-[var(--ink)]">공유 → 홈 화면에 추가</b>로 설치한 앱을 열면 켤 수 있습니다.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-2.5 flex items-center gap-3 border-t border-[var(--line)] pt-2.5">
+      <p className="min-w-0 flex-1 text-[12.5px] leading-snug text-[var(--muted)]">
+        네이버·카톡 안에서는 못 켭니다. 크롬에서 켜고 <b className="font-bold text-[var(--ink)]">홈 화면에 추가</b>로
+        설치하면 앱처럼 씁니다.
+      </p>
+      <a
+        href={chromeIntent}
+        className="shrink-0 rounded-full bg-[var(--ink)] px-3.5 py-2 text-[13px] font-bold text-white active:opacity-90"
+      >
+        크롬으로 열기
+      </a>
+    </div>
+  );
+}
+
+function BellIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" />
+      <path d="M10 20a2 2 0 0 0 4 0" />
+    </svg>
   );
 }

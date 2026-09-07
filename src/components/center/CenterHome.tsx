@@ -13,7 +13,7 @@
 import Link from 'next/link';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import LogoutButton from '@/components/logout-button';
-import PushToggle from '@/components/layout/PushToggle';
+import { PushCard } from '@/components/layout/PushToggle';
 import { centerCards, type CenterCounts } from '@/server/domain/center-mobile';
 
 export default function CenterHome({
@@ -55,10 +55,7 @@ export default function CenterHome({
           없어서 대화·승인 요청이 PC 에만 떴습니다. 아이폰은 홈 화면에
           설치한 앱에서만 켜집니다 — 사파리 탭에서는 스위치 자체가 안 뜹니다.
       */}
-      <div className="mt-4 flex items-start justify-between gap-3 rounded-xl bg-white px-4 py-3 shadow-[0_1px_2px_rgba(22,50,79,0.06)]">
-        <span className="shrink-0 pt-1 text-[13.5px] font-semibold text-[var(--ink)]">새 대화·신청을 이 폰으로</span>
-        <PushToggle vapidKey={pushKey} label="폰 알림" explain />
-      </div>
+      <PushCard vapidKey={pushKey} description="치과의 대화와 가입·문의 신청이 이 폰으로 옵니다" />
 
       <ul className="mt-6 space-y-3">
         {cards.map((card) => (

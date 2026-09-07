@@ -28,6 +28,8 @@ export interface SwitchPillProps {
   /** 못 누르는 상태(브라우저가 차단). 이유를 title 로 */
   disabled?: boolean;
   title?: string;
+  /** 폰 카드용 큰 스위치 — 손가락으로 누르는 자리라 트랙을 키웁니다 (2026-09-07) */
+  size?: 'sm' | 'lg';
 }
 
 export default function SwitchPill({
@@ -37,7 +39,9 @@ export default function SwitchPill({
   busy = false,
   disabled = false,
   title,
+  size = 'sm',
 }: SwitchPillProps) {
+  const lg = size === 'lg';
   return (
     <button
       type="button"
@@ -49,20 +53,22 @@ export default function SwitchPill({
       title={title}
       className="group inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
     >
-      <span className="text-[12.5px] font-semibold text-[#4A5567]">{label}</span>
+      {label && <span className="text-[12.5px] font-semibold text-[#4A5567]">{label}</span>}
 
       {/* 트랙 + 손잡이 */}
       <span
         aria-hidden="true"
         className={
-          'relative inline-block h-[18px] w-[32px] shrink-0 rounded-full transition-colors ' +
+          'relative inline-block shrink-0 rounded-full transition-colors ' +
+          (lg ? 'h-[26px] w-[46px] ' : 'h-[18px] w-[32px] ') +
           (on ? 'bg-[#12855B]' : 'bg-[#C4CBD6]')
         }
       >
         <span
           className={
-            'absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.25)] transition-[left] ' +
-            (on ? 'left-[16px]' : 'left-[2px]') +
+            'absolute top-[2px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.25)] transition-[left] ' +
+            (lg ? 'h-[22px] w-[22px] ' : 'h-[14px] w-[14px] ') +
+            (on ? (lg ? 'left-[22px]' : 'left-[16px]') : 'left-[2px]') +
             (busy ? ' opacity-60' : '')
           }
         />
