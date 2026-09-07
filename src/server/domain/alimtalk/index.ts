@@ -82,7 +82,8 @@ export type AlimtalkEvent =
   | 'remake_received'
   | 'repair_requested'
   | 'production_requested'
-  | 'rescan_requested';
+  | 'rescan_requested'
+  | 'arrival_notice';
 
 export interface AlimtalkRule {
   /** 어느 자리의 사람들이 받는가 */
@@ -110,6 +111,12 @@ export const ALIMTALK_RULES: Record<AlimtalkEvent, AlimtalkRule> = {
   production_requested: { audience: 'lab', label: '제작 의뢰' },
   // 디자인센터가 스캔을 다시 요청했습니다 → 다시 찍을 곳
   rescan_requested: { audience: 'clinic', label: '재스캔 요청' },
+  /*
+    ★ 아침 8시 "오늘 도착 예정" (사용자 요청 2026-09-07). 주문 하나가 아니라
+      **치과 하루에 한 통** — 환자 이름을 모아 적고 폰 화면(/m/today)으로
+      잇는 버튼을 답니다 (domain/arrival-notice).
+  */
+  arrival_notice: { audience: 'clinic', label: '배송 도착 예정' },
 };
 
 /**

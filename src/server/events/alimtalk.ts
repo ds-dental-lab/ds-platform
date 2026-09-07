@@ -73,18 +73,33 @@ export async function queueAlimtalk(
   event: AlimtalkEvent,
   order: AlimtalkTarget,
 ): Promise<void> {
+  const audience = ALIMTALK_RULES[event].audience;
+
+  const orgId =
+    audience === 'clinic'
+      ? order.clinicOrgId
+      : audience === 'design_center'
+        ? order.designOrgId
+        : order.labOrgId;
+
+  if (!orgId) return;
+
+  const { title, body } = compose(event, order);
+  await queueAlimtalkNotice({ event, orgId, orderId: order.orderId, title, body });
+}
+
+/**
+ * 조직 하나에 문구 하나를 쌓습니다 — 주문에 묶이지 않는 안내도 여기로
+ * (아침 "오늘 도착 예정" 은 주문이 여럿이라 order_id 가 없습니다).
+ */
+export async function queueAlimtalkNotice(input: {
+  event: AlimtalkEvent;
+  orgId: string;
+  orderId?: string | null;
+  title: string;
+  body: string;
+}): Promise<void> {
   try {
-    const audience = ALIMTALK_RULES[event].audience;
-
-    const orgId =
-      audience === 'clinic'
-        ? order.clinicOrgId
-        : audience === 'design_center'
-          ? order.designOrgId
-          : order.labOrgId;
-
-    if (!orgId) return;
-
     const admin = createAdminClient();
 
     /*
@@ -95,7 +110,7 @@ export async function queueAlimtalk(
     const { data } = await admin
       .from('memberships')
       .select('user_id, user:user_profiles!inner(id, phone, alimtalk_on, deleted_at)')
-      .eq('org_id', orgId)
+      .eq('org_id', input.orgId)
       .eq('is_active', true)
       .is('deleted_at', null);
 
@@ -110,23 +125,21 @@ export async function queueAlimtalk(
 
     if (people.length === 0) return;
 
-    const { title, body } = compose(event, order);
-
     await admin.from('alimtalk_queue').insert(
       people.map((u) => ({
-        event,
-        order_id: order.orderId,
+        event: input.event,
+        order_id: input.orderId ?? null,
         to_user_id: u.id,
-        to_org_id: orgId,
+        to_org_id: input.orgId,
         // ★ 그때의 번호를 박습니다. 나중에 바뀌어도 이 줄은 안 따라갑니다
         phone: normalizePhone(u.phone)!,
-        title,
-        body,
+        title: input.title,
+        body: input.body,
         status: 'pending' as const,
       })),
     );
   } catch (error) {
     // ★ 업무는 이미 끝났습니다. 알림톡 때문에 되돌리지 않습니다
-    console.error('[alimtalk] 대기열에 못 넣었습니다', event, error);
+    console.error('[alimtalk] 대기열에 못 넣었습니다', input.event, error);
   }
 }
