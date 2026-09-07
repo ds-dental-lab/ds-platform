@@ -77,6 +77,9 @@ describe('★★ 메일에 실리면 안 되는 것', () => {
   it('대신 보러 갈 곳을 줍니다', () => {
     expect(html).toContain(invoiceLink(CLINIC));
     expect(html).toContain('청구서 보기');
+    // ★ PDF 로 받는 길 (사용자 요청 2026-09-07)
+    expect(html).toContain(`${invoiceLink(CLINIC)}/pdf`);
+    expect(html).toContain('PDF 로 받기');
   });
 });
 

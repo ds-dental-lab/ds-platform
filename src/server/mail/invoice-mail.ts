@@ -59,6 +59,15 @@ export function invoiceLink(input: InvoiceMailInput): string {
   return `${input.siteUrl}/${path}/billing/${input.yearMonth}`;
 }
 
+/**
+ * PDF 로 받는 주소 (사용자 요청 2026-09-07 — "그쪽도 PDF 저장할 일이 있을
+ * 것 같아서 메일에 선택권을"). 로그인이 있어야 내려옵니다 — 없으면 로그인
+ * 뒤 바로 파일이 옵니다 (proxy 의 next).
+ */
+export function invoicePdfLink(input: InvoiceMailInput): string {
+  return `${invoiceLink(input)}/pdf`;
+}
+
 export function invoiceSubject(input: InvoiceMailInput): string {
   const what = input.partyType === 'lab' ? '기공료 청구서' : '청구서';
   return `[덴플로우] ${monthLabel(input.yearMonth)}분 ${what}입니다`;
@@ -118,6 +127,10 @@ export function invoiceHtml(input: InvoiceMailInput): string {
               <a href="${invoiceLink(input)}"
                  style="display:inline-block;background:#1279E8;color:#FFFFFF;text-decoration:none;font-size:14.5px;font-weight:700;padding:12px 26px;border-radius:8px;">
                 청구서 보기
+              </a>
+              <a href="${invoicePdfLink(input)}"
+                 style="display:inline-block;margin-left:8px;background:#FFFFFF;color:#1279E8;text-decoration:none;font-size:14.5px;font-weight:700;padding:11px 22px;border:1px solid #1279E8;border-radius:8px;">
+                PDF 로 받기
               </a>
             </div>
             <div style="margin-top:10px;font-size:12.5px;color:#98A2B3;">

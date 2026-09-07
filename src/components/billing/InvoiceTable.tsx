@@ -4,7 +4,7 @@
 // 청구 내역 — 이미 나간 청구서의 목록. (사용자가 쓰던 화면 기준)
 //
 // 오른쪽 기능 넷
-//   ⬇ 내려받기   청구서를 열고 인쇄창을 띄웁니다 ('PDF로 저장')
+//   ⬇ 내려받기   청구서 PDF 를 바로 내려받습니다 (2026-09-07 — 전에는 인쇄창)
 //   ↩ 재발송     청구서 메일을 지금 주소로 다시 보냅니다 (2026-08-21 부터 실제 발송)
 //   🗑 취소       발행을 무르고 마감 상태로 되돌립니다
 //   💳 정산       입금을 적습니다. 미납이 0이 되면 '완료' 가 됩니다
@@ -56,12 +56,19 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
       싣거나 서버에서 그려야 하는데, 둘 다 지금 없습니다 — 화면이
       거짓말하지 않도록 '인쇄창이 뜬다' 는 것을 버튼 설명에 적어 둡니다.
   */
+  /*
+    ★ 서버가 만든 PDF 를 바로 받습니다 (사용자 요청 2026-09-07). 전에는
+      인쇄창을 띄워 'PDF 로 저장' 을 고르게 했는데, 두 단계이고 기계마다
+      여백이 달랐습니다. 인쇄는 청구서 화면의 '인쇄 / PDF' 에 남아 있습니다.
+  */
   function download(row: InvoiceRow) {
-    window.open(
-      `/design/billing/${row.partyOrgId}/${row.yearMonth}?print=1`,
-      '_blank',
-      'noopener',
-    );
+    // 링크를 하나 만들어 누릅니다 — 화면은 그대로 두고 파일만 내려옵니다
+    const a = document.createElement('a');
+    a.href = `/design/billing/${row.partyOrgId}/${row.yearMonth}/pdf`;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   async function resend(row: InvoiceRow) {
@@ -216,7 +223,7 @@ export default function InvoiceTable({ rows }: InvoiceTableProps) {
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-0.5">
                       <Icon
-                        label="정산서 내려받기 (인쇄창에서 PDF로 저장)"
+                        label="청구서 PDF 내려받기"
                         onClick={() => download(row)}
                         disabled={busy(row.periodId)}
                       >

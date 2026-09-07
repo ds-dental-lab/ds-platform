@@ -113,6 +113,13 @@ export default async function InvoicePage({
           issued={Boolean(period.issuedAt)}
           paid={Boolean(period.paidAt)}
         />
+
+        <a
+          href="{`/design/billing/${partner.id}/${yearMonth}/pdf`}"
+          className="h-9 rounded-md bg-[#1279E8] px-3.5 text-[13.5px] font-bold leading-9 text-white hover:bg-[#0F68C9]"
+        >
+          PDF 내려받기
+        </a>
       </div>
 
       <div className="rounded-lg border border-[#E8EBF0] print:border-0">

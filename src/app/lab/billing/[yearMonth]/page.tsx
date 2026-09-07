@@ -69,6 +69,12 @@ export default async function LabInvoicePage({
           ← 정산으로
         </Link>
 
+        <a
+          href="{`/lab/billing/${yearMonth}/pdf`}"
+          className="h-9 rounded-md bg-[#1279E8] px-3.5 text-[13.5px] font-bold leading-9 text-white hover:bg-[#0F68C9]"
+        >
+          PDF 내려받기
+        </a>
         <PrintButton />
 
         <span className="text-[13px] text-[#98A2B3]">
