@@ -165,16 +165,32 @@ export default function PushToggle({
         푸시가 안 됩니다 — 크롬으로 열면 됩니다.
     */
     const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    /*
+      ★ 안드로이드는 **누르면 크롬이 바로 뜨는 단추**를 답니다 (사용자 요청
+        2026-09-07 — "네이버도 되게는 못해?"). 앱 안 브라우저(네이버·카톡)는
+        웹푸시 자체가 없어 우리가 어쩔 수 없고, 사람이 주소를 다시 치게
+        하면 아무도 안 합니다. intent 주소는 안드로이드가 "이 주소를 크롬으로
+        열어라" 로 알아듣는 형식입니다 — 크롬이 없으면 스토어로 갑니다.
+        아이폰은 그런 길이 없어 글로만 안내합니다.
+    */
+    const here = window.location.pathname + window.location.search;
+    const chromeIntent = `intent://denflow.kr${here}#Intent;scheme=https;package=com.android.chrome;end`;
     return (
-      <span className="max-w-[230px] text-right text-[12px] leading-snug text-[#98A2B3]">
+      <span className="flex max-w-[230px] flex-col items-end gap-1.5 text-right text-[12px] leading-snug text-[#98A2B3]">
         {ios ? (
           <>
             사파리에서 <b className="font-bold">공유 → 홈 화면에 추가</b>로 설치한 앱을 열면 켤 수 있습니다.
           </>
         ) : (
           <>
-            네이버·카톡 안의 브라우저에서는 못 켭니다. <b className="font-bold">크롬</b>으로 denflow.kr 을
-            열어 켜 주세요. 크롬 메뉴의 <b className="font-bold">홈 화면에 추가</b>로 설치하면 앱처럼 씁니다.
+            <span>네이버·카톡 안의 브라우저에서는 못 켭니다.</span>
+            <a
+              href={chromeIntent}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--ink,#16324F)] px-3.5 py-2 text-[13px] font-bold text-white active:opacity-90"
+            >
+              크롬으로 열기
+            </a>
+            <span>크롬에서 켜고, 메뉴의 <b className="font-bold">홈 화면에 추가</b>로 설치하면 앱처럼 씁니다.</span>
           </>
         )}
       </span>
