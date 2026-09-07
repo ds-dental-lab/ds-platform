@@ -158,10 +158,25 @@ export default function PushToggle({
 
   if (state === 'unsupported') {
     if (!explain) return null;
+    /*
+      ★ 어느 폰인지에 따라 다른 말을 합니다 (사용자 스크린샷 2026-09-07 —
+        갤럭시인데 아이폰 안내가 떴음). 갤럭시에서 못 켜는 건 거의 다
+        **네이버·카톡 앱 안의 브라우저**로 열었을 때입니다. 그 안에서는
+        푸시가 안 됩니다 — 크롬으로 열면 됩니다.
+    */
+    const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     return (
       <span className="max-w-[230px] text-right text-[12px] leading-snug text-[#98A2B3]">
-        이 브라우저에서는 못 켭니다. 아이폰은 사파리에서 <b className="font-bold">공유 → 홈 화면에 추가</b>
-        로 설치한 앱을 열면 켤 수 있습니다.
+        {ios ? (
+          <>
+            사파리에서 <b className="font-bold">공유 → 홈 화면에 추가</b>로 설치한 앱을 열면 켤 수 있습니다.
+          </>
+        ) : (
+          <>
+            네이버·카톡 안의 브라우저에서는 못 켭니다. <b className="font-bold">크롬</b>으로 denflow.kr 을
+            열어 켜 주세요. 크롬 메뉴의 <b className="font-bold">홈 화면에 추가</b>로 설치하면 앱처럼 씁니다.
+          </>
+        )}
       </span>
     );
   }
