@@ -18,6 +18,7 @@
 // =========================================================
 
 import Link from 'next/link';
+import { SITE_LEGAL } from '@/server/domain/site';
 import ContactForm from '@/components/site/ContactForm';
 import MillingStage from '@/components/site/MillingStage';
 import { SiteArt, type SiteArtName } from '@/components/site/SiteArt';
@@ -659,6 +660,12 @@ function Footer() {
           <Logo />
           <p className="mt-2.5 text-[13.5px] text-[#98A2B3]">
             {SITE.tagline} · {SITE.tel}
+          </p>
+          {/* ★ 사업자 표시 (2026-09-07 등록). 등록 상호는 화면 이름과 다릅니다 — domain/site 의 설명 */}
+          <p className="mt-2 text-[12px] leading-relaxed text-[#B0B8C4]">
+            {SITE_LEGAL.name} · 대표 {SITE_LEGAL.ceo} · 사업자등록번호 {SITE_LEGAL.bizNo}
+            <br />
+            {SITE_LEGAL.address}
           </p>
         </div>
 

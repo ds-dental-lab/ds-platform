@@ -14,10 +14,10 @@
 //   주소가 바뀌면 매번 새 그림으로 보고, 결국 아무것도 안 붙습니다.
 //
 // ★ 지어낸 것을 안 넣습니다.
-//   주소(사업장)·SNS·평점은 아직 확인된 것이 없어 **아예 뺐습니다.**
-//   구조화 데이터에 없는 사실을 적으면 그건 검색엔진에게 하는 거짓말이고,
-//   들키면 사이트 전체가 신뢰를 잃습니다. 사업자등록이 나오면 그때
-//   주소를 넣고 LocalBusiness 로 올립니다 ([[ds-flow-backlog]]).
+//   SNS·평점은 확인된 것이 없어 **아예 뺐습니다.** 구조화 데이터에 없는
+//   사실을 적으면 그건 검색엔진에게 하는 거짓말이고, 들키면 사이트 전체가
+//   신뢰를 잃습니다. 주소·등록 상호는 사업자등록(2026-09-07)이 나온 뒤에
+//   넣었습니다 — 등록증의 값 그대로 (domain/site 의 SITE_LEGAL).
 //
 // ★ WebSite 의 name 이 **구글이 결과에 찍는 사이트 이름**입니다.
 //   제목 태그와 따로 놉니다 — 둘을 안 맞추면 결과에 엉뚱한 이름이 뜹니다.
@@ -32,6 +32,7 @@ import {
   SITE_LOGO,
   SITE_LOGO_SIZE,
   SITE_TEL,
+  SITE_LEGAL,
 } from '@/server/domain/site';
 
 const ORG_ID = `${SITE_URL}/#organization`;
@@ -46,6 +47,15 @@ const GRAPH = [
     url: SITE_URL,
     description: SITE_DESCRIPTION,
     telephone: SITE_TEL,
+    // ★ 사업자등록(2026-09-07) 뒤에 넣었습니다 — 지어낸 값이 아닙니다
+    legalName: SITE_LEGAL.name,
+    address: {
+      '@type': 'PostalAddress',
+      addressCountry: 'KR',
+      addressRegion: SITE_LEGAL.region,
+      addressLocality: SITE_LEGAL.locality,
+      streetAddress: SITE_LEGAL.street,
+    },
     logo: {
       '@type': 'ImageObject',
       url: `${SITE_URL}${SITE_LOGO}`,
