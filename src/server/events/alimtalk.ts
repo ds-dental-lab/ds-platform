@@ -30,6 +30,7 @@ import {
   normalizePhone,
   type AlimtalkEvent,
 } from '@/server/domain/alimtalk';
+import type { TemplateVars } from '@/server/domain/alimtalk/template';
 
 export interface AlimtalkTarget {
   orderId: string;
@@ -41,6 +42,8 @@ export interface AlimtalkTarget {
   labOrgId: string | null;
   /** 문구에 덧붙일 한 줄 — 리페어의 요청 내용 같은 것 */
   extra?: string;
+  /** 카카오 템플릿 변수 값 (domain/alimtalk/template). 없으면 못 보냅니다 */
+  vars?: TemplateVars;
 }
 
 /** 대기열에 적을 문구. 템플릿이 정해지면 이 자리만 바꿉니다 */
@@ -86,7 +89,7 @@ export async function queueAlimtalk(
   if (!orgId) return;
 
   const { title, body } = compose(event, order);
-  await queueAlimtalkNotice({ event, orgId, orderId: order.orderId, title, body });
+  await queueAlimtalkNotice({ event, orgId, orderId: order.orderId, title, body, vars: order.vars });
 }
 
 /**
@@ -99,6 +102,7 @@ export async function queueAlimtalkNotice(input: {
   orderId?: string | null;
   title: string;
   body: string;
+  vars?: TemplateVars;
 }): Promise<void> {
   try {
     const admin = createAdminClient();
@@ -136,6 +140,7 @@ export async function queueAlimtalkNotice(input: {
         phone: normalizePhone(u.phone)!,
         title: input.title,
         body: input.body,
+        vars: input.vars ?? null,
         status: 'pending' as const,
       })),
     );
@@ -157,6 +162,7 @@ export async function queueAlimtalkToPhone(input: {
   phone: string | null | undefined;
   title: string;
   body: string;
+  vars?: TemplateVars;
 }): Promise<void> {
   const phone = normalizePhone(input.phone);
   if (!phone) return;
@@ -171,6 +177,7 @@ export async function queueAlimtalkToPhone(input: {
       phone,
       title: input.title,
       body: input.body,
+      vars: input.vars ?? null,
       status: 'pending' as const,
     });
   } catch (error) {

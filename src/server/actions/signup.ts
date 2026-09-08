@@ -58,6 +58,7 @@ export async function submitApproveSignup(requestId: string): Promise<ReviewResu
       event: 'signup_approved',
       phone: who.tel,
       title: '[DenFlow] 가입 승인',
+      vars: { 상호: who.org_name ?? '' },
       body:
         `${who.org_name ?? ''} 님, 덴플로우 가입이 승인되었습니다.\n` +
         '이제 로그인하면 주문을 넣을 수 있습니다. https://denflow.kr/login',

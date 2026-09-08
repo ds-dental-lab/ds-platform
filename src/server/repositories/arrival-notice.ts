@@ -13,7 +13,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { todayInKst } from '@/server/domain/week';
-import { composeArrivalNotice, groupByClinic } from '@/server/domain/arrival-notice';
+import { composeArrivalNotice, groupByClinic, noticeDate, nameLine } from '@/server/domain/arrival-notice';
 import { queueAlimtalkNotice } from '@/server/events/alimtalk';
 import type { OrderStatus } from '@/server/domain/order-status';
 
@@ -62,7 +62,13 @@ export async function runArrivalNotices(now: Date = new Date()): Promise<Arrival
     const notice = composeArrivalNotice(today, names);
     if (!notice) continue;
 
-    await queueAlimtalkNotice({ event: 'arrival_notice', orgId: clinicOrgId, ...notice });
+    await queueAlimtalkNotice({
+      event: 'arrival_notice',
+      orgId: clinicOrgId,
+      ...notice,
+      // 템플릿은 '#{환자목록} 님' 이라 이름 줄에서 ' 님' 을 뺍니다
+      vars: { 날짜: noticeDate(today), 환자목록: nameLine(names).replace(/ 님$/, '') },
+    });
     clinics += 1;
   }
 

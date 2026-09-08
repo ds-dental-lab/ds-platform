@@ -85,6 +85,7 @@ export async function publishSignupRequested(userId: string): Promise<void> {
       event: 'signup_received',
       phone: request.tel,
       title: '[DenFlow] 가입 신청 접수',
+      vars: { 상호: request.org_name ?? '' },
       body:
         `${request.org_name ?? ''} 님, 덴플로우 가입 신청이 접수되었습니다.\n` +
         '디자인센터가 확인한 뒤 승인 안내를 드립니다. 보통 1 영업일 안에 처리됩니다.',

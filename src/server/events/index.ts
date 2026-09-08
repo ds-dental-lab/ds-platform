@@ -23,6 +23,7 @@ import {
 import type { OrderStatus, Sector } from '@/server/domain/order-status';
 import { eventFor } from '@/server/domain/alimtalk';
 import { queueAlimtalk } from '@/server/events/alimtalk';
+import type { TemplateVars } from '@/server/domain/alimtalk/template';
 import { chatPushPayload } from '@/server/domain/push';
 import { sendPushToOrgs } from '@/server/events/push';
 
@@ -49,7 +50,7 @@ export async function publishOrderStatusChanged(
     // 알림을 보낼 조직 id 는 주문에 들어 있습니다
     const { data } = await supabase
       .from('orders')
-      .select('order_no, patient_label, clinic_org_id, design_org_id, lab_org_id')
+      .select('order_no, patient_label, due_date, clinic_org_id, design_org_id, lab_org_id')
       .eq('id', event.orderId)
       .maybeSingle();
 
@@ -58,6 +59,7 @@ export async function publishOrderStatusChanged(
     const order = data as unknown as {
       order_no: string;
       patient_label: string;
+      due_date: string | null;
       clinic_org_id: string | null;
       design_org_id: string | null;
       lab_org_id: string | null;
@@ -129,6 +131,12 @@ export async function publishOrderStatusChanged(
     const kakao = eventFor(event.from, event.to);
 
     if (kakao) {
+      // ★ 템플릿 변수 — 이름은 알리고에 등록한 것과 같아야 합니다 (domain/alimtalk/template)
+      const vars: TemplateVars =
+        kakao === 'rescan_requested'
+          ? { 주문번호: order.order_no, 환자명: order.patient_label, 사유: event.reason || '스캔을 다시 부탁드립니다', 주문ID: event.orderId }
+          : { 주문번호: order.order_no, 환자명: order.patient_label, 요청시한: order.due_date ?? '', 주문ID: event.orderId };
+
       await queueAlimtalk(kakao, {
         orderId: event.orderId,
         orderNo: order.order_no,
@@ -136,6 +144,7 @@ export async function publishOrderStatusChanged(
         clinicOrgId: order.clinic_org_id,
         designOrgId: order.design_org_id,
         labOrgId: order.lab_org_id,
+        vars,
       });
     }
   } catch (error) {
@@ -166,11 +175,19 @@ export async function publishOrderCreated(event: {
   try {
     const supabase = await createClient();
 
-    const { data: order } = await supabase
+    const { data } = await supabase
       .from('orders')
-      .select('order_no, patient_label, design_org_id')
+      .select('order_no, patient_label, design_org_id, due_date, clinic:organizations!orders_clinic_org_id_fkey(name)')
       .eq('id', event.orderId)
       .maybeSingle();
+
+    const order = data as unknown as {
+      order_no: string;
+      patient_label: string;
+      design_org_id: string | null;
+      due_date: string | null;
+      clinic: { name: string } | null;
+    } | null;
 
     if (!order?.design_org_id) return;
 
@@ -186,6 +203,14 @@ export async function publishOrderCreated(event: {
       clinicOrgId: null,
       designOrgId: order.design_org_id,
       labOrgId: null,
+      vars: {
+        구분: event.kind === 'remake' ? '리메이크' : '새',
+        치과명: order.clinic?.name ?? '',
+        주문번호: order.order_no,
+        환자명: order.patient_label,
+        요청시한: order.due_date ?? '',
+        주문ID: event.orderId,
+      },
     });
 
     const remake = event.kind === 'remake';
@@ -293,6 +318,7 @@ export async function publishRepairRequested(event: {
       designOrgId: order.design_org_id,
       labOrgId: event.labOrgId,
       extra: event.notes ? `요청: ${event.notes}` : undefined,
+      vars: { 주문번호: order.order_no, 환자명: order.patient_label, 요청내용: event.notes || '-', 주문ID: event.repairOrderId },
     });
   } catch (error) {
     console.error('[events] 리페어 이벤트 처리 실패', error);
