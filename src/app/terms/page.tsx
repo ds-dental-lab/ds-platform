@@ -18,6 +18,7 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { SITE_LEGAL } from '@/server/domain/site';
 import { getTermsFacts } from '@/server/repositories/terms';
 import { isDraft, CHAPTERS, type Article } from '@/server/domain/terms';
 
@@ -31,11 +32,12 @@ export const metadata: Metadata = {
 export default async function TermsPage() {
   const facts = await getTermsFacts();
   const draft = isDraft(facts);
-  const company = facts.orgName ?? '회사';
+  // ★ 법률 문서의 회사 이름은 **등록 상호**입니다 (사용자 결정 2026-09-08). 화면 이름과 다릅니다
+  const company = SITE_LEGAL.name;
 
   // ★ 안 채운 칸은 가운뎃점만 남기지 않고 통째로 빠집니다
   const contact = [
-    facts.orgName,
+    SITE_LEGAL.name,
     facts.bizNo && `사업자등록번호 ${facts.bizNo}`,
     facts.address,
     facts.tel,
@@ -69,14 +71,7 @@ export default async function TermsPage() {
           (DB 를 못 읽는 길이 실제로 있습니다. repositories/terms 참고)
       */}
       <p className="mt-7 text-[13.5px] leading-relaxed text-[#4A5567]">
-        {facts.orgName ? (
-          <>
-            <b className="font-bold text-[#1A2130]">{company}</b>(이하 &lsquo;회사&rsquo;)는
-          </>
-        ) : (
-          <b className="font-bold text-[#1A2130]">회사</b>
-        )}
-        {facts.orgName ? ' ' : '는 '}
+        <b className="font-bold text-[#1A2130]">{company}</b>(이하 &lsquo;회사&rsquo;)는{' '}
         보철 제작주문 플랫폼 <b className="font-bold text-[#1A2130]">DenFlow</b>(이하
         &lsquo;서비스&rsquo;)의 이용에 관하여 회원과 다음과 같이 약관을 정합니다.
       </p>

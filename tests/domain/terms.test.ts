@@ -203,12 +203,14 @@ describe('실제 동작을 옮겼는가', () => {
     expect(textOf(14)).toContain('제작이 시작된 뒤에는 주문을 삭제할 수 없습니다');
   });
 
-  // ★ 가격 격리 — 이 판의 뼈대입니다
-  it('가격 격리가 약관에도 적혀 있습니다', () => {
-    const text = textOf(16);
-
-    expect(text).toContain('기공소는 치과에 청구되는 금액을 볼 수 없고');
-    expect(text).toContain('치과는 기공소에 지급되는 금액을 볼 수 없습니다');
+  // ★ 외주 기공소를 안 씁니다 (사용자 결정 2026-09-08) — 약관 어디에도 없어야 합니다
+  it('★ 기공소가 약관에 없습니다 — 제작은 회사가 직접', () => {
+    const whole = allArticles()
+      .flatMap((a) => [a.title, ...a.paras.flatMap((p) => [p.text, ...(p.items ?? [])])])
+      .join(' ');
+    expect(whole).not.toContain('기공소');
+    expect(textOf(25)).toContain('제작을 외부에 위탁하지 않습니다');
+    expect(textOf(18)).toContain('알림톡');
   });
 
   // ★ domain/billing — 배송일이 든 달, 발행 한 번으로 마감

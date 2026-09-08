@@ -34,8 +34,21 @@ export interface RetentionJobResult {
   leftover: RetentionTarget[];
 }
 
+/** 처리방침 제3조의 고정 보유기간 — 문의·알림 기록 1년 (domain/privacy FIXED_KEEP 과 같은 숫자) */
+const FIXED_KEEP_DAYS = 365;
+
 export async function runRetentionJob(now: Date = new Date()): Promise<RetentionJobResult> {
   const admin = createAdminClient();
+
+  /*
+    ★ 수가표 문의(처리 완료 뒤)·알림톡 발송 기록은 관리자 설정이 아니라
+      처리방침에 적은 고정값 1년으로 지웁니다 (2026-09-08). 문의는 치과가
+      회원이 아니어서 다른 어떤 표에도 안 묶여 있고, 발송 기록은 번호와
+      환자 이름이 들어 있어 오래 둘 이유가 없습니다.
+  */
+  const fixedCutoff = new Date(now.getTime() - FIXED_KEEP_DAYS * 86400_000).toISOString();
+  await admin.from('contact_requests').delete().eq('status', 'done').lt('handled_at', fixedCutoff);
+  await admin.from('alimtalk_queue').delete().lt('created_at', fixedCutoff);
   const result: RetentionJobResult = {
     orgs: 0,
     removed: { soft_deleted: 0, audit_log: 0, order_file: 0 },

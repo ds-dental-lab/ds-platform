@@ -25,7 +25,10 @@ import {
   SAFEGUARDS,
   LEGAL_KEEP,
   HELP_DESKS,
+  PROCESSORS,
+  FIXED_KEEP,
 } from '@/server/domain/privacy';
+import { SITE_LEGAL } from '@/server/domain/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +43,8 @@ export default async function PrivacyPolicyPage() {
   const facts = await getPolicyFacts();
   const draft = isDraft(facts);
   const rows = keepRows(facts);
-  const company = facts.orgName ?? '회사';
+  // ★ 법률 문서의 회사 이름은 **등록 상호**입니다 (사용자 결정 2026-09-08). 화면 이름과 다릅니다
+  const company = SITE_LEGAL.name;
 
   return (
     <main className="mx-auto max-w-[760px] px-6 py-12 text-[#1A2130]">
@@ -72,8 +76,9 @@ export default async function PrivacyPolicyPage() {
           다음과 같이 개인정보 처리방침을 수립·공개합니다.
         </P>
         <P>
-          회사는 치과와 기공소를 잇는 보철 제작주문 플랫폼 <B>DenFlow</B>를 운영합니다.
-          이 방침은 DenFlow 서비스에 적용됩니다.
+          회사는 치과의 보철 제작 주문을 받아 직접 설계·제작·배송하는 플랫폼{' '}
+          <B>DenFlow</B>를 운영합니다. 이 방침은 DenFlow 서비스와 홈페이지(denflow.kr)에
+          적용됩니다.
         </P>
       </Section>
 
@@ -102,8 +107,8 @@ export default async function PrivacyPolicyPage() {
         </div>
 
         <P className="mt-4">
-          환자의 개인정보는 <B>치과가 입력</B>하며, 보철 제작에 필요한 범위에서 디자인센터와
-          해당 주문을 배정받은 기공소에 제공됩니다.
+          환자의 개인정보는 <B>치과가 입력</B>하며, 회사는 이를 해당 보철의 설계·제작·배송에
+          필요한 범위에서만 이용합니다. <B>보철 제작을 외부에 위탁하지 않습니다.</B>
         </P>
 
         <P className="mt-3">회사는 다음 정보를 수집하지 않습니다.</P>
@@ -130,7 +135,7 @@ export default async function PrivacyPolicyPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
+                  {[...rows, ...FIXED_KEEP].map((row) => (
                     <tr key={row.what} className="border-b border-[#F0F2F5]">
                       <Td className="font-semibold">{row.what}</Td>
                       <Td className="text-[#7C8595]">{row.from}</Td>
@@ -165,16 +170,14 @@ export default async function PrivacyPolicyPage() {
 
       <Section n="제4조" title="개인정보의 제3자 제공 및 처리위탁">
         {/*
-          ★ 맡기는 곳이 있을 때만 '보철 제작을 위하여' 라고 적습니다
-            (2026-08-18). 외주 기공소가 하나도 없으면 보철은 자사에서
-            만듭니다 — 그때 '보철 제작을 위하여 위탁한다' 고 적으면
-            사실이 아닙니다. 남는 수탁자는 클라우드뿐입니다.
+          ★ 외주 기공소는 없습니다 (사용자 결정 2026-09-08). 수탁자는 서비스를
+            돌리는 도구들뿐이고, 목록은 domain/privacy 의 PROCESSORS 가 쥡니다 —
+            실제로 쓰는 것만 적습니다.
         */}
         <P>
-          회사는 정보주체의 개인정보를 <B>제3자에게 제공하지 않습니다.</B>{' '}
-          {(facts.labs ?? []).length > 0
-            ? '다만 보철 제작을 위하여 다음과 같이 처리업무를 위탁하고 있습니다.'
-            : '다만 서비스 운영을 위하여 다음과 같이 처리업무를 위탁하고 있습니다.'}
+          회사는 정보주체의 개인정보를 <B>제3자에게 제공하지 않습니다.</B> 보철 제작을
+          외부에 위탁하지도 않습니다. 다만 서비스 운영을 위하여 다음과 같이 처리업무를
+          위탁하고 있습니다.
         </P>
 
         <div className="mt-4 overflow-x-auto">
@@ -186,16 +189,15 @@ export default async function PrivacyPolicyPage() {
               </tr>
             </thead>
             <tbody>
-              {(facts.labs ?? []).map((lab) => (
-                <tr key={lab.name} className="border-b border-[#F0F2F5]">
-                  <Td className="font-semibold">{lab.name}</Td>
-                  <Td>배정된 주문의 보철물 제작</Td>
+              {PROCESSORS.map((p) => (
+                <tr key={p.name} className="border-b border-[#F0F2F5]">
+                  <Td className="font-semibold">{p.name}</Td>
+                  <Td>
+                    {p.work}
+                    {p.abroad && <span className="text-[#7C8595]"> · {p.abroad} 사업자</span>}
+                  </Td>
                 </tr>
               ))}
-              <tr className="border-b border-[#F0F2F5]">
-                <Td className="font-semibold">Supabase</Td>
-                <Td>서비스 운영을 위한 클라우드 인프라 (국내 리전에 저장)</Td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -204,6 +206,47 @@ export default async function PrivacyPolicyPage() {
           회사는 위탁계약 체결 시 「개인정보 보호법」 제26조에 따라 목적 외 처리 금지,
           기술적·관리적 보호조치, 재위탁 제한, 수탁자에 대한 관리·감독, 손해배상 등
           책임에 관한 사항을 문서에 명시합니다. 수탁자가 바뀌면 이 방침을 통해 공개합니다.
+        </P>
+      </Section>
+
+      <Section n="제4조의2" title="개인정보의 국외 이전">
+        {/*
+          ★ 메일(Resend)·푸시(Google·Apple) 서버가 미국에 있습니다. 「개인정보
+            보호법」 제28조의8 — 계약 이행에 필요한 위탁이라 동의 없이 되지만,
+            이 방침에 밝혀야 합니다. 넘어가는 것은 최소한입니다.
+        */}
+        <P>
+          회사는 전자우편과 앱 푸시 알림을 보내기 위하여 다음과 같이 개인정보를 국외 사업자에게
+          위탁·이전합니다. 이전은 알림을 보내는 시점에 이루어지며, 해당 사업자는 발송에
+          필요한 동안만 정보를 보유합니다.
+        </P>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[440px] border-collapse text-[14px]">
+            <thead>
+              <tr className="border-y border-[#E8EBF0] bg-[#F8F9FB] text-left">
+                <Th>이전받는 자</Th>
+                <Th>나라</Th>
+                <Th>이전되는 항목</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {PROCESSORS.filter((p) => p.abroad).map((p) => (
+                <tr key={p.name} className="border-b border-[#F0F2F5]">
+                  <Td className="font-semibold">{p.name}</Td>
+                  <Td>{p.abroad}</Td>
+                  <Td>
+                    {p.name === 'Resend'
+                      ? '받는 사람 이메일 주소, 상호, 안내 내용(청구 금액·기한 등)'
+                      : '기기 식별 토큰, 알림 제목·주문번호 (환자 이름은 담지 않습니다)'}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <P className="mt-4">
+          정보주체는 국외 이전을 거부할 수 있으며, 이 경우 해당 수단의 알림을 받을 수 없습니다.
+          거부는 개인정보 보호책임자에게 알리시면 됩니다.
         </P>
       </Section>
 
@@ -294,7 +337,7 @@ export default async function PrivacyPolicyPage() {
 
       <footer className="mt-12 border-t border-[#E8EBF0] pt-6 text-[13.5px] leading-relaxed text-[#98A2B3]">
         <p>
-          {facts.orgName && <span>{facts.orgName}</span>}
+          <span>{company}</span>
           {facts.bizNo && <span> · 사업자등록번호 {facts.bizNo}</span>}
           {facts.address && <span> · {facts.address}</span>}
           {facts.tel && <span> · {facts.tel}</span>}
