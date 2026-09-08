@@ -203,13 +203,14 @@ describe('실제 동작을 옮겼는가', () => {
     expect(textOf(14)).toContain('제작이 시작된 뒤에는 주문을 삭제할 수 없습니다');
   });
 
-  // ★ 무상 리메이크는 기간(1년)만 못 박고 치과와 시시비비는 안 가립니다 (2026-09-08)
-  it('★ 무상 리메이크 — 1년은 있고, 자료 제출 요구는 없습니다', () => {
+  // ★ 원인은 안 따집니다 — 치과에는 사유 칸이 없고, 회사 귀책을 가릴 길도 없습니다 (2026-09-08)
+  it('★ 무상 리메이크 — 배송 뒤 1년만 정하고, 사유·귀책은 묻지 않습니다', () => {
     const text = textOf(15);
-    expect(text).toContain('1년 이내');
+    expect(text).toContain('1년 이내에 요청된 리메이크와 리페어에 대하여는 대금을 청구하지 않습니다');
     expect(text).toContain('그 기간과 범위는 이 조에 따릅니다');
+    expect(text).not.toContain('사유를 함께 밝혀야');
+    expect(text).not.toContain('회사의 설계나 제작에 원인');
     expect(text).not.toContain('제출을 요구');
-    expect(text).not.toContain('우선합니다');
   });
 
   // ★ 외주 기공소를 안 씁니다 (사용자 결정 2026-09-08) — 약관 어디에도 없어야 합니다
