@@ -83,11 +83,18 @@ export type AlimtalkEvent =
   | 'repair_requested'
   | 'production_requested'
   | 'rescan_requested'
-  | 'arrival_notice';
+  | 'arrival_notice'
+  | 'signup_received'
+  | 'signup_approved';
 
 export interface AlimtalkRule {
-  /** 어느 자리의 사람들이 받는가 */
-  audience: 'clinic' | 'design_center' | 'lab';
+  /**
+   * 어느 자리의 사람들이 받는가.
+   * ★ 'applicant' 는 아직 조직이 없는 **가입 신청자** — 신청서의 번호로
+   *   갑니다 (queueAlimtalkToPhone). 조직으로 찾는 길(queueAlimtalk)은
+   *   이 값을 만나면 아무것도 안 합니다.
+   */
+  audience: 'clinic' | 'design_center' | 'lab' | 'applicant';
   /** 화면·기록에 쓰는 이름 */
   label: string;
 }
@@ -117,6 +124,13 @@ export const ALIMTALK_RULES: Record<AlimtalkEvent, AlimtalkRule> = {
       잇는 버튼을 답니다 (domain/arrival-notice).
   */
   arrival_notice: { audience: 'clinic', label: '배송 도착 예정' },
+  /*
+    ★ 가입 (사용자 요청 2026-09-08). 신청 직후 "승인을 기다리세요" 와
+      승인 뒤 "이제 들어오세요" — 신청자는 아직 회원이 아니라 메일과
+      알림톡이 유일한 길입니다.
+  */
+  signup_received: { audience: 'applicant', label: '가입 신청 접수' },
+  signup_approved: { audience: 'applicant', label: '가입 승인' },
 };
 
 /**

@@ -74,6 +74,7 @@ export async function queueAlimtalk(
   order: AlimtalkTarget,
 ): Promise<void> {
   const audience = ALIMTALK_RULES[event].audience;
+  if (audience === 'applicant') return; // 신청자는 조직이 없습니다 — queueAlimtalkToPhone 로
 
   const orgId =
     audience === 'clinic'
@@ -140,6 +141,39 @@ export async function queueAlimtalkNotice(input: {
     );
   } catch (error) {
     // ★ 업무는 이미 끝났습니다. 알림톡 때문에 되돌리지 않습니다
+    console.error('[alimtalk] 대기열에 못 넣었습니다', input.event, error);
+  }
+}
+
+/**
+ * 번호 하나에 직접 쌓습니다 — 아직 회원이 아닌 **가입 신청자**용.
+ * (사용자 요청 2026-09-08 — "회원 가입 시에도 승인 대기·승인 알림톡")
+ *
+ * ★ 켬/끔 설정이 없는 사람입니다. 신청서에 번호를 적은 것이 곧 "받겠다" 입니다.
+ * ★ 휴대전화가 아니면 조용히 안 쌓습니다 — 발송이 실패할 줄을 만들지 않습니다.
+ */
+export async function queueAlimtalkToPhone(input: {
+  event: AlimtalkEvent;
+  phone: string | null | undefined;
+  title: string;
+  body: string;
+}): Promise<void> {
+  const phone = normalizePhone(input.phone);
+  if (!phone) return;
+
+  try {
+    const admin = createAdminClient();
+    await admin.from('alimtalk_queue').insert({
+      event: input.event,
+      order_id: null,
+      to_user_id: null,
+      to_org_id: null,
+      phone,
+      title: input.title,
+      body: input.body,
+      status: 'pending' as const,
+    });
+  } catch (error) {
     console.error('[alimtalk] 대기열에 못 넣었습니다', input.event, error);
   }
 }

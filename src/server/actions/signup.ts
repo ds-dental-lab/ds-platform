@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { canReview, checkRejectReason } from '@/server/domain/signup';
 import { canManageMembers, type MemberRole } from '@/server/domain/member';
+import { queueAlimtalkToPhone } from '@/server/events/alimtalk';
 
 export type ReviewResult = { ok: true } | { ok: false; error: string };
 
@@ -41,6 +42,27 @@ export async function submitApproveSignup(requestId: string): Promise<ReviewResu
   const { error } = await supabase.rpc('approve_signup', { p_request_id: requestId });
 
   if (error) return { ok: false, error: clean(error.message) };
+
+  /*
+    ★ 승인됐다고 신청자에게 알림톡 (사용자 요청 2026-09-08). 승인은 DB 함수가
+      끝냈고 이건 곁다리라, 여기서 실패해도 승인은 그대로입니다.
+  */
+  const { data: approved } = await supabase
+    .from('signup_requests')
+    .select('org_name, tel')
+    .eq('id', requestId)
+    .maybeSingle();
+  const who = approved as { org_name: string | null; tel: string | null } | null;
+  if (who) {
+    await queueAlimtalkToPhone({
+      event: 'signup_approved',
+      phone: who.tel,
+      title: '[DenFlow] 가입 승인',
+      body:
+        `${who.org_name ?? ''} 님, 덴플로우 가입이 승인되었습니다.\n` +
+        '이제 로그인하면 주문을 넣을 수 있습니다. https://denflow.kr/login',
+    });
+  }
 
   revalidatePath('/design/signups');
   // 거래처가 하나 늘었습니다 — 사용자탭과 주문등록의 치과 목록이 바뀝니다

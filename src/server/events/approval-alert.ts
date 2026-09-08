@@ -18,6 +18,7 @@
 // =========================================================
 
 import 'server-only';
+import { queueAlimtalkToPhone } from '@/server/events/alimtalk';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendPushToOrgs } from '@/server/events/push';
@@ -70,14 +71,24 @@ export async function publishSignupRequested(userId: string): Promise<void> {
       .eq('user_id', userId)
       .eq('status', 'pending')
       .is('notified_at', null)
-      .select('org_name, org_type')
+      .select('org_name, org_type, tel')
       .maybeSingle();
 
-    const request = data as { org_name: string | null; org_type: string } | null;
+    const request = data as { org_name: string | null; org_type: string; tel: string | null } | null;
     if (!request) return;
 
     const input: SignupAlertInput = { orgName: request.org_name ?? '', orgType: request.org_type };
     await deliver(signupPush(input), signupMail(input, SITE_URL));
+
+    // ★ 신청자에게도 — "받았습니다, 승인을 기다리세요" (사용자 요청 2026-09-08)
+    await queueAlimtalkToPhone({
+      event: 'signup_received',
+      phone: request.tel,
+      title: '[DenFlow] 가입 신청 접수',
+      body:
+        `${request.org_name ?? ''} 님, 덴플로우 가입 신청이 접수되었습니다.\n` +
+        '디자인센터가 확인한 뒤 승인 안내를 드립니다. 보통 1 영업일 안에 처리됩니다.',
+    });
   } catch (error) {
     console.error('[events] 가입 신청 알림 실패', error);
   }

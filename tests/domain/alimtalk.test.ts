@@ -102,6 +102,12 @@ describe('무슨 일에 누가 받는가', () => {
     expect(Object.keys(ALIMTALK_RULES)).not.toContain('order_message');
   });
 
+  // ★ 가입 신청자는 조직이 없어 번호로 직접 갑니다 (사용자 요청 2026-09-08)
+  it('★ 가입 접수·승인은 신청자 본인에게', () => {
+    expect(ALIMTALK_RULES.signup_received.audience).toBe('applicant');
+    expect(ALIMTALK_RULES.signup_approved.audience).toBe('applicant');
+  });
+
   it('★ 제작대기로 넘기면 기공소', () => {
     expect(eventFor('designing', 'production_wait')).toBe('production_requested');
     expect(ALIMTALK_RULES.production_requested.audience).toBe('lab');
