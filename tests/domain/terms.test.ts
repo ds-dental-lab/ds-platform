@@ -203,6 +203,14 @@ describe('실제 동작을 옮겼는가', () => {
     expect(textOf(14)).toContain('제작이 시작된 뒤에는 주문을 삭제할 수 없습니다');
   });
 
+  // ★ 영업 자료가 "1년 무상" 이라 해도 약관이 범위를 정합니다 (2026-09-08)
+  it('★ 무상 리메이크의 범위는 약관이 정합니다 — 1년·회사 귀책·확인·우선', () => {
+    const text = textOf(15);
+    expect(text).toContain('1년 이내');
+    expect(text).toContain('제출을 요구할 수 있습니다');
+    expect(text).toContain('이 조가 우선합니다');
+  });
+
   // ★ 외주 기공소를 안 씁니다 (사용자 결정 2026-09-08) — 약관 어디에도 없어야 합니다
   it('★ 기공소가 약관에 없습니다 — 제작은 회사가 직접', () => {
     const whole = allArticles()
