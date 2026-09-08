@@ -174,16 +174,20 @@ export default function ContactForm() {
           onChange={(e) => setAgreed(e.target.checked)}
           className="mt-[3px] h-[17px] w-[17px] shrink-0 accent-[#1279E8]"
         />
+        {/* ★ '동의합니다 * 처리방침' 은 한 덩어리로 — 줄이 꺾여 '처리방침' 만 다음 줄에 떨어졌습니다 (사용자 지적 2026-09-08) */}
         <span className="text-[13.5px] leading-relaxed text-[#4A5567]">
-          {CONSENT.line}. <b className="font-bold text-[#1A2130]">동의합니다</b>
-          <span className="text-[#D8453F]"> *</span>
-          <Link
-            href="/privacy"
-            target="_blank"
-            className="ml-2 font-semibold text-[#1279E8] underline underline-offset-2"
-          >
-            처리방침
-          </Link>
+          {CONSENT.line}.{' '}
+          <span className="whitespace-nowrap">
+            <b className="font-bold text-[#1A2130]">동의합니다</b>
+            <span className="text-[#D8453F]"> *</span>
+            <Link
+              href="/privacy"
+              target="_blank"
+              className="ml-2 font-semibold text-[#1279E8] underline underline-offset-2"
+            >
+              처리방침
+            </Link>
+          </span>
         </span>
       </label>
 
