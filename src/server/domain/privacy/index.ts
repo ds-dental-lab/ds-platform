@@ -170,10 +170,14 @@ export const PROCESSORS: ProcessorRow[] = [
   { name: 'Google · Apple', work: '앱 푸시 알림 전달 (기기 식별 토큰. 알림 내용에 환자 이름은 담지 않습니다)', abroad: '미국' },
 ];
 
-/** 문의·알림 기록의 고정 보유기간 — 코드가 지웁니다 (repositories/retention-job) */
+/**
+ * 문의·알림 기록의 고정 보유기간 — 코드가 지웁니다 (repositories/retention-job).
+ * ★ 30일 — "오래 남길 필요 없다, 창고만 차지한다" (사용자 결정 2026-09-08).
+ *   발송 분쟁은 한 달 안에 나옵니다.
+ */
 export const FIXED_KEEP: KeepRow[] = [
-  { what: '수가표 문의', from: '처리를 마친 날', period: '1년' },
-  { what: '알림 발송 기록', from: '보낸 날', period: '1년' },
+  { what: '수가표 문의', from: '처리를 마친 날', period: '30일' },
+  { what: '알림 발송 기록', from: '보낸 날', period: '30일' },
 ];
 
 /** 받지 않는 것 — 적어 두면 오해가 줄어듭니다 */
