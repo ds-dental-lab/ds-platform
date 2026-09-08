@@ -9,6 +9,7 @@
 //     ALIGO_SENDER_KEY    카카오 발신프로필 키
 //     ALIGO_SENDER_PHONE  대체 문자 발신번호 (알리고에 등록된 번호)
 //   하나라도 없으면 보내지 않고 이유를 돌려줍니다 — 조용히 성공한 척 안 합니다.
+//   보내는 주소(알리고 API)는 DB 의 alimtalk_relay() 안에 있습니다.
 //
 // ★ 대체 문자(failover)를 켭니다. 카톡이 없는 번호면 같은 글이 문자로 갑니다.
 //   장문(LMS)이라 제목이 필요합니다 — title 을 씁니다.
@@ -16,10 +17,10 @@
 // =========================================================
 
 import 'server-only';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export type AligoResult = { ok: true; id: string } | { ok: false; reason: string; permanent: boolean };
 
-const ENDPOINT = 'https://kakaoapi.aligo.in/akv10/alimtalk/send/';
 
 export function aligoConfigured(): boolean {
   return Boolean(
@@ -71,10 +72,27 @@ export async function sendAligo(input: {
   }
 
   try {
-    const res = await fetch(ENDPOINT, { method: 'POST', body: form });
-    const json = (await res.json().catch(() => null)) as { code?: number; message?: string; info?: unknown } | null;
+    /*
+      ★ 직접 부르지 않고 **DB 를 거칩니다** (2026-09-08). 알리고는 부르는
+        서버의 IP 를 등록하라고 하는데 Vercel 은 IP 가 고정이 아닙니다.
+        Supabase DB 는 나가는 IP 가 하나(15.165.4.219)라 그것을 등록해 두고,
+        DB 의 alimtalk_relay() 가 이 폼을 알리고에 그대로 전달합니다.
+        열쇠는 여기서 폼에 넣어 보내므로 DB 에는 남지 않습니다.
+      ★ 그 IP 가 바뀌면(Supabase 가 프로젝트를 옮길 때) 같은 오류가 다시
+        납니다 — 그때는 egress_ip() 로 새 IP 를 알아내 알리고에 등록합니다.
+    */
+    const { data, error } = await createAdminClient().rpc('alimtalk_relay', { form: form.toString() });
+    if (error) return { ok: false, permanent: false, reason: `DB 중계 실패: ${error.message}` };
 
-    if (!json) return { ok: false, permanent: false, reason: `알리고 응답을 못 읽었습니다 (${res.status})` };
+    const relayed = data as { status: number; content: string } | null;
+    let json: { code?: number; message?: string; info?: unknown } | null = null;
+    try {
+      json = relayed?.content ? JSON.parse(relayed.content) : null;
+    } catch {
+      json = null;
+    }
+
+    if (!json) return { ok: false, permanent: false, reason: `알리고 응답을 못 읽었습니다 (${relayed?.status ?? '?'})` };
     if (json.code !== 0) {
       /*
         ★ 영구 실패와 잠깐 실패를 나눕니다. 템플릿 불일치·검수 중·번호 이상은
