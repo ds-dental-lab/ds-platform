@@ -1,0 +1,40 @@
+{
+  "orderId": "mock",
+  "orderNo": "ORD-TEST",
+  "patientName": "런처시험",
+  "orderDate": "2026-09-09",
+  "teeth": [
+    {
+      "number": 46,
+      "type": "crown"
+    },
+    {
+      "number": 45,
+      "type": "pontic"
+    },
+    {
+      "number": 44,
+      "type": "crown"
+    }
+  ],
+  "bridges": [
+    [
+      44,
+      45,
+      46
+    ]
+  ],
+  "files": [
+    {
+      "name": "2026-09-09-런처시험-maxillary.ply",
+      "url": "C:\\Users\\DS\\Desktop\\exocad-DentalCAD3.2 DOF 25-01-07(9036)\\CAD-Data\\2026-08-21_하소라\\2026-08-21_하소라-upperjaw.ply",
+      "size": 1
+    },
+    {
+      "name": "2026-09-09-런처시험-mandibular.ply",
+      "url": "C:\\Users\\DS\\Desktop\\exocad-DentalCAD3.2 DOF 25-01-07(9036)\\CAD-Data\\2026-08-21_하소라\\2026-08-21_하소라-lowerjaw.ply",
+      "size": 1
+    }
+  ],
+  "unknownTypes": []
+}

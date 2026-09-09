@@ -1,0 +1,784 @@
+l m!Z"
+l#m$Z$m%Z%
+j/Z0e*e0d
+e6e*e*f
+Z:e8d!
+Z>e<e+e8
+Z?Z@e?
+e@e8d)<
+ZFeFjGd*d/
+jLd2d3e
+jNeJd4d5
+ZRd<d=
+_Te*e0d>
+d*d*dCdD
+Z\dGdH
+dRe*dNeaf
+dWe*dXe*dYeaf
+dXe*dYead
+Zed_d`
+dae*dYead
+dde*dYead
+ZhdLZidgZjdhZkdidj
+qdmdnepdo
+Z{ede{e&d}
+Z}ede}e'd
+Z~ede~e(d
+]qZrer
+e<e@d+
+datetime)
+filedialog)
+webdriver)
+StaleElementReferenceException
+TimeoutException
+WebDriverException)
+Options)
+ActionChains)
+WebDriverWait)
+expected_conditions)
+DND_FILES
+TkinterDnD
+Patientz
+2000-01-01
+PATIENT001
+filename
+returnc
+DS Core names the export "<CardID>...<_exocad>.zip" 
+ and Chrome appends
+    " (N)" before .zip on name collisions, so accept that too. Much tighter than
+    "any new file not ending in .crdownload", which would misfire if anything else
+    lands in the download folder during the wait.
+_exocadz
+startswith
+PATIENT_CARD_ID
+endswith)
+main.py
+is_exocad_export 
+frozenFz
+settings.jsonc
+zFRead settings.json. Returns an empty dict on first run or read errors.
+encodingN)
+exists
+SETTINGS_FILE
+JSONDecodeError
+OSError)
+load_settings7
+indent
+ensure_ascii)
+save_settingsB
+Show a small dialog asking for DS Core email + password.
+    Exits the program if the user closes it without submitting both fields.N)
+passwordz
+DS Core Login
+340x210F
+WM_DELETE_WINDOW
+Email)
+Segoe UI
+fontr/
+anchor
+width)
+Password)
+_eventr5
+email_entry
+password_entry
+result
+on_submitZ
+z,prompt_credentials_dialog.<locals>.on_submit
+command
+<Return>r5
+No credentials entered 
+ exiting.)
+geometry
+resizable
+protocolrI
+Button
+focus_set
+mainloop
+destroy
+prompt_credentials_dialogG
+initial_headlessc
+Open the .dxd drag-and-drop window. Returns (file_path or None, headless_choice).
+    Returns (None, headless) if the user closes the window without picking 
+ the caller
+    decides whether that means 'exit' (first iteration) or 'stop looping' (later).N)
+headlessz
+DXD Upload
+420x270Fr8
+Drag a .dxd file here
+ridger0
+#f5f5f5
+relief
+borderwidthr=
+bothTr>
+expandr@
+valuez$Run browser in background (headless))
+variable)
+withdraw
+afterrI
+headless_varrO
+selectedr
+use_path
+z#pick_file_via_gui.<locals>.use_pathc
+datarH
+on_drop
+z"pick_file_via_gui.<locals>.on_dropc
+Choose a .dxd file)
+DXD filesz
+All filesz
+filetypes
+askopenfilenamer
+on_browse
+z$pick_file_via_gui.<locals>.on_browse
+<<Drop>>
+Browse...rR
+BooleanVar
+Checkbutton
+drop_target_registerr
+dnd_bindr_
+TclError)
+drop_zoner
+pick_file_via_gui{
+zzOpen a drag-and-drop window for a .dentalproject file.
+    Returns None if the user closes the window without picking one.r$
+Extract to .dentalproject
+420x220Fr8
+Drag a .dentalproject file hererj
+z,pick_dentalproject_via_gui.<locals>.use_pathc
+z+pick_dentalproject_via_gui.<locals>.on_dropc
+Choose a .dentalproject file)
+dentalproject filesz
+*.dentalprojectr
+z-pick_dentalproject_via_gui.<locals>.on_browser
+pick_dentalproject_via_gui
+StatusPopupu4
+Modeless status window updated from the main thread between selenium steps.
+    Selenium runs synchronously on the main thread, so the popup can't animate during
+    long WebDriverWait calls 
+ but a text update at each milestone is enough to tell
+    the user the script is alive and making progress.
+DXD ConversionrX
+460x110F
+-topmostTr8
+<lambda>
+z&StatusPopup.__init__.<locals>.<lambda>z
+Starting...rx
+leftr/
+textvariabler=
+wraplength
+justifyr?
+attributesr[
+StringVar
+update)
+selfrX
+__init__
+StatusPopup.__init__r<
+StatusPopup.setc
+StatusPopup.hidec
+deiconifyr
+StatusPopup.showc
+StatusPopup.close)
+__name__
+__module__
+__qualname__
+__doc__r
+No file selected 
+ exiting.z
+Starting browser...
+exist_okz
+%Y%m%d_%H%M%Sz
+_log.txtz
+[%(asctime)s] %(message)sz
+%H:%M:%Sr 
+format
+datefmt
+handlersg
+condition)
+status_fn
+labelc
+Poll ``condition()`` on the main thread until it returns a truthy value, pumping the
+    Tk event loop each tick so the status window stays responsive.
+    The whole flow runs on the main thread, and the Tk window only repaints when something
+    pumps its event loop. A bare ``WebDriverWait`` blocks that thread for its full timeout,
+    so Windows paints the window as "Not Responding" (looks frozen) for minutes on a slow
+    step. This keeps the window alive and lets ``status_fn`` show live progress.
+    Returns the truthy value, or raises ``TimeoutError`` after ``timeout`` seconds.
+    Tz
+Timed out after z
+s waiting for N)
+monotonic
+TimeoutError
+statusr
+sleep)
+timeoutr
+deadlinerN
+pump_until@
+Uncaught exception)
+exc_info)
+issubclass
+KeyboardInterruptrd
+__excepthook__
+error)
+exc_type
+_log_uncaught\
+chrome-sessionz
+--headless=newz
+--window-size=1920,1080z
+--user-data-dir=
+prefsr
+download.default_directoryz
+download.prompt_for_downloadz
+download.directory_upgradez
+safebrowsing.enabledz:profile.default_content_setting_values.automatic_downloadsc
+Kill orphaned Chrome processes still holding our persistent profile.
+    A crashed run can leave chrome.exe children running with --user-data-dir pointed at
+    chrome-session; they keep the profile locked, so the next launch dies with
+    "DevToolsActivePort file doesn't exist". We match on the profile path so we only ever
+    kill *our* Chrome 
+ never the user's normal browser.
+win32NzbGet-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -like '*z\*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+powershellz
+-NoProfilez
+-NonInteractivez
+-CommandT
+capture_outputr
+creationflagsz7Killed orphaned Chrome processes holding chrome-sessionr
+z,Could not kill orphaned Chrome processes: %s)
+platform
+CHROME_PROFILE_DIR
+subprocess
+CREATE_NO_WINDOWr
+warningr
+Exception)
+kill_errr
+kill_orphan_chrome
+Launch Chrome with the persistent profile, recovering from a stale chrome-session.
+    If a previous run crashed and orphaned its Chrome process, the profile is left locked
+    and chromedriver fails to start with "DevToolsActivePort file doesn't exist" /
+    "user data directory is already in use". Recover in two escalating steps:
+      1. Kill the orphaned Chrome processes still holding the profile, then retry 
+         keeps the saved login intact.
+      2. If it still won't start, the profile itself is likely corrupt: wipe it and retry
+         (this drops the login, so a fresh sign-in follows).)
+options)
+DevToolsActivePortz%user data directory is already in usez
+cannot create default profilez
+Chrome failed to startc
+<genexpr>
+z create_driver.<locals>.<genexpr>u9
+Chrome failed to start 
+ chrome-session looks stale: %sr
+Still failing after killing orphans 
+ wiping chrome-session (you'll need to log in again)uK
+Could not remove chrome-session (%s) 
+ is another instance still running?)
+Chromer
+splitlinesr
+isdirr
+shutil
+rmtreer+
+stale_markers
+rm_errr
+create_driver
+<lambda>.<locals>.<lambda>)
+driverr
+Loading DS Core...z
+https://r9.dscore.com/r;
+Make sure Flutter's accessibility tree is active. Idempotent 
+ if it's already
+    on (semantics-host has children), do nothing; otherwise click the placeholder.c
+flt-semantics-host
+innerHTML
+find_elementr
+CSS_SELECTOR
+get_attributerH
+is_enabled
+z,ensure_semantics_enabled.<locals>.is_enabledNz
+flt-semantics-placeholder
+arguments[0].click();)
+presence_of_element_locatedr
+execute_scriptr
+placeholderr
+ensure_semantics_enabled
+targetc
+                const target = arguments[0].normalize('NFC');
+                const candidates = Array.from(document.querySelectorAll(
+                    'flt-semantics[role="button"], flt-semantics[flt-tappable=""]'
+                ));
+                return candidates.find(
+                    el => (el.textContent || '').normalize('NFC').includes(target)
+                );
+                
+z%wait_for_flt_button.<locals>.<lambda>ao
+            return {
+                bodyContainsTarget: document.body.innerText.normalize('NFC').includes(arguments[0].normalize('NFC')),
+                tappables: Array.from(document.querySelectorAll(
+                    'flt-semantics[role="button"], flt-semantics[flt-tappable=""]'
+                )).map(el => el.textContent || ''),
+            };
+            z
+wait_for_flt_button(%r) failed
+(body innerText contains target (NFC): %s
+bodyContainsTarget
+ %d tappable flt-semantics found:
+tappables
+  [%d] %r)
+enumerate)
+wait_for_flt_button
+max_attemptsc
+Click, type, and verify. Flutter occasionally shifts focus mid-typing, which leaves
+    the field partially filled and the rest of the keystrokes landing in whatever field
+    grabbed focus next. Verify the value after each attempt and retry the whole field.r
+Input %r: expected %r, got %r 
+ retrying (%d/%d)z
+Could not fill z
+ with 
+ after z
+ attempts (last: 
+clickr
+send_keysr
+RuntimeError)
+input_elr<
+last_value
+attemptr
+fill_input
+ActionChains-click an element returned by `finder()`. Flutter constantly
+    rebuilds the semantics tree, so a freshly-found element can go stale before the
+    click event is dispatched 
+ retry the find+click as one unit when that happens.r
+%s went stale before click 
+ retrying (%d/%d)z
+: stale on all 
+ attempts)
+performr
+finderr
+stale_safe_click&
+        const inputs = Array.from(document.querySelectorAll('input'));
+        const byLabel = inputs.find(
+            el => (el.getAttribute('aria-label') || '').includes('검색')
+        );
+        if (byLabel) return byLabel;
+        return inputs.find(el => {
+            if (el.type === 'hidden') return false;
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+        }) || null;
+        r
+_find_patient_search_input3
+queryc
+Type `query` into the patients page search bar. With many existing patients,
+    the target row may live outside the virtualized render window and never appear
+    until the list is filtered down.
+    Doesn't use fill_input because WebDriver's element.clear() resets the input's
+    value attribute but Flutter keeps its own editing buffer, so subsequent send_keys
+    appends to the prior text instead of replacing it. Real keystrokes (Ctrl+A +
+    Backspace) bypass that. Re-finds the input on staleness 
+ Flutter often rebuilds
+    the semantics tree between locate and the first event dispatch.r
+환자 검색: expected %r, got %r 
+ retrying (%d/%d)u,
+Search input went stale 
+ retrying (%d/%d)a
+                return Array.from(document.querySelectorAll('input')).map(el => {
+                    const r = el.getBoundingClientRect();
+                    return {
+                        'aria-label': el.getAttribute('aria-label'),
+                        placeholder: el.getAttribute('placeholder'),
+                        type: el.type,
+                        value: el.value,
+                        visible: r.width > 0 && r.height > 0,
+                    };
+                });
+                z+Search input not found. All inputs on page:
+  %su"
+Could not fill 환자 검색 with r
+CONTROL
+BACKSPACEr
+search_inputry
+inputs_infor
+search_in_patient_listH
+patient_display_namec
+Navigate to /patients and delete `patient_display_name` if present.
+    Returns True if a patient was found and deleted, False if none existed.
+    Used both as post-export cleanup and as a pre-iteration safety check in case
+    a previous run failed before its own cleanup ran. Always refreshes the page 
+    DS Core's app state goes stale after recent ops and even manual delete fails
+    until the page reloads, which resets Flutter's widget tree.Nr
+ https://r9.dscore.com/#/patients
+Patients list didn't load (attempt %d/%d) 
+ re-navigatingz!Patients list never loaded after r*
+7//flt-semantics[@role='button' and normalize-space(.)='
+No existing patient %r foundFz
+Deleting patient %sz3']/following-sibling::flt-semantics[@role='button']c
+                const groups = document.querySelectorAll('flt-semantics[role="group"]');
+                for (const g of groups) {
+                    const buttons = Array.from(g.querySelectorAll(':scope > flt-semantics[role="button"]'));
+                    const texts = buttons.map(b => (b.textContent || '').trim().normalize('NFC'));
+                    if (texts.some(t => t.includes('삭제')) && texts.some(t => t.includes('수정'))) {
+                        return buttons.find(b => (b.textContent || '').normalize('NFC').includes('삭제'));
+                    }
+                }
+                return null;
+                r
+zHdelete_patient_if_exists.<locals>.find_row_menu_delete.<locals>.<lambda>
+find_row_menu_delete
+z6delete_patient_if_exists.<locals>.find_row_menu_deletec
+            return Array.from(document.querySelectorAll('flt-semantics')).some(
+                el => (el.textContent || '').normalize('NFC').includes('삭제하시겠습니까')
+            );
+            r
+confirmation_dialog_open
+z:delete_patient_if_exists.<locals>.confirmation_dialog_openu$
+Opening 
+ menu and clicking 삭제r{
+삭제 didn't open the confirmation dialog 
+ retrying (%d/3): %sa
+            return {
+                tappables: Array.from(document.querySelectorAll(
+                    'flt-semantics[role="button"], flt-semantics[flt-tappable=""]'
+                )).map(el => (el.textContent || '').trim()),
+                allText: Array.from(document.querySelectorAll('flt-semantics span'))
+                    .map(el => (el.textContent || '').trim()).filter(t => t),
+            };
+            z4Confirmation dialog never appeared after 3 attempts.z
+Tappable elements (%d):r
+Visible span text (first 30):
+allTextr
+Confirmation dialog never appeared after opening 
+Ticking confirmation checkboxc
+                const matches = Array.from(document.querySelectorAll('flt-semantics')).filter(
+                    el => (el.textContent || '').normalize('NFC').includes('저장했습니다')
+                );
+                if (!matches.length) return null;
+                // Pick the deepest match: no other matching element nested inside it.
+                const leaves = matches.filter(
+                    el => !matches.some(other => other !== el && el.contains(other))
+                );
+                const leaf = leaves[0];
+                if (!leaf) return null;
+                let row = leaf;
+                while (row && !(row.tagName === 'FLT-SEMANTICS' && row.hasAttribute('flt-tappable'))) {
+                    row = row.parentElement;
+                }
+                // Reject the root 
+ flt-semantic-node-1 is tappable but not the row
+                if (!row || row.id === 'flt-semantic-node-1') return null;
+                let sib = row.previousElementSibling;
+                while (sib) {
+                    if (sib.tagName === 'FLT-SEMANTICS' && sib.getAttribute('role') === 'button') return sib;
+                    sib = sib.previousElementSibling;
+                }
+                return row;
+                r
+zIdelete_patient_if_exists.<locals>.find_confirm_checkbox.<locals>.<lambda>r@
+find_confirm_checkbox
+z7delete_patient_if_exists.<locals>.find_confirm_checkboxz
+confirmation checkboxu
+            return Array.from(document.querySelectorAll('flt-semantics'))
+                .filter(el => (el.textContent || '').includes('저장'))
+                .map(el => ({
+                    id: el.id,
+                    role: el.getAttribute('role'),
+                    tappable: el.hasAttribute('flt-tappable'),
+                    text: (el.textContent || '').trim().slice(0, 120),
+                    childCount: el.children.length,
+                }));
+            uA
+Checkbox label not found in dialog. Elements containing '저장':r2
+Locating dialog 삭제 and clickingc
+                const close = Array.from(document.querySelectorAll('flt-semantics')).find(
+                    el => (el.textContent || '').trim().normalize('NFC') === '닫기'
+                );
+                if (!close) return null;
+                let sib = close.nextElementSibling;
+                while (sib) {
+                    if (
+                        sib.tagName === 'FLT-SEMANTICS'
+                        && (sib.textContent || '').normalize('NFC').includes('삭제')
+                    ) return sib;
+                    sib = sib.nextElementSibling;
+                }
+                return null;
+                r
+zFdelete_patient_if_exists.<locals>.find_dialog_delete.<locals>.<lambda>r@
+find_dialog_delete1
+z4delete_patient_if_exists.<locals>.find_dialog_deleteu
+dialog 삭제u.
+Confirmation dialog closed 
+ patient deleteduO
+Dialog 삭제 click didn't close the dialog 
+ checkbox probably wasn't tickedT)
+refreshr
+splitr
+XPATHr
+until_not)
+last_errr(
+row_menu_xpathrA
+row_menu_btn
+delete_btn
+snapshotr
+itemrF
+delete_patient_if_existsx
+//flt-semantics[@role='button' and (normalize-space(text())='Login' or normalize-space(text())='로그인')]uG
+//flt-semantics[@role='button' and contains(normalize-space(.), '홈')]c
+zQFill the login form from the stored credentials and wait for the #/home redirect.z
+Landing page: clicking LoginrT
+Login: filling credentialsz
+input#emailz
+input#current-passwordz'Waiting for login redirect to #/home...r
+#/homeN)
+element_to_be_clickabler
+LOGIN_BTN_XPATHr"
+EMAILr
+PASSWORD
+url_contains)
+login_btn
+email_input
+password_inputr
+perform_login\
+Make sure we end up authenticated. The persistent Chrome profile usually keeps us
+    signed in, but the session can expire 
+ so verify a logged-in marker is actually present
+    rather than assuming it from a missing Login button. If we're not logged in, sign in from
+    the saved credentials, retrying a few times (reloading the landing page between attempts).r
+find_elementsr
+NAV_HOME_XPATHrT
+z"ensure_logged_in.<locals>.<lambda>u<
+Already logged in from a previous session 
+ skipping loginz
+Login successfulNuC
+Not logged in 
+ signing in from saved credentials (attempt %d/%d)u?
+Login attempt %d/%d did not complete 
+ reloading and retryingz
+Could not log in after u4
+ attempts 
+ check the credentials in settings.json)
+LANDING_URLr%
+ensure_logged_inp
+Page.setDownloadBehavior
+allow)
+behavior
+downloadPathz
+=== Converting %s ===r:
+Converting z!
+Checking for existing patient...z
+Opening order form...z#Dashboard: navigating to order formz0https://r9.dscore.com/#/order_form?navctx=ordersz&Order form: opening new patient dialoguN
+//flt-semantics[@role='button' and contains(normalize-space(.), '새 환자')]r
+z New patient dialog: filling formz
+Creating patient...u
+input[aria-label='이름']u
+input[aria-label='성']u
+input[aria-label^='생년월일']u
+생년월일u(
+input[aria-label='카드 ID / 환자ID']u
+카드 IDuF
+//flt-semantics[@role='button' and normalize-space(.)='환자 추가']z
+Patients list: opening %sz
+Opening patient page...r<
+Patient %r not in list yet 
+ retrying (%d/4)a
+            return {
+                url: location.href,
+                bodyContainsTarget: document.body.innerText.normalize('NFC').includes(arguments[0].normalize('NFC')),
+                tappables: Array.from(document.querySelectorAll(
+                    'flt-semantics[role="button"], flt-semantics[flt-tappable=""]'
+                )).map(el => el.textContent || ''),
+            };
+            z%Patient %r never appeared in the listz
+current url: %s
+Patient z
+ never appeared in the listz(Patient page: opening media upload modaluL
+//flt-semantics[@role='button' and normalize-space(.)='미디어 업로드']u^
+//flt-semantics[contains(normalize-space(.), '여기에 파일을 드래그하거나 선택')]i
+z#Uploading %s (%.1f MB) in %d chunksz
+Uploading z
+ MB)...z
+window._uploadChunks = [];
+  chunk %d/%dz
+Chunk z
+                const binStr = atob(arguments[0]);
+                const bytes = new Uint8Array(binStr.length);
+                for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+                window._uploadChunks.push(bytes);
+                
+asciiac
+        const filename = arguments[0];
+        const file = new File(window._uploadChunks, filename, { type: 'application/octet-stream' });
+        window._uploadChunks = null;
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        const containers = document.querySelectorAll('[id^="dropzone-container-"]');
+        const target = containers[containers.length - 1];
+        ['dragenter', 'dragover', 'drop'].forEach((type) => {
+            target.dispatchEvent(new DragEvent(type, {
+                bubbles: true, cancelable: true, dataTransfer: dt,
+            }));
+        });
+        z
+Submitting uploadz
+Submitting upload...uW
+//flt-semantics[@role='button' and starts-with(normalize-space(.), '파일 업로드')]z;Waiting for DS Core to process the upload (up to 10 min)...
+Waiting for DS Core to process the upload
+(can take several minutes)...c
+            const uploaded = arguments[0].normalize('NFC');
+            return Array.from(document.querySelectorAll('flt-semantics[aria-label]')).find(el => {
+                const label = (el.getAttribute('aria-label') || '').normalize('NFC');
+                return label.includes('.dxd') && label.includes('DI_') && !label.includes(uploaded);
+            }) || false;
+            )
+uploaded_basenamer
+basename
+FILE_TO_UPLOADr
+DS Core to process the upload)
+z(Opening three-dots menu on the file carda7
+        const card = arguments[0];
+        return Array.from(card.querySelectorAll('flt-semantics[role="button"]')).find(b =>
+            !b.querySelector('flt-semantics[role="button"]') &&
+            !b.getAttribute('aria-label') &&
+            (b.textContent || '').trim() !== ''
+        ) || null;
+        z7Could not locate the three-dots button on the file cardu
+다운로드u;
+Hovering 다른 이름으로 다운로드 to expand submenuz
+.exocad)
+z Clicking .exocad to start exportz
+Starting .exocad export...z0Waiting for export to finish downloading into %sz
+Downloading export...
+existing_downloadsr
+.crdownload)
+<listcomp>
+Export download started (%s)z.Downloading export: %.1f MB so far (%.2f MB/s)uG
+Export download stalled 
+ %s sat at %.1f MB for >%ds. %s contains: %sz
+Export download stalled at z
+ MB (no progress for ub
+ check the connection or whether Chrome is holding the file behind a download-safety prompt.z
+Downloading export... (z
+ MB)z<Export never started downloading within %ds. %s contains: %sz(Export did not start downloading within u>
+ the .exocad export may not have triggered on the server.c
+z5Export complete: %s (%.1f MB in %.0fs, avg %.2f MB/s)z
+Export complete: %s (%.1f MB)u$
+Cleaning up 
+ deleting patient...u7
+ prompting for .dentalproject extraction targetu'
+No .dentalproject selected 
+ exiting.z
+Not a file: z
+Extracting into z
+DOWNLOAD_DIRrq
+No exported file found to extract 
+ exiting.z
+Extracting %s into %sr
+.dentalprojectN)
+No .dentalproject file inside z
+Renaming prefix %r -> %rru
+z8Skipping %r (would overwrite the dropped .dentalproject)z"Skipping %r (not prefixed with %r)
+Extraction completez
+Deleted %suI
+Ready for the next file 
+ drop another .dxd or close the window to exitu
+No more files 
+ exitingu?
+Headless preference changed 
+ will take effect on next launch)
+atexit
+base64r(
+loggingr#
+tkinterrV
+zipfiler
+pathlibr
+seleniumr
+selenium.common.exceptionsr
+!selenium.webdriver.chrome.optionsr
+'selenium.webdriver.common.action_chainsr
+selenium.webdriver.common.byr
+selenium.webdriver.common.keysr
+selenium.webdriver.support.uir
+selenium.webdriver.supportr
+tkinterdnd2r
+PATIENT_FIRST_NAME
+PATIENT_LAST_NAME
+PATIENT_BIRTHDAYr
+getattr
+executable
+parent
+BASE_DIR
+__file__r&
+dictr-
+tuplerf
+settingsrG
+_first_path
+_headlessre
+registerr
+_logs_dir
+strftime
+_log_file
+basicConfig
+StreamHandler
+FileHandler
+getLoggerr
+excepthookr
+add_argument
+add_experimental_optionr$
+dirname
+normpathr
+maximize_windowrU
+next_file_to_uploadrm
+execute_cdp_cmdr
+new_patient_btnr
+first_namer
+last_name
+birthday
+card_id
+submit_btn
+patient_xpath
+patient_rowr!
+upload_btn
+CHUNK_SIZE
+getsize
+file_size
+total_chunks
+file_mbr'
+chunk_idx
+b64encode
+decode
+submit_upload_btnrk
+file_card
+three_dots_btnr%
+download_as_btn
+move_to_elementr+
+exocad_btn
+listdirrp
+START_DEADLINE
+STALL_LIMIT
+LOG_INTERVAL
+start_deadline
+last_size
+last_growth
+download_start
+last_log_time
+last_log_size
+filesr
+partials
+sizers
+sortedr
+new_exports
+final_size
+elapsed
+dentalproject_path
+is_file
+extract_dirrF
+exported_ziprv
+new_prefix
+ZipFile
+namelist
+old_prefix
+infolist
+is_dirr
+original_namer
+renamed
+copyfileobj
+remove
+next_path
+next_headlessr
+<module>
