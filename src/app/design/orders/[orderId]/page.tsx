@@ -21,6 +21,8 @@ import { getHolidayMap } from '@/server/repositories/holiday';
 import { todayInKst } from '@/server/domain/week';
 import { canUploadDesignFile, canPrintWorkOrder } from '@/server/domain/order-status';
 import WorkOrderButton from '@/components/order/WorkOrderButton';
+import ExocadSendButton from '@/components/order/ExocadSendButton';
+import { getLastExocadExport } from '@/server/repositories/exocad';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
 import OrderAdjustPanel from '@/components/order/OrderAdjustPanel';
 import { getOrderMoney } from '@/server/repositories/order-money';
@@ -111,7 +113,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
     ★ 리메이크가 아니면 사유를 묻지도 않습니다 (2026-08-14).
       원주문에는 적을 사유가 없습니다.
   */
-  const [repair, reasons, money, seats, fitCard] = await Promise.all([
+  const [repair, reasons, money, seats, fitCard, exocadLast] = await Promise.all([
     getRepairContext(order),
     order.is_remake
       ? getOrderReasons(orderId)
@@ -131,6 +133,8 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
         치과명을 누르면 카드로 열립니다.
     */
     getFitCard(order.clinic_org_id),
+    // ★ exocad 로 보낸 마지막 기록 (2026-09-09) — 런처가 안 뜬 것을 알아채는 단서
+    getLastExocadExport(order.id),
   ]);
 
   const mySeat = checkSeat(seat, viewer);
@@ -246,9 +250,17 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
           작업대에 있는 사용자입니다.
       */
       sheetSlot={
-        canPrintWorkOrder(order.roles) ? (
-          <WorkOrderButton href={`/design/orders/${order.id}/work-order`} />
-        ) : null
+        <>
+          {canPrintWorkOrder(order.roles) ? (
+            <WorkOrderButton href={`/design/orders/${order.id}/work-order`} />
+          ) : null}
+          {/*
+            ★ exocad 로 보내기 (2026-09-09, 설계서 exocad-연동-설계서.md v2).
+              센터 화면에만 있습니다 — 치과·기공소는 이 페이지가 아닙니다.
+              관리자·사용자를 안 가립니다. exocad 앞에 앉는 사람이 누릅니다.
+          */}
+          <ExocadSendButton orderId={order.id} last={exocadLast} />
+        </>
       }
       issueSlot={
         <RepairPanel repair={repair} isRepair={order.is_repair} orderPath="/design/orders" />
