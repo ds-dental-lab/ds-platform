@@ -8,7 +8,7 @@
 import 'server-only';
 import { unstable_cache } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createPublicClient } from '@/lib/supabase/public';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/server/policies/session';
 import type { ImplantCatalog } from '@/server/domain/implant';
 
@@ -54,9 +54,16 @@ export const IMPLANT_CATALOG_TAG = 'implant-catalog';
  *   가격이 섞이지도 않습니다. 그래서 한 번 읽어 두고 함께 씁니다.
  *   열 곳 넘는 화면이 매번 다시 물어보던 것이 사라집니다.
  *
- * ★ 그래서 쿠키를 안 보는 연결을 씁니다 (createPublicClient).
- *   캐시 안에서는 쿠키를 못 읽습니다 — 여러 요청이 함께 쓰는 것이라
- *   한 사람의 쿠키를 보면 그 사람 것이 남에게 가기 때문입니다.
+ * ★ 그래서 쿠키를 안 보는 연결을 씁니다. 캐시 안에서는 쿠키를 못 읽습니다 —
+ *   여러 요청이 함께 쓰는 것이라 한 사람의 쿠키를 보면 그 사람 것이 남에게
+ *   가기 때문입니다.
+ *
+ * ★★ 공개(anon) 연결이 아니라 **관리자 연결**입니다 (2026-09-10 고침).
+ *   2026-08-21 에 마스터 표를 "로그인해야 읽음" 으로 조였는데(master_needs_login),
+ *   여기는 계속 anon 으로 읽어 **빈 목록**이 됐습니다. 캐시에 남은 옛 목록으로
+ *   버티다 캐시가 비는 순간 주문 등록의 임플란트 창이 텅 비었습니다.
+ *   이 표는 가격도 개인정보도 없는 공용 목록이라 관리자 연결로 읽어도 새는 것이
+ *   없고, 화면에서 부르는 사람은 어차피 로그인한 사람입니다.
  *
  * ★ 임플란트를 고치면 그 자리에서 캐시를 비웁니다
  *   (actions/implant 의 revalidateTag). 그 연결이 끊기면
@@ -69,7 +76,7 @@ export const getImplantCatalog = unstable_cache(
 );
 
 async function loadImplantCatalog(): Promise<ImplantCatalog> {
-  const supabase = createPublicClient();
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from('implant_makers')
