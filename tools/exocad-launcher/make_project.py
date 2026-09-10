@@ -102,37 +102,22 @@ def _mesial_order_key(n: int) -> int:
 
 # ---------- 조립 ----------
 
-def build_project(
-    patient_name: str,
-    teeth: list[dict],          # [{"number": 46, "type": "crown"}, ...]
-    bridges: list[list[int]],   # [[44, 45, 46]]
-    when: dt.datetime | None = None,
-    patient_id: int = 0,
-) -> str:
-    xml = _read_sample()
-    blocks = _tooth_blocks(xml)
-    when = when or dt.datetime.now().astimezone()
-
+def plan_teeth(teeth: list[dict], bridges: list[list[int]]) -> tuple[dict[int, str], set[int], set[int], int | None]:
+    """치식 계산만 — (작업치아, 근심연결 true 집합, 인접치, 대합치). 주문서와 DB 등록이 같은 답을 씁니다."""
     work = {t["number"]: t["type"] for t in teeth}
     if not work:
         raise ValueError("작업 치아가 없습니다")
-
-    # 브릿지: 가장 근심 치아만 false, 나머지 true
     mesial: set[int] = set()
     for b in bridges:
         if len(b) < 2:
             continue
         most_mesial = min(b, key=_mesial_order_key)
         mesial.update(x for x in b if x != most_mesial)
-
-    # 인접치: 작업치아 양옆 중 작업치아가 아닌 것
     healthy: set[int] = set()
     for n in work:
         for nb in neighbors(n):
             if nb not in work:
                 healthy.add(nb)
-
-    # 대합치: 한쪽 악에만 있으면 반대편 하나
     uppers = [n for n in work if _is_upper(n)]
     lowers = [n for n in work if not _is_upper(n)]
     antagonist: int | None = None
@@ -140,6 +125,24 @@ def build_project(
         antagonist = antagonist_of(sorted(uppers)[0])
     elif lowers and not uppers:
         antagonist = antagonist_of(sorted(lowers)[0])
+    return work, mesial, healthy, antagonist
+
+
+TRAY_NO = 2  # 샘플과 같은 값. DB 의 t_schaleId 와 XML 의 TrayNo 가 같아야 합니다
+
+
+def build_project(
+    patient_name: str,
+    teeth: list[dict],          # [{"number": 46, "type": "crown"}, ...]
+    bridges: list[list[int]],   # [[44, 45, 46]]
+    when: dt.datetime | None = None,
+    patient_id: int = 0,
+    project_guid: str | None = None,
+) -> str:
+    xml = _read_sample()
+    blocks = _tooth_blocks(xml)
+    when = when or dt.datetime.now().astimezone()
+    work, mesial, healthy, antagonist = plan_teeth(teeth, bridges)
 
     rendered: list[str] = []
     for n in sorted(work):
@@ -158,7 +161,8 @@ def build_project(
     out = head + "  <Teeth>\r\n" + "".join(rendered) + "  </Teeth>" + tail
 
     out = re.sub(r"<DateTime>[^<]*</DateTime>", f"<DateTime>{when.isoformat()}</DateTime>", out, count=1)
-    out = re.sub(r"<ProjectGUID>[^<]*</ProjectGUID>", f"<ProjectGUID>{uuid.uuid4()}</ProjectGUID>", out, count=1)
+    out = re.sub(r"<ProjectGUID>[^<]*</ProjectGUID>", f"<ProjectGUID>{project_guid or uuid.uuid4()}</ProjectGUID>", out, count=1)
+    out = re.sub(r"<TrayNo>\d+</TrayNo>", f"<TrayNo>{TRAY_NO}</TrayNo>", out, count=1)
     uid = "".join(random.choices(string.ascii_uppercase, k=26))
     out = re.sub(r"<ProjectUniqueId>[^<]*</ProjectUniqueId>", f"<ProjectUniqueId>{uid}</ProjectUniqueId>", out, count=1)
     # ★ 검증 결과(2026-09-09): PatientId 0 으로 가져오면 exocad 가 환자를 새로

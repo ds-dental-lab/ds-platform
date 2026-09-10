@@ -2,7 +2,7 @@
 
 > 대상: Denflow 코드베이스를 담당하는 Claude Code 세션, 그리고 PC 쪽 런처를 만드는 사람
 > 목적: Denflow 주문 목록에서 버튼 하나로 exocad 주문서까지 만들어지는 기능
-> 상태: 2026-09-09 설계. **exocad 검증 통과**. **Denflow 쪽 완료**(커밋 031262f). **런처 1단계 완료·실제 주문 1건 통과(2026-09-10 ORD-260910-001)**. **dxd 자동화 완료(2026-09-10 오후, dscore.py — DS Core 브라우저 자동화, 실제 116MB dxd 로 통과)**. 남은 것: sqlite 직접 등록(가져오기 클릭 없애기).
+> 상태: 2026-09-09 설계. **exocad 검증 통과**. **Denflow 쪽 완료**(커밋 031262f). **런처 1단계 완료·실제 주문 1건 통과(2026-09-10 ORD-260910-001)**. **dxd 자동화 완료(2026-09-10 오후, dscore.py — DS Core 브라우저 자동화, 실제 116MB dxd 로 통과)**. **sqlite 직접 등록 완료(2026-09-10 오후, exocad_db.py) — 가져오기 클릭 없음. exocad 가 열려 있어도 목록에 바로 뜸(검증: 치식·스캔·디자인 진입).**
 > v1(상주 에이전트 + 큐 폴링)에서 바뀐 점은 맨 아래 §8.
 > (원본은 Desktop 에 있었으나 2026-09-10 사라져 저장소로 옮김)
 
@@ -123,6 +123,17 @@
 - 가져오기 시 DB 줄: Treatment 1, patients 1, ToothWork n, ToothWorkParameters ~11×n, TreatmentValuedParameters 2, ValuedMaterialParameters 1, WorkParamsInfo 1 + LocalImport 1.
 - PatientId 0 은 0 그대로 저장돼 둘째부터 충돌 → max+1.
 - 2단계 후보: sqlite 직접 등록(클릭 0회). exocad 가 DB 를 열고 있어 잠금 주의.
+
+## 6-2. DB 직접 등록 (exocad_db.py)
+- 가져오기가 만드는 줄을 그대로: patients(fname='', lname=이름) / WorkParamsInfo(+LocalImport) / Treatment / ToothWork(flags=MesialConnector) / ToothWorkParameters(+Numeric·Textual·Dependent) / ValuedMaterialParameters / TreatmentValuedParameters. 치아 파라미터는 **같은 종류의 기존 치아를 복제**.
+- ★ exocad 는 케이스 폴더를 `{t_date 날짜}_{lname}` 로 찾는다 → DB t_date 와 XML DateTime 을 **폴더 날짜(주문일)** 로 맞춤. 어긋나면 "이 프로젝트의 파일은 유효하지 않습니다".
+- ProjectGUID·PatientId·TrayNo(2) 는 XML 과 DB 가 같아야 함. 한 트랜잭션(begin immediate), 실패 시 가져오기 안내로 물러섬.
+- 시험 정리: `ExocadDb.delete_treatment(tid)`.
+
+## 6-3. 런처 UI (2026-09-10 오후)
+- 작은 알림 띠(오른쪽 아래, 제목줄 없음): 단계·환자·막대. 성공하면 6초 뒤 **스스로 닫힘**, 실패하면 남아서 이유. 띠 클릭 = 자세히, 드래그 = 이동.
+- dxd 가 여럿이면 내려받기 전에 **고르기 창**(사용자 요청). stl/obj/ply 는 전부.
+- dxd 동시 변환은 잠금(dscore.lock)으로 줄 세움.
 
 ## 7. 남은 것
 1. dxd DS Core 자동화 — exe 소스 없음. 흐름은 `dxd-conversion-strings.txt`(PyInstaller 문자열): 로그인(input#email, input#current-password) → 주문 양식 `#/order_form?navctx=orders` → 새 환자(flt-semantics 버튼) → 미디어 업로드(청크 주입) → ".exocad" 내보내기 → `<CardID>…_exocad.zip` → 케이스 폴더에 풀기 → 환자 삭제. DS Core 는 Flutter 웹. 계정은 `Desktop\settings.json` {email,password,headless}.

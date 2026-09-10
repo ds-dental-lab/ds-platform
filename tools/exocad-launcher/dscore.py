@@ -485,8 +485,46 @@ def split_name(name: str) -> tuple[str, str]:
     return name, name
 
 
+LOCK = HERE / "dscore.lock"
+
+
+def _acquire_lock(say, wait_minutes: int = 20) -> None:
+    """★ dxd 두 건을 동시에 보내면 전용 Chrome 프로필이 겹쳐 둘 다 망가집니다 (2026-09-10).
+       먼저 온 것이 끝날 때까지 뒤의 것이 기다립니다. 죽은 잠금(30분 이상)은 무시합니다."""
+    import os
+    deadline = time.time() + wait_minutes * 60
+    while True:
+        try:
+            if LOCK.exists() and time.time() - LOCK.stat().st_mtime > 1800:
+                LOCK.unlink()
+            fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            return
+        except FileExistsError:
+            if time.time() > deadline:
+                raise RuntimeError("다른 dxd 변환이 20분 넘게 끝나지 않아 기다리기를 멈췄습니다") from None
+            say("다른 dxd 변환이 진행 중 — 끝나기를 기다립니다")
+            time.sleep(10)
+
+
+def _release_lock() -> None:
+    try:
+        LOCK.unlink()
+    except FileNotFoundError:
+        pass
+
+
 def convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_id: str, show: bool = False, say=None) -> list[Path]:
     say = say or (lambda m: None)
+    _acquire_lock(say)
+    try:
+        return _convert(dxd, folder, folder_name, patient_name, card_id, show, say)
+    finally:
+        _release_lock()
+
+
+def _convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_id: str, show: bool, say) -> list[Path]:
     # ★ 임시 환자 이름은 **영어 + 주문번호** (사용자 지시 2026-09-10 — "환자명은 영어로, 중복 안 되게").
     #   덴플로우 환자명은 우리 .dentalProject 에 들어가므로 DS Core 쪽 이름은 아무래도 됩니다.
     #   카드 ID 에 초 단위 시각을 붙여 같은 주문을 다시 보내도 안 겹칩니다.
