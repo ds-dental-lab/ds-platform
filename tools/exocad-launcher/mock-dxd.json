@@ -1,0 +1,35 @@
+{
+  "orderId": "mock",
+  "orderNo": "ORD-TEST-DXD",
+  "patientName": "dxd런처시험",
+  "orderDate": "2026-09-10",
+  "teeth": [
+    {
+      "number": 46,
+      "type": "crown"
+    },
+    {
+      "number": 45,
+      "type": "pontic"
+    },
+    {
+      "number": 44,
+      "type": "crown"
+    }
+  ],
+  "bridges": [
+    [
+      44,
+      45,
+      46
+    ]
+  ],
+  "files": [
+    {
+      "name": "차정순 #27 2 (1).dxd",
+      "url": "C:\\Users\\DS\\Desktop\\exocad-DentalCAD3.2 DOF 25-01-07(9036)\\CAD-Data\\2026-09-10_dxd테스트\\차정순 #27 2 (1).dxd",
+      "size": 1
+    }
+  ],
+  "unknownTypes": []
+}

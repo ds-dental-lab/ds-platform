@@ -49,3 +49,7 @@ scripts_*.mjs
 .alert-test.json
 .chat-test.json
 .arr-made.json
+settings.json
+tools/exocad-launcher/settings.json
+tools/exocad-launcher/chrome-profile/
+tools/exocad-launcher/logs/

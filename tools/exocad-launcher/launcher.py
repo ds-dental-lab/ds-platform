@@ -122,6 +122,26 @@ class Window:
         self.text.see("end")
         self.text.config(state="disabled")
 
+    def ask_dscore_account(self, save) -> None:
+        """DS Core 계정을 처음 한 번 묻습니다 (사용자 지시 2026-09-10 — 사람마다 계정이 다름).
+           런처 폴더의 settings.json 에만 저장되고 덴플로우에는 안 올라갑니다."""
+        import tkinter.simpledialog as sd
+        done = threading.Event()
+        result: dict = {}
+
+        def _ask() -> None:
+            email = sd.askstring("DS Core 계정", "DS Core 이메일", parent=self.root)
+            pw = sd.askstring("DS Core 계정", "DS Core 비밀번호", parent=self.root, show="*") if email else None
+            if email and pw:
+                result.update(email=email.strip(), password=pw)
+            done.set()
+
+        self.root.after(0, _ask)
+        done.wait()
+        if not result:
+            raise RuntimeError("DS Core 계정이 없어 dxd 를 변환할 수 없습니다")
+        save(result["email"], result["password"])
+
     def finish(self, title: str, ok: bool) -> None:
         def _f() -> None:
             self.title.config(text=title, fg="#1a7f37" if ok else "#d93025")
@@ -249,20 +269,27 @@ class Job:
             self.note(f"{p.name} → {target.name}")
         self.note(f"폴더: {folder}")
 
-        # 5. dxd
+        # 5. dxd → DS Core 자동 변환 (2026-09-10 — dscore.py, 사람 손 없이)
         if dxds:
-            self.say("4/5 dxd 변환 — 변환기 창에서 두 번 끌어다 놓으세요")
-            exe = Path(self.cfg.get("converter_exe", ""))
+            self.say("4/5 dxd 를 DS Core 에서 변환하는 중 (3~5분)")
+            import dscore
             for d in dxds:
                 keep = folder / d.name
                 shutil.move(str(d), keep)
-                self.note(f"① {keep.name} 을 변환기 창에 끌어다 놓기")
-            self.note(f"② 이어서 {folder_name}.dentalProject 를 끌어다 놓기 → ply 가 이 폴더에 들어갑니다")
-            if exe.is_file():
-                subprocess.Popen([str(exe)], cwd=str(exe.parent))
-                self.note("변환기를 띄웠습니다")
-            else:
-                self.note(f"★ 변환기를 못 찾았습니다: {exe}")
+                try:
+                    if not dscore.has_settings():
+                        self.note("DS Core 계정이 없어 입력창을 띄웁니다")
+                        self.win.ask_dscore_account(dscore.save_settings)
+                    placed = dscore.convert(keep, folder, folder_name, patient, data.get("orderNo", "order"), show=False, say=self.note)
+                    self.note(f"변환 완료: {[p.name for p in placed]}")
+                except Exception as e:  # noqa: BLE001
+                    self.log.exception("dscore 실패")
+                    self.note(f"★ 자동 변환 실패: {e}")
+                    exe = Path(self.cfg.get("converter_exe", ""))
+                    self.note(f"수동으로: ① {keep.name} 을 변환기 창에, ② {folder_name}.dentalProject 를 끌어다 놓기")
+                    if exe.is_file():
+                        subprocess.Popen([str(exe)], cwd=str(exe.parent))
+                        self.note("변환기를 띄웠습니다")
         else:
             self.say("4/5 dxd 없음 — 변환 건너뜀")
 
