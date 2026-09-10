@@ -70,7 +70,7 @@
 - 등록: `pythonw.exe launcher.py %1`. ★★ **반드시 HKLM(`install_machine.py`, 관리자 UAC)**. HKCU 등록은 윈도우 셸(`start`)만 알아보고 **Chrome·Edge 는 아무 반응 없이 무시**했다 (2026-09-10 반나절). TeamViewer 등 잘 되는 프로토콜은 전부 HKLM.
 - 다른 PC 에 깔 때: Python 3.10+ · `pip install requests` · config.json(exocad_dir, converter_exe) · `install_machine.py` 관리자로.
 - 화면: Tk 창 하나, 5단계 진행. 실패하면 이유 + 닫기. 로그 `logs/날짜.log`, 호출 흔적 `logs/chrome-hit.txt`.
-- 같은 폴더가 있으면 `_2`, `_3`.
+- 같은 주문을 다시 보내면 **같은 폴더에 덮어씀**(주문서·스캔 새것으로). exocad 가 잡고 있어 못 쓸 때만 `_2`. (사용자 지적 2026-09-10 — 환자명 zz 인데 zz_2 는 안 맞음)
 - 환자 번호: `DentalDB_V3.sqlite` 의 `max(patient_id)+1` 을 읽어 XML 에 (읽기만).
 - dxd: 1단계는 변환기 exe 를 띄우고 사람이 ① dxd ② .dentalProject 를 끌어다 놓음.
 - 시험: `python launcher.py --mock mock.json`.

@@ -186,8 +186,14 @@ class Job:
         cad = Path(self.cfg["exocad_dir"]) / "CAD-Data"
         if not cad.is_dir():
             raise RuntimeError(f"CAD-Data 폴더가 없습니다: {cad}")
-        folder = unique_folder(cad / f"{order_date}_{patient}")
+        # ★ 같은 주문을 다시 보내면 **같은 폴더에 덮어씁니다** (사용자 지적 2026-09-10 —
+        #   "환자명이 zz 인데 zz_2 를 확인하라니 맞지 않다"). exocad 에 이미 가져온
+        #   케이스면 그 폴더의 스캔만 새것으로 바뀌어 그대로 열립니다.
+        #   exocad 가 파일을 잡고 있어 못 쓸 때만 _2 로 비켜 갑니다 (아래).
+        folder = cad / f"{order_date}_{patient}"
         folder_name = folder.name
+        if folder.exists():
+            self.note(f"같은 폴더가 있어 안의 주문서·스캔을 새로 씁니다: {folder.name}")
 
         # 3. 스캔 내려받기
         files = data.get("files", [])
@@ -217,14 +223,28 @@ class Job:
             bridges=data.get("bridges", []),
             patient_id=make_project.next_patient_id(),
         )
-        folder.mkdir(parents=True)
-        (folder / f"{folder_name}.dentalProject").write_bytes(("﻿" + xml).encode("utf-8"))
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / f"{folder_name}.dentalProject").write_bytes(("﻿" + xml).encode("utf-8"))
+        except PermissionError:
+            # exocad 가 열어 둔 폴더 — 비켜 갑니다
+            folder = unique_folder(folder)
+            folder_name = folder.name
+            self.note(f"★ exocad 가 원래 폴더를 잡고 있어 {folder_name} 로 만듭니다. 케이스를 닫고 다시 보내면 원래 이름으로 갑니다")
+            xml = make_project.build_project(
+                patient_name=patient, teeth=data["teeth"], bridges=data.get("bridges", []),
+                patient_id=make_project.next_patient_id(),
+            )
+            folder.mkdir(parents=True)
+            (folder / f"{folder_name}.dentalProject").write_bytes(("﻿" + xml).encode("utf-8"))
         dxds: list[Path] = []
         for p in got:
             if p.suffix.lower() == ".dxd":
                 dxds.append(p)
                 continue
             target = folder / place_name(folder_name, p.name)
+            if target.exists():
+                target.unlink()  # 지난번 보낸 같은 이름의 스캔은 새것으로
             shutil.move(str(p), target)
             self.note(f"{p.name} → {target.name}")
         self.note(f"폴더: {folder}")
