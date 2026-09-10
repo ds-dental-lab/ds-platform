@@ -5,7 +5,7 @@ import sys, winreg
 from pathlib import Path
 HERE = Path(__file__).resolve().parent
 PYW = Path(sys.executable).with_name("pythonw.exe")
-CMD = f'"{HERE / "launch.cmd"}" "%1"'  # ★ 진단용: 불렸는지 먼저 적고 python.exe(콘솔)로 실행
+CMD = f'"{PYW}" "{HERE / "launcher.py"}" "%1"'
 root = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"Software\Classes\denflow")
 winreg.SetValueEx(root, "", 0, winreg.REG_SZ, "URL:DenFlow Protocol")
 winreg.SetValueEx(root, "URL Protocol", 0, winreg.REG_SZ, "")
