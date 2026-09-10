@@ -16,8 +16,8 @@
 
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
-import { issueExocadLaunch, recordExocadSend, requestExocadLaunch } from '@/server/actions/exocad';
+import { useEffect, useState, useTransition } from 'react';
+import { issueExocadLaunch, recordExocadSend } from '@/server/actions/exocad';
 
 /** 토큰(10분)보다 짧게 — 눌렀을 때 항상 살아 있는 주소를 쥐고 있게 */
 const REFRESH_MS = 8 * 60 * 1000;
@@ -36,16 +36,18 @@ export default function ExocadSendButton({
   orderId: string;
   last: ExocadLastResult | null;
 }) {
-  const [pending, start] = useTransition();
+  const [, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [launched, setLaunched] = useState(false);
-  const ready = useRef<string | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     const fetchUrl = async () => {
       const r = await issueExocadLaunch(orderId);
-      if (alive && r.ok) ready.current = r.url;
+      if (!alive) return;
+      if (r.ok) setUrl(r.url);
+      else setError(r.error);
     };
     void fetchUrl();
     const timer = setInterval(fetchUrl, REFRESH_MS);
@@ -55,29 +57,19 @@ export default function ExocadSendButton({
     };
   }, [orderId]);
 
-  function send() {
-    setError(null);
-    const url = ready.current;
-    if (url) {
-      // ★ 클릭과 같은 순간에 — 서버를 기다리면 브라우저가 막습니다
-      window.location.href = url;
-      setLaunched(true);
-      ready.current = null;
-      start(async () => {
-        await recordExocadSend(orderId);
-        const again = await issueExocadLaunch(orderId);
-        if (again.ok) ready.current = again.url;
-      });
-      return;
-    }
+  /*
+    ★ 진짜 <a href="denflow://…"> 입니다 (2026-09-10 두 번째 고침).
+      location.href 로 가는 것도 Chrome 이 막았습니다. 링크를 사람이 직접
+      누르는 것은 브라우저가 가장 확실하게 "사용자가 원했다" 로 치는 길이라
+      바깥 프로그램을 열어 줍니다 (처음 한 번은 "열까요?" 를 묻습니다).
+      주소는 미리 받아 두고, 누른 뒤에 기록만 남깁니다.
+  */
+  function onClick() {
+    setLaunched(true);
     start(async () => {
-      const r = await requestExocadLaunch(orderId);
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-      window.location.href = r.url;
-      setLaunched(true);
+      await recordExocadSend(orderId);
+      const again = await issueExocadLaunch(orderId);
+      if (again.ok) setUrl(again.url);
     });
   }
 
@@ -85,12 +77,12 @@ export default function ExocadSendButton({
 
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
-      <button
-        type="button"
-        onClick={send}
-        disabled={pending}
+      <a
+        href={url ?? undefined}
+        onClick={url ? onClick : undefined}
+        aria-disabled={!url}
         title="이 주문의 스캔과 치식을 PC 의 exocad 로 보냅니다"
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#C9BFF5] bg-[#F5F2FE] px-2.5 text-[13px] font-bold text-[#6B3FD6] hover:bg-[#ECE6FA] disabled:opacity-60"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#C9BFF5] bg-[#F5F2FE] px-2.5 text-[13px] font-bold text-[#6B3FD6] hover:bg-[#ECE6FA] aria-disabled:opacity-60"
       >
         <svg
           width="14"
@@ -107,13 +99,13 @@ export default function ExocadSendButton({
           <path d="M10 3v10" />
           <path d="M6 9l4 4 4-4" />
         </svg>
-        {pending ? '여는 중…' : 'exocad 로 보내기'}
-      </button>
+        {url ? 'exocad 로 보내기' : '준비 중…'}
+      </a>
       {error ? (
         <span className="text-[11.5px] text-[#D93025]">{error}</span>
       ) : launched ? (
         <span className="text-[11.5px] text-[#7C8595]">
-          런처가 안 뜨면 PC 에 덴플로우 런처가 설치돼 있는지 확인하세요.
+          브라우저가 &ldquo;열까요?&rdquo; 를 물으면 열기를 누르세요. 안 뜨면 PC 에 덴플로우 런처가 설치돼 있는지 확인하세요.
         </span>
       ) : summary ? (
         <span className="text-[11.5px] text-[#7C8595]">{summary}</span>
