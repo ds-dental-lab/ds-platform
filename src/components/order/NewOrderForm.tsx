@@ -863,7 +863,12 @@ function OrderFormBody({
               </button>
             </div>
 
-            {/* 자주 쓰는 모델 — 누르면 바로 채워집니다 */}
+            {/* 자주 쓰는 모델 — 누르면 바로 채워집니다. 없을 때도 줄은 보입니다 (있다는 걸 알아야 씀) */}
+            {implantFavorites.length === 0 && (
+              <p className="mt-2 text-[12.5px] text-[#9AA3B2]">
+                자주 쓰는 모델이 아직 없습니다. &lsquo;자주쓰는 모델등록&rsquo;으로 담아 두면 여기 단추로 나옵니다.
+              </p>
+            )}
             {implantFavorites.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {implantFavorites.map((fav) => {
@@ -1180,6 +1185,7 @@ function OrderFormBody({
       {modelDialog && (
         <ImplantModelDialog
           catalog={implantCatalog}
+          favorites={implantFavorites}
           value={implant}
           title={modelDialog === 'favorite' ? '자주쓰는 모델 등록' : '임플란트 모델 등록'}
           confirmLabel={modelDialog === 'favorite' ? '등록' : '적용'}
@@ -1190,12 +1196,17 @@ function OrderFormBody({
 
             // 즐겨찾기로 등록하면 목록에 남아 다음부터 한 번에 고릅니다
             if (modelDialog === 'favorite' && next.manufacturerCode && next.typeCode) {
-              const result = await submitAddImplantFavorite({
-                makerCode: next.manufacturerCode,
-                typeCode: next.typeCode,
-                sizeCode: next.sizeCode,
-                screwCode: next.screwCode,
-              });
+              // ★ 센터가 치과 대신 등록할 때는 **그 치과 것**으로 담습니다 (2026-09-10 고침 —
+              //   치과 id 를 안 넘겨 저장이 안 됐고, 그래서 자주 쓰는 모델이 한 번도 안 보였음)
+              const result = await submitAddImplantFavorite(
+                {
+                  makerCode: next.manufacturerCode,
+                  typeCode: next.typeCode,
+                  sizeCode: next.sizeCode,
+                  screwCode: next.screwCode,
+                },
+                clinicOrgId,
+              );
 
               if (!result.ok) setError(result.error);
               else router.refresh();

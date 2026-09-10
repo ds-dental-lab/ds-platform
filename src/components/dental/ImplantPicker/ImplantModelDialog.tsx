@@ -27,10 +27,13 @@ import {
   type ImplantOption,
   type ImplantSelection,
 } from '@/server/domain/implant';
+import type { ImplantFavorite } from '@/server/repositories/implant';
 
 export interface ImplantModelDialogProps {
   catalog: ImplantCatalog;
   value?: ImplantSelection;
+  /** 자주 쓰는 모델 — 있으면 창 위에 단추 줄로 (사용자 요청 2026-09-10) */
+  favorites?: ImplantFavorite[];
   title?: string;
   confirmLabel?: string;
   onConfirm: (selection: ImplantSelection) => void;
@@ -40,6 +43,7 @@ export interface ImplantModelDialogProps {
 export default function ImplantModelDialog({
   catalog,
   value = EMPTY_SELECTION,
+  favorites = [],
   title = '임플란트 모델 등록',
   confirmLabel = '추가',
   onConfirm,
@@ -68,6 +72,52 @@ export default function ImplantModelDialog({
           >
             ✕
           </button>
+        </div>
+
+        {/*
+          ★ 자주 쓰는 모델 단추 (사용자 요청 2026-09-10 — "버튼 형식으로 자주 쓰는 모델").
+            누르면 다섯 칸이 한 번에 채워지고, 아래에서 고쳐도 됩니다.
+            없으면 어떻게 만드는지 한 줄만 — 칸이 있다는 걸 알아야 씁니다.
+        */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-[#F0F2F5] px-6 py-3">
+          <span className="text-[12.5px] font-bold text-[#7C8595]">자주 쓰는 모델</span>
+          {favorites.length === 0 ? (
+            <span className="text-[12.5px] text-[#9AA3B2]">
+              아직 없습니다. 임플란트 칸의 &lsquo;자주쓰는 모델등록&rsquo;으로 담아 두면 여기 단추로 나옵니다.
+            </span>
+          ) : (
+            favorites.map((fav) => {
+              const on =
+                draft.manufacturerCode === fav.makerCode &&
+                draft.typeCode === fav.typeCode &&
+                draft.sizeCode === fav.sizeCode &&
+                draft.screwCode === fav.screwCode;
+              return (
+                <button
+                  key={fav.id}
+                  type="button"
+                  onClick={() =>
+                    setDraft({
+                      manufacturerCode: fav.makerCode,
+                      typeCode: fav.typeCode,
+                      sizeCode: fav.sizeCode,
+                      screwCode: fav.screwCode,
+                      option: draft.option,
+                    })
+                  }
+                  className={
+                    'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-colors ' +
+                    (on
+                      ? 'border-[#1B63E8] bg-[#EDF3FE] text-[#1B63E8]'
+                      : 'border-[#E8EBF0] bg-white text-[#4A5567] hover:border-[#98A2B3]')
+                  }
+                >
+                  {fav.pushed && <span className="text-[10px] font-bold text-[#7C6BE8]">배포</span>}
+                  {fav.label}
+                </button>
+              );
+            })
+          )}
         </div>
 
         <div className="mx-6 grid min-h-0 flex-1 grid-cols-5 overflow-hidden rounded-lg border border-[#E8EBF0]">
