@@ -73,16 +73,27 @@ export default function ExocadSendButton({
     });
   }
 
-  const summary = summarize(last);
+  const pill = pillOf(launched, last);
 
+  /*
+    ★ 한 줄짜리 단추 (사용자 지적 2026-09-10 — "열도 안 맞고 이뻐 보이지 않는다").
+      전에는 단추 아래 안내 글이 한 줄 더 붙어 머리줄 높이가 흔들렸습니다. 이제 단추는
+      기공의뢰서와 같은 키(h-8)·모양이고, 상태는 오른쪽의 작은 알약 하나로만 보입니다.
+      긴 설명은 마우스를 올리면 나오는 title 에 둡니다.
+  */
   return (
-    <span className="inline-flex flex-col items-start gap-0.5">
+    <span className="inline-flex items-center gap-1.5">
       <a
         href={url ?? undefined}
         onClick={url ? onClick : undefined}
         aria-disabled={!url}
-        title="이 주문의 스캔과 치식을 PC 의 exocad 로 보냅니다"
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#C9BFF5] bg-[#F5F2FE] px-2.5 text-[13px] font-bold text-[#6B3FD6] hover:bg-[#ECE6FA] aria-disabled:opacity-60"
+        title={
+          error ??
+          (url
+            ? 'PC 의 덴플로우 런처가 열리며 스캔·치식을 exocad 케이스로 만듭니다. 처음엔 브라우저가 "열까요?" 를 묻습니다.'
+            : '준비 중…')
+        }
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#D9CFF8] bg-[#F7F4FF] px-2.5 text-[13px] font-bold text-[#6B3FD6] hover:bg-[#EFE9FD] aria-disabled:pointer-events-none aria-disabled:opacity-50"
       >
         <svg
           width="14"
@@ -95,30 +106,39 @@ export default function ExocadSendButton({
           strokeLinejoin="round"
           aria-hidden
         >
-          <path d="M3 14v3h14v-3" />
-          <path d="M10 3v10" />
-          <path d="M6 9l4 4 4-4" />
+          <path d="M10 2.5l6.5 3.75v7.5L10 17.5l-6.5-3.75v-7.5z" />
+          <path d="M10 10l6.5-3.75M10 10L3.5 6.25M10 10v7.5" />
         </svg>
-        {url ? 'exocad 로 보내기' : '준비 중…'}
+        exocad
       </a>
-      {error ? (
-        <span className="text-[11.5px] text-[#D93025]">{error}</span>
-      ) : launched ? (
-        <span className="text-[11.5px] text-[#7C8595]">
-          브라우저가 &ldquo;열까요?&rdquo; 를 물으면 열기를 누르세요. 안 뜨면 PC 에 덴플로우 런처가 설치돼 있는지 확인하세요.
-        </span>
-      ) : summary ? (
-        <span className="text-[11.5px] text-[#7C8595]">{summary}</span>
-      ) : null}
+      {pill}
     </span>
   );
 }
 
-function summarize(last: ExocadLastResult | null): string | null {
+/** 오른쪽 작은 알약 — 마지막 보낸 결과. 없으면 아무것도 안 그립니다 */
+function pillOf(launched: boolean, last: ExocadLastResult | null): React.ReactNode {
+  if (launched) return <Pill tone="wait" title="런처가 여는 중입니다. 안 뜨면 PC 에 덴플로우 런처가 설치돼 있는지 확인하세요">여는 중</Pill>;
   if (!last) return null;
-  const when = last.requestedAt.slice(5, 16).replace('T', ' ');
-  if (last.status === 'done') return `${when} exocad 로 보냄 · 완료`;
-  if (last.status === 'failed') return `${when} exocad 로 보냄 · 실패${last.message ? ` (${last.message})` : ''}`;
-  if (last.fetchedAt) return `${when} exocad 로 보냄 · 런처가 받아 감`;
-  return `${when} exocad 로 보냄 · 런처 응답 없음`;
+  const when = last.requestedAt.slice(11, 16);
+  if (last.status === 'done') return <Pill tone="ok" title={`${last.requestedAt.slice(5, 16).replace('T', ' ')} exocad 로 보냄 · 완료`}>✓ {when}</Pill>;
+  if (last.status === 'failed') return <Pill tone="bad" title={`${when} 실패${last.message ? `: ${last.message}` : ''}`}>! {when}</Pill>;
+  if (last.fetchedAt) return <Pill tone="wait" title={`${when} 런처가 받아 감 · 아직 결과 없음`}>… {when}</Pill>;
+  return <Pill tone="mute" title={`${when} 보냈지만 런처 응답이 없었습니다`}>– {when}</Pill>;
+}
+
+function Pill({ tone, title, children }: { tone: 'ok' | 'bad' | 'wait' | 'mute'; title: string; children: React.ReactNode }) {
+  const cls =
+    tone === 'ok'
+      ? 'bg-[#E6F6EC] text-[#1A7F37]'
+      : tone === 'bad'
+        ? 'bg-[#FDE7E7] text-[#C4383A]'
+        : tone === 'wait'
+          ? 'bg-[#F7F4FF] text-[#6B3FD6]'
+          : 'bg-[#EEF1F5] text-[#7C8595]';
+  return (
+    <span title={title} className={`rounded-full px-2 py-0.5 text-[11.5px] font-bold tabular-nums ${cls}`}>
+      {children}
+    </span>
+  );
 }

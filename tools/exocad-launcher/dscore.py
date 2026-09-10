@@ -23,7 +23,7 @@ DS Core(r9.dscore.com) 에 dxd 를 올려 exocad 용 ply 로 받아 오는 자�
 """
 from __future__ import annotations
 
-import base64
+
 import json
 import logging
 import re
@@ -345,24 +345,22 @@ class DSCore:
             break
         if zone is None:
             raise RuntimeError("업로드 창의 끌어다 놓기 영역을 못 찾았습니다")
-        # 파일을 브라우저 안에 조각으로 넣어 File 객체를 만든 뒤 drop 이벤트로 떨어뜨립니다
-        self.d.execute_script("window._chunks = [];")
-        with open(dxd, "rb") as f:
-            while True:
-                buf = f.read(6 * 1024 * 1024)
-                if not buf:
-                    break
-                self.d.execute_script(
-                    "const s=atob(arguments[0]);const b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);window._chunks.push(b);",
-                    base64.b64encode(buf).decode("ascii"),
-                )
+        # ★ 파일을 브라우저에 넣는 법 (2026-09-10 속도 개선): base64 조각(20초)도, 로컬 파일
+        #   서버 fetch(https 페이지에서 http 로 막힘)도 아니고 — 페이지에 숨은 <input type=file> 을
+        #   만들어 Selenium 으로 경로를 넣습니다. 0초, 형식도 빈 문자열 그대로.
+        t_up = time.time()
+        self.d.execute_script("const i=document.createElement('input'); i.type='file'; i.id='df_upload'; i.style.display='none'; document.body.appendChild(i);")
+        self.d.find_element(By.ID, "df_upload").send_keys(str(dxd))
+        ok = self.d.execute_script("const f=document.getElementById('df_upload').files[0]; window._dxdFile=f; return !!f")
+        if not ok:
+            raise RuntimeError("브라우저에 dxd 를 넣지 못했습니다")
+        log.info("파일 주입 %.1fs", time.time() - t_up)
         self.d.execute_script(
             """
             const name = arguments[1];
             // ★ 형식은 빈 문자열 — 진짜로 .dxd 를 끌어다 놓을 때 Chrome 이 주는 값입니다.
             //   드롭존이 허용 목록(dropMIME)과 비교하므로 octet-stream 이면 거절됩니다.
-            const file = new File(window._chunks, name, { type: '' });
-            window._chunks = null;
+            const file = window._dxdFile; window._dxdFile = null;
             const dt = new DataTransfer(); dt.items.add(file);
             // ★ 보이는 영역 **하나에만** — 둘 다에 떨어뜨리면 같은 파일이 두 번 올라갑니다 (2026-09-10)
             const zones = Array.from(document.querySelectorAll("[id^='dropzone-container-']"));
@@ -398,7 +396,7 @@ class DSCore:
             # ★ 카드 이름은 화면 글자가 아니라 aria-label 에 있습니다: "Media tile DI_2026-…dxd DI (3)"
             if self.d.find_elements(By.XPATH, "//flt-semantics[contains(@aria-label, 'DI_') or contains(normalize-space(.), 'DI_')]"):
                 break
-            time.sleep(5)
+            time.sleep(3)
         else:
             self.shot("upload_wait")
             raise RuntimeError("DS Core 처리가 10분 안에 안 끝났습니다")
@@ -430,7 +428,7 @@ class DSCore:
                     break
                 self.d.execute_cdp_cmd("Input.dispatchKeyEvent", {"type": "keyDown", "key": "Escape", "code": "Escape"})
                 self.d.execute_cdp_cmd("Input.dispatchKeyEvent", {"type": "keyUp", "key": "Escape", "code": "Escape"})
-            time.sleep(8)
+            time.sleep(5)
         else:
             self.shot("export_wait")
             raise RuntimeError("10분 안에 내보내기 메뉴가 열리지 않았습니다 (DS Core 처리 지연?)")
@@ -515,16 +513,31 @@ def _release_lock() -> None:
         pass
 
 
-def convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_id: str, show: bool = False, say=None) -> list[Path]:
+def convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_id: str, show: bool = False, say=None, defer_cleanup: bool = False):
+    """defer_cleanup=True 면 (파일들, 뒷정리함수) 를 돌려줍니다 — 임시 환자 삭제와 브라우저 종료는
+       호출자가 완료 표시를 한 **뒤에** 부릅니다. 잠금도 그때 풉니다."""
     say = say or (lambda m: None)
     _acquire_lock(say)
     try:
-        return _convert(dxd, folder, folder_name, patient_name, card_id, show, say)
+        placed, cleanup = _convert(dxd, folder, folder_name, patient_name, card_id, show, say)
+    except Exception:
+        _release_lock()
+        raise
+    if defer_cleanup:
+        def _later() -> None:
+            try:
+                cleanup()
+            finally:
+                _release_lock()
+        return placed, _later
+    try:
+        cleanup()
     finally:
         _release_lock()
+    return placed
 
 
-def _convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_id: str, show: bool, say) -> list[Path]:
+def _convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_id: str, show: bool, say):
     # ★ 임시 환자 이름은 **영어 + 주문번호** (사용자 지시 2026-09-10 — "환자명은 영어로, 중복 안 되게").
     #   덴플로우 환자명은 우리 .dentalProject 에 들어가므로 DS Core 쪽 이름은 아무래도 됩니다.
     #   카드 ID 에 초 단위 시각을 붙여 같은 주문을 다시 보내도 안 겹칩니다.
@@ -536,22 +549,37 @@ def _convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_
     display = f"{last}, {first}"
     birth = time.strftime("%Y-%m-%d")
     tmp = Path(tempfile.mkdtemp(prefix="dscore-"))
+    t = time.time()
+    marks: list[str] = []
+
+    def lap(name: str) -> None:
+        nonlocal t
+        marks.append(f"{name} {time.time() - t:.0f}s")
+        t = time.time()
+
     ds = DSCore(tmp, show=show, say=say)
     try:
-        ds.ensure_login()
-        ds.create_patient(first, last, card_id, birth)
-        ds.open_patient(card_id, display)
-        ds.upload_dxd(dxd)
-        z = ds.export_exocad()
-        placed = place_export(z, folder, folder_name, say)
-        ds.delete_patient(card_id, display)
-        return placed
+        ds.ensure_login(); lap("로그인")
+        ds.create_patient(first, last, card_id, birth); lap("환자생성")
+        ds.open_patient(card_id, display); lap("환자열기")
+        ds.upload_dxd(dxd); lap("업로드+처리")
+        z = ds.export_exocad(); lap("내보내기")
+        placed = place_export(z, folder, folder_name, say); lap("배치")
+        log.info("DS Core 단계 시간: %s", " · ".join(marks))
     except Exception:
         ds.shot("error")
-        raise
-    finally:
         ds.close()
         shutil.rmtree(tmp, ignore_errors=True)
+        raise
+
+    def cleanup() -> None:
+        try:
+            ds.delete_patient(card_id, display)
+        finally:
+            ds.close()
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    return placed, cleanup
 
 
 if __name__ == "__main__":
@@ -559,5 +587,5 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         raise SystemExit("사용: dscore.py <dxd> <케이스 폴더> [--show]")
     dxd, folder = Path(sys.argv[1]), Path(sys.argv[2])
-    files = convert(dxd, folder, folder.name, folder.name.split("_", 1)[-1], f"DF-{int(time.time())}", show="--show" in sys.argv, say=print)
+    files = convert(dxd, folder, folder.name, folder.name.split("_", 1)[-1], f"TMP-{int(time.time())}", show="--show" in sys.argv, say=print)
     print("done:", [f.name for f in files])

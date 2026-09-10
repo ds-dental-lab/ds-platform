@@ -32,6 +32,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import tkinter as tk
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -94,139 +95,90 @@ def unique_folder(base: Path) -> Path:
 # ---------- 화면 ----------
 
 STEPS = ["주문 정보 받기", "스캔 파일 내려받기", "exocad 주문서 만들기", "dxd 변환 (DS Core)", "exocad 목록에 등록"]
-AUTO_CLOSE_MS = 6000
+TOAST_MS = 3000
 
 
 class Window:
     """
-    작은 알림 띠. (2026-09-10 — 사용자: "변환할 때 창이 계속 떠 있는 게 불편, 클릭 없이")
-      화면 오른쪽 아래, 제목줄 없는 띠 하나:
-        ● dxd 변환 (DS Core)  ·  홍길동 ORD-…        ✕
-        ▓▓▓▓░░░░░ (움직이는 막대)
-      끝나면 "✓ 완료 — exocad 에서 홍길동 을 여세요" 를 6초 보여 주고 **스스로 닫힙니다**.
-      실패하면 남아서 이유를 보여 주고 ✕ 로 닫습니다. 띠를 누르면 자세한 로그가 펼쳐집니다.
-    ★ 다른 창 위에 뜨지만 작아서 작업을 가리지 않습니다. 드래그로 옮길 수 있습니다.
+    토스트만. (2026-09-10 — 사용자: "토스트 정도만, 실패했을 때만 알림창")
+      - 시작: "덴플로우 → exocad · 홍길동 ORD-… 보내는 중" 3초
+      - 끝:   "✓ 완료 — exocad 에서 홍길동 을 여세요" 3초
+      - 실패: 알림창(이유 + [로그 열기] [닫기]) — 이것만 사람이 닫습니다
+    ★ 진행 중에는 아무것도 안 떠 있습니다. 어디까지 갔는지는 logs/ 의 실행 로그가 압니다.
+    ★ 창을 다 닫아도 프로세스는 남은 뒷정리(임시 환자 삭제)가 끝난 뒤 꺼집니다.
     """
 
-    W, H = 380, 66
+    W, H = 380, 58
 
     def __init__(self) -> None:
-        import tkinter.ttk as ttk
         self.root = tk.Tk()
-        self.root.overrideredirect(True)
-        self.root.attributes("-topmost", True)
-        self.root.configure(bg="#1A2130")
+        self.root.withdraw()
         self.folder: Path | None = None
-        self.detail_open = False
         self._case = ""
-        self._current = -1
-        self._place()
+        self._toast: tk.Toplevel | None = None
+        self.log_lines: list[str] = []
+
+    def _show_toast(self, title: str, sub: str, fg: str = "#FFFFFF", ms: int = TOAST_MS) -> None:
         F = "Malgun Gothic"
-
-        body = tk.Frame(self.root, bg="#1A2130")
-        body.pack(fill="both", expand=True, padx=14, pady=(10, 8))
-        top = tk.Frame(body, bg="#1A2130")
-        top.pack(fill="x")
-        self.head = tk.Label(top, text="● 준비 중…", font=(F, 10, "bold"), bg="#1A2130", fg="#FFFFFF", anchor="w")
-        self.head.pack(side="left", fill="x", expand=True)
-        self.close_btn = tk.Label(top, text="✕", font=(F, 10), bg="#1A2130", fg="#9AA3B2", cursor="hand2")
-        self.close_btn.pack(side="right")
-        self.close_btn.bind("<Button-1>", lambda _e: self.root.destroy())
-        self.sub = tk.Label(body, text="", font=(F, 9), bg="#1A2130", fg="#9AA3B2", anchor="w")
-        self.sub.pack(fill="x")
-
-        style = ttk.Style(self.root)
-        style.theme_use("clam")
-        style.configure("df.Horizontal.TProgressbar", troughcolor="#2C3446", background="#9B7BFF", thickness=4, borderwidth=0)
-        self.bar = ttk.Progressbar(body, mode="indeterminate", style="df.Horizontal.TProgressbar")
-        self.bar.pack(fill="x", pady=(6, 0))
-        self.bar.start(12)
-
-        self.text = tk.Text(body, height=7, font=(F, 9), fg="#C9D1DE", bg="#232B3C", relief="flat", state="disabled", wrap="word")
-
-        # 띠를 누르면 자세히 / 드래그로 옮기기
-        for w in (self.root, body, top, self.head, self.sub):
-            w.bind("<Button-1>", self._press)
-            w.bind("<B1-Motion>", self._drag)
-            w.bind("<ButtonRelease-1>", self._release)
-        self._drag_from: tuple[int, int] | None = None
-        self._moved = False
-
-    def _place(self, h: int | None = None) -> None:
-        h = h or self.H
-        sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
-        self.root.geometry(f"{self.W}x{h}+{sw - self.W - 16}+{sh - h - 60}")
+        if self._toast is not None:
+            try:
+                self._toast.destroy()
+            except Exception:  # noqa: BLE001
+                pass
+        t = tk.Toplevel(self.root)
+        t.overrideredirect(True)
+        t.attributes("-topmost", True)
+        t.configure(bg="#1A2130")
+        sw, sh = t.winfo_screenwidth(), t.winfo_screenheight()
+        t.geometry(f"{self.W}x{self.H}+{sw - self.W - 16}+{sh - self.H - 60}")
+        tk.Label(t, text=title, font=(F, 10, "bold"), bg="#1A2130", fg=fg, anchor="w").pack(fill="x", padx=14, pady=(10, 0))
+        tk.Label(t, text=sub, font=(F, 9), bg="#1A2130", fg="#9AA3B2", anchor="w").pack(fill="x", padx=14)
+        self._toast = t
+        t.after(ms, t.destroy)
 
     # -- 바깥에서 부르는 것 --
     def set_case(self, patient: str, order_no: str) -> None:
         self._case = f"{patient} · {order_no}"
-        self.root.after(0, lambda: self.sub.config(text=self._case))
+        self.root.after(0, lambda: self._show_toast("덴플로우 → exocad 보내는 중", self._case))
 
     def step(self, msg: str) -> None:
-        self.root.after(0, self._step, msg)
+        self.log_lines.append(msg)
 
     def log(self, msg: str) -> None:
-        self.root.after(0, self._append, msg)
+        self.log_lines.append(msg)
 
-    def finish(self, title: str, ok: bool) -> None:
+    def finish(self, title: str, ok: bool, log_dir: Path | None = None) -> None:
         def _f() -> None:
-            self.bar.stop()
-            self.bar.config(mode="determinate", value=100 if ok else 0)
-            self.head.config(text=("✓ " if ok else "✕ ") + title, fg="#7EE2A8" if ok else "#FF8A80")
             if ok:
-                self.sub.config(text=f"{self._case}  ·  잠시 뒤 닫힙니다")
-                self.root.after(AUTO_CLOSE_MS, self.root.destroy)
+                self._show_toast("✓ " + title, self._case, fg="#7EE2A8")
+                self.root.after(TOAST_MS + 200, self.root.quit)
             else:
-                self.sub.config(text=f"{self._case}  ·  ✕ 로 닫기")
-                self._show_detail()
+                self._fail_dialog(title, log_dir)
         self.root.after(0, _f)
 
-    # -- 안 --
-    def _step(self, msg: str) -> None:
-        m = re.match(r"(\d)/5\s*(.*)", msg)
-        if m:
-            self._current = int(m.group(1)) - 1
-            self.head.config(text=f"● {m.group(2) or STEPS[self._current]}", fg="#FFFFFF")
-            self.sub.config(text=f"{self._case}  ·  {self._current + 1}/5")
-        else:
-            self.head.config(text=f"● {msg}")
-        self._append(msg)
-
-    def _append(self, msg: str) -> None:
-        self.text.config(state="normal")
-        self.text.insert("end", msg.strip() + "\n")
-        self.text.see("end")
-        self.text.config(state="disabled")
-
-    def _show_detail(self) -> None:
-        if not self.detail_open:
-            self.text.pack(fill="both", expand=True, pady=(8, 0))
-            self._place(self.H + 130)
-            self.detail_open = True
-
-    def _hide_detail(self) -> None:
-        if self.detail_open:
-            self.text.pack_forget()
-            self._place()
-            self.detail_open = False
-
-    def _press(self, e) -> None:
-        self._drag_from = (e.x_root - self.root.winfo_x(), e.y_root - self.root.winfo_y())
-        self._moved = False
-
-    def _drag(self, e) -> None:
-        if self._drag_from:
-            self._moved = True
-            self.root.geometry(f"+{e.x_root - self._drag_from[0]}+{e.y_root - self._drag_from[1]}")
-
-    def _release(self, _e) -> None:
-        if not self._moved:
-            self._hide_detail() if self.detail_open else self._show_detail()
-        self._drag_from = None
-
-    def _open_folder(self) -> None:
-        if self.folder:
-            subprocess.Popen(["explorer", str(self.folder)])
+    def _fail_dialog(self, title: str, log_dir: Path | None) -> None:
+        F = "Malgun Gothic"
+        d = tk.Toplevel(self.root)
+        d.title("덴플로우 → exocad 실패")
+        d.configure(bg="#FFFFFF")
+        d.attributes("-topmost", True)
+        d.geometry("520x360")
+        tk.Label(d, text="✕ " + title, font=(F, 12, "bold"), bg="#FFFFFF", fg="#D93025", anchor="w").pack(fill="x", padx=20, pady=(16, 2))
+        tk.Label(d, text=self._case, font=(F, 9), bg="#FFFFFF", fg="#7C8595", anchor="w").pack(fill="x", padx=20)
+        text = tk.Text(d, font=(F, 9), fg="#4A5567", bg="#F8F9FB", relief="flat", wrap="word", height=10)
+        text.pack(fill="both", expand=True, padx=20, pady=(8, 0))
+        text.insert("end", "\n".join(self.log_lines[-40:]))
+        text.config(state="disabled")
+        row = tk.Frame(d, bg="#FFFFFF")
+        row.pack(fill="x", padx=20, pady=12)
+        tk.Button(row, text="닫기", command=self.root.quit, width=8, relief="flat", bg="#EEF1F5", font=(F, 10)).pack(side="right")
+        if log_dir:
+            tk.Button(row, text="로그 열기", command=lambda: subprocess.Popen(["explorer", str(log_dir)]), width=9, relief="flat",
+                      bg="#F2F7FE", fg="#1279E8", font=(F, 10, "bold")).pack(side="right", padx=(0, 8))
+        if self.folder and self.folder.exists():
+            tk.Button(row, text="폴더 열기", command=lambda: subprocess.Popen(["explorer", str(self.folder)]), width=9, relief="flat",
+                      bg="#F2F7FE", fg="#1279E8", font=(F, 10)).pack(side="left")
+        d.protocol("WM_DELETE_WINDOW", self.root.quit)
 
     def choose_dxd(self, files: list[dict]) -> str:
         """dxd 가 여럿이면 하나를 고르게 합니다 (사용자 요청 2026-09-10 — "내가 한 개 고르는 게 좋겠다").
@@ -298,6 +250,32 @@ class Job:
     def __init__(self, win: Window, cfg: dict, order_id: str | None, token: str | None, mock: Path | None) -> None:
         self.win, self.cfg, self.order_id, self.token, self.mock = win, cfg, order_id, token, mock
         self.log = logging.getLogger("launcher")
+        self.t0 = time.time()
+        self.marks: list[tuple[str, float]] = []   # (단계, 끝난 시각) — 어디가 느린지 보려고
+        self.order_no = order_id or "mock"
+        self.after_done = None                     # 완료 표시 뒤에 할 뒷정리 (임시 환자 삭제)
+
+    def mark(self, name: str) -> None:
+        self.marks.append((name, time.time()))
+
+    def durations(self) -> str:
+        out, prev = [], self.t0
+        for name, t in self.marks:
+            out.append(f"{name} {t - prev:.0f}s")
+            prev = t
+        return " · ".join(out) + f" · 합계 {time.time() - self.t0:.0f}s"
+
+    def summary(self, result: str, message: str) -> None:
+        """runs.csv 한 줄 — 언제·무슨 주문·결과·단계별 시간. 엑셀로 열어 보면 병목이 보입니다."""
+        try:
+            f = LOG_DIR / "runs.csv"
+            new = not f.exists()
+            with open(f, "a", encoding="utf-8-sig") as h:
+                if new:
+                    h.write("시각,주문,환자,결과,걸린시간(초),단계별,메모\n")
+                h.write(f"{dt.datetime.now():%Y-%m-%d %H:%M:%S},{self.order_no},{getattr(self, 'patient', '')},{result},{time.time() - self.t0:.0f},{self.durations()},{message.replace(',', ' ')[:200]}\n")
+        except Exception:  # noqa: BLE001
+            self.log.exception("runs.csv")
 
     def api(self, path: str) -> str:
         return f"{self.cfg['base_url']}/api/exocad/orders/{self.order_id}{path}?t={self.token}"
@@ -321,11 +299,21 @@ class Job:
     def run(self) -> None:
         try:
             self._run()
+            self.log.info("시간: %s", self.durations())
         except Exception as e:  # noqa: BLE001
             self.log.exception("실패")
             self.win.log(f"오류: {e}")
-            self.win.finish("실패했습니다 — 덴플로우 주문은 그대로입니다", ok=False)
+            self.summary("실패", str(e))
+            self.win.finish(f"실패 — {e}", ok=False, log_dir=LOG_DIR)
             self.report("failed", str(e))
+            return
+        # ★ 뒷정리(임시 환자 삭제)는 완료 토스트 뒤에 — 사람은 안 기다립니다
+        if self.after_done:
+            try:
+                self.after_done()
+            except Exception:  # noqa: BLE001
+                self.log.exception("뒷정리 실패")
+        self.win.root.after(0, self.win.root.quit)
 
     def _run(self) -> None:
         # 1. 주문 정보
@@ -339,7 +327,10 @@ class Job:
             data = r.json()
         patient = data["patientName"]
         order_date = data["orderDate"]
-        self.win.set_case(patient, data.get("orderNo", ""))
+        self.patient = patient
+        self.order_no = data.get("orderNo", self.order_no)
+        self.win.set_case(patient, self.order_no)
+        self.mark("주문정보")
         self.note(f"{data.get('orderNo', '')} · {patient} · 치아 {[t['number'] for t in data['teeth']]}")
         if data.get("unknownTypes"):
             self.note(f"★ exocad 로 못 옮긴 종류: {data['unknownTypes']} — 주문서에서 빠집니다. exocad 에서 손으로 추가하세요")
@@ -384,6 +375,7 @@ class Job:
             got.append(dest)
             self.note(f"{f['name']} ({dest.stat().st_size / 1e6:.1f} MB)")
 
+        self.mark("내려받기")
         # 4. 주문서 + 배치
         self.say("3/5 exocad 주문서를 만드는 중")
         make_project.CAD_DATA = cad
@@ -442,7 +434,8 @@ class Job:
                     if not dscore.has_settings():
                         self.note("DS Core 계정이 없어 입력창을 띄웁니다")
                         self.win.ask_dscore_account(dscore.save_settings)
-                    placed = dscore.convert(keep, folder, folder_name, patient, data.get("orderNo", "order"), show=False, say=self.note)
+                    placed, cleanup = dscore.convert(keep, folder, folder_name, patient, data.get("orderNo", "order"), show=False, say=self.note, defer_cleanup=True)
+                    self.after_done = cleanup
                     self.note(f"변환 완료: {[p.name for p in placed]}")
                 except Exception as e:  # noqa: BLE001
                     self.log.exception("dscore 실패")
@@ -455,6 +448,7 @@ class Job:
         else:
             self.say("4/5 dxd 없음 — 변환 건너뜀")
 
+        self.mark("dxd변환")
         # 6. exocad DB 에 직접 등록 — 되면 가져오기 클릭이 필요 없습니다 (2026-09-10)
         registered = False
         try:
@@ -477,7 +471,9 @@ class Job:
         # 7. 끝
         self.say("5/5 exocad 목록에 등록")
         self.note(str(folder / f"{folder_name}.dentalProject"))
+        self.mark("등록")
         self.report("done", f"{folder_name}")
+        self.summary("완료" if registered else "완료(가져오기 필요)", self.durations())
         if registered:
             self.win.finish(f"완료 — exocad 에서 '{patient}' 를 여세요", ok=True)
         else:
@@ -502,12 +498,13 @@ def main() -> None:
     # ★ 무엇보다 먼저 "불렸다" 를 남깁니다 — 브라우저가 부르긴 했는지 가리는 흔적
     with open(LOG_DIR / "chrome-hit.txt", "a", encoding="utf-8") as f:
         f.write(f"{dt.datetime.now().isoformat(timespec='seconds')} py {sys.argv[1:]}\n")
-    logging.basicConfig(
-        filename=LOG_DIR / f"{dt.date.today().isoformat()}.log",
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        encoding="utf-8",
-    )
+    # ★ 로그 둘: 날짜별(전부) + 실행별(이 건만, runs/ 아래). 실패하면 실행별 파일을 열면 됩니다.
+    (LOG_DIR / "runs").mkdir(exist_ok=True)
+    handlers = [
+        logging.FileHandler(LOG_DIR / f"{dt.date.today().isoformat()}.log", encoding="utf-8"),
+        logging.FileHandler(LOG_DIR / "runs" / f"{dt.datetime.now():%Y%m%d-%H%M%S}.log", encoding="utf-8"),
+    ]
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", handlers=handlers)
     args = sys.argv[1:]
     mock: Path | None = None
     order_id = token = None
@@ -521,7 +518,7 @@ def main() -> None:
     cfg = load_config()
     win = Window()
     threading.Thread(target=Job(win, cfg, order_id, token, mock).run, daemon=True).start()
-    win.root.mainloop()
+    win.root.mainloop()   # quit() 은 Job 이 (뒷정리까지 끝낸 뒤) 부릅니다
 
 
 if __name__ == "__main__":
