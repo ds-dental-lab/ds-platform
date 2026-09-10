@@ -9,7 +9,8 @@ ds = dscore.DSCore(tmp, show=False, say=print)
 try:
     ds.ensure_login()
     for cid in ids:
-        display = f"Case{cid[-7:]}, Demo" if cid.startswith("TMP-") else f"{cid}, DenFlow"
+        display = cid.split("=",1)[1] if "=" in cid else (f"Case{cid[-7:]}, Demo" if cid.startswith("TMP-") else f"{cid}, DenFlow")
+        cid = cid.split("=",1)[0]
         ds.delete_patient(cid, display)
 finally:
     ds.close(); shutil.rmtree(tmp, ignore_errors=True)

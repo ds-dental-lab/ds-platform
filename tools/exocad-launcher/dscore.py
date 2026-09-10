@@ -43,7 +43,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 HERE = Path(__file__).resolve().parent
-PROFILE = HERE / "chrome-profile"
 LOG_DIR = HERE / "logs"
 BASE = "https://r9.dscore.com"
 log = logging.getLogger("dscore")
@@ -66,12 +65,35 @@ def _settings() -> dict:
     raise RuntimeError("DS Core 계정 파일(settings.json)이 없습니다")
 
 
+def _kill_stale_chrome(profile: Path) -> None:
+    """앞선 실행이 죽으며 남긴 Chrome 이 프로필을 잡고 있으면 새 Chrome 이 못 뜹니다
+       ("DevToolsActivePort file doesn't exist"). 그 프로필을 쓰는 chrome 만 골라 끕니다."""
+    import subprocess
+    try:
+        subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             f"Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | Where-Object {{ $_.CommandLine -like '*{profile.name}*' }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}"],
+            capture_output=True, timeout=20,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
 class DSCore:
-    def __init__(self, download_dir: Path, show: bool = False, say=None) -> None:
+    def __init__(self, download_dir: Path, show: bool = False, say=None, slot: int = 1) -> None:
         self.download_dir = download_dir
         self.say = say or (lambda m: None)
+        profile = HERE / f"chrome-profile-{slot}"
+        _kill_stale_chrome(profile)
+        # ★ 2·3번 자리는 새로 로그인하지 않습니다 (2026-09-10 — 새 프로필 첫 로그인이 자주 틀어지고,
+        #   반복 실패로 DS Core 가 계정을 잠시 막기도 함). 1번 자리(로그인된 프로필)를 통째로 복사해 씁니다.
+        base = HERE / "chrome-profile-1"
+        if slot != 1 and not profile.exists() and base.exists():
+            _kill_stale_chrome(base)
+            shutil.copytree(base, profile, ignore=shutil.ignore_patterns("lockfile", "SingletonLock", "SingletonCookie", "SingletonSocket", "*Cache*", "GrShaderCache", "GraphiteDawnCache"))
+            log.info("프로필 복사: 1 → %d", slot)
         opts = Options()
-        opts.add_argument(f"--user-data-dir={PROFILE}")
+        opts.add_argument(f"--user-data-dir={profile}")
         opts.add_argument("--window-size=1400,1000")
         opts.add_argument("--lang=ko-KR")
         if not show:
@@ -213,16 +235,36 @@ class DSCore:
                 WebDriverWait(self.d, 10).until(lambda d: "login.r9.dscore.com" in (self._url() or ""))
                 time.sleep(2)
                 self.enable_semantics()
-                email = WebDriverWait(self.d, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[aria-label='이메일']")))
-                ActionChains(self.d).move_to_element(email).click().perform()
-                time.sleep(0.3)
-                ActionChains(self.d).send_keys(Keys.CONTROL + "a").send_keys(s["email"]).perform()
-                time.sleep(0.5)
-                pw = self.d.find_element(By.CSS_SELECTOR, "input[aria-label='암호']")
-                ActionChains(self.d).move_to_element(pw).click().perform()
-                time.sleep(0.3)
-                ActionChains(self.d).send_keys(s["password"]).perform()
-                time.sleep(0.5)
+                # ★ 칸이 준비되기 전에 치면 글자가 사라집니다 (동시 실행 때 CPU 가 바빠 겪음, 2026-09-10).
+                #   친 뒤 값을 읽어 확인하고, 안 들어갔으면 다시 칩니다.
+                # ★ 접근성 노드를 눌러도 포커스가 안 옮겨져 이메일이 암호 칸에 들어간 일이 있었습니다
+                #   (2026-09-10 동시 실행). 좌표 클릭으로 누르고, 실제 포커스(활성 요소 id: email /
+                #   current-password)를 확인한 뒤에만 칩니다. 친 뒤 값도 확인합니다.
+                def fill(label: str, dom_id: str, value: str) -> None:
+                    for _try in range(5):
+                        el = WebDriverWait(self.d, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, f"input[aria-label='{label}']")))
+                        self.cdp_click(el)
+                        time.sleep(0.5)
+                        active = self.d.execute_script("return document.activeElement && document.activeElement.id")
+                        if active != dom_id:
+                            time.sleep(1)
+                            continue
+                        # 키 입력이 흘러가는 판이 있어(새 프로필 첫 화면) 텍스트 삽입(IME 방식)을 씁니다
+                        self.d.execute_cdp_cmd("Input.dispatchKeyEvent", {"type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2})
+                        self.d.execute_cdp_cmd("Input.dispatchKeyEvent", {"type": "keyUp", "key": "a", "code": "KeyA", "modifiers": 2})
+                        self.d.execute_cdp_cmd("Input.insertText", {"text": value})
+                        time.sleep(0.6)
+                        got = self.d.execute_script("const e=document.getElementById(arguments[0]); return e ? e.value : ''", dom_id) or ""
+                        log.info("login fill %s: got %d chars (want %d)", label, len(got), len(value))
+                        if got == value:
+                            return
+                        if len(got) > len(value):  # 겹쳐 들어갔으면 비우고 다시
+                            self.d.execute_cdp_cmd("Input.insertText", {"text": ""})
+                        time.sleep(1)
+                    raise TimeoutException(f"{label} 칸에 글자가 안 들어갑니다")
+
+                fill("이메일", "email", s["email"])
+                fill("암호", "current-password", s["password"])
                 self.click(self.button("로그인", 10, exact=True))
                 WebDriverWait(self.d, 40).until(lambda d: any(k in (self._url() or "") for k in ("r9.dscore.com/#/home", "r9.dscore.com/#/patients", "r9.dscore.com/#/dashboard")) and "login." not in (self._url() or ""))
                 self.d.get(BASE + "/#/patients")
@@ -298,7 +340,10 @@ class DSCore:
             time.sleep(2)
             rows = self.d.find_elements(By.XPATH, f"//flt-semantics[contains(normalize-space(.), '{display}') and not(.//flt-semantics[contains(normalize-space(.), '{display}')])]")
             if not rows:
-                # 카드 ID 로 안 잡히면 이름으로
+                # 카드 ID 로 안 잡히면 이름으로 — 검색칸을 덮어쓰기보다 화면을 새로 열고 칩니다
+                self.d.get(BASE + "/#/patients")
+                time.sleep(2)
+                self.enable_semantics()
                 self.type_into(self.input("환자 검색", 20), display.split(",")[0])
                 time.sleep(2)
                 rows = self.d.find_elements(By.XPATH, f"//flt-semantics[contains(normalize-space(.), '{display}') and not(.//flt-semantics[contains(normalize-space(.), '{display}')])]")
@@ -483,32 +528,39 @@ def split_name(name: str) -> tuple[str, str]:
     return name, name
 
 
-LOCK = HERE / "dscore.lock"
+SLOTS = 3  # ★ 동시에 돌릴 수 있는 dxd 변환 수 (사용자 요청 2026-09-10 — "여러 개 한 번에").
+           #   자리마다 전용 Chrome 프로필(chrome-profile-N)이 있어 서로 안 겹칩니다.
+           #   처음 쓰는 자리는 로그인을 한 번 더 하므로 10초쯤 더 듭니다.
 
 
-def _acquire_lock(say, wait_minutes: int = 20) -> None:
-    """★ dxd 두 건을 동시에 보내면 전용 Chrome 프로필이 겹쳐 둘 다 망가집니다 (2026-09-10).
-       먼저 온 것이 끝날 때까지 뒤의 것이 기다립니다. 죽은 잠금(30분 이상)은 무시합니다."""
+def _acquire_slot(say, wait_minutes: int = 20) -> int:
+    """빈 자리(1..SLOTS)를 잡습니다. 다 차 있으면 하나가 비기를 기다립니다. 죽은 잠금(30분)은 무시."""
     import os
     deadline = time.time() + wait_minutes * 60
+    told = False
     while True:
-        try:
-            if LOCK.exists() and time.time() - LOCK.stat().st_mtime > 1800:
-                LOCK.unlink()
-            fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(fd, str(os.getpid()).encode())
-            os.close(fd)
-            return
-        except FileExistsError:
-            if time.time() > deadline:
-                raise RuntimeError("다른 dxd 변환이 20분 넘게 끝나지 않아 기다리기를 멈췄습니다") from None
-            say("다른 dxd 변환이 진행 중 — 끝나기를 기다립니다")
-            time.sleep(10)
+        for slot in range(1, SLOTS + 1):
+            lock = HERE / f"dscore-{slot}.lock"
+            try:
+                if lock.exists() and time.time() - lock.stat().st_mtime > 1800:
+                    lock.unlink()
+                fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(fd, str(os.getpid()).encode())
+                os.close(fd)
+                return slot
+            except FileExistsError:
+                continue
+        if time.time() > deadline:
+            raise RuntimeError("다른 dxd 변환들이 20분 넘게 끝나지 않아 기다리기를 멈췄습니다")
+        if not told:
+            say(f"dxd 변환 {SLOTS}건이 진행 중 — 자리가 비기를 기다립니다")
+            told = True
+        time.sleep(5)
 
 
-def _release_lock() -> None:
+def _release_slot(slot: int) -> None:
     try:
-        LOCK.unlink()
+        (HERE / f"dscore-{slot}.lock").unlink()
     except FileNotFoundError:
         pass
 
@@ -517,34 +569,36 @@ def convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_i
     """defer_cleanup=True 면 (파일들, 뒷정리함수) 를 돌려줍니다 — 임시 환자 삭제와 브라우저 종료는
        호출자가 완료 표시를 한 **뒤에** 부릅니다. 잠금도 그때 풉니다."""
     say = say or (lambda m: None)
-    _acquire_lock(say)
+    slot = _acquire_slot(say)
     try:
-        placed, cleanup = _convert(dxd, folder, folder_name, patient_name, card_id, show, say)
+        placed, cleanup = _convert(dxd, folder, folder_name, patient_name, card_id, show, say, slot)
     except Exception:
-        _release_lock()
+        _release_slot(slot)
         raise
     if defer_cleanup:
         def _later() -> None:
             try:
                 cleanup()
             finally:
-                _release_lock()
+                _release_slot(slot)
         return placed, _later
     try:
         cleanup()
     finally:
-        _release_lock()
+        _release_slot(slot)
     return placed
 
 
-def _convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_id: str, show: bool, say):
+def _convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_id: str, show: bool, say, slot: int = 1):
     # ★ 임시 환자 이름은 **영어 + 주문번호** (사용자 지시 2026-09-10 — "환자명은 영어로, 중복 안 되게").
     #   덴플로우 환자명은 우리 .dentalProject 에 들어가므로 DS Core 쪽 이름은 아무래도 됩니다.
     #   카드 ID 에 초 단위 시각을 붙여 같은 주문을 다시 보내도 안 겹칩니다.
     # ★ 덴플로우와 엮이는 이름은 쓰지 않습니다 (사용자 지시 2026-09-10 — 클라우드에 올라가는 것이라).
     #   "Demo, Case<초단위시각>" 처럼 뜻 없는 영어 + 고유 숫자. 카드 ID 도 TMP-… 로.
-    stamp = str(int(time.time()))
-    first, last = "Demo", f"Case{stamp[-7:]}"
+    import os
+    # ★ 같은 초에 두 건이 시작하면 겹칩니다 (동시 실행 시험 2026-09-10) → 프로세스 번호까지 붙입니다
+    stamp = f"{int(time.time())}{os.getpid() % 1000:03d}"
+    first, last = "Demo", f"Case{stamp[-8:]}"
     card_id = f"TMP-{stamp}"
     display = f"{last}, {first}"
     birth = time.strftime("%Y-%m-%d")
@@ -557,10 +611,11 @@ def _convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_
         marks.append(f"{name} {time.time() - t:.0f}s")
         t = time.time()
 
-    ds = DSCore(tmp, show=show, say=say)
+    ds = DSCore(tmp, show=show, say=say, slot=slot)
+    created = False
     try:
         ds.ensure_login(); lap("로그인")
-        ds.create_patient(first, last, card_id, birth); lap("환자생성")
+        ds.create_patient(first, last, card_id, birth); created = True; lap("환자생성")
         ds.open_patient(card_id, display); lap("환자열기")
         ds.upload_dxd(dxd); lap("업로드+처리")
         z = ds.export_exocad(); lap("내보내기")
@@ -568,6 +623,12 @@ def _convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_
         log.info("DS Core 단계 시간: %s", " · ".join(marks))
     except Exception:
         ds.shot("error")
+        if created:
+            # 실패해도 임시 환자는 남기지 않습니다 (안 되면 그냥 넘어감)
+            try:
+                ds.delete_patient(card_id, display)
+            except Exception:  # noqa: BLE001
+                pass
         ds.close()
         shutil.rmtree(tmp, ignore_errors=True)
         raise

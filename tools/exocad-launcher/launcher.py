@@ -151,7 +151,7 @@ class Window:
         def _f() -> None:
             if ok:
                 self._show_toast("✓ " + title, self._case, fg="#7EE2A8")
-                self.root.after(TOAST_MS + 200, self.root.quit)
+                # quit 은 Job 이 뒷정리(임시 환자 삭제)를 끝낸 뒤 부릅니다
             else:
                 self._fail_dialog(title, log_dir)
         self.root.after(0, _f)
@@ -383,34 +383,23 @@ class Job:
         import uuid
         import exocad_db
         project_guid = str(uuid.uuid4())
-        patient_id = make_project.next_patient_id()
         # ★ exocad 는 케이스 폴더를 "등록 날짜_이름" 으로 찾습니다 (2026-09-10 확인 —
         #   날짜가 어긋나면 "이 프로젝트의 파일은 유효하지 않습니다"). 그래서 DB 의 t_date 와
         #   XML 의 DateTime 을 **폴더 날짜(주문일)** 로 맞추고 시각만 지금으로 둡니다.
         now = dt.datetime.now().astimezone()
         made_at = dt.datetime.combine(dt.date.fromisoformat(order_date), now.time(), tzinfo=now.tzinfo)
-        xml = make_project.build_project(
-            patient_name=patient,
-            teeth=data["teeth"],
-            bridges=data.get("bridges", []),
-            when=made_at,
-            patient_id=patient_id,
-            project_guid=project_guid,
-        )
+        # ★ 주문서(XML)는 환자 번호가 정해진 뒤(DB 등록 뒤)에 씁니다. 여기서는 폴더만.
         try:
             folder.mkdir(parents=True, exist_ok=True)
-            (folder / f"{folder_name}.dentalProject").write_bytes(("﻿" + xml).encode("utf-8"))
+            probe = folder / ".denflow-write-test"
+            probe.write_bytes(b"")
+            probe.unlink()
         except PermissionError:
             # exocad 가 열어 둔 폴더 — 비켜 갑니다
             folder = unique_folder(folder)
             folder_name = folder.name
             self.note(f"★ exocad 가 원래 폴더를 잡고 있어 {folder_name} 로 만듭니다. 케이스를 닫고 다시 보내면 원래 이름으로 갑니다")
-            xml = make_project.build_project(
-                patient_name=patient, teeth=data["teeth"], bridges=data.get("bridges", []),
-                when=made_at, patient_id=patient_id, project_guid=project_guid,
-            )
             folder.mkdir(parents=True)
-            (folder / f"{folder_name}.dentalProject").write_bytes(("﻿" + xml).encode("utf-8"))
         dxds: list[Path] = []
         for p in got:
             if p.suffix.lower() == ".dxd":
@@ -438,35 +427,46 @@ class Job:
                     self.after_done = cleanup
                     self.note(f"변환 완료: {[p.name for p in placed]}")
                 except Exception as e:  # noqa: BLE001
+                    # ★ 옛 변환기 exe 를 예비로 띄우던 것은 뺐습니다 (2026-09-10 — "왜 자꾸 자동으로
+                    #   실행되냐"). DS Core 화면이 바뀌어 그 exe 는 어차피 안 됩니다. 실패는 실패로.
                     self.log.exception("dscore 실패")
-                    self.note(f"★ 자동 변환 실패: {e}")
-                    exe = Path(self.cfg.get("converter_exe", ""))
-                    self.note(f"수동으로: ① {keep.name} 을 변환기 창에, ② {folder_name}.dentalProject 를 끌어다 놓기")
-                    if exe.is_file():
-                        subprocess.Popen([str(exe)], cwd=str(exe.parent))
-                        self.note("변환기를 띄웠습니다")
+                    raise RuntimeError(f"dxd 자동 변환 실패: {e}") from e
         else:
             self.say("4/5 dxd 없음 — 변환 건너뜀")
 
         self.mark("dxd변환")
         # 6. exocad DB 에 직접 등록 — 되면 가져오기 클릭이 필요 없습니다 (2026-09-10)
         registered = False
-        try:
-            work, mesial, healthy, antagonist = make_project.plan_teeth(data["teeth"], data.get("bridges", []))
-            db = exocad_db.ExocadDb(cad)
+        patient_id = 0
+        work, mesial, healthy, antagonist = make_project.plan_teeth(data["teeth"], data.get("bridges", []))
+        for attempt in range(5):   # exocad·다른 런처가 DB 를 잠깐 잡고 있으면 재시도
             try:
-                tid = db.register(
-                    patient_name=patient, patient_id=patient_id, project_guid=project_guid,
-                    tray_no=make_project.TRAY_NO, when=made_at,
-                    teeth=exocad_db.teeth_from_plan(work, mesial, healthy, antagonist),
-                )
-            finally:
-                db.close()
-            registered = True
-            self.note(f"exocad 목록에 등록했습니다 (treatment {tid})")
-        except Exception as e:  # noqa: BLE001
-            self.log.exception("exocad DB 등록 실패")
-            self.note(f"★ exocad 목록 자동 등록 실패: {e}")
+                db = exocad_db.ExocadDb(cad)
+                try:
+                    tid, patient_id = db.register(
+                        patient_name=patient, project_guid=project_guid,
+                        tray_no=make_project.TRAY_NO, when=made_at,
+                        teeth=exocad_db.teeth_from_plan(work, mesial, healthy, antagonist),
+                    )
+                finally:
+                    db.close()
+                registered = True
+                self.note(f"exocad 목록에 등록했습니다 (treatment {tid}, 환자 {patient_id})")
+                break
+            except Exception as e:  # noqa: BLE001
+                if "locked" in str(e).lower() or "busy" in str(e).lower():
+                    time.sleep(1 + attempt)
+                    continue
+                self.log.exception("exocad DB 등록 실패")
+                self.note(f"★ exocad 목록 자동 등록 실패: {e}")
+                break
+        if not registered:
+            patient_id = make_project.next_patient_id()
+        xml = make_project.build_project(
+            patient_name=patient, teeth=data["teeth"], bridges=data.get("bridges", []),
+            when=made_at, patient_id=patient_id, project_guid=project_guid,
+        )
+        (folder / f"{folder_name}.dentalProject").write_bytes(("﻿" + xml).encode("utf-8"))
 
         # 7. 끝
         self.say("5/5 exocad 목록에 등록")
@@ -502,7 +502,7 @@ def main() -> None:
     (LOG_DIR / "runs").mkdir(exist_ok=True)
     handlers = [
         logging.FileHandler(LOG_DIR / f"{dt.date.today().isoformat()}.log", encoding="utf-8"),
-        logging.FileHandler(LOG_DIR / "runs" / f"{dt.datetime.now():%Y%m%d-%H%M%S}.log", encoding="utf-8"),
+        logging.FileHandler(LOG_DIR / "runs" / f"{dt.datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}.log", encoding="utf-8"),
     ]
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", handlers=handlers)
     args = sys.argv[1:]

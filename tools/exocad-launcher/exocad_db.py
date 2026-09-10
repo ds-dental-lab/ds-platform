@@ -83,16 +83,18 @@ class ExocadDb:
     def register(
         self,
         patient_name: str,
-        patient_id: int,
         project_guid: str,
         tray_no: int,
         when: dt.datetime,
         teeth: list[tuple[int, str, bool]],   # (번호, kind, mesial)
-    ) -> int:
+    ) -> tuple[int, int]:
+        """→ (treatment_id, patient_id). ★ 환자 번호는 **잠금 안에서** 정합니다 — 두 런처가 같은
+           순간에 max+1 을 따로 계산해 부딪힌 일이 있습니다 (동시 실행 시험 2026-09-10)."""
         c = self.c
         tt = self._template_treatment()
         try:
             c.execute("begin immediate")
+            patient_id = self.next_patient_id()
             # 환자
             c.execute("insert into patients (lab_id, practice_id, patient_id, fname, lname, dateOfBirth) values (0,1,?,?,?,NULL)",
                       (patient_id, "", patient_name))
@@ -119,7 +121,7 @@ class ExocadDb:
             for sn, val in (("ToothColor", "---"), ("AntagonistType", "DigitalImpressionScan")):
                 c.execute("insert into TreatmentValuedParameters (PARAM_TYPE, ParamSN, ValueSN, treatment_id) values ('TEXTUAL',?,?,?)", (sn, val, tid))
             c.execute("commit")
-            return tid
+            return tid, patient_id
         except Exception:
             c.execute("rollback")
             raise

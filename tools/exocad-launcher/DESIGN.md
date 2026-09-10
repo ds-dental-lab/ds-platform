@@ -135,6 +135,12 @@
 - dxd 가 여럿이면 내려받기 전에 **고르기 창**(사용자 요청). stl/obj/ply 는 전부.
 - dxd 동시 변환은 잠금(dscore.lock)으로 줄 세움.
 
+## 6-4. 속도·동시 실행 (2026-09-10 오후)
+- dxd 한 건 **56초** (로그인 3 · 환자 14 · 업로드+처리 20 · 내보내기 19). 병목 둘 제거: base64 조각 주입(20초) → 숨은 `<input type=file>` 로 0초; 임시 환자 삭제는 완료 뒤 뒷정리.
+- **동시 3건**: 자리(slot)마다 Chrome 프로필. 2·3번은 **1번 프로필 복사**(새 로그인 안 함 — 새 프로필 첫 로그인이 자주 틀어지고 반복 실패 시 DS Core 가 계정을 잠시 막음). 임시 환자 카드 ID 는 초+PID. exocad 환자 번호는 DB 트랜잭션 안에서 정하고, 주문서(XML)는 그 뒤에 씀. 두 건 동시 58초 통과.
+- 로그: `logs/날짜.log`, `logs/runs/시각-PID.log`, `logs/runs.csv`(주문·결과·단계별 초).
+- UI: 시작·끝 토스트 3초, 실패만 알림창(로그 열기). 옛 변환기 exe 예비 실행은 뺌.
+
 ## 7. 남은 것
 1. dxd DS Core 자동화 — exe 소스 없음. 흐름은 `dxd-conversion-strings.txt`(PyInstaller 문자열): 로그인(input#email, input#current-password) → 주문 양식 `#/order_form?navctx=orders` → 새 환자(flt-semantics 버튼) → 미디어 업로드(청크 주입) → ".exocad" 내보내기 → `<CardID>…_exocad.zip` → 케이스 폴더에 풀기 → 환자 삭제. DS Core 는 Flutter 웹. 계정은 `Desktop\settings.json` {email,password,headless}.
 2. sqlite 직접 등록.
