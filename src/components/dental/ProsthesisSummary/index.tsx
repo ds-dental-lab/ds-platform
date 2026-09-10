@@ -144,9 +144,21 @@ export default function ProsthesisSummary({
                     {line.shadeLabel && (
                       <span className="ml-1.5 text-[#4A5567]">({line.shadeLabel})</span>
                     )}
+                    {/*
+                      ★ 임플란트 모델은 **따로 된 알약**으로 (사용자 지적 2026-09-10 — "구분이 잘 안 된다").
+                        치식·쉐이드 뒤에 회색 글자로 이어 붙이면 한 덩어리로 읽힙니다.
+                        작은 세로선으로 끊고, 연보라 알약에 ⌀ 표시를 달아 "이건 모델" 임을 보이게.
+                    */}
                     {line.implantLabel && (
-                      <span className="ml-2 text-[13px] text-[#8E98A8]">
-                        {line.implantLabel}
+                      <span className="ml-2.5 inline-flex items-center gap-1.5 align-middle">
+                        <span aria-hidden className="h-[14px] w-px bg-[#DDE2EA]" />
+                        <span
+                          title="임플란트 모델"
+                          className="inline-flex items-center gap-1 rounded-full border border-[#E3DCF8] bg-[#F7F4FF] px-2.5 py-[3px] text-[12.5px] font-semibold text-[#6B3FD6]"
+                        >
+                          <span aria-hidden className="text-[11px] text-[#9B7BFF]">⌀</span>
+                          {line.implantLabel}
+                        </span>
                       </span>
                     )}
                   </span>
