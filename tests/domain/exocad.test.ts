@@ -37,10 +37,13 @@ describe('파일명', () => {
   });
 
   it('스캔이고 다 올라온 것만 갑니다', () => {
-    expect(isExocadScanFile({ kind: 'scan', uploadStatus: 'done' })).toBe(true);
+    // ★ 실제 enum 값은 uploaded — 'done' 이 아닙니다 (첫 실전에서 파일 0개 간 사고)
+    expect(isExocadScanFile({ kind: 'scan', uploadStatus: 'uploaded' })).toBe(true);
     expect(isExocadScanFile({ kind: 'scan', uploadStatus: 'pending' })).toBe(false);
-    expect(isExocadScanFile({ kind: 'photo', uploadStatus: 'done' })).toBe(false);
-    expect(isExocadScanFile({ kind: 'design', uploadStatus: 'done' })).toBe(false);
+    expect(isExocadScanFile({ kind: 'scan', uploadStatus: 'failed' })).toBe(false);
+    expect(isExocadScanFile({ kind: 'scan', uploadStatus: 'done' })).toBe(false);
+    expect(isExocadScanFile({ kind: 'photo', uploadStatus: 'uploaded' })).toBe(false);
+    expect(isExocadScanFile({ kind: 'design', uploadStatus: 'uploaded' })).toBe(false);
   });
 });
 

@@ -66,9 +66,13 @@ export function stripUploadPrefix(fileName: string): string {
   return fileName.replace(/^\d{13}_/, '');
 }
 
-/** 스캔 파일만 exocad 로 갑니다 — 사진·설계 파일·기타는 아닙니다 */
+/**
+ * 스캔 파일만 exocad 로 갑니다 — 사진·설계 파일·기타는 아닙니다.
+ * ★ 다 올라온 상태값은 'uploaded' 입니다 (file_upload_status enum: pending·uploaded·failed).
+ *   처음에 'done' 으로 적어 첫 실전(2026-09-10)에서 파일 0개가 갔습니다.
+ */
 export function isExocadScanFile(file: { kind: string; uploadStatus: string }): boolean {
-  return file.kind === 'scan' && file.uploadStatus === 'done';
+  return file.kind === 'scan' && file.uploadStatus === 'uploaded';
 }
 
 export interface ExocadSourceItem {

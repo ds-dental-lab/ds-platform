@@ -268,6 +268,9 @@ def parse_launch(arg: str) -> tuple[str, str]:
 
 def main() -> None:
     LOG_DIR.mkdir(exist_ok=True)
+    # ★ 무엇보다 먼저 "불렸다" 를 남깁니다 — 브라우저가 부르긴 했는지 가리는 흔적
+    with open(LOG_DIR / "chrome-hit.txt", "a", encoding="utf-8") as f:
+        f.write(f"{dt.datetime.now().isoformat(timespec='seconds')} py {sys.argv[1:]}\n")
     logging.basicConfig(
         filename=LOG_DIR / f"{dt.date.today().isoformat()}.log",
         level=logging.INFO,
