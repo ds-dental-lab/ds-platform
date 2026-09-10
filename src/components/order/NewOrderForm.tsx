@@ -911,8 +911,12 @@ function OrderFormBody({
                         {fav.label}
                       </button>
 
-                      {/* ★ 디자인센터가 배포한 것은 치과가 뺄 수 없습니다 (RLS 도 막습니다) */}
-                      {!fav.pushed && (
+                      {/*
+                        ★ ✕ 는 뺄 수 있는 사람에게만 (RLS 와 같은 규칙):
+                          치과가 담은 것 → 치과가, 센터가 배포한 것 → 센터가. (2026-09-10 — 센터
+                          화면에서 배포한 모델에 ✕ 가 없어 "지울 수 없냐" 는 질문이 나왔음)
+                      */}
+                      {(fav.pushed ? Boolean(clinics) : !clinics) && (
                         <button
                           type="button"
                           aria-label={`${fav.label} 삭제`}
@@ -1186,6 +1190,12 @@ function OrderFormBody({
         <ImplantModelDialog
           catalog={implantCatalog}
           favorites={implantFavorites}
+          canRemove={(fav) => (fav.pushed ? Boolean(clinics) : !clinics)}
+          onRemoveFavorite={async (fav) => {
+            const result = await submitRemoveImplantFavorite(fav.id);
+            if (!result.ok) setError(result.error);
+            else router.refresh();
+          }}
           value={implant}
           title={modelDialog === 'favorite' ? '자주쓰는 모델 등록' : '임플란트 모델 등록'}
           confirmLabel={modelDialog === 'favorite' ? '등록' : '적용'}

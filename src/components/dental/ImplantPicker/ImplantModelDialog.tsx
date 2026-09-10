@@ -34,6 +34,10 @@ export interface ImplantModelDialogProps {
   value?: ImplantSelection;
   /** 자주 쓰는 모델 — 있으면 창 위에 단추 줄로 (사용자 요청 2026-09-10) */
   favorites?: ImplantFavorite[];
+  /** 단추를 뺄 수 있으면 ✕ 가 붙습니다. 뺄 권한이 없는 단추엔 안 부릅니다 */
+  onRemoveFavorite?: (favorite: ImplantFavorite) => void | Promise<void>;
+  /** 배포한 쪽(센터)이면 배포 단추를, 치과면 자기 단추를 뺍니다 */
+  canRemove?: (favorite: ImplantFavorite) => boolean;
   title?: string;
   confirmLabel?: string;
   onConfirm: (selection: ImplantSelection) => void;
@@ -44,6 +48,8 @@ export default function ImplantModelDialog({
   catalog,
   value = EMPTY_SELECTION,
   favorites = [],
+  onRemoveFavorite,
+  canRemove = () => false,
   title = '임플란트 모델 등록',
   confirmLabel = '추가',
   onConfirm,
@@ -92,29 +98,47 @@ export default function ImplantModelDialog({
                 draft.typeCode === fav.typeCode &&
                 draft.sizeCode === fav.sizeCode &&
                 draft.screwCode === fav.screwCode;
+              const removable = Boolean(onRemoveFavorite) && canRemove(fav);
               return (
-                <button
+                <span
                   key={fav.id}
-                  type="button"
-                  onClick={() =>
-                    setDraft({
-                      manufacturerCode: fav.makerCode,
-                      typeCode: fav.typeCode,
-                      sizeCode: fav.sizeCode,
-                      screwCode: fav.screwCode,
-                      option: draft.option,
-                    })
-                  }
                   className={
-                    'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-colors ' +
-                    (on
-                      ? 'border-[#1B63E8] bg-[#EDF3FE] text-[#1B63E8]'
-                      : 'border-[#E8EBF0] bg-white text-[#4A5567] hover:border-[#98A2B3]')
+                    'inline-flex items-center rounded-full border transition-colors ' +
+                    (on ? 'border-[#1B63E8] bg-[#EDF3FE]' : 'border-[#E8EBF0] bg-white hover:border-[#98A2B3]')
                   }
                 >
-                  {fav.pushed && <span className="text-[10px] font-bold text-[#7C6BE8]">배포</span>}
-                  {fav.label}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft({
+                        manufacturerCode: fav.makerCode,
+                        typeCode: fav.typeCode,
+                        sizeCode: fav.sizeCode,
+                        screwCode: fav.screwCode,
+                        option: draft.option,
+                      })
+                    }
+                    className={
+                      'inline-flex items-center gap-1.5 py-1.5 pl-3.5 text-[13px] font-semibold ' +
+                      (removable ? 'pr-1.5 ' : 'pr-3.5 ') +
+                      (on ? 'text-[#1B63E8]' : 'text-[#4A5567]')
+                    }
+                  >
+                    {fav.pushed && <span className="text-[10px] font-bold text-[#7C6BE8]">배포</span>}
+                    {fav.label}
+                  </button>
+                  {removable && (
+                    <button
+                      type="button"
+                      aria-label={`${fav.label} 삭제`}
+                      title="자주 쓰는 모델에서 뺍니다"
+                      onClick={() => onRemoveFavorite?.(fav)}
+                      className="py-1.5 pl-1 pr-3 text-[13px] text-[#C4CBD6] hover:text-[#D8453F]"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </span>
               );
             })
           )}
