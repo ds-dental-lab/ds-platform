@@ -71,7 +71,8 @@ export const IMPLANT_CATALOG_TAG = 'implant-catalog';
  */
 export const getImplantCatalog = unstable_cache(
   loadImplantCatalog,
-  ['implant-catalog'],
+  // ★ 열쇠 이름을 바꿔 캐시된 빈 목록을 버립니다 (2026-09-10). 배포해도 옛 캐시는 남습니다
+  ['implant-catalog', 'v2'],
   { tags: [IMPLANT_CATALOG_TAG] },
 );
 
