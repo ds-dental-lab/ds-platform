@@ -18,6 +18,7 @@
 //   잠글 필요가 없습니다. 대신 **왜 안 보이는지**는 말해 줘야 합니다.
 // =========================================================
 import { LEAKED_PASSWORD_MESSAGE } from '../password-reset';
+import { normalizePhone } from '../alimtalk';
 
 /** 스스로 가입할 수 있는 곳. 디자인센터는 여기 없습니다 */
 export const SIGNUP_SECTORS = ['clinic', 'lab'] as const;
@@ -54,6 +55,11 @@ export interface SignupForm {
   orgType: string;
   orgName: string;
   /**
+   * 휴대전화 — **필수** (사용자 결정 2026-09-11).
+   * 가입 알림톡(접수·승인)이 이 번호로 가고, 가입하는 순간 알림톡 번호로 저장됩니다.
+   */
+  phone: string;
+  /**
    * 이용약관과 개인정보 처리방침에 동의했는가.
    *
    * ★ 약관 제5조 — 이용계약은 **동의하고 신청한 뒤 승인**으로 성립합니다.
@@ -72,6 +78,10 @@ export interface SignupForm {
 export function checkSignup(form: SignupForm): Verdict {
   if (!form.name.trim()) return { ok: false, reason: '이름을 넣어 주세요' };
   if (!form.orgName.trim()) return { ok: false, reason: '기관 이름을 넣어 주세요' };
+
+  if (!form.phone.trim()) return { ok: false, reason: '휴대전화 번호를 넣어 주세요' };
+  // ★ 휴대전화만 — 알림톡은 카카오톡이 깔린 폰으로 갑니다. 유선번호는 조용히 실패합니다
+  if (!normalizePhone(form.phone)) return { ok: false, reason: '휴대전화 번호를 확인해 주세요 (010으로 시작)' };
 
   if (!isSignupSector(form.orgType)) {
     return { ok: false, reason: '치과 또는 기공소를 골라 주세요' };

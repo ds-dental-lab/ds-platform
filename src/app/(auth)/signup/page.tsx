@@ -30,6 +30,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { normalizePhone } from '@/server/domain/alimtalk';
 import { notifySignupRequested } from '@/server/actions/signup-notify';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import {
@@ -103,6 +104,7 @@ export default function SignupPage() {
   const [name, setName] = useState('');
   const [orgType, setOrgType] = useState<SignupSector>('clinic');
   const [orgName, setOrgName] = useState('');
+  const [phone, setPhone] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
@@ -110,7 +112,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   async function handleSignup() {
-    const verdict = checkSignup({ name, email, password, orgType, orgName, agreed });
+    const verdict = checkSignup({ name, email, password, orgType, orgName, phone, agreed });
     if (!verdict.ok) {
       setError(verdict.reason);
       return;
@@ -129,7 +131,7 @@ export default function SignupPage() {
           없습니다. DB 트리거(handle_new_user)가 이 값을 읽어
           신청서를 만듭니다 — 사람 손을 한 번도 안 거칩니다.
       */
-      options: { data: { name: name.trim(), org_type: orgType, org_name: orgName.trim() } },
+      options: { data: { name: name.trim(), org_type: orgType, org_name: orgName.trim(), tel: normalizePhone(phone) } },
     });
 
     setLoading(false);
@@ -264,6 +266,20 @@ export default function SignupPage() {
                 value={name}
                 autoComplete="name"
                 onChange={(e) => setName(e.target.value)}
+              />
+
+              {/*
+                ★ 필수 (사용자 결정 2026-09-11). 가입 접수·승인 알림톡이 이 번호로 가고,
+                  가입하는 순간 알림톡 받을 번호로 저장됩니다(계정정보에서 끄거나 바꿈).
+              */}
+              <input
+                className="ctl"
+                type="tel"
+                inputMode="numeric"
+                placeholder="휴대전화 (알림톡 받을 번호)"
+                value={phone}
+                autoComplete="tel"
+                onChange={(e) => setPhone(e.target.value)}
               />
 
               <input

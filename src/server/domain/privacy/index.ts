@@ -118,7 +118,8 @@ export interface PurposeRow {
 export const PURPOSES: PurposeRow[] = [
   {
     purpose: '회원 가입 및 관리',
-    required: '상호, 대표자명, 사업자등록번호, 주소, 전화번호, 담당자 이름, 이메일',
+    // ★ 담당자 휴대전화 — 가입 때 필수로 받음 (2026-09-11, 가입 알림톡·알림톡 번호)
+    required: '상호, 대표자명, 사업자등록번호, 주소, 전화번호, 담당자 이름, 담당자 휴대전화번호, 이메일',
     optional: '팩스번호, 세금계산서 이메일',
   },
   {

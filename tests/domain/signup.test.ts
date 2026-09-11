@@ -26,6 +26,7 @@ const form = (over: Partial<SignupForm> = {}): SignupForm => ({
   password: 'goodpass1',
   orgType: 'clinic',
   orgName: '행복치과',
+  phone: "010-1234-5678",
   agreed: true,
   ...over,
 });
@@ -276,5 +277,19 @@ describe('이미 가입된 주소 알아채기', () => {
     expect(looksAlreadyRegistered(undefined)).toBe(false);
     expect(looksAlreadyRegistered({})).toBe(false);
     expect(looksAlreadyRegistered({ identities: null })).toBe(false);
+  });
+});
+
+describe('가입 휴대전화 — 필수 (2026-09-11)', () => {
+  it('비면 막음', () => {
+    expect(checkSignup(form({ phone: ' ' }))).toEqual({ ok: false, reason: '휴대전화 번호를 넣어 주세요' });
+  });
+  it('유선번호·짧은 번호는 막음', () => {
+    expect(checkSignup(form({ phone: '02-123-4567' })).ok).toBe(false);
+    expect(checkSignup(form({ phone: '0101234' })).ok).toBe(false);
+  });
+  it('하이픈·+82 모양은 통과', () => {
+    expect(checkSignup(form({ phone: '01012345678' })).ok).toBe(true);
+    expect(checkSignup(form({ phone: '+82 10-1234-5678' })).ok).toBe(true);
   });
 });
