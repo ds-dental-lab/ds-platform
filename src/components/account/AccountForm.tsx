@@ -370,7 +370,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 flex items-center gap-1.5 text-[13px] font-semibold text-[#4A5567]">
+      <span className="mb-1 flex items-center gap-1.5 whitespace-nowrap text-[13px] font-semibold text-[#4A5567]">
         {label}
         {required && <b className="font-bold text-[#D8453F]">*</b>}
         {invoice && (
@@ -383,11 +383,13 @@ function Field({
             ✓
           </span>
         )}
-        {missing && (
-          <span className="font-normal text-[#D8453F]">여기로 받겠다고 했는데 비어 있습니다</span>
-        )}
       </span>
       {children}
+      {/*
+        ★ 경고는 칸 **아래**에 (2026-09-11 — 사용자 지적 "삐뚤어졌다").
+          이름 옆에 두면 긴 문장이 왼쪽 칸 이름을 두 줄로 밀어 옆 칸과 입력칸 높이가 어긋났습니다.
+      */}
+      {missing && <span className="mt-1 block text-[12.5px] text-[#D8453F]">여기로 받겠다고 했는데 비어 있습니다</span>}
     </label>
   );
 }
