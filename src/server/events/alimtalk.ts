@@ -130,7 +130,8 @@ export async function queueAlimtalkNotice(input: {
 
     if (people.length === 0) return;
 
-    await admin.from('alimtalk_queue').insert(
+    // ★ supabase 는 실패해도 throw 하지 않고 error 로 돌려줍니다 — 안 보면 조용히 사라집니다
+    const { error: insertError } = await admin.from('alimtalk_queue').insert(
       people.map((u) => ({
         event: input.event,
         order_id: input.orderId ?? null,
@@ -144,6 +145,7 @@ export async function queueAlimtalkNotice(input: {
         status: 'pending' as const,
       })),
     );
+    if (insertError) console.error('[alimtalk] 대기열에 못 넣었습니다', input.event, insertError.message);
   } catch (error) {
     // ★ 업무는 이미 끝났습니다. 알림톡 때문에 되돌리지 않습니다
     console.error('[alimtalk] 대기열에 못 넣었습니다', input.event, error);
@@ -169,7 +171,7 @@ export async function queueAlimtalkToPhone(input: {
 
   try {
     const admin = createAdminClient();
-    await admin.from('alimtalk_queue').insert({
+    const { error: insertError } = await admin.from('alimtalk_queue').insert({
       event: input.event,
       order_id: null,
       to_user_id: null,
@@ -180,6 +182,7 @@ export async function queueAlimtalkToPhone(input: {
       vars: input.vars ?? null,
       status: 'pending' as const,
     });
+    if (insertError) console.error('[alimtalk] 대기열에 못 넣었습니다', input.event, insertError.message);
   } catch (error) {
     console.error('[alimtalk] 대기열에 못 넣었습니다', input.event, error);
   }
