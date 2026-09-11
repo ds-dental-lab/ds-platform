@@ -106,7 +106,21 @@ export async function getHomeMoney(): Promise<HomeMoney> {
     .maybeSingle();
 
   const closingDay = (org as { closing_day: number | null } | null)?.closing_day ?? 1;
-  const ranges = moneyRanges(todayInKst(), orgType, closingDay, TREND_COUNT);
+  // ★ 이미 만든 정산 기간 — 기준일을 바꾼 직후에도 HOME 구간이 정산과 같게 (2026-09-11)
+  const { data: periodRows } =
+    orgType === 'design_center'
+      ? { data: [] }
+      : await supabase
+          .from('billing_periods')
+          .select('year_month, period_from, period_to')
+          .eq('party_org_id', session.orgId);
+  const stored = ((periodRows ?? []) as { year_month: string; period_from: string; period_to: string }[]).map((r) => ({
+    yearMonth: r.year_month,
+    from: r.period_from,
+    to: r.period_to,
+  }));
+
+  const ranges = moneyRanges(todayInKst(), orgType, closingDay, TREND_COUNT, stored);
   const { basis, countBy } = ranges[ranges.length - 1];
 
   const buckets: MoneyBucket[] = ranges.map((r) => ({

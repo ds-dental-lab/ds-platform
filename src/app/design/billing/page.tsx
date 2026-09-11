@@ -19,8 +19,7 @@ import {
   getClosedSettlement,
   getPeriod,
   listClosedParties,
-  listUnsettledParties,
-} from '@/server/repositories/billing';
+  listUnsettledParties, billingRangeOf } from '@/server/repositories/billing';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import {
   periodRange,
@@ -95,7 +94,7 @@ export default async function DesignBillingPage({
     );
   }
 
-  const { from, to } = periodRange(yearMonth, partner.closingDay);
+  const { from, to } = await billingRangeOf(partner.id, yearMonth, partner.closingDay);
 
   const [catalog, period] = await Promise.all([
     // 판 지난 제품도 이름을 잃지 않게 꺼진 것까지 가져옵니다

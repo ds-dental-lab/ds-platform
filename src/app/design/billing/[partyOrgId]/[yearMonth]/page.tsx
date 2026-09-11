@@ -16,9 +16,9 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { requireManagerSector } from '@/server/policies/session';
 import { getPartner } from '@/server/repositories/partner';
-import { getClosedSettlement, getPeriod } from '@/server/repositories/billing';
+import { getClosedSettlement, getPeriod, billingRangeOf } from '@/server/repositories/billing';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
-import { periodRange, invoicePartiesFor, isValidYearMonth } from '@/server/domain/billing';
+import { invoicePartiesFor, isValidYearMonth } from '@/server/domain/billing';
 import InvoiceSheet from '@/components/billing/InvoiceSheet';
 import InvoiceBar from '@/components/billing/InvoiceBar';
 import AutoPrint from '@/components/billing/AutoPrint';
@@ -65,7 +65,7 @@ export default async function InvoicePage({
   if (!period?.closedAt) notFound();
 
   // 이것만 앞의 결과를 씁니다 (기간·제품)
-  const { from, to } = periodRange(yearMonth, partner.closingDay);
+  const { from, to } = await billingRangeOf(partner.id, yearMonth, partner.closingDay);
   const settlement = await getClosedSettlement(period.id, from, to, catalog);
 
   const parties = invoicePartiesFor(partner.orgType);

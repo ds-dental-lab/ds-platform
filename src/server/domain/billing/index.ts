@@ -70,6 +70,16 @@ export function prevYearMonth(ym: YearMonth): YearMonth {
 export const MIN_CLOSING_DAY = 1;
 export const MAX_CLOSING_DAY = 28;
 
+/**
+ * 고를 수 있는 정산 기준일 (사용자탭 · 치과 계정정보 공통).
+ * ★ 2026-09-11 부터 치과가 스스로 고릅니다 — 바꾼 직후 한 번은 effectivePeriodRange 가 경계를 맞춥니다.
+ */
+export const CLOSING_DAY_CHOICES = [1, 26] as const;
+
+export function isClosingDayChoice(day: number): boolean {
+  return (CLOSING_DAY_CHOICES as readonly number[]).includes(day);
+}
+
 export function isValidClosingDay(day: number): boolean {
   return Number.isInteger(day) && day >= MIN_CLOSING_DAY && day <= MAX_CLOSING_DAY;
 }
@@ -124,6 +134,94 @@ export function periodOfDate(when: string, closingDay: number): YearMonth {
   const dayOfMonth = Number(when.slice(8, 10));
 
   return day > 1 && dayOfMonth >= day ? nextYearMonth(ym) : ym;
+}
+
+// ---------- 기준일을 바꾼 뒤의 기간 (2026-09-11) ----------
+
+/** 이미 만들어 둔 정산 기간 — billing_periods 의 period_from · period_to */
+export interface StoredPeriod {
+  yearMonth: YearMonth;
+  from: IsoDate;
+  to: IsoDate;
+}
+
+function shiftDay(date: IsoDate, days: number): IsoDate {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * 이 달 정산이 **실제로** 어느 날부터 어느 날까지인가 — 기준일이 바뀐 적이 있어도.
+ *
+ * ★ 치과가 기준일을 스스로 고르게 되면서 생긴 규칙입니다 (사용자 요청 2026-09-11).
+ *   periodRange 만 쓰면 바꾼 순간 경계가 어긋납니다.
+ *     26일 → 1일 : 8월(07-26~08-25)을 닫은 뒤 9월이 09-01 부터 → 08-26~08-31 이 **아무 달에도 안 듦**
+ *     1일 → 26일 : 8월(08-01~08-31)을 닫은 뒤 9월이 08-26 부터 → 08-26~08-31 이 **두 번 청구**
+ *
+ * ★ 그래서
+ *   ① 이미 만든 기간은 **저장된 날짜 그대로** (그때의 기준일로 박아 둔 것)
+ *   ② 만든 기간 **바로 다음** 기간은 그 기간이 끝난 **다음 날부터** 시작
+ *      → 바꾼 직후 한 번만 길어지거나 짧아지고, 그 뒤로는 새 기준일대로 갑니다
+ *   ③ 바로 뒤에 만든 기간이 있으면 그 **전날까지** (겹치지도 비지도 않게)
+ *
+ * ★ effectivePeriodOfDate 와 서로의 역입니다 — 어떤 날짜든 정확히 한 달에만 듭니다 (테스트가 잠급니다).
+ */
+export function effectivePeriodRange(
+  ym: YearMonth,
+  closingDay: number,
+  stored: readonly StoredPeriod[],
+): PeriodRange {
+  const own = stored.find((p) => p.yearMonth === ym);
+  if (own) return { from: own.from, to: own.to };
+
+  const base = periodRange(ym, closingDay);
+  let { from, to } = base;
+
+  const before = stored.filter((p) => p.yearMonth < ym).sort((a, b) => (a.yearMonth < b.yearMonth ? 1 : -1))[0];
+  if (before) {
+    const adjacent = nextYearMonth(before.yearMonth) === ym;
+    if (adjacent || from <= before.to) from = shiftDay(before.to, 1);
+  }
+
+  const after = stored.filter((p) => p.yearMonth > ym).sort((a, b) => (a.yearMonth < b.yearMonth ? -1 : 1))[0];
+  if (after) {
+    const adjacent = nextYearMonth(ym) === after.yearMonth;
+    if (adjacent || to >= after.from) to = shiftDay(after.from, -1);
+  }
+
+  return from <= to ? { from, to } : base;
+}
+
+/**
+ * 이 날짜(배송일)가 **실제로** 드는 정산 달 — effectivePeriodRange 의 역.
+ *
+ *   저장된 기간 안이면        → 그 달
+ *   마지막 저장 기간 뒤인데    → 기준일로 셈한 달이 그 기간 이하이면 **그 다음 달**
+ *   (26일 → 1일로 바꾼 뒤 08-28 배송은 닫힌 8월이 아니라 9월)
+ */
+export function effectivePeriodOfDate(
+  when: string,
+  closingDay: number,
+  stored: readonly StoredPeriod[],
+): YearMonth {
+  const date = when.slice(0, 10);
+  const hit = stored.find((p) => p.from <= date && date <= p.to);
+  if (hit) return hit.yearMonth;
+
+  let ym = periodOfDate(date, closingDay);
+
+  // 이 날짜보다 앞서 끝난 저장 기간 중 가장 늦은 것
+  const before = stored
+    .filter((p) => p.to < date)
+    .sort((a, b) => (a.yearMonth < b.yearMonth ? 1 : -1))[0];
+  if (before && ym <= before.yearMonth) ym = nextYearMonth(before.yearMonth);
+
+  // 그 달의 실제 범위를 벗어나면(뒤에 저장 기간이 있어 잘린 경우) 앞뒤로 한 칸
+  const range = effectivePeriodRange(ym, closingDay, stored);
+  if (date < range.from) return prevYearMonth(ym);
+  if (date > range.to) return nextYearMonth(ym);
+  return ym;
 }
 
 /** 잘못된 기준일이 와도 화면이 죽지 않게 1~28 안으로 당깁니다 */
@@ -198,6 +296,8 @@ export function moneyRanges(
   orgType: 'clinic' | 'design_center' | 'lab',
   closingDay: number,
   count = 6,
+  /** 이미 만든 정산 기간 — 기준일을 바꾼 직후에도 경계가 정산과 같게 (2026-09-11) */
+  stored: readonly StoredPeriod[] = [],
 ): MoneyRange[] {
   // 디자인센터는 거래처 기준일이 제각각이라 달력 월(=기준일 1일)로 갑니다
   const day = orgType === 'design_center' ? 1 : closingDay;
@@ -207,11 +307,14 @@ export function moneyRanges(
     countBy: (orgType === 'clinic' ? 'received' : 'shipped') as MoneyCountBy,
   };
 
+  // 디자인센터는 달력 월이라 저장 기간과 무관합니다
+  const known = orgType === 'design_center' ? [] : stored;
+
   const out: MoneyRange[] = [];
-  let ym = periodOfDate(today, day);
+  let ym = effectivePeriodOfDate(today, day, known);
 
   for (let i = 0; i < Math.max(1, count); i++) {
-    out.unshift({ ...periodRange(ym, day), ...shape });
+    out.unshift({ ...effectivePeriodRange(ym, day, known), ...shape });
     ym = prevYearMonth(ym);
   }
 

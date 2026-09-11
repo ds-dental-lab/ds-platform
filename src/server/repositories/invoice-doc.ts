@@ -16,9 +16,9 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getPartner } from '@/server/repositories/partner';
-import { getClosedSettlement, getPeriod } from '@/server/repositories/billing';
+import { getClosedSettlement, getPeriod, billingRangeOf } from '@/server/repositories/billing';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
-import { periodRange, invoicePartiesFor, isValidYearMonth, invoiceFileName } from '@/server/domain/billing';
+import { invoicePartiesFor, isValidYearMonth, invoiceFileName } from '@/server/domain/billing';
 import type { InvoiceSheetProps } from '@/components/billing/InvoiceSheet';
 
 type Viewer = { orgType: 'clinic' | 'design_center' | 'lab'; orgId: string; orgName: string | null };
@@ -62,7 +62,7 @@ export async function loadInvoiceDoc(
 
   if (!party || !period?.closedAt) return null;
 
-  const { from, to } = periodRange(yearMonth, party.closingDay);
+  const { from, to } = await billingRangeOf(partyOrgId, yearMonth, party.closingDay);
   const settlement = await getClosedSettlement(period.id, from, to, catalog);
 
   const design = (center ?? { name: viewer.orgName ?? '디자인센터', biz_no: null, ceo_name: null, address: null }) as OrgCard;

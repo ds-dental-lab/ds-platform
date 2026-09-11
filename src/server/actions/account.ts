@@ -21,6 +21,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { INVOICE_METHODS, type InvoiceMethod } from '@/server/domain/invoice-method';
 import { normalizePhone } from '@/server/domain/alimtalk';
+import { isClosingDayChoice } from '@/server/domain/billing';
 
 export type AccountResult = { ok: true } | { ok: false; error: string };
 
@@ -35,6 +36,11 @@ export interface AccountInput {
   taxEmail: string;
   /** 정산서를 어디로 받을지 (사용자 요청 2026-08-12) */
   invoiceMethod: InvoiceMethod;
+  /**
+   * 정산 기준일 — **치과만** 스스로 고릅니다 (사용자 요청 2026-09-11). 1일 · 26일.
+   * 기공소·디자인센터가 보내도 무시합니다 (DB 문지기도 막음).
+   */
+  closingDay?: number;
 }
 
 /** 빈 칸은 null 로 넣습니다. '' 를 두면 '값이 있다' 로 보입니다 */
@@ -64,11 +70,17 @@ export async function submitAccount(input: AccountInput): Promise<AccountResult>
     return { ok: false, error: '팩스로 받으려면 팩스 번호를 넣어 주세요' };
   }
 
+  const clinicSetsDay = session.orgType === 'clinic' && input.closingDay !== undefined;
+  if (clinicSetsDay && !isClosingDayChoice(input.closingDay!)) {
+    return { ok: false, error: '정산 기준일은 1일이나 26일 중에서 골라 주세요' };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('organizations')
     .update({
+      ...(clinicSetsDay ? { closing_day: input.closingDay } : {}),
       name: input.name.trim(),
       ceo_name: orNull(input.ceoName),
       biz_no: orNull(input.bizNo),
@@ -102,6 +114,7 @@ export async function submitAccount(input: AccountInput): Promise<AccountResult>
   revalidatePath('/lab/account');
   // 청구서 머리에 이 값이 실립니다
   revalidatePath('/design/billing', 'layout');
+  revalidatePath('/clinic/billing', 'layout');
 
   return { ok: true };
 }

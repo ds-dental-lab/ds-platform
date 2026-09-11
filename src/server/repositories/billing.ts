@@ -19,7 +19,14 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { resolvePartyPrice } from '@/server/domain/pricing';
-import { itemAmount, periodOfDate, type ItemAmount } from '@/server/domain/billing';
+import {
+  itemAmount,
+  effectivePeriodOfDate,
+  effectivePeriodRange,
+  type ItemAmount,
+  type PeriodRange,
+  type StoredPeriod,
+} from '@/server/domain/billing';
 import { buildAbbr, type ProsthesisCatalog } from '@/server/domain/prosthesis';
 import type { PartnerRow } from '@/server/repositories/partner';
 
@@ -662,7 +669,7 @@ export async function listUnsettledParties(
   const [periods, clinicOrders, labOrders] = await Promise.all([
     supabase
       .from('billing_periods')
-      .select('party_org_id, year_month, closed_at, paid_at')
+      .select('party_org_id, year_month, closed_at, paid_at, period_from, period_to')
       .in('party_org_id', ids),
     clinicIds.length > 0 ? orderQuery('clinic_org_id', clinicIds) : null,
     labIds.length > 0 ? orderQuery('lab_org_id', labIds) : null,
@@ -671,12 +678,21 @@ export async function listUnsettledParties(
   // 어느 거래처의 어느 달이 닫혔는가
   const closed = new Set<string>();
 
+  // 거래처마다 만든 기간들 — 기준일을 바꾼 뒤 경계 맞추기 (effectivePeriodOfDate)
+  const storedBy = new Map<string, StoredPeriod[]>();
+
   for (const row of (periods.data ?? []) as {
     party_org_id: string;
     year_month: string;
     closed_at: string | null;
     paid_at: string | null;
+    period_from: string;
+    period_to: string;
   }[]) {
+    const list = storedBy.get(row.party_org_id) ?? [];
+    list.push({ yearMonth: row.year_month, from: row.period_from, to: row.period_to });
+    storedBy.set(row.party_org_id, list);
+
     if (!row.closed_at) continue;
 
     closed.add(`${row.party_org_id}|${row.year_month}`);
@@ -699,7 +715,7 @@ export async function listUnsettledParties(
       }
 
       // ② 나간 달을 아직 안 닫았습니다
-      const month = periodOfDate(shippedAt, closingDay.get(orgId) ?? 26);
+      const month = effectivePeriodOfDate(shippedAt, closingDay.get(orgId) ?? 26, storedBy.get(orgId) ?? []);
       if (!closed.has(`${orgId}|${month}`)) left.add(orgId);
     }
   }
@@ -721,4 +737,30 @@ export async function listClosedParties(yearMonth: string): Promise<Set<string>>
     .not('closed_at', 'is', null);
 
   return new Set(((data ?? []) as { party_org_id: string }[]).map((r) => r.party_org_id));
+}
+
+/**
+ * 거래처 하나가 이미 만든 정산 기간들 (그때 박아 둔 날짜).
+ * ★ 기준일을 바꾼 뒤의 경계를 맞추는 데 씁니다 — domain/billing effectivePeriodRange (2026-09-11).
+ */
+export async function getStoredPeriods(partyOrgId: string): Promise<StoredPeriod[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('billing_periods')
+    .select('year_month, period_from, period_to')
+    .eq('party_org_id', partyOrgId);
+
+  return ((data ?? []) as { year_month: string; period_from: string; period_to: string }[]).map((r) => ({
+    yearMonth: r.year_month,
+    from: r.period_from,
+    to: r.period_to,
+  }));
+}
+
+/**
+ * 이 거래처의 이 달 정산이 실제로 덮는 날짜.
+ * ★ periodRange(달, 기준일) 대신 이것을 씁니다 — 치과가 기준일을 바꿔도 빈 날·겹치는 날이 없습니다.
+ */
+export async function billingRangeOf(partyOrgId: string, yearMonth: string, closingDay: number): Promise<PeriodRange> {
+  return effectivePeriodRange(yearMonth, closingDay, await getStoredPeriods(partyOrgId));
 }

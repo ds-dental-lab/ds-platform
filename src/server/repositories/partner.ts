@@ -16,7 +16,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import type { InvoiceMethod } from '@/server/domain/invoice-method';
 import { EMPTY_PRICES, type PriceSet } from '@/server/domain/pricing';
-import { periodOfDate, type RepriceImpact } from '@/server/domain/billing';
+import { effectivePeriodOfDate, type RepriceImpact } from '@/server/domain/billing';
 
 export type PartnerType = 'clinic' | 'lab';
 
@@ -285,19 +285,24 @@ export async function getRepriceImpact(partner: PartnerRow): Promise<RepriceImpa
       .not('shipped_at', 'is', null),
     supabase
       .from('billing_periods')
-      .select('year_month, closed_at')
-      .eq('party_org_id', partner.id)
-      .not('closed_at', 'is', null),
+      .select('year_month, closed_at, period_from, period_to')
+      .eq('party_org_id', partner.id),
   ]);
 
-  const closed = new Set(
-    ((periods.data ?? []) as { year_month: string }[]).map((p) => p.year_month),
-  );
+  const periodRows = (periods.data ?? []) as {
+    year_month: string;
+    closed_at: string | null;
+    period_from: string;
+    period_to: string;
+  }[];
+  const closed = new Set(periodRows.filter((p) => p.closed_at).map((p) => p.year_month));
+  // ★ 기준일을 바꾼 뒤의 경계까지 맞춰 달을 셉니다 (2026-09-11)
+  const stored = periodRows.map((p) => ({ yearMonth: p.year_month, from: p.period_from, to: p.period_to }));
 
   const counted = new Map<string, number>();
 
   for (const row of (shipped.data ?? []) as { shipped_at: string }[]) {
-    const month = periodOfDate(row.shipped_at, partner.closingDay);
+    const month = effectivePeriodOfDate(row.shipped_at, partner.closingDay, stored);
     if (closed.has(month)) continue;
 
     counted.set(month, (counted.get(month) ?? 0) + 1);

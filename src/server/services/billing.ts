@@ -19,9 +19,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { getPartner, type PartnerRow } from '@/server/repositories/partner';
-import { getSettlement } from '@/server/repositories/billing';
+import { getSettlement, billingRangeOf } from '@/server/repositories/billing';
 import {
-  periodRange,
   canClosePeriod,
   canFreezeAmounts,
   canReopenPeriod,
@@ -68,7 +67,7 @@ export async function closeBillingPeriod(
   if (!partner) return { ok: false, error: '거래처를 찾을 수 없습니다' };
 
   const supabase = await createClient();
-  const range = periodRange(yearMonth, partner.closingDay);
+  const range = await billingRangeOf(partyOrgId, yearMonth, partner.closingDay);
 
   // 이미 닫혀 있는가
   const { data: existing } = await supabase

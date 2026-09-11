@@ -18,6 +18,7 @@
 
 'use client';
 
+import { CLOSING_DAY_CHOICES } from '@/server/domain/billing';
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -78,17 +79,26 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
     invoiceEmail: org.invoiceEmail ?? '',
     taxEmail: org.taxEmail ?? '',
     invoiceMethod: org.invoiceMethod,
+    closingDay: org.closingDay,
   });
+
+  // ★ 치과만 스스로 고릅니다 (2026-09-11). 기공소는 계속 디자인센터가 정합니다
+  const dayEditable = editable && org.orgType === 'clinic';
 
   const busy = saving || refreshing;
 
   // 청구서에 꼭 있어야 하는 칸들. 비면 문서에 '-' 로 찍힙니다
-  const forInvoice: Exclude<keyof AccountInput, 'invoiceMethod'>[] = ['ceoName', 'bizNo', 'address'];
+  const forInvoice: Exclude<keyof AccountInput, 'invoiceMethod' | 'closingDay'>[] = ['ceoName', 'bizNo', 'address'];
   const emptyForInvoice = forInvoice.filter((k) => !form[k].trim()).length;
 
-  function set(key: Exclude<keyof AccountInput, 'invoiceMethod'>, value: string) {
+  function set(key: Exclude<keyof AccountInput, 'invoiceMethod' | 'closingDay'>, value: string) {
     setSaved(false);
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setClosingDay(closingDay: number) {
+    setSaved(false);
+    setForm((prev) => ({ ...prev, closingDay }));
   }
 
   function setMethod(invoiceMethod: InvoiceMethod) {
@@ -256,16 +266,47 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
           </Field>
 
           {/*
-            ★ 정산 기준일은 여기서 못 바꿉니다.
-              바꾸면 자기 청구 기간을 스스로 옮기는 셈이 됩니다.
-              디자인센터가 사용자탭에서 정합니다.
+            ★ 정산 기준일 — 치과는 스스로 고릅니다 (사용자 요청 2026-09-11).
+              바꿔도 빈 날·겹치는 날이 없게, 바꾼 직후 한 번의 정산만 늘거나 줄어듭니다
+              (domain/billing effectivePeriodRange). 이미 나간 청구서는 그대로.
+              기공소는 전처럼 디자인센터가 사용자탭에서 정합니다.
           */}
           {org.orgType !== 'design_center' && (
-            <Field label="정산 기준일">
-              <span className="flex h-10 items-center rounded-md bg-[#F8F9FB] px-3 text-[14px] text-[#4A5567]">
-                매월 {org.closingDay}일
-              </span>
-            </Field>
+            <div>
+              <span className="mb-1 block text-[13px] font-semibold text-[#4A5567]">정산 기준일</span>
+              {dayEditable ? (
+                <>
+                  <div className="flex gap-1.5">
+                    {CLOSING_DAY_CHOICES.map((day) => (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => setClosingDay(day)}
+                        aria-pressed={form.closingDay === day}
+                        className={
+                          'h-10 flex-1 rounded-md border text-[14px] font-semibold ' +
+                          (form.closingDay === day
+                            ? 'border-[#12855B] bg-[#E6F4EE] text-[#12855B]'
+                            : 'border-[#DDE2EA] text-[#4A5567] hover:bg-[#F4F6F9]')
+                        }
+                      >
+                        {form.closingDay === day && <span className="mr-1">✓</span>}
+                        {CLOSING_DAY_HINT[day]}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[12.5px] leading-relaxed text-[#98A2B3]">
+                    {form.closingDay !== org.closingDay
+                      ? '저장하면 다음 정산부터 바뀝니다. 바뀌는 정산 한 번은 기간이 조금 늘거나 줄어, 빠지거나 겹치는 날이 없습니다. 이미 받은 청구서는 그대로입니다.'
+                      : '바꾸면 다음 정산부터 적용됩니다.'}
+                  </p>
+                </>
+              ) : (
+                <span className="flex h-10 items-center rounded-md bg-[#F8F9FB] px-3 text-[14px] text-[#4A5567]">
+                  매월 {org.closingDay}일
+                </span>
+              )}
+            </div>
           )}
         </div>
 
@@ -415,3 +456,9 @@ function Text({
     />
   );
 }
+
+/** 기준일 단추 글 — 무엇이 한 달인지 바로 보이게 */
+const CLOSING_DAY_HINT: Record<number, string> = {
+  1: '1일 (1일 ~ 말일)',
+  26: '26일 (26일 ~ 다음 달 25일)',
+};

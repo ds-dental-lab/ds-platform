@@ -23,6 +23,7 @@
 
 'use client';
 
+import { CLOSING_DAY_CHOICES } from '@/server/domain/billing';
 import { useState } from 'react';
 import {
   submitCreatePartner,
@@ -39,7 +40,7 @@ const METHODS: { value: InvoiceMethod; label: string }[] = [
 ];
 
 /** 시안이 내놓는 것은 둘뿐입니다 */
-const CLOSING_DAYS = [1, 26];
+const CLOSING_DAYS = CLOSING_DAY_CHOICES;
 
 export interface PartnerDialogProps {
   /** 없으면 새로 만들기 */

@@ -14,9 +14,9 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { requireSector } from '@/server/policies/session';
 import { getPartner } from '@/server/repositories/partner';
-import { getClosedSettlement, getPeriod } from '@/server/repositories/billing';
+import { getClosedSettlement, getPeriod, billingRangeOf } from '@/server/repositories/billing';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
-import { periodRange, invoicePartiesFor, isValidYearMonth } from '@/server/domain/billing';
+import { invoicePartiesFor, isValidYearMonth } from '@/server/domain/billing';
 import InvoiceSheet from '@/components/billing/InvoiceSheet';
 import PrintButton from '@/components/billing/PrintButton';
 import { createClient } from '@/lib/supabase/server';
@@ -39,7 +39,7 @@ export default async function LabInvoicePage({
   const period = await getPeriod(me.id, yearMonth);
   if (!period?.closedAt) notFound();
 
-  const { from, to } = periodRange(yearMonth, me.closingDay);
+  const { from, to } = await billingRangeOf(me.id, yearMonth, me.closingDay);
   const catalog = await getProsthesisCatalog({ includeInactive: true });
   const settlement = await getClosedSettlement(period.id, from, to, catalog);
 

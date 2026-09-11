@@ -20,10 +20,9 @@ import { getPartner } from '@/server/repositories/partner';
 import {
   getSettlement,
   getClosedSettlement,
-  getPeriod,
-} from '@/server/repositories/billing';
+  getPeriod, billingRangeOf } from '@/server/repositories/billing';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
-import { periodRange, isValidYearMonth } from '@/server/domain/billing';
+import { isValidYearMonth } from '@/server/domain/billing';
 import { todayInKst } from '@/server/domain/week';
 import PartySettlement from '@/components/billing/PartySettlement';
 
@@ -50,7 +49,7 @@ export default async function ClinicBillingPage({
     );
   }
 
-  const { from, to } = periodRange(yearMonth, me.closingDay);
+  const { from, to } = await billingRangeOf(me.id, yearMonth, me.closingDay);
 
   const [catalog, period] = await Promise.all([
     getProsthesisCatalog({ includeInactive: true }),
