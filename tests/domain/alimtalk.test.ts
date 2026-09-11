@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  formatTeeth,
   normalizePhone,
   isValidPhone,
   formatPhone,
@@ -134,5 +135,16 @@ describe('무슨 일에 누가 받는가', () => {
     expect(eventFor('production_wait', 'production')).toBeNull();
     expect(eventFor('production', 'shipping')).toBeNull();
     expect(eventFor('shipping', 'completed')).toBeNull();
+  });
+});
+
+describe('formatTeeth — 알림톡 #{치식} (2026-09-11)', () => {
+  it('번호 순, 겹치면 한 번, 쉼표만', () => {
+    expect(formatTeeth([13, 11, 12, 12])).toBe('11,12,13');
+    expect(formatTeeth([21, 11, 36])).toBe('11,21,36');
+  });
+  it('없으면 - (빈 변수는 카카오가 거절)', () => {
+    expect(formatTeeth([])).toBe('-');
+    expect(formatTeeth([null, undefined])).toBe('-');
   });
 });

@@ -13,6 +13,7 @@
 // =========================================================
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   planStatusNotifications,
   planMessageNotifications,
@@ -21,7 +22,7 @@ import {
   type RecipientSlot,
 } from '@/server/domain/notification';
 import type { OrderStatus, Sector } from '@/server/domain/order-status';
-import { eventFor } from '@/server/domain/alimtalk';
+import { eventFor, formatTeeth } from '@/server/domain/alimtalk';
 import { queueAlimtalk } from '@/server/events/alimtalk';
 import type { TemplateVars } from '@/server/domain/alimtalk/template';
 import { chatPushPayload } from '@/server/domain/push';
@@ -136,6 +137,7 @@ export async function publishOrderStatusChanged(
         kakao === 'rescan_requested'
           ? { 주문번호: order.order_no, 환자명: order.patient_label, 사유: event.reason || '스캔을 다시 부탁드립니다', 주문ID: event.orderId }
           : { 주문번호: order.order_no, 환자명: order.patient_label, 요청시한: order.due_date ?? '', 주문ID: event.orderId };
+      vars.치식 = await teethLabel(event.orderId);
 
       await queueAlimtalk(kakao, {
         orderId: event.orderId,
@@ -208,6 +210,7 @@ export async function publishOrderCreated(event: {
         치과명: order.clinic?.name ?? '',
         주문번호: order.order_no,
         환자명: order.patient_label,
+        치식: await teethLabel(event.orderId),
         요청시한: order.due_date ?? '',
         주문ID: event.orderId,
       },
@@ -318,7 +321,13 @@ export async function publishRepairRequested(event: {
       designOrgId: order.design_org_id,
       labOrgId: event.labOrgId,
       extra: event.notes ? `요청: ${event.notes}` : undefined,
-      vars: { 주문번호: order.order_no, 환자명: order.patient_label, 요청내용: event.notes || '-', 주문ID: event.repairOrderId },
+      vars: {
+        주문번호: order.order_no,
+        환자명: order.patient_label,
+        치식: await teethLabel(event.repairOrderId),
+        요청내용: event.notes || '-',
+        주문ID: event.repairOrderId,
+      },
     });
   } catch (error) {
     console.error('[events] 리페어 이벤트 처리 실패', error);
@@ -446,4 +455,18 @@ function linkFor(slot: RecipientSlot, orderId: string): string {
     lab: '/lab/orders',
   };
   return `${base[slot]}/${orderId}`;
+}
+
+/**
+ * 알림톡 #{치식} — 그 주문의 치아 번호 "11,12,13" (사용자 요청 2026-09-11).
+ * ★ 관리자 연결로 읽습니다 — 알림을 부른 사람이 그 주문의 줄을 못 읽는 자리(RLS)여도 값이 비면 안 됩니다.
+ * ★ 실패해도 '-' — 알림톡 하나 때문에 업무를 멈추지 않습니다.
+ */
+async function teethLabel(orderId: string): Promise<string> {
+  try {
+    const { data } = await createAdminClient().from('order_items').select('tooth_number').eq('order_id', orderId);
+    return formatTeeth(((data ?? []) as { tooth_number: number }[]).map((r) => r.tooth_number));
+  } catch {
+    return '-';
+  }
 }

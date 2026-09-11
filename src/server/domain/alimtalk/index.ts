@@ -65,6 +65,15 @@ export function formatPhone(digits: string | null | undefined): string {
 }
 
 /** 이 사람에게 지금 보낼 수 있는가 */
+/**
+ * 알림톡의 #{치식} 값 — "11,12,13" (사용자 요청 2026-09-11 — 주문번호 대신 치식).
+ * 한 치아에 보철이 둘이어도 한 번만, 번호 순으로. 없으면 '-' (빈 변수는 카카오가 거절).
+ */
+export function formatTeeth(numbers: readonly (number | null | undefined)[]): string {
+  const unique = [...new Set(numbers.filter((n): n is number => typeof n === 'number'))].sort((x, y) => x - y);
+  return unique.length > 0 ? unique.join(',') : '-';
+}
+
 export function canReceive(person: { phone: string | null; alimtalkOn: boolean }): boolean {
   return person.alimtalkOn && normalizePhone(person.phone) !== null;
 }
