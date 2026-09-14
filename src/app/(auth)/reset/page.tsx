@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createRecoveryClient } from '@/lib/supabase/client';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
+import { passwordStrength } from '@/server/domain/signup';
 import {
   checkEmail,
   checkCode,
@@ -56,6 +57,10 @@ export default function ResetPasswordPage() {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // 적합성 막대 · 확인 불일치 — 가입 화면과 같은 규칙 (2026-09-14)
+  const strength = passwordStrength(password);
+  const confirmMismatch = confirm.length > 0 && confirm.length >= password.length && confirm !== password;
   const [cooldown, setCooldown] = useState(0);
 
   /**
@@ -303,8 +308,21 @@ export default function ResetPasswordPage() {
                 </button>
               </div>
 
+              {/* ★ 적합성 막대 (사용자 요청 2026-09-14) — 안내만, 막지 않습니다 */}
+              {password && (
+                <div className={`pw-meter lv${strength.level}`} aria-live="polite">
+                  <span className="pw-meter-name">비밀번호 적합성</span>
+                  <span className="pw-bars" aria-hidden="true">
+                    {[1, 2, 3, 4].map((n) => (
+                      <i key={n} className={n <= strength.level ? 'on' : ''} />
+                    ))}
+                  </span>
+                  <b>{strength.label}</b>
+                </div>
+              )}
+
               <input
-                className="ctl"
+                className={'ctl' + (confirmMismatch ? ' bad' : '')}
                 type={showPw ? 'text' : 'password'}
                 placeholder="새 비밀번호 확인"
                 value={confirm}
@@ -312,6 +330,7 @@ export default function ResetPasswordPage() {
                 onChange={(e) => setConfirm(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && save()}
               />
+              {confirmMismatch && <p className="pw-mismatch">비밀번호가 서로 다릅니다</p>}
             </>
           )}
         </div>
@@ -401,6 +420,17 @@ const css = `
   color:#98A2B3; background:none; border:none; cursor:pointer;
 }
 .eye:hover{color:var(--ink-2); background:var(--bg)}
+.pw-meter{display:flex; align-items:center; gap:10px; margin:-1px 1px 2px; font-size:12px; color:#98A2B3}
+.pw-meter-name{flex-shrink:0}
+.pw-bars{flex:1; display:grid; grid-template-columns:repeat(4,1fr); gap:5px}
+.pw-bars i{height:5px; border-radius:3px; background:#E8EBF0; transition:background .15s}
+.pw-meter b{flex-shrink:0; min-width:52px; text-align:right; font-weight:700; color:var(--ink-2)}
+.pw-meter.lv1 .pw-bars i.on{background:#E5484D} .pw-meter.lv1 b{color:#D8453F}
+.pw-meter.lv2 .pw-bars i.on{background:#F5A524} .pw-meter.lv2 b{color:#B7791F}
+.pw-meter.lv3 .pw-bars i.on, .pw-meter.lv4 .pw-bars i.on{background:#3DC46E}
+.pw-meter.lv3 b, .pw-meter.lv4 b{color:#1A7F37}
+.ctl.bad{border-color:var(--danger, #D8453F)}
+.pw-mismatch{margin:-4px 1px 0; font-size:12px; color:var(--danger, #D8453F)}
 .auth-notice{margin:12px 0 0; font-size:12.5px; color:var(--ink-2); line-height:1.6}
 .auth-err{margin:12px 0 0; font-size:13px; color:var(--danger); line-height:1.5}
 .btn-primary{
