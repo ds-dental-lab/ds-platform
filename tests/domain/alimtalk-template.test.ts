@@ -26,13 +26,13 @@ describe('변수 채우기', () => {
 describe('보낼 글 만들기', () => {
   it('★ 접수 — 등록한 본문 그대로, 버튼 링크에 주문ID', () => {
     const r = renderTemplate('order_received', {
-      구분: '새', 치과명: '미사치과', 주문번호: 'ORD-260908-001', 환자명: '김민서', 요청시한: '2026-09-12', 주문ID: 'abc',
+      구분: '새', 치과명: '미사치과', 환자명: '김민서', 치식: '11,12,13', 요청시한: '2026-09-12', 주문ID: 'abc',
     });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.code).toBe('UL_1850');
+    expect(r.code).toBe('UL_3575');
     expect(r.message).toBe(
-      '[DenFlow] 새 주문이 접수되었습니다.\n\n치과: 미사치과\n주문번호: ORD-260908-001\n환자: 김민서\n요청시한: 2026-09-12\n\n덴플로우에서 확인해 주세요.',
+      '[DenFlow] 새 주문이 접수되었습니다.\n\n치과: 미사치과\n환자: 김민서\n치식: 11,12,13\n요청시한: 2026-09-12\n\n덴플로우에서 확인해 주세요.',
     );
     expect(r.button).toEqual({ name: '주문 확인', linkMo: 'https://denflow.kr/design/orders/abc', linkPc: 'https://denflow.kr/design/orders/abc' });
   });

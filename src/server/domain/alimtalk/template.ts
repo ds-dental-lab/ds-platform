@@ -18,8 +18,8 @@ import type { AlimtalkEvent } from '@/server/domain/alimtalk';
 
 /** 알리고가 준 템플릿 코드 (2026-09-08 등록) */
 export const TEMPLATE_CODE: Record<AlimtalkEvent, string> = {
-  order_received: 'UL_1850',
-  remake_received: 'UL_1850',
+  order_received: 'UL_3575', // 2026-09-14 새 템플릿 — 주문번호 대신 치식 (옛 UL_1850)
+  remake_received: 'UL_3575',
   production_requested: 'UL_1857',
   rescan_requested: 'UL_1854',
   repair_requested: 'UL_1858',
@@ -42,10 +42,10 @@ interface TemplateSpec {
 const ORDER_RECEIVED: TemplateSpec = {
   body:
     '[DenFlow] #{구분} 주문이 접수되었습니다.\n\n' +
-    '치과: #{치과명}\n주문번호: #{주문번호}\n환자: #{환자명}\n요청시한: #{요청시한}\n\n' +
+    '치과: #{치과명}\n환자: #{환자명}\n치식: #{치식}\n요청시한: #{요청시한}\n\n' +
     '덴플로우에서 확인해 주세요.',
   button: { name: '주문 확인', link: 'https://denflow.kr/design/orders/#{주문ID}' },
-  requires: ['구분', '치과명', '주문번호', '환자명', '요청시한', '주문ID'],
+  requires: ['구분', '치과명', '환자명', '치식', '요청시한', '주문ID'],
 };
 
 export const TEMPLATES: Record<AlimtalkEvent, TemplateSpec> = {
