@@ -59,3 +59,16 @@ describe('보낼 글 만들기', () => {
     expect(b.ok && b.button?.linkMo).toBe('https://denflow.kr/login');
   });
 });
+
+describe('가입 신청 접수 — 알리고 승인본과 글자 그대로 (2026-09-14)', () => {
+  it('띄어쓰기·빈 줄·관리자 문구', () => {
+    const r = renderTemplate('signup_received', { 상호: '박태준깨끗치과' });
+    expect(r).toMatchObject({
+      ok: true,
+      code: 'UL_1880',
+      button: null,
+      message:
+        '[DenFlow] 가입 신청이 접수 되었습니다.\n\n박태준깨끗치과 님, 덴플로우 가입 신청이 접수 되었습니다.\n\n관리자 확인 뒤 승인 안내를 드립니다.\n\n보통 1 영업일 안에 처리됩니다.',
+    });
+  });
+});
