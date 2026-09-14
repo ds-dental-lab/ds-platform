@@ -7,6 +7,7 @@
 
 import AlimtalkCard from '@/components/account/AlimtalkCard';
 import AccountForm from '@/components/account/AccountForm';
+import PasswordChange from '@/components/account/PasswordChange';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,9 @@ const EVENTS = ['새 주문 접수', '리메이크 접수', '리페어 접수 ·
 export default function AlimtalkCardPlayground() {
   return (
     <main className="mx-auto max-w-[860px] space-y-8 bg-[#F4F6F9] p-8">
+      <div className="mx-auto max-w-[720px] rounded-lg border border-[#E8EBF0] bg-white p-6">
+        <PasswordChange email="demo@example.com" />
+      </div>
       {/* 치과 계정정보 — 정산서를 둘 다로 받는데 이메일·팩스가 비어 있는 경우 (경고 두 줄 정렬 확인) */}
       <AccountForm
         basePath="/clinic"

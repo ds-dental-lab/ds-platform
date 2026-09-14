@@ -29,6 +29,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { checkNewPassword, passwordSaveFailure } from '@/server/domain/password-reset';
+import { passwordStrength } from '@/server/domain/signup';
 
 const FIELD =
   'h-10 w-full rounded-md border border-[#DDE2EA] px-3 text-[13.5px] text-[#1A2130] ' +
@@ -42,6 +43,10 @@ export default function PasswordChange({ email }: { email: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+
+  // 적합성 막대 · 확인 불일치 — 가입·비밀번호 찾기와 같은 규칙 (2026-09-14)
+  const strength = passwordStrength(next);
+  const confirmMismatch = confirm.length > 0 && confirm.length >= next.length && confirm !== next;
 
   function reset() {
     setCurrent('');
@@ -159,10 +164,30 @@ export default function PasswordChange({ email }: { email: string }) {
             autoComplete="new-password"
             /* ★ 엔터로 끝냅니다 — 칸이 셋뿐인데 마우스까지 잡게 하지 않습니다 */
             onKeyDown={(e) => e.key === 'Enter' && !busy && void save()}
-            className={FIELD}
+            className={FIELD + (confirmMismatch ? ' !border-[#D8453F]' : '')}
           />
+          {confirmMismatch && <span className="mt-1 block text-[12px] text-[#D8453F]">비밀번호가 서로 다릅니다</span>}
         </label>
       </div>
+
+      {/* ★ 적합성 막대 (사용자 요청 2026-09-14) — 안내만, 막지 않습니다 */}
+      {next && (
+        <div className="mt-2.5 flex items-center gap-2.5 text-[12px] text-[#98A2B3]" aria-live="polite">
+          <span className="shrink-0">비밀번호 적합성</span>
+          <span className="grid flex-1 grid-cols-4 gap-[5px]" aria-hidden="true">
+            {[1, 2, 3, 4].map((n) => (
+              <i
+                key={n}
+                className="h-[5px] rounded-[3px] transition-colors"
+                style={{ background: n <= strength.level ? METER_COLOR[strength.level] : '#E8EBF0' }}
+              />
+            ))}
+          </span>
+          <b className="min-w-[52px] shrink-0 text-right font-bold" style={{ color: METER_TEXT[strength.level] }}>
+            {strength.label}
+          </b>
+        </div>
+      )}
 
       {error && <p className="mt-2.5 text-[13px] text-[#B02A22]">{error}</p>}
 
@@ -200,3 +225,7 @@ export default function PasswordChange({ email }: { email: string }) {
     </div>
   );
 }
+
+/** 적합성 막대 색 — 가입·비밀번호 찾기 화면과 같은 값 */
+const METER_COLOR: Record<number, string> = { 0: '#E8EBF0', 1: '#E5484D', 2: '#F5A524', 3: '#3DC46E', 4: '#3DC46E' };
+const METER_TEXT: Record<number, string> = { 0: '#98A2B3', 1: '#D8453F', 2: '#B7791F', 3: '#1A7F37', 4: '#1A7F37' };
