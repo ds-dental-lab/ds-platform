@@ -42,6 +42,7 @@ import {
   looksAlreadyRegistered,
   MIN_PASSWORD,
   type SignupSector,
+  passwordStrength,
 } from '@/server/domain/signup';
 
 /**
@@ -101,6 +102,7 @@ export default function SignupPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [name, setName] = useState('');
   const [orgType, setOrgType] = useState<SignupSector>('clinic');
   const [orgName, setOrgName] = useState('');
@@ -111,8 +113,12 @@ export default function SignupPage() {
   const [mailSent, setMailSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const strength = passwordStrength(password);
+  // 다 적기 전에는 빨간 말을 안 띄웁니다 — 확인 칸 길이가 비밀번호 이상일 때부터
+  const confirmMismatch = passwordConfirm.length > 0 && passwordConfirm.length >= password.length && passwordConfirm !== password;
+
   async function handleSignup() {
-    const verdict = checkSignup({ name, email, password, orgType, orgName, phone, agreed });
+    const verdict = checkSignup({ name, email, password, passwordConfirm, orgType, orgName, phone, agreed });
     if (!verdict.ok) {
       setError(verdict.reason);
       return;
@@ -320,6 +326,34 @@ export default function SignupPage() {
                   </svg>
                 </button>
               </div>
+
+              {/*
+                ★ 적합성 막대 (사용자 요청 2026-09-14). 안내일 뿐 막지 않습니다 —
+                  막는 것은 8자 규칙과 인증 서버의 유출 비밀번호 검사입니다.
+              */}
+              {password && (
+                <div className={`pw-meter lv${strength.level}`} aria-live="polite">
+                  <span className="pw-meter-name">비밀번호 적합성</span>
+                  <span className="pw-bars" aria-hidden="true">
+                    {[1, 2, 3, 4].map((n) => (
+                      <i key={n} className={n <= strength.level ? 'on' : ''} />
+                    ))}
+                  </span>
+                  <b>{strength.label}</b>
+                </div>
+              )}
+
+              {/* ★ 비밀번호 확인 (2026-09-14) — 승인을 기다리는 사이 오타를 잊습니다 */}
+              <input
+                className={'ctl' + (confirmMismatch ? ' bad' : '')}
+                type={showPw ? 'text' : 'password'}
+                placeholder="비밀번호 확인"
+                value={passwordConfirm}
+                autoComplete="new-password"
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSignup()}
+              />
+              {confirmMismatch && <p className="pw-mismatch">비밀번호가 서로 다릅니다</p>}
             </div>
 
             {/*
@@ -432,6 +466,17 @@ const css = `
   color:#98A2B3; background:none; border:none; cursor:pointer;
 }
 .eye:hover{color:var(--ink-2); background:var(--bg)}
+.pw-meter{display:flex; align-items:center; gap:10px; margin:-1px 1px 2px; font-size:12px; color:#98A2B3}
+.pw-meter-name{flex-shrink:0}
+.pw-bars{flex:1; display:grid; grid-template-columns:repeat(4,1fr); gap:5px}
+.pw-bars i{height:5px; border-radius:3px; background:#E8EBF0; transition:background .15s}
+.pw-meter b{flex-shrink:0; min-width:52px; text-align:right; font-weight:700; color:var(--ink-2)}
+.pw-meter.lv1 .pw-bars i.on{background:#E5484D} .pw-meter.lv1 b{color:#D8453F}
+.pw-meter.lv2 .pw-bars i.on{background:#F5A524} .pw-meter.lv2 b{color:#B7791F}
+.pw-meter.lv3 .pw-bars i.on, .pw-meter.lv4 .pw-bars i.on{background:#3DC46E}
+.pw-meter.lv3 b, .pw-meter.lv4 b{color:#1A7F37}
+.ctl.bad{border-color:var(--danger)}
+.pw-mismatch{margin:-4px 1px 0; font-size:12px; color:var(--danger)}
 .agree{
   display:flex; align-items:flex-start; gap:8px; margin-top:14px;
   font-size:12.5px; line-height:1.55; color:var(--ink-2); cursor:pointer;

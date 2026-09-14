@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  passwordStrength,
   SIGNUP_SECTORS,
   isSignupSector,
   checkSignup,
@@ -24,6 +25,7 @@ const form = (over: Partial<SignupForm> = {}): SignupForm => ({
   name: '김원장',
   email: 'won@clinic.co.kr',
   password: 'goodpass1',
+  passwordConfirm: 'goodpass1',
   orgType: 'clinic',
   orgName: '행복치과',
   phone: "010-1234-5678",
@@ -291,5 +293,20 @@ describe('가입 휴대전화 — 필수 (2026-09-11)', () => {
   it('하이픈·+82 모양은 통과', () => {
     expect(checkSignup(form({ phone: '01012345678' })).ok).toBe(true);
     expect(checkSignup(form({ phone: '+82 10-1234-5678' })).ok).toBe(true);
+  });
+});
+
+describe('비밀번호 확인·적합성 (2026-09-14)', () => {
+  it('확인이 다르면 막음', () => {
+    expect(checkSignup(form({ passwordConfirm: 'goodpass2' }))).toEqual({ ok: false, reason: '비밀번호가 서로 다릅니다' });
+  });
+  it('적합성 단계', () => {
+    expect(passwordStrength('')).toEqual({ level: 0, label: '' });
+    expect(passwordStrength('abc12')).toMatchObject({ level: 1, label: '짧음' });
+    expect(passwordStrength('12345678')).toMatchObject({ level: 1, label: '약함' });
+    expect(passwordStrength('goodpass1')).toMatchObject({ level: 2 });
+    expect(passwordStrength('Goodpass1')).toMatchObject({ level: 3 });
+    expect(passwordStrength('goodpass1234')).toMatchObject({ level: 3 });
+    expect(passwordStrength('Goodpass1234!')).toMatchObject({ level: 4, label: '매우 안전' });
   });
 });

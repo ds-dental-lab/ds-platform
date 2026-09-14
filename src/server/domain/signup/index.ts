@@ -59,6 +59,8 @@ export interface SignupForm {
    * 가입 알림톡(접수·승인)이 이 번호로 가고, 가입하는 순간 알림톡 번호로 저장됩니다.
    */
   phone: string;
+  /** 비밀번호 확인 — 같아야 합니다 (사용자 요청 2026-09-14). 승인 대기 사이에 오타를 잊기 쉽습니다 */
+  passwordConfirm: string;
   /**
    * 이용약관과 개인정보 처리방침에 동의했는가.
    *
@@ -96,6 +98,9 @@ export function checkSignup(form: SignupForm): Verdict {
   if (!form.password) return { ok: false, reason: '비밀번호를 넣어 주세요' };
   if (form.password.length < MIN_PASSWORD) {
     return { ok: false, reason: `비밀번호는 ${MIN_PASSWORD}자 이상으로 해 주세요` };
+  }
+  if (form.password !== form.passwordConfirm) {
+    return { ok: false, reason: '비밀번호가 서로 다릅니다' };
   }
 
   // ★ 맨 마지막에 봅니다.
@@ -276,4 +281,36 @@ export function looksAlreadyRegistered(
 ): boolean {
   if (!user) return false;
   return Array.isArray(user.identities) && user.identities.length === 0;
+}
+
+// ---------- 비밀번호 적합성 막대 (2026-09-14) ----------
+
+export interface PasswordStrength {
+  /** 0 = 아직 안 적음, 1~4 = 채워질 칸 수 */
+  level: 0 | 1 | 2 | 3 | 4;
+  label: string;
+}
+
+/**
+ * 가입 화면의 적합성 막대. **안내일 뿐 막지는 않습니다** — 막는 것은 8자 규칙과
+ * 인증 서버의 유출 비밀번호 검사입니다. 막대가 '보통' 이어도 가입됩니다.
+ *
+ *   8자 미만                         1 짧음
+ *   8자 이상 · 한 종류(숫자만 등)     1 약함
+ *   8자 이상 · 두 종류               2 보통
+ *   8자 이상 · 세 종류 / 12자 · 두 종류 3 안전
+ *   12자 이상 · 세 종류 이상          4 매우 안전
+ *   (종류 = 소문자 · 대문자 · 숫자 · 기호)
+ */
+export function passwordStrength(password: string): PasswordStrength {
+  if (!password) return { level: 0, label: '' };
+  if (password.length < MIN_PASSWORD) return { level: 1, label: '짧음' };
+
+  const kinds = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((re) => re.test(password)).length;
+  const long = password.length >= 12;
+
+  if (long && kinds >= 3) return { level: 4, label: '매우 안전' };
+  if (kinds >= 3 || (long && kinds >= 2)) return { level: 3, label: '안전' };
+  if (kinds === 2) return { level: 2, label: '보통' };
+  return { level: 1, label: '약함' };
 }
