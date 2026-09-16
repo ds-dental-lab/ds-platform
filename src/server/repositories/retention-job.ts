@@ -36,6 +36,9 @@ export interface RetentionJobResult {
 
 /** 처리방침 제3조의 고정 보유기간 — 문의·알림 기록 30일 (domain/privacy FIXED_KEEP 과 같은 숫자, 사용자 결정 2026-09-08) */
 const FIXED_KEEP_DAYS = 30;
+/** 가입 신청서 — 승인 30일 · 반려 1년 (사용자 결정 2026-09-14, FIXED_KEEP 과 같은 숫자) */
+const SIGNUP_APPROVED_KEEP_DAYS = 30;
+const SIGNUP_REJECTED_KEEP_DAYS = 365;
 
 export async function runRetentionJob(now: Date = new Date()): Promise<RetentionJobResult> {
   const admin = createAdminClient();
@@ -49,6 +52,24 @@ export async function runRetentionJob(now: Date = new Date()): Promise<Retention
   const fixedCutoff = new Date(now.getTime() - FIXED_KEEP_DAYS * 86400_000).toISOString();
   await admin.from('contact_requests').delete().eq('status', 'done').lt('handled_at', fixedCutoff);
   await admin.from('alimtalk_queue').delete().lt('created_at', fixedCutoff);
+
+  /*
+    ★ 가입 신청서 (2026-09-14). 승인한 건은 계정이 이미 만들어졌으므로 30일,
+      반려한 건은 재신청 때 앞선 사유를 보기 위해 1년. **기다리는 건(pending)은
+      건드리지 않습니다** — 아직 처리 전입니다.
+    ★ 계정(auth.users)·조직은 그대로입니다. 지우는 것은 신청서 줄뿐입니다.
+  */
+  const signupCut = (days: number) => new Date(now.getTime() - days * 86400_000).toISOString();
+  await admin
+    .from('signup_requests')
+    .delete()
+    .eq('status', 'approved')
+    .lt('reviewed_at', signupCut(SIGNUP_APPROVED_KEEP_DAYS));
+  await admin
+    .from('signup_requests')
+    .delete()
+    .eq('status', 'rejected')
+    .lt('reviewed_at', signupCut(SIGNUP_REJECTED_KEEP_DAYS));
   const result: RetentionJobResult = {
     orgs: 0,
     removed: { soft_deleted: 0, audit_log: 0, order_file: 0 },

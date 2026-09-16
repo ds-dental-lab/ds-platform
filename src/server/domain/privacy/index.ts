@@ -179,6 +179,13 @@ export const PROCESSORS: ProcessorRow[] = [
 export const FIXED_KEEP: KeepRow[] = [
   { what: '수가표 문의', from: '처리를 마친 날', period: '30일' },
   { what: '알림 발송 기록', from: '보낸 날', period: '30일' },
+  /*
+    ★ 가입 신청서 (사용자 결정 2026-09-14).
+      승인한 건은 같은 정보가 계정에 이미 있어 오래 둘 이유가 없습니다.
+      반려한 건은 같은 사람이 다시 신청할 때 앞선 사유를 보기 위해 1년 둡니다.
+  */
+  { what: '가입 신청서 (승인)', from: '승인한 날', period: '30일' },
+  { what: '가입 신청서 (반려)', from: '반려한 날', period: '1년' },
 ];
 
 /** 받지 않는 것 — 적어 두면 오해가 줄어듭니다 */

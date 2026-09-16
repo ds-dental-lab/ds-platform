@@ -141,6 +141,10 @@ export default function SignupBoard({ pending, handled }: SignupBoardProps) {
       <section className="rounded-[10px] border border-[#E8EBF0] bg-white">
         <header className="border-b border-[#E8EBF0] px-[18px] py-3.5">
           <h2 className="text-[14px] font-bold text-[#1A2130]">처리한 신청</h2>
+          {/* ★ 언제 사라지는지 적어 둡니다 (사용자 결정 2026-09-14) — 처리방침 제3조와 같은 기간 */}
+          <p className="mt-0.5 text-[12.5px] text-[#98A2B3]">
+            승인한 신청서는 30일, 반려한 신청서는 1년이 지나면 자동으로 지워집니다. 계정은 그대로입니다.
+          </p>
         </header>
 
         {handled.length === 0 ? (
