@@ -320,6 +320,13 @@
     page: work-order;
     padding: 9mm 11mm !important;
   }
+  /*
+    ★ 치식도 고정 배율. 치식도 본래 폭 988px(실측), A4 에서 여백 뺀 폭 188mm ≈ 710px
+      → 0.72 는 1px 넘쳐 28번이 잘림 → 여유 두고 0.68. 인쇄는 계산하지 않고 이 값으로 줄입니다 (FitWidth 설명).
+  */
+  .work-order-sheet .fit-width-inner {
+    zoom: 0.68 !important;
+  }
 }
 
 /* =========================================================
