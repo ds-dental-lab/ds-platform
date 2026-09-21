@@ -23,6 +23,7 @@
 // =========================================================
 
 import ToothChart, { type ChartPlacement } from '@/components/dental/ToothChart';
+import FitWidth from '@/components/order/FitWidth';
 import { buildSummaryLines } from '@/server/domain/summary';
 import { formatSelection } from '@/server/domain/implant';
 import type { ProsthesisCatalog } from '@/server/domain/prosthesis';
@@ -94,12 +95,25 @@ export default function WorkOrderSheet({
     }))
     .filter((row) => row.spec);
 
+  /*
+    ★ 같은 규격은 한 줄로 묶습니다 (2026-09-21 — "A4 한 장에 다").
+      치아마다 한 줄이면 임플란트 17개가 17줄이라 뒷장으로 넘어갔습니다.
+      기공사가 보고 싶은 것도 '어느 규격이 어느 이에' 입니다.
+  */
+  const implantGroups: { spec: string; teeth: number[] }[] = [];
+  for (const row of implantRows) {
+    const group = implantGroups.find((g) => g.spec === row.spec);
+    if (group) group.teeth.push(row.tooth);
+    else implantGroups.push({ spec: row.spec, teeth: [row.tooth] });
+  }
+  for (const g of implantGroups) g.teeth.sort((a, b) => a - b);
+
   return (
-    <div className="mx-auto w-full max-w-[720px] bg-white px-8 py-7 text-[#111827] print:max-w-none print:px-0 print:py-0">
-      <h1 className="text-center text-[26px] font-extrabold tracking-[-0.03em]">기공의뢰서</h1>
+    <div className="work-order-sheet mx-auto w-full max-w-[720px] bg-white px-8 py-7 text-[#111827] print:max-w-none print:px-0 print:py-0">
+      <h1 className="text-center text-[24px] font-extrabold tracking-[-0.03em]">기공의뢰서</h1>
 
       {/* ---------- 누구 것인가 ---------- */}
-      <table className="mt-6 w-full border-collapse text-[14px]">
+      <table className="mt-4 w-full border-collapse text-[14px]">
         <tbody>
           <Row
             left="주문번호"
@@ -126,8 +140,11 @@ export default function WorkOrderSheet({
       </table>
 
       {/* ---------- 어느 이인가 ---------- */}
-      <div className="mt-6">
-        <ToothChart placements={placements} catalog={prosthesisCatalog} readOnly />
+      {/* ★ 한 폭에 줄여 담습니다 — 넘치면 종이에서 오른쪽 치아가 잘립니다 (FitWidth) */}
+      <div className="mt-3">
+        <FitWidth>
+          <ToothChart placements={placements} catalog={prosthesisCatalog} readOnly />
+        </FitWidth>
       </div>
 
       {/* ---------- 무엇을 만드는가 ---------- */}
@@ -157,10 +174,11 @@ export default function WorkOrderSheet({
 
       {implantRows.length > 0 && (
         <Section title="임플란트 규격">
-          <ul className="space-y-1.5">
-            {implantRows.map((row) => (
-              <li key={row.tooth} className="text-[14px] leading-relaxed">
-                <b className="font-bold">{row.tooth}</b> · {row.spec}
+          <ul className="space-y-1">
+            {implantGroups.map((group) => (
+              <li key={group.spec} className="flex gap-3 text-[13.5px] leading-snug">
+                <span className="shrink-0 font-semibold">{group.spec}</span>
+                <span className="tabular-nums text-[#374151]">{group.teeth.join(', ')}</span>
               </li>
             ))}
           </ul>
@@ -188,14 +206,14 @@ export default function WorkOrderSheet({
           ★ 비어 있어도 칸을 남깁니다. 기공사가 손으로 적는 자리입니다 —
             종이의 쓸모 절반이 여기서 나옵니다.
         */}
-        <p className="min-h-[54px] whitespace-pre-wrap text-[14px] leading-relaxed">
+        <p className="min-h-[44px] whitespace-pre-wrap text-[14px] leading-relaxed">
           {order.notes?.trim() || ''}
         </p>
       </Section>
 
       {/* ★ 작업하며 손으로 체크하는 칸. 시안의 '작업 리스트' */}
       <Section title="작업 메모">
-        <div className="min-h-[86px]" />
+        <div className="min-h-[70px]" />
       </Section>
     </div>
   );
@@ -218,14 +236,14 @@ function Row({
 }) {
   return (
     <tr className="border-b border-[#D1D5DB]">
-      <th className="w-[15%] border-r border-[#E5E7EB] px-3 py-2.5 text-left text-[13px] font-medium text-[#6B7280]">
+      <th className="w-[15%] border-r border-[#E5E7EB] px-3 py-2 text-left text-[13px] font-medium text-[#6B7280]">
         {left}
       </th>
-      <td className="w-[35%] px-3 py-2.5 text-[14px]">{leftValue}</td>
-      <th className="w-[15%] border-l border-r border-[#E5E7EB] px-3 py-2.5 text-left text-[13px] font-medium text-[#6B7280]">
+      <td className="w-[35%] px-3 py-2 text-[14px]">{leftValue}</td>
+      <th className="w-[15%] border-l border-r border-[#E5E7EB] px-3 py-2 text-left text-[13px] font-medium text-[#6B7280]">
         {right}
       </th>
-      <td className={'px-3 py-2.5 text-[14px] ' + (rightStrong ? 'font-bold' : '')}>
+      <td className={'px-3 py-2 text-[14px] ' + (rightStrong ? 'font-bold' : '')}>
         {rightValue}
       </td>
     </tr>
@@ -242,8 +260,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mt-4 break-inside-avoid rounded-md border border-[#D1D5DB] px-4 py-3">
-      <div className="mb-2 flex items-baseline">
+    <section className="mt-2.5 break-inside-avoid rounded-md border border-[#D1D5DB] px-4 py-2.5">
+      <div className="mb-1.5 flex items-baseline">
         <h2 className="text-[13.5px] font-bold">{title}</h2>
         {right && <span className="ml-auto text-[12.5px] text-[#6B7280]">{right}</span>}
       </div>
