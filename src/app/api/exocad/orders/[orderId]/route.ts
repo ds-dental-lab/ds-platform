@@ -13,6 +13,7 @@
 //   회사 PC 로 나가는 순간입니다. 누가 눌렀는지는 그 줄의 requested_by.
 // =========================================================
 
+import { withDownloadName } from '@/server/domain/storage-url';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyExocadToken } from '@/server/exocad/token';
@@ -72,8 +73,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ orde
     scans.map(async (f) => {
       const { data } = await admin.storage
         .from(BUCKET)
-        .createSignedUrl(f.storage_path, URL_TTL_SECONDS, { download: f.file_name });
-      return data ? { name: f.file_name, url: data.signedUrl, size: f.file_size } : null;
+        .createSignedUrl(f.storage_path, URL_TTL_SECONDS);
+      // ★ 이름은 한 번만 인코딩해 직접 붙입니다 (domain/storage-url)
+      return data ? { name: f.file_name, url: withDownloadName(data.signedUrl, f.file_name), size: f.file_size } : null;
     }),
   );
 

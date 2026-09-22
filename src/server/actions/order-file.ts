@@ -14,6 +14,7 @@
 
 'use server';
 
+import { withDownloadName } from '@/server/domain/storage-url';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
@@ -95,11 +96,8 @@ export async function getOrderFileUrl(
 
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(
-      found.storage_path,
-      TTL_SECONDS,
-      mode === 'open' ? undefined : { download: found.file_name },
-    );
+    // ★ download 옵션은 이름을 두 번 인코딩해 '%EC%A7…' 파일이 됩니다 — 이름은 아래에서 직접 붙입니다
+    .createSignedUrl(found.storage_path, TTL_SECONDS);
 
   if (error || !data) {
     return { ok: false, error: `내려받지 못했습니다: ${error?.message ?? '알 수 없는 오류'}` };
@@ -114,7 +112,9 @@ export async function getOrderFileUrl(
 
   const advanced = await startProductionOnDownload(found);
 
-  return { ok: true, url: data.signedUrl, fileName: found.file_name, advanced };
+  const url = mode === 'open' ? data.signedUrl : withDownloadName(data.signedUrl, found.file_name);
+
+  return { ok: true, url, fileName: found.file_name, advanced };
 }
 
 /**
