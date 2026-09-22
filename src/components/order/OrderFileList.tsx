@@ -26,7 +26,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { getOrderFileUrl, submitDeleteOrderFile } from '@/server/actions/order-file';
-import { formatBytes, middleEllipsis } from '@/lib/format/order';
+import { formatBytes } from '@/lib/format/order';
 import { isFileBlockedFor } from '@/server/domain/file-access';
 import { statusChangeMessage, type Sector } from '@/server/domain/order-status';
 import { useToast } from '@/components/ui/Toast';
@@ -129,10 +129,10 @@ export default function OrderFileList({
 
               {missing ? (
                 <span
-                  className="min-w-0 flex-1 truncate text-[#B3312C] line-through"
+                  className="flex min-w-0 flex-1 text-[#B3312C] line-through"
                   title={file.file_name}
                 >
-                  {middleEllipsis(file.file_name)}
+                  <FileName name={file.file_name} />
                 </span>
               ) : isFileBlockedFor(sector, { kind: file.kind, fileName: file.file_name }) ? (
                 /*
@@ -144,7 +144,7 @@ export default function OrderFileList({
                   className="flex min-w-0 flex-1 items-baseline gap-1.5 text-[#98A2B3]"
                   title={`${file.file_name} · 스캔 원본은 기공소에서 열 수 없습니다`}
                 >
-                  <span className="truncate">{middleEllipsis(file.file_name)}</span>
+                  <span className="flex min-w-0"><FileName name={file.file_name} /></span>
                   <b className="shrink-0 text-[11px] font-bold text-[#B6BECB]">스캔 원본</b>
                 </span>
               ) : (
@@ -153,9 +153,9 @@ export default function OrderFileList({
                   onClick={() => download(file)}
                   disabled={busy}
                   title={`${file.file_name} · ${formatBytes(file.file_size)} · 눌러서 내려받기`}
-                  className="min-w-0 flex-1 truncate text-left font-semibold text-[#1279E8] underline-offset-2 hover:underline disabled:text-[#98A2B3]"
+                  className="flex min-w-0 flex-1 text-left font-semibold text-[#1279E8] underline-offset-2 hover:underline disabled:text-[#98A2B3]"
                 >
-                  {busyId === file.id ? '준비 중…' : middleEllipsis(file.file_name)}
+                  {busyId === file.id ? '준비 중…' : <FileName name={file.file_name} />}
                 </button>
               )}
 
@@ -340,5 +340,23 @@ function DownloadIcon() {
       <path d="M10 3v9.5M6.5 9 10 12.5 13.5 9" />
       <path d="M3.5 13.5v1.8a1.2 1.2 0 0 0 1.2 1.2h10.6a1.2 1.2 0 0 0 1.2-1.2v-1.8" />
     </svg>
+  );
+}
+
+/**
+ * 파일 이름 — 칸 폭만큼 앞에서부터 보여 주고, 넘치면 '…' 뒤에 **확장자만** 남깁니다
+ * (사용자 요청 2026-09-22 — "확장자 말고 최대치까지 써 주다가 그다음이 ...").
+ * 전에는 글자 수(28자)로 잘라 뒤쪽 이름까지 남겼고, 칸이 넓어도 늘 줄었습니다.
+ */
+function FileName({ name }: { name: string }) {
+  const dot = name.lastIndexOf('.');
+  const hasExt = dot > 0 && name.length - dot <= 8;
+  const base = hasExt ? name.slice(0, dot) : name;
+  const ext = hasExt ? name.slice(dot) : '';
+  return (
+    <>
+      <span className="min-w-0 truncate">{base}</span>
+      {ext && <span className="shrink-0">{ext}</span>}
+    </>
   );
 }

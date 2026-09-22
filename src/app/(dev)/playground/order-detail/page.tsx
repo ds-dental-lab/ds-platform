@@ -91,6 +91,15 @@ const ORDER: OrderDetail = {
       created_at: '2026-08-19T02:12:00.000Z',
       upload_status: 'uploaded',
     },
+    {
+      id: 'f3',
+      kind: 'design',
+      file_name: '2026-09-21_유제옥-2026-09-21_abutment_slm_cad.stl',
+      file_size: 3_100_000,
+      mime_type: null,
+      created_at: '2026-09-21T10:53:00.000Z',
+      upload_status: 'uploaded',
+    },
   ],
   options: [
     { groupName: '컨택유형', value: '보통' },
