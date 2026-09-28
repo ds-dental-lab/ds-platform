@@ -66,6 +66,8 @@ export const NAV: Record<Sector, NavItem[]> = {
     { label: '주문등록', href: '/design/orders/new', icon: 'new' },
     { label: '주문목록', href: '/design/orders', icon: 'list' },
     { label: '배송조회', href: '/design/deliveries', icon: 'delivery' },
+    /* 신터링 뒤 크라운을 가리는 종이 (2026-09-28) — 디자인 미리보기 하루치 */
+    { label: '크라운 찾기', href: '/design/previews', icon: 'product' },
     { label: '정산관리', href: '/design/billing', icon: 'billing', staffHidden: true },
     { label: '사용자', href: '/design/users', icon: 'users', staffHidden: true },
     { label: '가입승인', href: '/design/signups', icon: 'approve', staffHidden: true },
