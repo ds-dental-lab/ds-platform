@@ -26,6 +26,7 @@
 //   문의할 때만 필요해 title 속성에 남겨 뒀습니다.
 // =========================================================
 
+import PreviewBuildButton from '@/components/order/PreviewBuildButton';
 import Link from 'next/link';
 import ToothChart from '@/components/dental/ToothChart';
 import OrderStatusActions from '@/components/order/OrderStatusActions';
@@ -576,6 +577,8 @@ export default function OrderDetailScreen({
             /* ★ 올리기는 머리줄의 아이콘 하나입니다 — 본문은 목록만 씁니다 */
             right={
               <span className="ml-auto flex items-center gap-1.5">
+                {/* ★ 지난 주문의 디자인 STL 에 미리보기를 만드는 단추 — 만들 것이 없으면 안 보입니다 */}
+                {sector === 'design_center' && <PreviewBuildButton files={designFiles} />}
                 <DownloadAllButton files={designFiles} sector={sector} />
                 {designSlot}
               </span>

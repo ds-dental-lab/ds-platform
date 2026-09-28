@@ -18,6 +18,7 @@
 
 'use client';
 
+import { attachPreviews } from '@/lib/stl-preview-upload';
 import { useState, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadOrderFiles } from '@/lib/upload';
@@ -71,6 +72,19 @@ export default function DesignFileUpload({ orderId }: { orderId: string }) {
         ? { phase: 'done', total: picked.length }
         : { phase: 'failed', total: picked.length, failed: result.failed, failures: result.failures },
     );
+
+    /*
+      ★ 미리보기 그림 (사용자 요청 2026-09-28 — 신터링 뒤 누구 것인지 눈으로 찾기).
+        올리기가 끝난 **뒤에** 만듭니다. 그림이 실패해도 파일은 이미 올라가 있습니다.
+        고른 파일을 그대로 읽으므로 다시 내려받지 않습니다.
+    */
+    const byName = new Map(picked.map((f) => [f.name, f]));
+    void attachPreviews(
+      result.uploaded.map(({ id, path, name }) => ({ id, path, name })),
+      async (target) => (await byName.get(target.name)?.arrayBuffer()) ?? null,
+    ).then((made) => {
+      if (made > 0) startTransition(() => router.refresh());
+    });
 
     if (!result.ok) {
       setError(`파일 ${result.failed.length}개를 올리지 못했습니다. 다시 시도해 주세요.`);

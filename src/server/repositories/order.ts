@@ -169,6 +169,11 @@ export interface OrderDetailFile {
    *   올리다 끊긴 것입니다 — 이름은 알지만 파일은 없습니다.
    */
   upload_status: 'pending' | 'uploaded' | 'failed';
+  /**
+   * 여섯 방향 미리보기 그림 (2026-09-28). 디자인 STL 에만 붙습니다.
+   * ★ 치과에는 안 보냅니다 — 신터링 뒤 크라운을 가리려고 만든 것이라 볼 일이 없습니다.
+   */
+  preview_url?: string | null;
 }
 
 /** 주문에 딸린 제작옵션 한 줄 — '훅 · 미사용' */
@@ -339,7 +344,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
         'lab:organizations!orders_lab_org_id_fkey(name), ' +
         'designer:user_profiles!orders_designer_user_id_fkey(name), ' +
         'order_items(id, tooth_number, slot, type_code, material_code, is_pontic, shade_system, shade_cervical, shade_incisal, implant_manufacturer, implant_type, implant_size, implant_screw, implant_option, has_gingival), ' +
-        'order_files(id, kind, file_name, file_size, mime_type, created_at, upload_status), ' +
+        'order_files(id, kind, file_name, file_size, mime_type, created_at, upload_status, preview_path), ' +
         'order_options(production_option_groups(name, sort_order), production_option_values(value))',
     )
     .eq('id', orderId)
@@ -369,7 +374,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     lab: { name: string } | null;
     designer: { name: string | null } | null;
     order_items: OrderDetailItem[] | null;
-    order_files: OrderDetailFile[] | null;
+    order_files: (OrderDetailFile & { preview_path: string | null })[] | null;
     order_options:
       | {
           production_option_groups: { name: string; sort_order: number } | null;
@@ -403,7 +408,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     in_house: Boolean(row.lab_org_id && row.lab_org_id === row.design_org_id),
     roles: rolesOf(row, session?.orgId ?? null),
     items: row.order_items ?? [],
-    files: row.order_files ?? [],
+    files: await withPreviewUrls(supabase, row.order_files ?? [], session?.orgType),
     // 등록 화면에 놓였던 순서 그대로 보여 줍니다
     options: (row.order_options ?? [])
       .filter((o) => o.production_option_groups && o.production_option_values)
@@ -531,4 +536,27 @@ export async function listOrdersByDueDate(
     // ★ 아직 안 풀린 것만. 지나간 재스캔까지 붙이면 딱지가 늘 켜져 있습니다
     issue: (row.order_issues ?? []).find((i) => !i.resolved_at)?.issue_type ?? null,
   }));
+}
+
+
+/**
+ * 디자인 STL 의 미리보기 주소를 붙입니다 (2026-09-28).
+ *
+ * ★ 치과에는 안 붙입니다. 이 그림은 만든 것을 **작업대에서 가리는** 용도입니다.
+ * ★ 한 번에 서명합니다 — 파일마다 왕복하면 목록 열기가 느려집니다.
+ */
+async function withPreviewUrls<T extends { preview_path?: string | null }>(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  files: T[],
+  orgType: string | null | undefined,
+): Promise<T[]> {
+  if (orgType === 'clinic') return files.map((f) => ({ ...f, preview_url: null }));
+
+  const paths = files.map((f) => f.preview_path).filter((p): p is string => Boolean(p));
+  if (paths.length === 0) return files;
+
+  const { data } = await supabase.storage.from('order-files').createSignedUrls(paths, 60 * 60);
+  const byPath = new Map((data ?? []).map((d) => [d.path ?? '', d.signedUrl]));
+
+  return files.map((f) => ({ ...f, preview_url: f.preview_path ? byPath.get(f.preview_path) ?? null : null }));
 }
