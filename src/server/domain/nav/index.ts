@@ -88,6 +88,8 @@ export const NAV: Record<Sector, NavItem[]> = {
     { label: 'HOME', href: '/lab', icon: 'home' },
     { label: '주문목록', href: '/lab/orders', icon: 'list' },
     { label: '배송조회', href: '/lab/shipments', icon: 'delivery' },
+    /* 신터링 뒤 크라운을 가리는 종이 (사용자 요청 2026-09-28) */
+    { label: '크라운 찾기', href: '/lab/previews', icon: 'product' },
     { label: '정산', href: '/lab/billing', icon: 'billing' },
     { label: '사용자', href: '/lab/users', icon: 'users', staffHidden: true },
     { label: '제품', href: '/lab/products', icon: 'product', staffHidden: true },
