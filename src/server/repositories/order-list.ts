@@ -38,6 +38,13 @@ export interface OrderRow {
   remake_seq: number;
   is_remake: boolean;
   is_repair: boolean;
+  /**
+   * 디자인 STL 미리보기가 있는가 (2026-09-28).
+   * ★ 목록에서 바로 열어 보기 위한 표시일 뿐, 주소는 누를 때 받습니다 —
+   *   한 쪽 열 줄의 그림 주소를 미리 서명하면 목록이 그만큼 느려집니다.
+   * ★ 치과에는 늘 false 입니다.
+   */
+  has_preview: boolean;
 }
 
 export interface OrderListQuery {
@@ -164,6 +171,7 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
     remake_seq: row.remake_seq ?? 0,
     is_remake: row.is_remake ?? false,
     is_repair: row.is_repair ?? false,
+    has_preview: false,
   }));
 
   // 치과명 검색 — 조인한 표의 값이라 여기서 거릅니다
@@ -207,6 +215,23 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
   const page = Math.min(Math.max(1, query.page ?? 1), pages);
 
   const shown = rows.slice((page - 1) * perPage, page * perPage);
+
+  /*
+    ★ 미리보기가 붙은 주문에만 목록에서 단추를 답니다 (2026-09-28).
+      **보여 줄 쪽(shown)만** 한 번 묻습니다 — 전체를 조인하면 파일이 많은 주문에서
+      경로 문자열이 수십 개씩 딸려 옵니다.
+  */
+  if (!isClinic && shown.length > 0) {
+    const { data: previews } = await supabase
+      .from('order_files')
+      .select('order_id')
+      .in('order_id', shown.map((r) => r.id))
+      .eq('kind', 'design')
+      .not('preview_path', 'is', null);
+
+    const withPreview = new Set(((previews ?? []) as { order_id: string }[]).map((p) => p.order_id));
+    for (const row of shown) row.has_preview = withPreview.has(row.id);
+  }
 
   /*
     ★ 목록에도 환자 실명이 실립니다 — 한 쪽에 수십 명입니다.

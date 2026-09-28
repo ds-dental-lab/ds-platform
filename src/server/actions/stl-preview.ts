@@ -83,3 +83,45 @@ export async function saveStlPreview(fileId: string, previewPath: string): Promi
 
   return error ? { ok: false, error: error.message } : { ok: true };
 }
+
+export interface OrderPreview {
+  fileId: string;
+  fileName: string;
+  url: string;
+}
+
+/**
+ * 주문 하나의 디자인 미리보기들 — **주문목록에서 눌렀을 때** 그 자리에서 보여 주려고 (2026-09-28).
+ *
+ * ★ 치과에는 안 줍니다(주문상세와 같은 규칙).
+ * ★ 남의 주문은 RLS 가 막습니다 — 여기서는 소속 종류만 봅니다.
+ */
+export async function listOrderPreviews(orderId: string): Promise<{ ok: true; items: OrderPreview[] } | { ok: false; error: string }> {
+  const session = await getSession();
+  if (!session?.orgId || session.orgType === 'clinic') return { ok: false, error: '볼 수 있는 자리가 아닙니다' };
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('order_files')
+    .select('id, file_name, preview_path')
+    .eq('order_id', orderId)
+    .eq('kind', 'design')
+    .not('preview_path', 'is', null)
+    .order('created_at');
+
+  const rows = (data ?? []) as { id: string; file_name: string; preview_path: string }[];
+  if (rows.length === 0) return { ok: true, items: [] };
+
+  const { data: signed } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrls(rows.map((r) => r.preview_path), 60 * 30);
+
+  const byPath = new Map((signed ?? []).map((s) => [s.path ?? '', s.signedUrl]));
+
+  return {
+    ok: true,
+    items: rows
+      .map((r) => ({ fileId: r.id, fileName: r.file_name, url: byPath.get(r.preview_path) ?? '' }))
+      .filter((i) => i.url),
+  };
+}

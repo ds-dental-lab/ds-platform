@@ -9,6 +9,7 @@
 // ★ 치식과 이슈는 정렬하지 않습니다. 한 칸에 값이 여럿이라 기준을 정할 수 없습니다.
 // =========================================================
 
+import PreviewPeek from '@/components/order/PreviewPeek';
 import Link from 'next/link';
 import {
   computeDDay,
@@ -244,6 +245,18 @@ export default function OrderTable({
                   */}
                   <td className="whitespace-nowrap px-2 py-2 text-center">
                     <span className="inline-flex items-center gap-1.5">
+                      {/*
+                        ★ 디자인 미리보기 (사용자 요청 2026-09-28) — 상세로 안 들어가고
+                          목록에서 바로 봅니다. 미리보기가 붙은 주문에만, 치과에는 안 옵니다.
+                      */}
+                      {row.has_preview && (
+                        <PreviewPeek
+                          orderId={row.id}
+                          patientLabel={row.patient_label}
+                          teethLabel={formatToothList(row.teeth)}
+                        />
+                      )}
+
                       {issue && (
                         <span
                           className="inline-block rounded-full px-[9px] py-[3px] text-[11px] font-bold"
