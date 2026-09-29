@@ -86,3 +86,74 @@ def load_ply_vertices(path: Path) -> np.ndarray:
     names = [n for _, n in props]
     ix, iy, iz = names.index("x"), names.index("y"), names.index("z")
     return np.stack([data[f"p{ix}"], data[f"p{iy}"], data[f"p{iz}"]], axis=1).astype(np.float32)
+
+
+def load_ply_mesh(path: Path) -> tuple[np.ndarray, np.ndarray]:
+    """PLY 의 꼭짓점과 면. 면은 삼각형만 (사각형은 둘로 쪼갭니다).
+
+    ★ 날개를 만들려면 옆 치아 **면**이 필요합니다 — 점만으로는 두께를 세울 수 없습니다.
+    """
+    verts = load_ply_vertices(path)
+    raw = path.read_bytes()
+    end = raw.find(b"end_header")
+    if end < 0 or len(verts) == 0:
+        return verts, np.zeros((0, 3), dtype=np.int64)
+
+    header = raw[:end].decode("ascii", "ignore").splitlines()
+    body = raw[raw.find(b"\n", end) + 1 :]
+
+    fmt = "ascii"
+    counts: dict[str, int] = {}
+    props: dict[str, list[tuple[str, str]]] = {}
+    current = ""
+
+    for line in header:
+        parts = line.split()
+        if not parts:
+            continue
+        if parts[0] == "format":
+            fmt = parts[1]
+        elif parts[0] == "element":
+            current = parts[1]
+            counts[current] = int(parts[2])
+            props[current] = []
+        elif parts[0] == "property" and current:
+            props[current].append((parts[1], " ".join(parts[2:])))
+
+    face_count = counts.get("face", 0)
+    if face_count == 0:
+        return verts, np.zeros((0, 3), dtype=np.int64)
+
+    if fmt == "ascii":
+        lines = body.decode("ascii", "ignore").splitlines()
+        faces = []
+        for line in lines[counts.get("vertex", 0) : counts.get("vertex", 0) + face_count]:
+            p = [int(x) for x in line.split()]
+            if not p:
+                continue
+            if p[0] == 3:
+                faces.append(p[1:4])
+            elif p[0] == 4:
+                faces.extend([[p[1], p[2], p[3]], [p[1], p[3], p[4]]])
+        return verts, np.asarray(faces, dtype=np.int64)
+
+    # 이진 — 꼭짓점 블록을 건너뛰고 면을 읽습니다
+    sizes = {"float": 4, "float32": 4, "double": 8, "uchar": 1, "uint8": 1, "char": 1,
+             "int8": 1, "short": 2, "ushort": 2, "int": 4, "uint": 4, "int32": 4, "uint32": 4}
+    vstride = sum(sizes.get(t, 4) for t, _ in props.get("vertex", []))
+    offset = counts.get("vertex", 0) * vstride
+
+    order = "<" if fmt.endswith("little_endian") else ">"
+    faces = []
+    pos = offset
+    for _ in range(face_count):
+        n = body[pos]
+        pos += 1
+        idx = np.frombuffer(body, dtype=order + "i4", count=n, offset=pos)
+        pos += 4 * n
+        if n == 3:
+            faces.append(idx.tolist())
+        elif n == 4:
+            faces.extend([[idx[0], idx[1], idx[2]], [idx[0], idx[2], idx[3]]])
+
+    return verts, np.asarray(faces, dtype=np.int64)
