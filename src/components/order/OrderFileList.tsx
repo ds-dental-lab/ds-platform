@@ -121,11 +121,10 @@ export default function OrderFileList({
             <li
               key={file.id}
               className={
-                'group rounded px-2 py-1 text-[13.5px] ' +
+                'group flex items-baseline gap-2 rounded px-2 py-1 text-[13.5px] ' +
                 (missing ? 'bg-[#FDF2F2]' : 'bg-white hover:bg-[#F4F8FE]')
               }
             >
-            <div className="flex items-baseline gap-2">
               <span className="shrink-0 text-[11px] text-[#C4CBD6]">
                 {shortStamp(file.created_at)}
               </span>
@@ -177,25 +176,6 @@ export default function OrderFileList({
                 >
                   ✕
                 </button>
-              )}
-              </div>
-
-              {/*
-                ★ 여섯 방향 미리보기 (사용자 요청 2026-09-28).
-                  신터링이 끝난 크라운을 작업대에서 가릴 때 씁니다 — 눌러 크게 봅니다.
-                  치과에는 주소가 아예 안 옵니다(repositories/order).
-              */}
-              {file.preview_url && (
-                <a
-                  href={file.preview_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={`${file.file_name} — 여섯 방향 미리보기 (눌러서 크게)`}
-                  className="mt-1 block overflow-hidden rounded border border-[#E8EBF0] bg-white"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={file.preview_url} alt="" loading="lazy" className="block w-full" />
-                </a>
               )}
             </li>
           );
