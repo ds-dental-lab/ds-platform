@@ -327,6 +327,22 @@
   .work-order-sheet .fit-width-inner {
     zoom: 0.68 !important;
   }
+
+  /*
+    ★ 수가표는 **한 장을 채웁니다** (사용자 요청 2026-09-30 — "A4 용지에 맞게").
+      줄이 여섯이면 종이 위쪽만 차고 아래가 텅 빕니다. 종이 높이를 채우게 두고
+      표의 줄을 고르게 늘립니다. 보증 띠·꼬리말은 아래에 붙습니다(mt-auto).
+  */
+  .price-sheet-paper {
+    min-height: calc(297mm - 18mm);
+  }
+  .price-sheet-table {
+    height: 1px;            /* 표가 남는 높이를 먹게 하는 오래된 요령 */
+    flex: 1 1 auto;
+  }
+  .price-sheet-table td {
+    height: auto;
+  }
 }
 
 /* =========================================================

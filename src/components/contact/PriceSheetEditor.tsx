@@ -170,7 +170,7 @@ export default function PriceSheetEditor({ rows: initial, company, canSave }: Pr
             mail/price-sheet-mail 과 같은 색·같은 세 묶음·같은 보증 띠입니다.
             메일은 표로만 그려야 해서(메일 프로그램이 CSS 를 절반만 읽음) 거기 값들을
             여기서 그대로 씁니다 — 색을 바꾸려면 두 곳을 같이 바꿔야 합니다. */}
-      <div className="work-order-sheet rounded-lg border border-[#E8EBF0] bg-white px-9 py-8 text-[#16324F] print:border-0">
+      <div className="price-sheet-paper work-order-sheet flex flex-col rounded-lg border border-[#E8EBF0] bg-white px-9 py-8 text-[#16324F] print:border-0">
         <header className="flex items-end justify-between gap-6 border-b-[3px] border-[#16324F] pb-4">
           <h1 className="text-[30px] font-extrabold tracking-[-0.5px]">수가표</h1>
           <div className="text-right">
@@ -187,7 +187,7 @@ export default function PriceSheetEditor({ rows: initial, company, canSave }: Pr
           </p>
         )}
 
-        <table className="mt-4 w-full border-collapse">
+        <table className="price-sheet-table mt-4 w-full border-collapse">
           <thead>
             <tr>
               <th className="border-b border-[#E3E9EF] p-3 text-left text-[12px] font-normal tracking-[1px] text-[#5B7186]">
@@ -224,8 +224,9 @@ export default function PriceSheetEditor({ rows: initial, company, canSave }: Pr
           </tbody>
         </table>
 
-        {/* ★ 메일과 같은 보증 띠 — 약관 제15조(배송일부터 1년)와 같은 말입니다 */}
-        <div className="mt-5 rounded-[12px] border border-[#D3EEE9] bg-[#F0F9F7] px-5 py-4 text-[14px]">
+        {/* ★ 메일과 같은 보증 띠 — 약관 제15조(배송일부터 1년)와 같은 말입니다.
+              종이에서는 표가 위를 채우고 이 띠와 꼬리말이 아래에 붙습니다 (mt-auto) */}
+        <div className="mt-5 print:mt-auto rounded-[12px] border border-[#D3EEE9] bg-[#F0F9F7] px-5 py-4 text-[14px]">
           <b>리메이크 1년 무상 보증</b>
           <span className="ml-2 text-[13px] text-[#5B7186]">
             제작일로부터 1년 이내 무상 리메이크를 지원합니다.
