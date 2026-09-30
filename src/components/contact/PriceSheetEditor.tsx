@@ -13,7 +13,7 @@
 //   만든 종이로 보입니다. 비워 두면 안 나옵니다.
 // =========================================================
 
-import { useState, useTransition } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitSavePriceSheet } from '@/server/actions/price-sheet';
 import { PRICE_GROUPS, formatWon, groupRows, type PriceGroup, type PriceRow } from '@/server/domain/price-sheet';
@@ -38,6 +38,43 @@ export default function PriceSheetEditor({ rows: initial, company, canSave }: Pr
   const [error, setError] = useState('');
 
   const year = String(new Date().getFullYear());
+
+  /*
+    ★ **한 장에 담습니다** (사용자 요청 2026-09-30).
+      항목이 늘면 종이를 넘깁니다. 넘칠 때만 인쇄 배율을 줄입니다 —
+      안 넘치면 1 이라 글자가 작아지지 않습니다.
+    ★ 화면이 아니라 **인쇄에만** 걸립니다 (globals.css 의 --price-zoom).
+      화면에서 줄어들면 고칠 때 글자가 작아져 불편합니다.
+  */
+  const paper = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+
+  const fit = () => {
+    const el = paper.current;
+    if (!el) return;
+
+    /*
+      ★ 잴 때는 **원래 크기로** 잽니다. 줄인 배율과 그만큼 늘린 높이가 그대로 남아 있으면
+        잰 값이 다시 커져 배율이 바닥까지 떨어집니다 (처음에 그랬습니다).
+    */
+    const keepZoom = el.style.zoom;
+    const keepMin = el.style.minHeight;
+    el.style.zoom = '1';
+    el.style.minHeight = '0';
+    const height = el.scrollHeight;
+    el.style.zoom = keepZoom;
+    el.style.minHeight = keepMin;
+
+    const ROOM = (297 - 18) * (96 / 25.4);   // A4 높이에서 종이 안 여백(위아래 9mm)을 뺀 만큼
+    const next = height > ROOM ? Math.max(0.5, Math.floor((ROOM / height) * 100) / 100) : 1;
+    if (Math.abs(next - zoom) > 0.005) setZoom(next);
+  };
+
+  useLayoutEffect(fit);
+  useEffect(() => {
+    window.addEventListener('beforeprint', fit);
+    return () => window.removeEventListener('beforeprint', fit);
+  });
   const groups = groupRows(rows.filter((r) => r.item.trim() && r.price > 0));
 
   function change(index: number, patch: Partial<PriceRow>) {
@@ -170,7 +207,11 @@ export default function PriceSheetEditor({ rows: initial, company, canSave }: Pr
             mail/price-sheet-mail 과 같은 색·같은 세 묶음·같은 보증 띠입니다.
             메일은 표로만 그려야 해서(메일 프로그램이 CSS 를 절반만 읽음) 거기 값들을
             여기서 그대로 씁니다 — 색을 바꾸려면 두 곳을 같이 바꿔야 합니다. */}
-      <div className="price-sheet-paper work-order-sheet flex flex-col rounded-lg border border-[#E8EBF0] bg-white px-9 py-8 text-[#16324F] print:border-0">
+      <div
+        ref={paper}
+        style={{ ["--price-zoom" as string]: String(zoom) }}
+        className="price-sheet-paper work-order-sheet flex flex-col rounded-lg border border-[#E8EBF0] bg-white px-9 py-8 text-[#16324F] print:border-0"
+      >
         <header className="flex items-end justify-between gap-6 border-b-[3px] border-[#16324F] pb-4">
           <h1 className="text-[30px] font-extrabold tracking-[-0.5px]">수가표</h1>
           <div className="text-right">

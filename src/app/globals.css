@@ -334,7 +334,10 @@
       표의 줄을 고르게 늘립니다. 보증 띠·꼬리말은 아래에 붙습니다(mt-auto).
   */
   .price-sheet-paper {
-    min-height: calc(297mm - 18mm);
+    /* ★ 줄인 배율만큼 높이를 되돌려야 종이가 끝까지 찹니다 (안 그러면 아래가 빔) */
+    min-height: calc((297mm - 18mm) / var(--price-zoom, 1));
+    /* 넘칠 때만 줄입니다 — 화면에서는 1 (components/contact/PriceSheetEditor 가 잽니다) */
+    zoom: var(--price-zoom, 1);
   }
   .price-sheet-table {
     height: 1px;            /* 표가 남는 높이를 먹게 하는 오래된 요령 */
