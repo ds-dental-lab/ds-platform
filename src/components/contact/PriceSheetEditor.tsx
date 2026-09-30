@@ -16,7 +16,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitSavePriceSheet } from '@/server/actions/price-sheet';
-import { PRICE_GROUPS, formatWon, type PriceGroup, type PriceRow } from '@/server/domain/price-sheet';
+import { PRICE_GROUPS, formatWon, groupRows, type PriceGroup, type PriceRow } from '@/server/domain/price-sheet';
 import PriceSheetTabs from '@/components/contact/PriceSheetTabs';
 
 export interface PriceSheetEditorProps {
@@ -37,7 +37,8 @@ export default function PriceSheetEditor({ rows: initial, company, canSave }: Pr
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
-  const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const year = String(new Date().getFullYear());
+  const groups = groupRows(rows.filter((r) => r.item.trim() && r.price > 0));
 
   function change(index: number, patch: Partial<PriceRow>) {
     setSaved(false);
@@ -157,7 +158,7 @@ export default function PriceSheetEditor({ rows: initial, company, canSave }: Pr
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="종이 아래에 적을 안내 (비우면 안 나옵니다)"
+              placeholder="맨 아래에 덧붙일 한 줄 (비우면 안 나옵니다)"
               aria-label="안내 문구"
               className="h-8 flex-1 rounded-md border border-[#DDE2EA] px-2.5 text-[13px]"
             />
@@ -165,50 +166,83 @@ export default function PriceSheetEditor({ rows: initial, company, canSave }: Pr
         </div>
       </div>
 
-      {/* ---------- 종이 (기공의뢰서와 같은 A4 규칙) ---------- */}
-      <div className="work-order-sheet rounded-lg border border-[#E8EBF0] bg-white px-10 py-9 text-[#111827] print:border-0">
-        <header className="mb-7 border-b-2 border-[#111827] pb-3">
-          <h1 className="text-center text-[27px] font-extrabold tracking-[-0.03em]">수 가 표</h1>
+      {/* ---------- 종이 — **메일로 나가는 수가표와 같은 양식** (사용자 요청 2026-09-30) ----------
+            mail/price-sheet-mail 과 같은 색·같은 세 묶음·같은 보증 띠입니다.
+            메일은 표로만 그려야 해서(메일 프로그램이 CSS 를 절반만 읽음) 거기 값들을
+            여기서 그대로 씁니다 — 색을 바꾸려면 두 곳을 같이 바꿔야 합니다. */}
+      <div className="work-order-sheet rounded-lg border border-[#E8EBF0] bg-white px-9 py-8 text-[#16324F] print:border-0">
+        <header className="flex items-end justify-between gap-6 border-b-[3px] border-[#16324F] pb-4">
+          <h1 className="text-[30px] font-extrabold tracking-[-0.5px]">수가표</h1>
+          <div className="text-right">
+            <p className="text-[13px] font-bold tracking-[1px]">{company.name}</p>
+            <p className="mt-1.5 text-[12px] text-[#5B7186]">Price List · {year} · 단위: ₩ / ea</p>
+          </div>
         </header>
 
-        <div className="mb-5 flex items-end justify-between gap-6 text-[13.5px]">
-          <div>
-            {clinic.trim() && <p className="text-[16px] font-bold">{clinic.trim()} 귀중</p>}
-            <p className="mt-1 text-[#4A5567]">{today} 기준</p>
-          </div>
-          <div className="text-right leading-relaxed text-[#4A5567]">
-            <p className="text-[15px] font-bold text-[#111827]">{company.name}</p>
-            <p>{company.tel}</p>
-            <p>{company.address}</p>
-          </div>
-        </div>
+        {clinic.trim() && (
+          <p className="mt-6 text-[15px] leading-relaxed">
+            <b>{clinic.trim()}</b> 원장님, 안녕하세요.
+            <br />
+            문의해 주신 수가표를 보내 드립니다.
+          </p>
+        )}
 
-        <table className="w-full border-collapse text-[15px]">
+        <table className="mt-4 w-full border-collapse">
           <thead>
-            <tr className="border-y border-[#111827]">
-              <th className="w-[22%] px-3 py-2.5 text-left font-bold">분류</th>
-              <th className="px-3 py-2.5 text-left font-bold">항목</th>
-              <th className="w-[26%] px-3 py-2.5 text-right font-bold">금액 (원)</th>
+            <tr>
+              <th className="border-b border-[#E3E9EF] p-3 text-left text-[12px] font-normal tracking-[1px] text-[#5B7186]">
+                대분류
+              </th>
+              <th className="border-b border-[#E3E9EF] p-3 text-left text-[12px] font-normal tracking-[1px] text-[#5B7186]">
+                상세분류
+              </th>
+              <th className="border-b border-[#E3E9EF] p-3 text-right text-[12px] font-normal tracking-[1px] text-[#5B7186]">
+                공급가
+              </th>
             </tr>
           </thead>
           <tbody>
-            {PRICE_GROUPS.flatMap((group) => {
-              const items = rows.filter((r) => r.group === group && r.item.trim() && r.price > 0);
-
-              return items.map((row, i) => (
-                <tr key={`${group}-${row.item}-${i}`} className="border-b border-[#E5E7EB]">
-                  <td className="px-3 py-2.5 font-semibold">{i === 0 ? group : ''}</td>
-                  <td className="px-3 py-2.5">{row.item}</td>
-                  <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{formatWon(row.price)}</td>
+            {groups.map(({ group, rows: items }) =>
+              items.map((row, i) => (
+                <tr key={`${group}-${row.item}-${i}`}>
+                  {i === 0 && (
+                    <td
+                      rowSpan={items.length}
+                      className="whitespace-nowrap border-l-4 border-t border-l-[#14B8A6] border-t-[#E3E9EF] p-3 align-middle text-[16px] font-bold"
+                    >
+                      {group}
+                    </td>
+                  )}
+                  <td className="border-t border-[#E3E9EF] p-3 text-[15px] text-[#2A4460]">{row.item}</td>
+                  <td className="whitespace-nowrap border-t border-[#E3E9EF] p-3 text-right text-[16px] font-bold tabular-nums">
+                    {formatWon(row.price)}
+                    <span className="ml-[3px] text-[12px] font-normal text-[#5B7186]">원</span>
+                  </td>
                 </tr>
-              ));
-            })}
+              )),
+            )}
           </tbody>
         </table>
 
-        {note.trim() && (
-          <p className="mt-6 whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#4A5567]">※ {note.trim()}</p>
-        )}
+        {/* ★ 메일과 같은 보증 띠 — 약관 제15조(배송일부터 1년)와 같은 말입니다 */}
+        <div className="mt-5 rounded-[12px] border border-[#D3EEE9] bg-[#F0F9F7] px-5 py-4 text-[14px]">
+          <b>리메이크 1년 무상 보증</b>
+          <span className="ml-2 text-[13px] text-[#5B7186]">
+            제작일로부터 1년 이내 무상 리메이크를 지원합니다.
+          </span>
+        </div>
+
+        <p className="mt-6 border-t border-[#E3E9EF] pt-4 text-[13px] leading-[1.7] text-[#5B7186]">
+          {company.name} · Tel. {company.tel} · {company.address}
+          <br />
+          주문은 <b className="font-bold text-[#14B8A6]">denflow.kr</b> 에서 회원가입 후 바로 넣으실 수 있습니다.
+          {note.trim() && (
+            <>
+              <br />
+              {note.trim()}
+            </>
+          )}
+        </p>
       </div>
 
       <div className="pb-10 print:hidden" />
