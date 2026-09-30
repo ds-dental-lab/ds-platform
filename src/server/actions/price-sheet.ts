@@ -92,3 +92,29 @@ export async function submitSendPriceSheet(
 
   return { ok: true, sentAt };
 }
+
+
+/**
+ * 수가표 기본값만 저장합니다 — 상담용 종이를 만드는 화면에서 씁니다
+ * (사용자 요청 2026-09-29 — "원장님과 상담할 때 A4 로 뽑아 가게").
+ *
+ * ★ 보내기와 갈라 둡니다. 여기서는 메일이 안 나갑니다.
+ * ★ 관리자만. 단가는 회사의 값이라 사용자(디자이너)가 바꿀 것이 아닙니다.
+ */
+export async function submitSavePriceSheet(rows: PriceRow[]): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (session?.orgType !== 'design_center' || !canManageMembers(session.role as MemberRole | null)) {
+    return { ok: false, error: '디자인센터 관리자만 바꿀 수 있습니다' };
+  }
+
+  const verdict = checkPriceSheet(rows);
+  if (!verdict.ok) return { ok: false, error: verdict.reason };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('organizations').update({ price_sheet: rows }).eq('id', session.orgId!);
+  if (error) return { ok: false, error: `저장하지 못했습니다: ${error.message}` };
+
+  revalidatePath('/design/price-sheet');
+  revalidatePath('/design/contacts');
+  return { ok: true };
+}

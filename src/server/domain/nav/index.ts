@@ -72,6 +72,8 @@ export const NAV: Record<Sector, NavItem[]> = {
     { label: '사용자', href: '/design/users', icon: 'users', staffHidden: true },
     { label: '가입승인', href: '/design/signups', icon: 'approve', staffHidden: true },
     { label: '수가표 요청', href: '/design/contacts', icon: 'board', staffHidden: true },
+    /* 상담용 수가표 종이 (2026-09-29) — 값은 문의 수가표와 같은 곳에서 옵니다 */
+    { label: '수가표', href: '/design/price-sheet', icon: 'billing', staffHidden: true },
     { label: '제품', href: '/design/products', icon: 'product', staffHidden: true },
     { label: '휴일', href: '/design/holidays', icon: 'holiday', staffHidden: true },
     { label: '임플란트', href: '/design/implants', icon: 'implant', staffHidden: true },

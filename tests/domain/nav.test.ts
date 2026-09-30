@@ -114,6 +114,7 @@ describe('★ 감춘 메뉴에는 문이 달려 있어야 합니다', () => {
       '/design/users',
       '/design/signups',
       '/design/contacts',
+      '/design/price-sheet',
       '/design/products',
       '/design/holidays',
       '/design/implants',
