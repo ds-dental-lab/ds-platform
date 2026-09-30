@@ -17,6 +17,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitSavePriceSheet } from '@/server/actions/price-sheet';
 import { PRICE_GROUPS, formatWon, type PriceGroup, type PriceRow } from '@/server/domain/price-sheet';
+import PriceSheetTabs from '@/components/contact/PriceSheetTabs';
 
 export interface PriceSheetEditorProps {
   rows: PriceRow[];
@@ -60,6 +61,8 @@ export default function PriceSheetEditor({ rows: initial, company, canSave }: Pr
 
   return (
     <div className="mx-auto max-w-[860px]">
+      <PriceSheetTabs />
+
       {/* ---------- 고치는 줄 (종이에는 안 나옵니다) ---------- */}
       <div className="mb-3 space-y-2 print:hidden">
         <div className="flex flex-wrap items-center gap-2">

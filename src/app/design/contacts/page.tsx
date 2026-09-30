@@ -10,6 +10,7 @@ import { requireManagerSector } from '@/server/policies/session';
 import { listContacts } from '@/server/repositories/contact';
 import { getPriceSheetDefaults } from '@/server/repositories/price-sheet';
 import ContactBoard from '@/components/site/ContactBoard';
+import PriceSheetTabs from '@/components/contact/PriceSheetTabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,8 @@ export default async function ContactsPage() {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-1">
+      <PriceSheetTabs />
+
       <header>
         <h1 className="text-[19px] font-extrabold tracking-[-0.03em] text-[#1A2130]">수가표 요청</h1>
         <p className="mt-1 text-[14px] text-[#7C8595]">
