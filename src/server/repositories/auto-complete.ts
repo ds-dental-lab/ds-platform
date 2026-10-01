@@ -2,10 +2,11 @@
 // 놓을 위치: src/server/repositories/auto-complete.ts
 //
 // 요청시한이 된 제작·배송 건을 '완료' 로 넘깁니다 (사용자 요청 2026-10-01).
-// 아침 9시(KST)에 DB 시계가 /api/jobs/auto-complete 를 부릅니다.
+// 새벽 3시(KST)에 DB 시계가 /api/jobs/auto-complete 를 부릅니다.
 //
-// ★ 배송 시각(shipped_at)이 비어 있으면 **지금으로 채웁니다** — 정산이 그 시각으로
-//   달을 가릅니다. 안 채우면 완료됐는데 영원히 청구가 안 되는 주문이 생깁니다.
+// ★ 배송 시각(shipped_at)이 비어 있으면 **그날(한국 날짜)로 채웁니다** — 정산이 그
+//   시각으로 달을 가릅니다. 안 채우면 완료됐는데 영원히 청구가 안 되는 주문이 생깁니다.
+//   새벽에 돌아도 달이 안 밀리게 맞춥니다 (domain/auto-complete 의 stampFor).
 // ★ 이미 마감한 기간에는 금액을 못 넣습니다. 그래서 날짜를 소급해 적지 않습니다
 //   (domain/auto-complete 의 shippedAtFor).
 // ★ 누가 넘겼는지는 order_status_history 에 사람 없이(시계) 남습니다.

@@ -5,6 +5,7 @@ import {
   dueReached,
   isAutoCompletable,
   shippedAtFor,
+  stampFor,
 } from '@/server/domain/auto-complete';
 import { periodOfDate, periodRange, isBillable } from '@/server/domain/billing';
 
@@ -36,7 +37,7 @@ describe('★ 배송 시각 — 정산의 근거', () => {
     );
   });
 
-  it('비어 있으면 지금으로 채웁니다 — 안 채우면 청구가 안 됩니다', () => {
+  it('비어 있으면 오늘(한국 날짜)로 채웁니다 — 안 채우면 청구가 안 됩니다', () => {
     const now = new Date('2026-10-31T00:00:00Z');
     const stamped = shippedAtFor(null, now);
 
@@ -60,11 +61,22 @@ describe('★ 배송 시각 — 정산의 근거', () => {
     expect(periodOfDate(stamped, 26)).toBe('2026-11');
   });
 
-  it('★ 자정에 돌리면 한국 11/1 건이 10월로 샙니다 — 그래서 9시입니다', () => {
-    const midnightKst = new Date('2026-10-31T15:00:00Z'); // 한국 11/1 00:00
-    expect(periodOfDate(shippedAtFor(null, midnightKst), 1)).toBe('2026-10');
+  /*
+    ★ 사용자 결정 2026-10-01: 시계는 **새벽 3시**(파기와 같은 시간대).
+      그래도 어긋나면 안 되므로 적는 시각을 '그날 한국 날짜' 로 맞춥니다 (stampFor).
+  */
+  it('새벽 3시에 돌아도 한국 날짜 그대로 — 달이 안 밀립니다', () => {
+    const threeKstNov1 = new Date('2026-10-31T18:00:00Z'); // 한국 11/1 03:00
+    expect(stampFor(threeKstNov1)).toBe('2026-11-01T00:00:00.000Z');
+    expect(periodOfDate(shippedAtFor(null, threeKstNov1), 1)).toBe('2026-11');
 
-    const nineKst = new Date('2026-11-01T00:00:00Z'); // 한국 11/1 09:00
-    expect(periodOfDate(shippedAtFor(null, nineKst), 1)).toBe('2026-11');
+    const threeKstOct1 = new Date('2026-09-30T18:00:00Z'); // 한국 10/1 03:00
+    expect(periodOfDate(shippedAtFor(null, threeKstOct1), 1)).toBe('2026-10');
+    expect(periodOfDate(shippedAtFor(null, threeKstOct1), 26)).toBe('2026-10');
+  });
+
+  it('보정 없이 그대로 적으면 9월로 샙니다 — 보정이 막는 것', () => {
+    const raw = new Date('2026-09-30T18:00:00Z').toISOString(); // 한국 10/1 03:00
+    expect(periodOfDate(raw, 1)).toBe('2026-09');
   });
 });
