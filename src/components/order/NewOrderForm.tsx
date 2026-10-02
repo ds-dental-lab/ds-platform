@@ -550,7 +550,14 @@ function OrderFormBody({
         ★ 올릴 파일 수를 함께 보냅니다. 주문이 **업로드중**으로
           태어나, 파일이 다 자리를 잡아야 접수가 됩니다 (§3-3).
       */
-      const result = await submitOrder({ ...payload, plannedFileCount: pendingFiles.length });
+      /*
+        ★ 올라온 스캔도 파일 수에 셉니다 (2026-10-02). 안 세면 주문이 '스캔 대기' 로
+          태어났다가 아무도 안 올려서 그 자리에 멈춥니다.
+      */
+      const result = await submitOrder({
+        ...payload,
+        plannedFileCount: pendingFiles.length + (incomingScan ? 1 : 0),
+      });
 
       if (!result.ok) {
         setSaving(false);
@@ -644,7 +651,8 @@ function OrderFormBody({
   // ★ 스캔 파일이 없으면 디자인센터가 열어 볼 것이 없습니다.
   //   이름·치식과 같은 자리의 필수 항목입니다.
   //   수정 모드에서는 이미 올라간 파일이 있으므로 묻지 않습니다.
-  if (!editing && pendingFiles.length === 0) {
+  // ★ 구강스캐너에서 이미 올라온 스캔이 있으면 그것이 곧 스캔 파일입니다 (2026-10-02)
+  if (!editing && pendingFiles.length === 0 && !incomingScan) {
     missingFields.push({ label: '스캔 파일', anchor: 'sec-files' });
   }
 
@@ -1072,13 +1080,26 @@ function OrderFormBody({
       {/* ---------- ④ 스캔/쉐이드 파일 ---------- */}
       <div id="sec-files" className="scroll-mt-16">
         <OrderSection icon={SECTION_ICON.file} title="스캔/쉐이드 파일">
+          {/*
+            ★ 구강스캐너에서 올라온 스캔 (2026-10-02). 등록하는 순간 이 주문에 붙습니다.
+              이 표시가 없으면 "파일이 안 올라갔다" 고 읽힙니다 — 실제로 그렇게 보였습니다.
+          */}
+          {incomingScan && (
+            <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-[#CFE3FB] bg-[#F2F7FE] px-3.5 py-2.5 text-[13.5px]">
+              <b className="font-bold text-[#1279E8]">구강스캐너에서 올라온 스캔</b>
+              <span className="text-[#1A2130]">{incomingScan.fileName}</span>
+              {incomingScan.chartNo && <span className="text-[#7C8595]">차트 {incomingScan.chartNo}</span>}
+              <span className="ml-auto text-[12.5px] text-[#4A5567]">등록하면 이 주문에 붙습니다</span>
+            </div>
+          )}
+
           <ScanDropZone
             files={pendingFiles}
             onChange={setPendingFiles}
             disabled={saving}
             existing={initial?.files ?? []}
           />
-          {showProblems && pendingFiles.length === 0 && !editing && (
+          {showProblems && pendingFiles.length === 0 && !editing && !incomingScan && (
             <p className="mt-2 text-[13px] text-[#D8453F]">
               스캔 파일이 있어야 주문을 넣을 수 있습니다.
             </p>
