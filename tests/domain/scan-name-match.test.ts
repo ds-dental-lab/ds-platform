@@ -5,7 +5,7 @@
 // =========================================================
 
 import { describe, it, expect } from 'vitest';
-import { sameClinicName, samePatientName } from '@/server/domain/device-link';
+import { cleanScanMeta, sameClinicName, samePatientName } from '@/server/domain/device-link';
 
 describe('치과명 맞추기', () => {
   it('같은 이름', () => {
@@ -71,3 +71,19 @@ describe('치과명이 아닌 값', () => {
     expect(sameClinicName('2510치과', '다서울치과')).toBe(false);
   });
 });
+
+/*
+  스캐너 PC 가 보낸 값은 그대로 믿지 않습니다. 치식은 11~48 이면서 끝자리가
+  1~8 인 것만 둡니다 — '19'·'30' 같은 칸은 없습니다.
+*/
+describe('보내온 치식 거르기', () => {
+  it('없는 번호는 버립니다', () => {
+    expect(cleanScanMeta({ fileName: 'a.dxd', teeth: [11, 19, 30, 48, 49, 0] })?.teeth).toEqual([
+      11, 48,
+    ]);
+  });
+
+  it('겹친 것은 한 번만, 순서대로', () => {
+    expect(cleanScanMeta({ fileName: 'a.dxd', teeth: [21, 11, 21] })?.teeth).toEqual([11, 21]);
+  });
+})

@@ -14,7 +14,11 @@ dxd 안의 케이스 정보 읽기 (2026-10-02, 사용자 요청 — 치과 PC �
   '2510' 처럼 숫자만 적어 둔 곳이 있어 막는 조건으로 쓰면 멀쩡한 주문이 막힙니다.
   나중에 덴플로우 치과명과 맞춰 보는 용도로만 씁니다.
 
-★ 큰 파일(64~150MB)이지만 xml 한 장만 꺼내므로 밀리초 단위입니다.
+★ 치식은 xml 에 거의 없습니다. 실제 임상 파일 다섯 개가 모두 '본만 뜬' 내보내기라
+  <ToothDefinitions/> 가 비어 있었습니다. 대신 파일 이름에 '#11,21' 처럼 적는
+  치과가 있어, 없을 때는 이름에서 읽습니다 (2026-10-02 확인).
+
+★ 큰 파일(64~180MB)이지만 xml 한 장만 꺼내므로 밀리초 단위입니다.
 """
 
 from __future__ import annotations
@@ -22,9 +26,14 @@ from __future__ import annotations
 import re
 import zipfile
 from dataclasses import dataclass, asdict
+from datetime import datetime, timedelta
 from pathlib import Path
 
 CASE_XML = "DentalCase.xml"
+
+# ★ xml 의 시각은 **UTC** 입니다 (2026-10-02 확인 — 파일명이 11-34-58 인 스캔의
+#   xml 이 hour="2" 였습니다). 그대로 쓰면 진료실 시계와 9시간 어긋납니다.
+KST_OFFSET = timedelta(hours=9)
 
 
 @dataclass
@@ -38,7 +47,7 @@ class DxdCase:
     scanned_at: str          # 'YYYY-MM-DD HH:MM'
     device: str
     models: list[str]        # UpperJaw · LowerJaw · PreOpUpper · ScanbodyUpper …
-    teeth: list[int]         # 커넥트에서 수복물을 지정한 경우만 (없으면 빈 목록)
+    teeth: list[int]         # 수복물을 지정했거나 파일명에 '#11,21' 처럼 적힌 경우
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -83,6 +92,25 @@ def _read_case_xml(path: Path) -> str:
     return raw.decode("utf-8", "ignore")
 
 
+def teeth_from_name(name: str) -> list[int]:
+    """
+    파일 이름에서 치식 읽기 — '김예림 #11,21 최' → [11, 21].
+
+    ★ **'#' 이 있을 때만** 봅니다. 그냥 두 자리 숫자를 주우면 날짜·차트번호가
+      치식으로 둔갑합니다 ('2026-10-01', '2604040_DI_…').
+    ★ 치식으로 말이 되는 번호(11~48, 끝자리 1~8)만 남깁니다.
+    """
+    out: set[int] = set()
+
+    for chunk in re.findall(r"#\s*([\d,\s\-]+)", name):
+        for raw in re.findall(r"\d{2}", chunk):
+            n = int(raw)
+            if 11 <= n <= 48 and 1 <= n % 10 <= 8:
+                out.add(n)
+
+    return sorted(out)
+
+
 def read_case(path: Path) -> DxdCase:
     xml = _read_case_xml(Path(path))
     if not xml:
@@ -108,12 +136,19 @@ def read_case(path: Path) -> DxdCase:
     scanned_at = ""
     if when:
         d, mo, y, h, mi = when.groups()
-        scanned_at = f"{int(y):04d}-{int(mo):02d}-{int(d):02d} {int(h or 0):02d}:{int(mi or 0):02d}"
+        at = datetime(int(y), int(mo), int(d), int(h or 0), int(mi or 0)) + KST_OFFSET
+        scanned_at = at.strftime("%Y-%m-%d %H:%M")
 
     models = re.findall(r"<ModelType>([^<]+)</ModelType>", xml)
 
     # 치식 — 커넥트에서 수복물을 지정했을 때만 나옵니다 (스캔만 보낸 케이스엔 없음)
     teeth = sorted({int(t) for t in re.findall(r"<ToothNumber>(\d{2})</ToothNumber>", xml)})
+
+    # ★ 없으면 파일 이름을 봅니다 — '김예림 #11,21 최.dxd' (2026-10-02 실제 파일).
+    #   실제 임상 파일 다섯 개가 모두 '본만 뜬' 내보내기라 xml 에는 치식이 없었습니다.
+    #   대신 치과가 파일 이름에 적고 있었습니다. 적어 준 것을 안 쓸 이유가 없습니다.
+    if not teeth:
+        teeth = teeth_from_name(Path(path).stem)
 
     return DxdCase(
         patient_name=patient,

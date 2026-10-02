@@ -51,10 +51,17 @@ export function cleanScanMeta(raw: Partial<ScanMeta> | null | undefined): ScanMe
   const text = (value: unknown, max: number) =>
     typeof value === 'string' ? value.trim().slice(0, max) : '';
 
+  // ★ 치식으로 말이 되는 번호만 둡니다 — 11~48 이면서 끝자리가 1~8.
+  //   '19' 나 '30' 같은 칸은 없습니다 (PC 가 보낸 값을 그대로 믿지 않습니다).
   const teeth = Array.isArray(raw.teeth)
-    ? [...new Set(raw.teeth.filter((t): t is number => Number.isInteger(t) && t >= 11 && t <= 48))].sort(
-        (a, b) => a - b,
-      )
+    ? [
+        ...new Set(
+          raw.teeth.filter(
+            (t): t is number =>
+              Number.isInteger(t) && t >= 11 && t <= 48 && t % 10 >= 1 && t % 10 <= 8,
+          ),
+        ),
+      ].sort((a, b) => a - b)
     : [];
 
   return {
