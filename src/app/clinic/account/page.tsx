@@ -13,13 +13,16 @@ import { getMyOrg, getMyAlimtalk } from '@/server/repositories/account';
 import AccountForm from '@/components/account/AccountForm';
 import MyAccountCard from '@/components/account/MyAccountCard';
 import AlimtalkCard from '@/components/account/AlimtalkCard';
+import ScannerDeviceCard from '@/components/account/ScannerDeviceCard';
+import { listScannerDevices } from '@/server/repositories/device-link';
+import { canManageMembers, type MemberRole } from '@/server/domain/member';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AccountPage() {
   const session = await requireSession();
 
-  const [org, alimtalk] = await Promise.all([getMyOrg(), getMyAlimtalk()]);
+  const [org, alimtalk, devices] = await Promise.all([getMyOrg(), getMyAlimtalk(), listScannerDevices()]);
   if (!org) notFound();
 
   return (
@@ -42,6 +45,12 @@ export default async function AccountPage() {
           recent={alimtalk.recent}
         />
       )}
+
+      {/* ★ 스캐너 PC 연결 (사용자 요청 2026-10-02) — 내보내면 스캔이 저절로 올라옵니다 */}
+      <ScannerDeviceCard
+        devices={devices}
+        canManage={canManageMembers(session.role as MemberRole | null)}
+      />
     </>
   );
 }

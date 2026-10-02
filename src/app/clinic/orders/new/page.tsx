@@ -17,11 +17,18 @@ import { getHolidayMap } from '@/server/repositories/holiday';
 import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate } from '@/server/domain/due-date';
 import NewOrderForm from '@/components/order/NewOrderForm';
+import { getIncomingScan } from '@/server/repositories/device-link';
 
 export const dynamic = 'force-dynamic';
 
-export default async function NewOrderPage() {
+export default async function NewOrderPage({
+  searchParams,
+}: {
+  // ★ '들어온 스캔' 에서 넘어오면 ?scan=<id> 가 붙습니다 (2026-10-02)
+  searchParams: Promise<{ scan?: string }>;
+}) {
   const session = await requireSector('clinic');
+  const { scan: scanId } = await searchParams;
 
   /*
     ★ 휴일도 **함께** 부릅니다.
@@ -42,6 +49,9 @@ export default async function NewOrderPage() {
 
   const today = todayInKst();
 
+  // ★ 스캐너에서 올라온 스캔. 없는 번호면 그냥 빈 주문서가 열립니다
+  const incomingScan = scanId ? await getIncomingScan(scanId) : null;
+
   return (
     <NewOrderForm
       clinicName={session.orgName ?? ''}
@@ -53,6 +63,17 @@ export default async function NewOrderPage() {
       optionGroups={optionGroups}
       optionPresets={optionPresets}
       prosthesisCatalog={prosthesisCatalog}
+      incomingScan={
+        incomingScan
+          ? {
+              id: incomingScan.id,
+              patientName: incomingScan.patientName,
+              chartNo: incomingScan.chartNo,
+              fileName: incomingScan.fileName,
+              teeth: incomingScan.teeth,
+            }
+          : undefined
+      }
     />
   );
 }

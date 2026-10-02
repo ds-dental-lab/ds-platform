@@ -56,6 +56,8 @@ export const NAV: Record<Sector, NavItem[]> = {
     { label: 'HOME', href: '/clinic', icon: 'home' },
     { label: '주문등록', href: '/clinic/orders/new', icon: 'new' },
     { label: '주문목록', href: '/clinic/orders', icon: 'list' },
+    /* 구강스캐너에서 올라온 스캔 (2026-10-02) — 주문서를 쓰면 사라집니다 */
+    { label: '들어온 스캔', href: '/clinic/scans', icon: 'new' },
     { label: '배송조회', href: '/clinic/deliveries', icon: 'delivery' },
     { label: '정산', href: '/clinic/billing', icon: 'billing' },
     { label: '사용자', href: '/clinic/users', icon: 'users', staffHidden: true },

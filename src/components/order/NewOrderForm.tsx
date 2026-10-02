@@ -16,6 +16,7 @@
 
 'use client';
 
+import { submitAttachIncomingScan } from '@/server/actions/incoming-scan';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PatientPicker, { type Patient } from '@/components/order/PatientPicker';
@@ -125,6 +126,13 @@ export interface NewOrderFormProps {
    * 접수 상태에서만 넘어옵니다 — 재스캔은 파일만 바꿉니다 (설계서 §2.1 C-4).
    */
   initial?: OrderFormInitial;
+  /**
+   * 구강스캐너에서 올라온 스캔 (사용자 요청 2026-10-02).
+   *
+   * ★ 주면 환자 이름이 채워진 채로 열리고, 등록이 끝나는 순간 이 스캔이 주문에 붙습니다.
+   *   파일을 다시 올리지 않습니다 — 저장소 안에서 옮깁니다 (actions/incoming-scan).
+   */
+  incomingScan?: { id: string; patientName: string; chartNo: string; fileName: string; teeth: number[] };
 }
 
 /**
@@ -165,6 +173,7 @@ function OrderFormBody({
   optionPresets,
   prosthesisCatalog,
   initial,
+  incomingScan,
 }: NewOrderFormProps & { onStartOver: () => void }) {
   const router = useRouter();
   const toast = useToast();
@@ -173,7 +182,7 @@ function OrderFormBody({
   // ---------- 환자정보 ----------
   // 적힌 글자와, 그 글자가 실제 환자와 맞아떨어졌을 때의 환자.
   // 안 맞아도 주문은 나갑니다 — 이름만 적고 지나가는 경우가 더 많습니다.
-  const [patientText, setPatientText] = useState(initial?.patientText ?? '');
+  const [patientText, setPatientText] = useState(initial?.patientText ?? incomingScan?.patientName ?? '');
   const [patient, setPatient] = useState<Patient | null>(null);
   const [dueDate, setDueDate] = useState<IsoDate>(initial?.dueDate ?? defaultDue);
   const [orderType, setOrderType] = useState<string>(initial?.orderType ?? 'modelless');
@@ -553,6 +562,14 @@ function OrderFormBody({
       orderNo = result.orderNo;
       setCreatedOrderId(orderId);
       setCreatedOrderNo(orderNo);
+    }
+
+    // ★ 스캐너에서 올라온 스캔을 이 주문에 붙입니다 (옮기기만 — 다시 안 올립니다)
+    if (incomingScan) {
+      const attached = await submitAttachIncomingScan(orderId, incomingScan.id);
+      if (!attached.ok) {
+        setError(`주문은 등록되었습니다. 다만 스캔을 붙이지 못했습니다: ${attached.error ?? ''}`);
+      }
     }
 
     if (!(await sendPendingFiles(orderId, '주문은 등록되었습니다'))) {
