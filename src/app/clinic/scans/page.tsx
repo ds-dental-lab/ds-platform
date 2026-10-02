@@ -7,7 +7,7 @@
 
 import { notFound } from 'next/navigation';
 import { requireSession } from '@/server/policies/session';
-import { listIncomingScans } from '@/server/repositories/device-link';
+import { listIncomingScans, listRescanWaitingOrders } from '@/server/repositories/device-link';
 import IncomingScanList from '@/components/order/IncomingScanList';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,7 @@ export default async function IncomingScansPage() {
   const session = await requireSession();
   if (session.orgType !== 'clinic') notFound();
 
-  const scans = await listIncomingScans();
+  const [scans, rescanOrders] = await Promise.all([listIncomingScans(), listRescanWaitingOrders()]);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-1">
@@ -27,7 +27,11 @@ export default async function IncomingScansPage() {
         </p>
       </header>
 
-      <IncomingScanList scans={scans} />
+      <IncomingScanList
+        scans={scans}
+        clinicName={session.orgName ?? ''}
+        rescanOrders={rescanOrders}
+      />
     </div>
   );
 }

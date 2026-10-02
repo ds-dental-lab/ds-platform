@@ -14,12 +14,16 @@
 ★ 비밀번호를 저장하지 않습니다. 계정정보에서 받은 **여섯 자리 코드**로 한 번 연결하고,
   그 뒤로는 기기 열쇠만 씁니다 (scan_agent.json).
 ★ 파일은 덴플로우 서버를 거치지 않고 저장소로 바로 올립니다 — 150MB 짜리입니다.
+★ 윈도우를 켜면 저절로 떠서 지켜봅니다 (시작 폴더 바로가기). 진료실에서 아무도
+  이 창을 띄워 줄 사람이 없다는 전제입니다 — 켜 두는 것을 사람이 기억할 수 없습니다.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 import threading
 import time
 import traceback
@@ -87,6 +91,66 @@ def put_file(path: Path, storage_path: str, upload_token: str) -> bool:
                 return res.status in (200, 201)
         except Exception:
             return False
+
+
+# ---------------------------------------------------------
+# 윈도우 켤 때 저절로 시작 (사용자 요청 2026-10-02)
+#
+# ★ 시작 폴더에 바로가기를 둡니다. 레지스트리를 건드리지 않습니다 —
+#   치과 PC 의 레지스트리는 손대지 않는 것이 서로 편합니다.
+# ★ pythonw 로 띄웁니다. python 으로 두면 검은 창이 같이 떠서 원장님이 닫습니다.
+# ---------------------------------------------------------
+
+SHORTCUT_NAME = "덴플로우 스캔 올리미.lnk"
+
+
+def startup_link() -> Path:
+    return Path(os.environ["APPDATA"]) / "Microsoft/Windows/Start Menu/Programs/Startup" / SHORTCUT_NAME
+
+
+def pythonw() -> str:
+    """창 없는 파이썬. 지금 돌고 있는 것이 python.exe 면 짝인 pythonw.exe 를 씁니다"""
+    here = Path(sys.executable)
+    mate = here.with_name("pythonw.exe")
+    return str(mate if mate.exists() else here)
+
+
+def autostart_on() -> bool:
+    return startup_link().exists()
+
+
+def set_autostart(on: bool) -> str:
+    link = startup_link()
+
+    if not on:
+        try:
+            link.unlink(missing_ok=True)
+            return "윈도우 켤 때 저절로 시작하지 않습니다."
+        except OSError as e:
+            return f"바로가기를 지우지 못했습니다: {e}"
+
+    # ★ 바로가기(.lnk)는 COM 으로만 만들어집니다. 파이썬에 그 모듈이 없을 수 있어
+    #   윈도우에 늘 있는 powershell 에게 맡깁니다.
+    script = (
+        "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}');"
+        "$s.TargetPath='{py}';"
+        "$s.Arguments='\"{target}\"';"
+        "$s.WorkingDirectory='{here}';"
+        "$s.WindowStyle=7;"
+        "$s.Save()"
+    ).format(lnk=link, py=pythonw(), target=Path(__file__).resolve(), here=HERE)
+
+    try:
+        link.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+            check=True, capture_output=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except Exception as e:
+        return f"자동 시작을 켜지 못했습니다: {e}"
+
+    return "윈도우를 켜면 저절로 떠서 지켜봅니다."
 
 
 def settled(path: Path) -> bool:
@@ -227,6 +291,12 @@ class App:
         tk.Button(row2, text="연결하기", command=self.link, font=(F, 9, "bold"), relief="flat", bg="#EEF1F5").pack(side="left")
         tk.Label(row2, text="치과 계정정보 → 스캐너 PC 연결", font=(F, 9), bg="#FFFFFF", fg="#98A2B3").pack(side="left", padx=(10, 0))
 
+        self.auto = tk.BooleanVar(value=autostart_on())
+        tk.Checkbutton(
+            box, text="윈도우 켤 때 저절로 시작", variable=self.auto, command=self.toggle_auto,
+            font=(F, 9), bg="#FFFFFF", fg="#4A5567", activebackground="#FFFFFF",
+        ).pack(anchor="w", pady=(8, 0))
+
         self.start_btn = tk.Button(self.root, text="지켜보기 시작", command=self.start, font=(F, 11, "bold"), relief="flat", bg="#1279E8", fg="#FFFFFF")
         self.start_btn.pack(fill="x", padx=22, pady=(14, 8), ipady=6)
 
@@ -237,6 +307,11 @@ class App:
             self.say("이미 연결된 PC 입니다. 폴더를 고르고 '지켜보기 시작' 을 누르세요.")
         else:
             self.say("치과 계정정보에서 연결 코드를 받아 넣어 주세요.")
+
+        # ★ 연결도 폴더도 이미 있으면 사람을 기다리지 않고 바로 봅니다.
+        #   윈도우가 켜질 때 저절로 떴다면 누를 사람이 없습니다.
+        if self.agent.cfg.get("token") and Path(self.folder.get().strip() or ".").is_dir() and self.folder.get().strip():
+            self.root.after(800, self.start)
 
     def pick(self) -> None:
         picked = filedialog.askdirectory(title="구강스캐너 내보내기 폴더")
@@ -254,6 +329,9 @@ class App:
             self.root.after(0, _put)
         else:
             print(msg)
+
+    def toggle_auto(self) -> None:
+        self.say(set_autostart(self.auto.get()))
 
     def link(self) -> None:
         threading.Thread(target=self.agent.link, args=(self.code.get(), os.environ.get("COMPUTERNAME", "스캐너 PC")), daemon=True).start()

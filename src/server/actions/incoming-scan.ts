@@ -106,3 +106,55 @@ export async function submitDeleteIncomingScan(scanId: string): Promise<{ ok: bo
   revalidatePath('/clinic/scans');
   return { ok: true };
 }
+
+/**
+ * 올라온 스캔을 **걸려 있던 재스캔 주문**에 붙입니다 (사용자 요청 2026-10-02).
+ *
+ * ★ 같은 환자가 두 줄이 되는 것을 막습니다. 재스캔이 걸린 주문을 그대로 두고
+ *   새 주문을 쓰면, 디자인센터는 어느 쪽을 봐야 하는지 알 수 없습니다.
+ * ★ 붙이기를 먼저 하고 상태를 되돌립니다 — 순서를 뒤집으면 스캔 없는 주문이
+ *   접수로 올라갑니다 (RescanBar 와 같은 이유).
+ */
+export async function submitRescanWithIncomingScan(
+  orderId: string,
+  scanId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (session?.orgType !== 'clinic') return { ok: false, error: '치과 계정만 할 수 있습니다' };
+
+  const supabase = await createClient();
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('id, status')
+    .eq('id', orderId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (!order) return { ok: false, error: '주문을 찾을 수 없습니다' };
+  if ((order as { status: string }).status !== 'rescan') {
+    return { ok: false, error: '재스캔 상태인 주문에만 붙일 수 있습니다' };
+  }
+
+  // ★ 붙이기 전에 적어 둡니다. 붙인 뒤에 긁으면 새 파일까지 치워 버립니다
+  const { data: old } = await supabase
+    .from('order_files')
+    .select('id')
+    .eq('order_id', orderId)
+    .is('deleted_at', null)
+    .neq('kind', 'design');
+
+  const replaceFileIds = ((old ?? []) as { id: string }[]).map((f) => f.id);
+
+  const attached = await submitAttachIncomingScan(orderId, scanId);
+  if (!attached.ok) return attached;
+
+  const { resubmitScan } = await import('@/server/services/rescan');
+  const result = await resubmitScan({ orderId, reuse: false, replaceFileIds, uploadedCount: 1 });
+
+  if (!result.ok) return { ok: false, error: result.error };
+
+  revalidatePath('/clinic/scans');
+  revalidatePath(`/clinic/orders/${orderId}`);
+  return { ok: true };
+}

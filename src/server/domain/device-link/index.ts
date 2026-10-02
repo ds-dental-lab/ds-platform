@@ -68,3 +68,47 @@ export function cleanScanMeta(raw: Partial<ScanMeta> | null | undefined): ScanMe
     fileSize: Number.isFinite(raw.fileSize) ? Math.max(0, Math.trunc(raw.fileSize as number)) : 0,
   };
 }
+
+
+// ---------------------------------------------------------
+// 이름 맞추기 (사용자 결정 2026-10-02 — "치과이름은 안내해줘")
+// ---------------------------------------------------------
+
+/** 띄어쓰기·대소문자를 지웁니다 — 사람이 적는 방식이 매번 다릅니다 */
+function squeeze(value: string): string {
+  return value.replace(/\s+/g, '').toLowerCase();
+}
+
+/**
+ * 치과 간판에 흔히 붙는 꼬리를 뗍니다.
+ *
+ * ★ 덴플로우에는 '다서울치과', 스캐너에는 '다서울치과의원' 으로 적혀 있을 수 있습니다.
+ *   꼬리 때문에 다르다고 알리면, 맞는 집에 매번 경고가 뜹니다.
+ */
+function withoutSuffix(value: string): string {
+  return squeeze(value).replace(/(치과의원|치과병원|치과|의원|병원|dental(clinic)?|clinic)$/u, '');
+}
+
+/**
+ * 파일에 적힌 치과명이 우리가 아는 치과명과 같은가.
+ *
+ * ★ 한쪽이 비면 **같다고 봅니다** — 모르는 것을 틀렸다고 알리지 않습니다.
+ * ★ 한쪽이 다른 쪽을 품고 있으면 같다고 봅니다 ('서울치과 본점' / '서울치과').
+ */
+export function sameClinicName(inFile: string, ours: string): boolean {
+  const a = withoutSuffix(inFile ?? '');
+  const b = withoutSuffix(ours ?? '');
+  if (!a || !b) return true;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
+/**
+ * 같은 환자인가 — 재스캔 주문을 찾을 때 씁니다.
+ *
+ * ★ 띄어쓰기만 지우고 **나머지는 그대로** 봅니다. 환자는 품는 것으로 맞추면
+ *   '김민' 이 '김민수' 에 붙습니다. 남의 주문에 스캔을 붙이는 쪽이 더 위험합니다.
+ */
+export function samePatientName(a: string, b: string): boolean {
+  const left = squeeze(a ?? '');
+  return left.length > 0 && left === squeeze(b ?? '');
+}

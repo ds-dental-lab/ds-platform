@@ -71,6 +71,7 @@ export default async function NewOrderPage({
               chartNo: incomingScan.chartNo,
               fileName: incomingScan.fileName,
               teeth: incomingScan.teeth,
+              clinicNameInFile: incomingScan.clinicNameInFile,
             }
           : undefined
       }

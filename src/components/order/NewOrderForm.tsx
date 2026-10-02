@@ -17,6 +17,7 @@
 'use client';
 
 import { submitAttachIncomingScan } from '@/server/actions/incoming-scan';
+import { sameClinicName } from '@/server/domain/device-link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PatientPicker, { type Patient } from '@/components/order/PatientPicker';
@@ -132,7 +133,15 @@ export interface NewOrderFormProps {
    * ★ 주면 환자 이름이 채워진 채로 열리고, 등록이 끝나는 순간 이 스캔이 주문에 붙습니다.
    *   파일을 다시 올리지 않습니다 — 저장소 안에서 옮깁니다 (actions/incoming-scan).
    */
-  incomingScan?: { id: string; patientName: string; chartNo: string; fileName: string; teeth: number[] };
+  incomingScan?: {
+    id: string;
+    patientName: string;
+    chartNo: string;
+    fileName: string;
+    teeth: number[];
+    /** 파일 안에 적힌 치과명 — 우리 이름과 다르면 알립니다 */
+    clinicNameInFile: string;
+  };
 }
 
 /**
@@ -1092,6 +1101,19 @@ function OrderFormBody({
               <span className="ml-auto text-[12.5px] text-[#4A5567]">등록하면 이 주문에 붙습니다</span>
             </div>
           )}
+
+          {/*
+            ★ 파일에 적힌 치과가 우리 치과와 다를 때만 뜹니다 (사용자 결정 2026-10-02).
+              막지는 않습니다 — '치과' / '치과의원' 처럼 꼬리만 다른 경우가 많아
+              이름 비교는 느슨하게 합니다 (domain/device-link sameClinicName).
+          */}
+          {incomingScan && incomingScan.clinicNameInFile.length > 0 &&
+            !sameClinicName(incomingScan.clinicNameInFile, clinicName) && (
+              <p className="mb-2.5 rounded-md bg-[#FEF6E7] px-3.5 py-2 text-[13px] text-[#9A6B10]">
+                파일에 적힌 치과는 <b className="font-bold">{incomingScan.clinicNameInFile}</b> 입니다. 우리
+                치과명({clinicName})과 다릅니다 — 맞는 환자인지 확인해 주세요.
+              </p>
+            )}
 
           <ScanDropZone
             files={pendingFiles}

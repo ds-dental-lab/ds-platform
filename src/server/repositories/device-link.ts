@@ -257,3 +257,39 @@ export async function getIncomingScan(scanId: string): Promise<IncomingScanRow |
   const rows = await listIncomingScans();
   return rows.find((r) => r.id === scanId) ?? null;
 }
+
+
+export interface RescanWaitingOrder {
+  id: string;
+  orderNo: string;
+  patientName: string;
+  dueDate: string | null;
+}
+
+/**
+ * 지금 **재스캔으로 걸려 있는** 내 치과 주문들 (사용자 요청 2026-10-02).
+ *
+ * ★ 스캔이 올라왔을 때 "새 주문을 쓸까, 걸려 있던 주문에 붙일까" 를 치과가
+ *   고르게 하려고 씁니다. 같은 환자 이름이면 새 주문보다 이쪽이 맞습니다 —
+ *   재스캔을 그대로 두고 주문을 또 쓰면 같은 환자가 두 줄이 됩니다.
+ * ★ RLS 가 자기 치과 것만 돌려줍니다.
+ */
+export async function listRescanWaitingOrders(): Promise<RescanWaitingOrder[]> {
+  const { createClient } = await import('@/lib/supabase/server');
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from('orders')
+    .select('id, order_no, patient_label, due_date')
+    .eq('status', 'rescan')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    orderNo: (r.order_no as string) ?? '',
+    patientName: (r.patient_label as string) ?? '',
+    dueDate: (r.due_date as string) ?? null,
+  }));
+}
