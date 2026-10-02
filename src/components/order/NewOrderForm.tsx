@@ -18,6 +18,8 @@
 
 import { submitAttachIncomingScan } from '@/server/actions/incoming-scan';
 import { sameClinicName } from '@/server/domain/device-link';
+import { readDxd } from '@/lib/dxd-read';
+import type { DxdCase } from '@/server/domain/dxd';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PatientPicker, { type Patient } from '@/components/order/PatientPicker';
@@ -231,6 +233,14 @@ function OrderFormBody({
   });
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  /**
+   * 손으로 올린 dxd 에서 읽은 것 (사용자 요청 2026-10-02).
+   *
+   * ★ 스캐너 PC 올리미가 없는 치과도 있고, 있어도 나중에 손으로 올릴 때가
+   *   있습니다. 그때도 주문서가 똑같이 채워져야 합니다 — 올리미가 하는 일을
+   *   브라우저가 그대로 합니다 (lib/dxd-read).
+   */
+  const [fileCase, setFileCase] = useState<DxdCase | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState('');
@@ -315,17 +325,23 @@ function OrderFormBody({
     placeTooth(tooth, shadeSystem, shade);
   }
 
-  /** 치아 하나에 지금 조건대로 보철을 얹습니다 */
-  function placeTooth(tooth: number, useSystem: string, useShade: ToothShade) {
-    const current: Placement[] = entries
+  /**
+   * 치아 하나를 얹은 **새 목록**을 돌려줍니다 (상태를 안 건드립니다).
+   *
+   * ★ 따로 뺀 이유: 파일에서 읽은 치식을 여러 개 한꺼번에 넣을 때,
+   *   상태를 바꾸는 함수를 줄줄이 부르면 마지막 하나만 남습니다
+   *   (setEntries 가 같은 entries 를 보고 덮어씁니다).
+   */
+  function placedOn(list: Entry[], tooth: number, useSystem: string, useShade: ToothShade): Entry[] {
+    const current: Placement[] = list
       .filter((e) => e.tooth === tooth)
       .map(({ typeCode: t, materialCode: m }) => ({ typeCode: t, materialCode: m }));
 
     const result = addPlacement(current, { typeCode, materialCode });
-    const kept = entries.filter((e) => e.tooth !== tooth);
+    const kept = list.filter((e) => e.tooth !== tooth);
 
     const rebuilt: Entry[] = result.placements.map((p) => {
-      const old = entries.find(
+      const old = list.find(
         (e) => e.tooth === tooth && e.typeCode === p.typeCode && e.materialCode === p.materialCode,
       );
       if (old) return old;
@@ -342,7 +358,58 @@ function OrderFormBody({
       };
     });
 
-    setEntries([...kept, ...rebuilt]);
+    return [...kept, ...rebuilt];
+  }
+
+  /** 치아 하나에 지금 조건대로 보철을 얹습니다 */
+  function placeTooth(tooth: number, useSystem: string, useShade: ToothShade) {
+    setEntries(placedOn(entries, tooth, useSystem, useShade));
+  }
+
+  /**
+   * 파일을 고르거나 끌어다 놓았을 때 — dxd 면 안을 읽어 채웁니다.
+   *
+   * ★ 이미 적어 둔 이름은 **안 덮습니다**. 치과가 적은 것이 늘 우선입니다.
+   * ★ 180MB 짜리를 통째로 읽지 않습니다 (lib/dxd-read 가 조각만 꺼냅니다).
+   */
+  async function handlePickFiles(files: File[]) {
+    setPendingFiles(files);
+
+    const dxd = files.find((f) => f.name.toLowerCase().endsWith('.dxd'));
+    if (!dxd) {
+      setFileCase(null);
+      return;
+    }
+
+    const read = await readDxd(dxd);
+    if (!read.patientName && read.teeth.length === 0) {
+      setFileCase(null);
+      return;
+    }
+
+    setFileCase(read);
+    if (!patientText.trim() && read.patientName) setPatientText(read.patientName);
+  }
+
+  /**
+   * 스캔 파일에 적힌 치식을 한꺼번에 넣습니다 (사용자 요청 2026-10-02).
+   *
+   * ★ 저절로 안 넣고 **누를 때** 넣습니다. 보철 종류·재료·쉐이드는 사람이
+   *   고르는 것이라, 파일만 보고 넣으면 엉뚱한 제품이 찍힙니다.
+   */
+  function applyFileTeeth(teeth: number[]) {
+    setError('');
+
+    const blocked = missingStep();
+    if (blocked) {
+      setHint(blocked);
+      if (blocked.includes('쉐이드')) setShadeOpen(true);
+      else if (blocked.includes('임플란트')) setModelDialog('pick');
+      return;
+    }
+
+    setHint('');
+    setEntries(teeth.reduce((list, tooth) => placedOn(list, tooth, shadeSystem, shade), entries));
   }
 
   /** 쉐이드창에서 확인을 눌렀을 때 */
@@ -1098,9 +1165,51 @@ function OrderFormBody({
               <b className="font-bold text-[#1279E8]">구강스캐너에서 올라온 스캔</b>
               <span className="text-[#1A2130]">{incomingScan.fileName}</span>
               {incomingScan.chartNo && <span className="text-[#7C8595]">차트 {incomingScan.chartNo}</span>}
+              {incomingScan.teeth.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => applyFileTeeth(incomingScan.teeth)}
+                  className="rounded border border-[#CFE3FB] bg-white px-2 py-0.5 text-[12.5px] font-bold text-[#1279E8] hover:bg-[#E8F2FE]"
+                >
+                  치식 {incomingScan.teeth.join(', ')} 넣기
+                </button>
+              )}
               <span className="ml-auto text-[12.5px] text-[#4A5567]">등록하면 이 주문에 붙습니다</span>
             </div>
           )}
+
+          {/*
+            ★ 손으로 올린 dxd 에서 읽은 것 (2026-10-02). 스캐너 PC 올리미가 없는
+              치과도, 나중에 손으로 올리는 경우도 똑같이 채워져야 합니다.
+              치식은 저절로 안 넣고 **누를 때** 넣습니다 — 보철 종류·재료·쉐이드는
+              사람이 고르는 것이라, 파일만 보고 찍으면 엉뚱한 제품이 들어갑니다.
+          */}
+          {fileCase && !incomingScan && (
+            <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-[#CFE3FB] bg-[#F2F7FE] px-3.5 py-2.5 text-[13.5px]">
+              <b className="font-bold text-[#1279E8]">스캔 파일에서 읽음</b>
+              {fileCase.patientName && <span className="text-[#1A2130]">{fileCase.patientName}</span>}
+              {fileCase.chartNo && <span className="text-[#7C8595]">차트 {fileCase.chartNo}</span>}
+              {fileCase.scannedAt && <span className="text-[12.5px] text-[#98A2B3]">{fileCase.scannedAt}</span>}
+
+              {fileCase.teeth.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => applyFileTeeth(fileCase.teeth)}
+                  className="ml-auto rounded border border-[#CFE3FB] bg-white px-2 py-0.5 text-[12.5px] font-bold text-[#1279E8] hover:bg-[#E8F2FE]"
+                >
+                  치식 {fileCase.teeth.join(', ')} 넣기
+                </button>
+              )}
+            </div>
+          )}
+
+          {fileCase && !incomingScan && fileCase.clinicNameInFile.length > 0 &&
+            !sameClinicName(fileCase.clinicNameInFile, clinicName) && (
+              <p className="mb-2.5 rounded-md bg-[#FEF6E7] px-3.5 py-2 text-[13px] text-[#9A6B10]">
+                파일에 적힌 치과는 <b className="font-bold">{fileCase.clinicNameInFile}</b> 입니다. 우리
+                치과명({clinicName})과 다릅니다 — 맞는 환자인지 확인해 주세요.
+              </p>
+            )}
 
           {/*
             ★ 파일에 적힌 치과가 우리 치과와 다를 때만 뜹니다 (사용자 결정 2026-10-02).
@@ -1117,7 +1226,7 @@ function OrderFormBody({
 
           <ScanDropZone
             files={pendingFiles}
-            onChange={setPendingFiles}
+            onChange={handlePickFiles}
             disabled={saving}
             existing={initial?.files ?? []}
           />
