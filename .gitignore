@@ -57,3 +57,5 @@ tools/exocad-launcher/logs/
 # 스캐너 PC 올리미의 기기 열쇠 — 저장소에 들어가면 안 됩니다 (2026-10-02)
 tools/exocad-launcher/scan_agent.json
 tools/exocad-launcher/__pycache__/
+tools/exocad-launcher/dist/
+tools/exocad-launcher/build/

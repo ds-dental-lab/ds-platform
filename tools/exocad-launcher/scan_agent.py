@@ -38,7 +38,20 @@ from tkinter import filedialog
 from dxd_case import read_case
 
 HERE = Path(__file__).resolve().parent
-SETTINGS = HERE / "scan_agent.json"
+
+# ★ exe 로 묶으면 (PyInstaller --onefile) __file__ 은 매번 바뀌는 임시 폴더를
+#   가리킵니다. 거기에 설정을 쓰면 **껐다 켤 때마다 연결이 풀립니다**.
+#   그래서 묶였을 때는 사람 계정의 AppData 에 둡니다 — USB 로 들고 다니거나
+#   읽기 전용 폴더에서 돌려도 됩니다. 기기 열쇠는 PC 마다 다른 것이 맞습니다.
+FROZEN = getattr(sys, "frozen", False)
+
+if FROZEN:
+    SETTINGS_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "DenFlow"
+    SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+else:
+    SETTINGS_DIR = HERE
+
+SETTINGS = SETTINGS_DIR / "scan_agent.json"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -131,14 +144,23 @@ def set_autostart(on: bool) -> str:
 
     # ★ 바로가기(.lnk)는 COM 으로만 만들어집니다. 파이썬에 그 모듈이 없을 수 있어
     #   윈도우에 늘 있는 powershell 에게 맡깁니다.
+    #   exe 로 묶였으면 exe 자체를 가리킵니다 — 뒤에 붙일 것이 없습니다.
+    exe = Path(sys.executable).resolve()
+    target = "" if FROZEN else '\"%s\"' % Path(__file__).resolve()
+
     script = (
         "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}');"
         "$s.TargetPath='{py}';"
-        "$s.Arguments='\"{target}\"';"
+        "$s.Arguments='{target}';"
         "$s.WorkingDirectory='{here}';"
         "$s.WindowStyle=7;"
         "$s.Save()"
-    ).format(lnk=link, py=pythonw(), target=Path(__file__).resolve(), here=HERE)
+    ).format(
+        lnk=link,
+        py=exe if FROZEN else pythonw(),
+        target=target,
+        here=exe.parent if FROZEN else HERE,
+    )
 
     try:
         link.parent.mkdir(parents=True, exist_ok=True)
