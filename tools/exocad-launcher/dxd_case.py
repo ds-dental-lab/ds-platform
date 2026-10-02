@@ -81,10 +81,19 @@ def _text(xml: str, tag: str) -> str:
 
 
 def _read_case_xml(path: Path) -> str:
-    with zipfile.ZipFile(path) as z:
-        if CASE_XML not in z.namelist():
-            return ""
-        raw = z.read(CASE_XML)
+    """
+    ★ 못 읽으면 빈 글자를 돌려줍니다. **멈추지 않습니다.**
+      dxd 가 아닌 파일이 폴더에 섞이거나(zip 이 아님), 쓰다 만 파일이 걸리면
+      zipfile 이 예외를 던집니다. 그러면 올리미 창에 빨간 글이 쏟아지고
+      그 파일은 영영 건너뜁니다 — 치과는 무슨 일인지 모릅니다 (2026-10-02 확인).
+    """
+    try:
+        with zipfile.ZipFile(path) as z:
+            if CASE_XML not in z.namelist():
+                return ""
+            raw = z.read(CASE_XML)
+    except (zipfile.BadZipFile, OSError):
+        return ""
 
     # UTF-16LE 로 적힙니다. 혹시 모를 BOM·UTF-8 도 받아 둡니다
     if raw[:2] in (b"\xff\xfe", b"<\x00"):
