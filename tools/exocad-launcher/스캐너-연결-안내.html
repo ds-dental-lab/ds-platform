@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>스캐너 연결 안내</title>
+<!--
+  놓을 위치: tools/exocad-launcher/스캐너-연결-안내.html
+
+  치과에 드리는 A4 한 장 (사용자 요청 2026-10-02).
+  브라우저로 열어 Ctrl+P → 배율 100%, 머리글/바닥글 끄기.
+
+  ★ 한 장을 넘지 않게 짰습니다. 넘치면 치과 책상에서 뒷장이 사라집니다.
+  ★ 기공소 이야기는 쓰지 않습니다 (치과가 읽는 글입니다).
+-->
+<style>
+  @page { size: A4; margin: 0; }
+
+  :root {
+    --ink: #1A2130;
+    --sub: #4A5567;
+    --dim: #7C8595;
+    --line: #E8EBF0;
+    --blue: #1279E8;
+    --tint: #F2F7FE;
+    --paper: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #F4F6F9;
+    color: var(--ink);
+    font-family: "Malgun Gothic", "맑은 고딕", system-ui, sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .sheet {
+    width: 210mm;
+    /* ★ 297mm 를 꽉 채우면 반올림 때문에 빈 둘째 장이 따라 나옵니다 */
+    min-height: 295mm;
+    margin: 0 auto;
+    padding: 14mm 15mm;
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+  }
+
+  header { border-bottom: 2.5px solid var(--ink); padding-bottom: 7px; }
+  .brand { font-size: 12.5px; font-weight: 800; color: var(--blue); letter-spacing: .02em; }
+  h1 { margin: 3px 0 0; font-size: 23px; font-weight: 800; letter-spacing: -.035em; }
+  .lead { margin: 7px 0 0; font-size: 12.5px; line-height: 1.65; color: var(--sub); }
+
+  h2 {
+    margin: 13px 0 7px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; }
+  ol.steps > li {
+    counter-increment: s;
+    position: relative;
+    padding: 0 0 9px 27px;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+  ol.steps > li::before {
+    content: counter(s);
+    position: absolute; left: 0; top: 1px;
+    width: 18px; height: 18px;
+    background: var(--blue); color: #fff;
+    border-radius: 50%;
+    font-size: 11px; font-weight: 800;
+    display: grid; place-items: center;
+  }
+  ol.steps b { font-weight: 800; }
+  ol.steps .note { display: block; color: var(--dim); font-size: 11.5px; }
+
+  .key {
+    display: inline-block;
+    border: 1px solid #CFE3FB;
+    background: var(--tint);
+    color: var(--blue);
+    border-radius: 4px;
+    padding: 0 5px;
+    font-weight: 800;
+    font-size: 11.5px;
+  }
+
+  .cards { display: flex; gap: 8px; }
+  .card {
+    flex: 1;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 9px 11px;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--sub);
+  }
+  .card b { display: block; color: var(--ink); font-size: 12px; margin-bottom: 2px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  td { border-top: 1px solid var(--line); padding: 6px 2px; vertical-align: top; line-height: 1.55; }
+  td:first-child { width: 34%; font-weight: 700; color: var(--ink); }
+  td:last-child { color: var(--sub); }
+
+  .tip {
+    margin-top: 10px;
+    border: 1px solid #CFE3FB;
+    background: var(--tint);
+    border-radius: 7px;
+    padding: 9px 12px;
+    font-size: 11.5px;
+    line-height: 1.65;
+    color: var(--sub);
+  }
+  .tip b { color: var(--ink); }
+
+  footer {
+    margin-top: auto;
+    padding-top: 9px;
+    border-top: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--dim);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  @media print {
+    body { background: none; }
+    .sheet { margin: 0; box-shadow: none; }
+  }
+  @media screen {
+    .sheet { box-shadow: 0 2px 14px rgba(26,33,48,.12); margin: 18px auto; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <div class="brand">DenFlow</div>
+    <h1>구강스캐너 스캔 자동 올리기</h1>
+    <p class="lead">
+      스캐너에서 <b>내보내기</b> 를 누르면 스캔이 덴플로우로 올라가고, 환자 이름이 채워진
+      주문서가 저절로 열립니다. 파일을 따로 올리실 필요가 없습니다.
+      처음 한 번만 아래대로 연결해 주세요. <b>3분이면 끝납니다.</b>
+    </p>
+  </header>
+
+  <h2>연결하기</h2>
+  <ol class="steps">
+    <li>
+      스캐너 PC 바탕화면의 <b>덴플로우 스캔 올리미</b> 를 두 번 눌러 켭니다.
+    </li>
+    <li>
+      다른 창에서 덴플로우에 로그인 → <b>계정정보</b> → <b>스캐너 PC 연결</b> →
+      <span class="key">연결 코드 만들기</span> 를 누릅니다.
+      <span class="note">여섯 자리 숫자가 크게 뜹니다. 10분 동안만 쓸 수 있습니다.</span>
+    </li>
+    <li>
+      올리미 창의 <b>연결 코드</b> 칸에 그 여섯 자리를 넣고 <span class="key">연결하기</span>.
+      <span class="note">“연결됐습니다” 가 뜨면 된 것입니다.</span>
+    </li>
+    <li>
+      <span class="key">내보내기 폴더</span> 를 눌러 <b>스캐너가 파일을 내보내는 폴더</b> 를 고릅니다.
+      <span class="note">스캐너 프로그램의 내보내기 설정에 적혀 있는 그 폴더입니다.</span>
+    </li>
+    <li>
+      <b>윈도우 켤 때 저절로 시작</b> 에 체크하고 <span class="key">지켜보기 시작</span> 을 누릅니다.
+      <span class="note">다음부터는 PC 를 켜면 저절로 떠서 지켜봅니다. 창은 닫으셔도 됩니다.</span>
+    </li>
+  </ol>
+
+  <h2>잘 됐는지 보기</h2>
+  <div class="cards">
+    <div class="card">
+      <b>① 평소처럼 내보내기</b>
+      스캔 한 건을 평소 하시던 대로 내보냅니다.
+    </div>
+    <div class="card">
+      <b>② 주문서가 열립니다</b>
+      환자 이름·차트번호·스캔 파일이 채워진 채로 뜹니다.
+    </div>
+    <div class="card">
+      <b>③ 치식·보철만</b>
+      치식과 보철 종류, 쉐이드를 고르고 주문완료를 누르면 끝입니다.
+    </div>
+  </div>
+
+  <div class="tip">
+    <b>파일 이름에 치식을 적어 두시면 그것도 채워집니다.</b>
+    예를 들어 <b>김예림 #11,21</b> 처럼 <b>#</b> 뒤에 치아 번호를 적으면,
+    주문서 치식도에 11번과 21번이 미리 칠해진 채로 열립니다.
+  </div>
+
+  <h2>알아 두실 것</h2>
+  <table>
+    <tr>
+      <td>비밀번호는 저장되지 않습니다</td>
+      <td>연결 코드로 한 번 연결하면 그 PC 전용 열쇠만 남습니다. 덴플로우 비밀번호는 PC 에 들어가지 않습니다.</td>
+    </tr>
+    <tr>
+      <td>옛 파일은 올라가지 않습니다</td>
+      <td>지켜보기를 시작한 <b>뒤에 새로 생긴</b> 파일만 올립니다. 폴더에 쌓여 있던 것은 그대로 둡니다.</td>
+    </tr>
+    <tr>
+      <td>같은 케이스는 한 번만</td>
+      <td>같은 환자를 다시 내보내도 목록에 두 줄이 생기지 않습니다.</td>
+    </tr>
+    <tr>
+      <td>주문서를 못 쓰셨다면</td>
+      <td>왼쪽 메뉴 <b>들어온 스캔</b> 에 남아 있습니다. 거기서 언제든 주문서를 쓰실 수 있습니다.</td>
+    </tr>
+    <tr>
+      <td>연결을 끊고 싶으면</td>
+      <td>계정정보 → 스캐너 PC 연결 → <b>연결 해제</b>. 그 PC 는 그 자리에서 더 올리지 못합니다.</td>
+    </tr>
+  </table>
+
+  <h2>안 될 때</h2>
+  <table>
+    <tr>
+      <td>올라가지 않습니다</td>
+      <td>작업 표시줄에 올리미 창이 떠 있는지 봐 주세요. 꺼져 있으면 켜고 <b>지켜보기 시작</b> 을 누르면 됩니다.</td>
+    </tr>
+    <tr>
+      <td>“코드가 만료됐습니다”</td>
+      <td>코드는 10분짜리입니다. 계정정보에서 새로 만들어 주세요.</td>
+    </tr>
+    <tr>
+      <td>“다른 치과입니다” 가 떴습니다</td>
+      <td>스캔 파일에 적힌 치과 이름이 달라서 드리는 알림입니다. 맞는 환자면 그대로 쓰셔도 됩니다.</td>
+    </tr>
+  </table>
+
+  <footer>
+    <span>덴플로우 · denflow.kr</span>
+    <span>문의는 덴플로우 화면의 대화로 남겨 주세요</span>
+  </footer>
+
+</div>
+</body>
+</html>
