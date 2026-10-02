@@ -55,3 +55,19 @@ describe('환자명 맞추기', () => {
     expect(samePatientName('', '안현석')).toBe(false);
   });
 });
+
+/*
+  ★★ 내보낸 파일의 <Dentist> 칸에 '2510' 처럼 번호만 적힌 것이 있었습니다
+    (2026-10-02, 실제 파일에서 확인). 치과명이 아닌 값으로 경고를 띄우면
+    맞는 치과에 매번 노란 띠가 뜹니다.
+*/
+describe('치과명이 아닌 값', () => {
+  it('★ 번호만 적혀 있으면 알리지 않습니다', () => {
+    expect(sameClinicName('2510', '치ㅣ')).toBe(true);
+    expect(sameClinicName('250-1', '다서울치과')).toBe(true);
+  });
+
+  it('글자가 섞여 있으면 그대로 봅니다', () => {
+    expect(sameClinicName('2510치과', '다서울치과')).toBe(false);
+  });
+});
