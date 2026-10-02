@@ -20,8 +20,29 @@ const labels = (sector: Sector, isManager: boolean) =>
 describe('관리자는 다 봅니다', () => {
   it('감추는 것 없이 그대로', () => {
     for (const sector of ['clinic', 'design_center', 'lab'] as const) {
-      expect(labels(sector, true)).toEqual(NAV[sector].map((i) => i.label));
+      // ★ 기능을 켠 조직 기준입니다 (needs 가 붙은 메뉴는 아래에서 따로 봅니다)
+      expect(visibleNav(sector, true, { scanner: true }).map((i) => i.label)).toEqual(
+        NAV[sector].map((i) => i.label),
+      );
     }
+  });
+});
+
+/*
+  ★★ 안 쓰는 기능의 메뉴는 **아예 없습니다** (사용자 지적 2026-10-02 —
+    "들어온 스캔 이거 있어야 해?"). 구강스캐너를 연결 안 한 치과에는
+    평생 빈 화면이고, 빈 메뉴가 섞이면 메뉴 전체가 덜 읽힙니다.
+*/
+describe('스캐너를 연결한 치과에만 들어온 스캔', () => {
+  it('연결 안 했으면 없습니다 — 관리자도', () => {
+    expect(labels('clinic', true)).not.toContain('들어온 스캔');
+    expect(labels('clinic', false)).not.toContain('들어온 스캔');
+  });
+
+  it('연결했으면 주문목록 바로 아래', () => {
+    const shown = visibleNav('clinic', false, { scanner: true }).map((i) => i.label);
+    expect(shown).toContain('들어온 스캔');
+    expect(shown[shown.indexOf('들어온 스캔') - 1]).toBe('주문목록');
   });
 });
 
@@ -32,8 +53,6 @@ describe('사용자에게 보이는 메뉴 — 사용자가 준 목록 그대로
       'HOME',
       '주문등록',
       '주문목록',
-      // ★ 들어온 스캔은 치과가 매일 보는 자리라 사용자도 봅니다 (2026-10-02)
-      '들어온 스캔',
       '배송조회',
       '정산',
       '게시판',

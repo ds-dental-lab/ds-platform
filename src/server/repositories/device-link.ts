@@ -293,3 +293,31 @@ export async function listRescanWaitingOrders(): Promise<RescanWaitingOrder[]> {
     dueDate: (r.due_date as string) ?? null,
   }));
 }
+
+
+/**
+ * 사이드바가 쓸 두 가지 — 스캐너를 연결했는가, 기다리는 스캔이 몇 건인가.
+ *
+ * ★ 메뉴는 **연결한 치과에만** 보입니다 (사용자 지적 2026-10-02).
+ *   안 쓰는 치과에는 평생 빈 화면입니다.
+ * ★ 숫자는 머릿수만 셉니다(head) — 줄 내용을 안 끌어옵니다. 레이아웃은
+ *   모든 화면에서 돌아서, 여기서 한 번만 느려도 치과 전체가 느려집니다.
+ */
+export async function scannerNavState(): Promise<{ linked: boolean; waiting: number }> {
+  const { createClient } = await import('@/lib/supabase/server');
+  const supabase = await createClient();
+
+  const [devices, scans] = await Promise.all([
+    supabase
+      .from('clinic_devices')
+      .select('id', { count: 'exact', head: true })
+      .is('revoked_at', null),
+    supabase
+      .from('incoming_scans')
+      .select('id', { count: 'exact', head: true })
+      .is('order_id', null)
+      .is('deleted_at', null),
+  ]);
+
+  return { linked: (devices.count ?? 0) > 0, waiting: scans.count ?? 0 };
+}

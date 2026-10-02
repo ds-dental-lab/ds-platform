@@ -48,6 +48,14 @@ export interface NavItem {
    *   그것을 테스트가 지킵니다 (tests/domain/nav.test.ts).
    */
   staffHidden?: boolean;
+  /**
+   * 그 기능을 쓰는 곳에만 보이는 메뉴.
+   *
+   * ★ '들어온 스캔' 은 구강스캐너를 연결한 치과에만 쓸모가 있습니다
+   *   (사용자 지적 2026-10-02 — "이거 있어야 해?"). 스캐너가 없는 치과에는
+   *   영영 빈 화면입니다. 빈 메뉴를 늘 띄우면 메뉴 전체가 덜 읽힙니다.
+   */
+  needs?: 'scanner';
 }
 
 // 시안 순서 그대로입니다
@@ -56,8 +64,11 @@ export const NAV: Record<Sector, NavItem[]> = {
     { label: 'HOME', href: '/clinic', icon: 'home' },
     { label: '주문등록', href: '/clinic/orders/new', icon: 'new' },
     { label: '주문목록', href: '/clinic/orders', icon: 'list' },
-    /* 구강스캐너에서 올라온 스캔 (2026-10-02) — 주문서를 쓰면 사라집니다 */
-    { label: '들어온 스캔', href: '/clinic/scans', icon: 'new' },
+    /*
+      구강스캐너에서 올라온 스캔 (2026-10-02) — 주문서를 쓰면 사라집니다.
+      ★ 스캐너 PC 를 연결한 치과에만 보입니다. 안 쓰는 치과에는 평생 빈 칸입니다.
+    */
+    { label: '들어온 스캔', href: '/clinic/scans', icon: 'new', needs: 'scanner' },
     { label: '배송조회', href: '/clinic/deliveries', icon: 'delivery' },
     { label: '정산', href: '/clinic/billing', icon: 'billing' },
     { label: '사용자', href: '/clinic/users', icon: 'users', staffHidden: true },
@@ -110,8 +121,19 @@ export const NAV: Record<Sector, NavItem[]> = {
  * ★ 감춘 메뉴는 흐리게가 아니라 **아예 없습니다.**
  *   흐리게 두면 "왜 안 눌리냐" 를 묻습니다.
  */
-export function visibleNav(sector: Sector, isManager: boolean): NavItem[] {
-  return NAV[sector].filter((item) => !item.staffHidden || isManager);
+export interface NavFeatures {
+  /** 이 치과에 연결된 스캐너 PC 가 있는가 */
+  scanner?: boolean;
+}
+
+export function visibleNav(
+  sector: Sector,
+  isManager: boolean,
+  features: NavFeatures = {},
+): NavItem[] {
+  return NAV[sector]
+    .filter((item) => !item.staffHidden || isManager)
+    .filter((item) => item.needs !== 'scanner' || features.scanner === true);
 }
 
 /** 사용자에게 감춘 주소들 — 화면에 문이 달렸는지 테스트가 이걸로 봅니다 */

@@ -15,7 +15,7 @@
 'use client';
 
 import { useState } from 'react';
-import { visibleNav, type NavIcon } from '@/server/domain/nav';
+import { visibleNav, type NavFeatures, type NavIcon } from '@/server/domain/nav';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 /*
@@ -151,6 +151,11 @@ export interface SectorShellProps {
    *   0 이면 안 붙입니다. 0 을 띄우면 볼 것이 없는데도 눈이 갑니다.
    */
   navCounts?: Record<string, number>;
+  /**
+   * 이 조직이 쓰는 기능. 안 쓰는 기능의 메뉴는 아예 안 나옵니다.
+   * (구강스캐너를 연결 안 한 치과에 '들어온 스캔' 을 띄우지 않습니다)
+   */
+  features?: NavFeatures;
   bell?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -160,6 +165,7 @@ export default function SectorShell({
   orgName,
   userName,
   navCounts,
+  features,
   bell,
   children,
   isManager = true,
@@ -178,7 +184,7 @@ export default function SectorShell({
       보이는가" 를 테스트가 못 봅니다 — 실제로 한 번 어긋났습니다.
       여기서는 그림만 붙입니다.
   */
-  const items = visibleNav(sector, isManager);
+  const items = visibleNav(sector, isManager, features);
   const router = useRouter();
   const theme = THEME[sector];
 
