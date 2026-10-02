@@ -5,8 +5,11 @@
   구강스캐너 내보내기 폴더를 보고 있다가, **새 dxd 가 생기면** 덴플로우로 올리고
   주문 등록 창을 띄웁니다. 환자 이름과 차트번호는 dxd 안에서 읽습니다 (dxd_case).
 
-★ 내보낼 때만 움직입니다. 프로그램이 뜬 **뒤에 생긴** 파일만 봅니다.
-  옛 파일을 폴더에 복사해 넣어도 안 올립니다 — 파일 안의 스캔 시각과 케이스 번호로 거릅니다.
+★ 내보낼 때만 움직입니다. **지켜보기를 시작한 뒤에 나타난** 파일만 봅니다.
+  시작할 때 폴더에 있던 것은 적어 두고 건드리지 않습니다 — 쌓여 있던 옛 케이스를
+  한꺼번에 올리지 않습니다. 파일 날짜가 아니라 '목록에 새로 생겼는가' 로 봅니다
+  (윈도우에서 복사하면 날짜가 원본 그대로라, 날짜로는 새 파일인지 알 수 없습니다).
+★ 같은 케이스는 케이스 번호로 한 번만 올립니다 — 다시 내보내도 두 줄이 안 생깁니다.
 ★ 쓰기가 끝날 때까지 기다립니다 (크기가 멈출 때까지). 반쯤 올라간 파일을 안 만듭니다.
 ★ 비밀번호를 저장하지 않습니다. 계정정보에서 받은 **여섯 자리 코드**로 한 번 연결하고,
   그 뒤로는 기기 열쇠만 씁니다 (scan_agent.json).
@@ -169,19 +172,21 @@ class Agent:
 
     # -- 지켜보기 --
     def watch(self, folder: Path) -> None:
-        started = time.time()
-        self.say(f"{folder} 를 봅니다. 내보내기를 하면 올라갑니다.")
+        # ★ 시작할 때 있던 파일은 '이미 있던 것' 으로 적어 둡니다 (쌓여 있던 것을 안 올립니다)
+        known = {p.name for p in folder.glob("*.dxd")}
+        self.say(f"{folder} 를 봅니다. 이미 있던 {len(known)}개는 두고, 새로 들어오는 것만 올립니다.")
 
         while not self.stop.is_set():
             try:
                 for path in sorted(folder.glob("*.dxd")):
                     if self.stop.is_set():
                         break
-                    # ★ 프로그램이 뜬 뒤에 생긴 것만. 옛 파일을 복사해 넣어도 안 올립니다
-                    if path.stat().st_mtime < started:
+                    if path.name in known:
                         continue
                     if not settled(path):
                         continue
+
+                    known.add(path.name)
                     self.upload(path)
             except Exception:
                 self.say("문제가 생겼습니다\n" + traceback.format_exc())
