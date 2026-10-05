@@ -37,6 +37,11 @@ from dscore import BASE, DSCore  # noqa: E402
 #: 누르면 안 되는 것들 — 줄을 누를 때 이름으로 한 번 더 거릅니다
 DANGER = ("수락", "거부", "완료", "삭제", "하도급")
 
+#: ★★ 창을 **1920** 으로 넓혀야 합니다 (실측 2026-10-05).
+#:   1400 에서는 상세의 '치아 색조 가이드 / 치아 색상' 두 줄이 **아예 안 그려집니다**.
+#:   화면에 없으니 접근성 트리에도 없고, 쉐이드를 못 읽습니다. 반나절 헤맨 곳입니다.
+WINDOW = (1920, 1200)
+
 #: 목록 표의 칸 — 상세로 안 들어가고도 이만큼 나옵니다 (실측 2026-10-05)
 #: x 좌표로 가립니다. 창 너비가 바뀌면 같이 움직이므로 **순서**로 봅니다.
 ROW_FIELDS = (
@@ -116,6 +121,7 @@ def _leaves(d) -> list[tuple[str, int, int]]:
 def list_orders(core: DSCore, limit: int = 40) -> list[DsOrder]:
     """받은 주문 목록. 상세로 안 들어갑니다 — 목록 한 줄에 필요한 것이 다 있습니다."""
     d = core.d
+    d.set_window_size(*WINDOW)
     d.get(f"{BASE}/#/orders")
     time.sleep(7)
     core.enable_semantics()
@@ -153,6 +159,93 @@ def list_orders(core: DSCore, limit: int = 40) -> list[DsOrder]:
     return orders
 
 
+#: 상세의 '서비스 세부 정보' 에서 집는 이름표 (실측 2026-10-05)
+DETAIL_LABELS = (
+    "치아 (FDI)", "서비스 유형", "치아 색조 가이드", "치아 색상",
+    "어버트먼트", "브릿지", "임플란트 제조업체", "스캔바디", "재료", "제작 방식",
+)
+
+
+def _pairs(items: list[tuple[str, int, int]]) -> list[tuple[str, str]]:
+    """
+    '이름표 / 값' 짝 짓기.
+
+    ★ 상세는 **두 칸(왼쪽·오른쪽)** 으로 놓여 있고, 값은 이름표 **바로 아래**에
+      같은 x 로 적힙니다 (실측: 이름표 y=825 → 값 y=846, x 같음).
+      그래서 y 가 아니라 **x 가 같고 가장 가까운 아래 글자**를 값으로 봅니다.
+    """
+    out: list[tuple[str, str]] = []
+
+    for label, ly, lx in items:
+        if label not in DETAIL_LABELS:
+            continue
+        below = [
+            (y, t) for t, y, x in items
+            if abs(x - lx) <= 2 and 0 < y - ly <= 40 and t not in DETAIL_LABELS
+        ]
+        if below:
+            out.append((label, min(below)[1]))
+
+    return out
+
+
+def read_detail(core: DSCore, order_id: str) -> dict:
+    """
+    주문 하나를 열어 '서비스 세부 정보' 를 읽습니다.
+
+    ★★ **줄만 누릅니다.** 그 화면의 '수락 / 거부 / 완료 / 새 하도급 주문' 은
+      절대 안 누릅니다 — 누르면 진짜 주문 상태가 바뀝니다.
+    ★ 목록만으로 될 때는 이걸 안 부릅니다. 적게 누를수록 안전합니다.
+    """
+    d = core.d
+    d.set_window_size(*WINDOW)
+    d.get(f"{BASE}/#/orders")
+    time.sleep(7)
+    core.enable_semantics()
+    time.sleep(3)
+
+    row = None
+    for n in d.find_elements("css selector", "flt-semantics[flt-tappable]"):
+        try:
+            t = (n.get_attribute("aria-label") or n.text or "").strip()
+            if order_id in t and n.rect["height"] > 40 and not any(t.strip() == w for w in DANGER):
+                row = n
+                break
+        except Exception:  # noqa: BLE001
+            continue
+
+    if row is None:
+        return {}
+
+    d.execute_script("arguments[0].scrollIntoView({block:'center'});", row)
+    time.sleep(1)
+    row.click()
+    time.sleep(8)
+
+    seen: dict[tuple[str, int, int], None] = {}
+    for _ in range(8):
+        core.enable_semantics()
+        time.sleep(1.2)
+        for item in _leaves(d):
+            seen.setdefault(item, None)
+        d.execute_script("window.scrollBy(0, 400);")
+        time.sleep(1.2)
+
+    items = sorted(seen, key=lambda p: (p[1], p[2]))
+    found = _pairs(items)
+
+    out: dict = {"order_id": order_id, "fields": found}
+    for label, value in found:
+        if label == "치아 색상":
+            out["shade"] = value
+        elif label == "치아 색조 가이드":
+            out["shade_guide"] = value
+        elif label == "브릿지":
+            out["implant_method"] = value      # '시멘트 유지형' · '스크류 유지형'
+
+    return out
+
+
 SITE = "https://denflow.kr"
 
 
@@ -185,6 +278,9 @@ def main() -> None:
     try:
         orders = list_orders(core)
         print(json.dumps([o.as_dict() for o in orders], ensure_ascii=False, indent=2))
+
+        if "--detail" in sys.argv and orders:
+            print(json.dumps(read_detail(core, orders[0].order_id), ensure_ascii=False, indent=2))
 
         if "--open" in sys.argv and orders:
             url = denflow_url(orders[0])
