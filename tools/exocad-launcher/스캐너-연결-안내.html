@@ -41,7 +41,7 @@
     /* ★ 297mm 를 꽉 채우면 반올림 때문에 빈 둘째 장이 따라 나옵니다 */
     min-height: 295mm;
     margin: 0 auto;
-    padding: 14mm 15mm;
+    padding: 11mm 14mm;
     background: var(--paper);
     display: flex;
     flex-direction: column;
@@ -49,11 +49,11 @@
 
   header { border-bottom: 2.5px solid var(--ink); padding-bottom: 7px; }
   .brand { font-size: 12.5px; font-weight: 800; color: var(--blue); letter-spacing: .02em; }
-  h1 { margin: 3px 0 0; font-size: 23px; font-weight: 800; letter-spacing: -.035em; }
+  h1 { margin: 2px 0 0; font-size: 21px; font-weight: 800; letter-spacing: -.035em; }
   .lead { margin: 7px 0 0; font-size: 12.5px; line-height: 1.65; color: var(--sub); }
 
   h2 {
-    margin: 13px 0 7px;
+    margin: 10px 0 5px;
     font-size: 13px;
     font-weight: 800;
     letter-spacing: -.02em;
@@ -67,7 +67,7 @@
   ol.steps > li {
     counter-increment: s;
     position: relative;
-    padding: 0 0 9px 27px;
+    padding: 0 0 7px 27px;
     font-size: 12.5px;
     line-height: 1.6;
   }
@@ -99,7 +99,7 @@
     flex: 1;
     border: 1px solid var(--line);
     border-radius: 7px;
-    padding: 9px 11px;
+    padding: 7px 10px;
     font-size: 11.5px;
     line-height: 1.6;
     color: var(--sub);
@@ -107,12 +107,12 @@
   .card b { display: block; color: var(--ink); font-size: 12px; margin-bottom: 2px; }
 
   table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-  td { border-top: 1px solid var(--line); padding: 6px 2px; vertical-align: top; line-height: 1.55; }
+  td { border-top: 1px solid var(--line); padding: 4.5px 2px; vertical-align: top; line-height: 1.5; }
   td:first-child { width: 34%; font-weight: 700; color: var(--ink); }
   td:last-child { color: var(--sub); }
 
   .tip {
-    margin-top: 10px;
+    margin-top: 8px;
     border: 1px solid #CFE3FB;
     background: var(--tint);
     border-radius: 7px;
@@ -196,10 +196,27 @@
   </div>
 
   <div class="tip">
-    <b>파일 이름에 치식을 적어 두시면 그것도 채워집니다.</b>
-    예를 들어 <b>김예림 #11,21</b> 처럼 <b>#</b> 뒤에 치아 번호를 적으면,
-    주문서 치식도에 11번과 21번이 미리 칠해진 채로 열립니다.
+    <b>이름에 치식을 적어 두시면 그것도 채워집니다.</b>
+    <b>#</b> 뒤에 치아 번호를 적으면 주문서 치식도에 미리 칠해진 채로 열립니다.
+    프라임스캔은 <b>파일 이름</b>에 (<b>김예림 #11,21</b>), 메딧은 <b>케이스 이름</b>에
+    (<b>김예림의 케이스 #26</b>) 적으시면 됩니다.
   </div>
+
+  <h2>메딧을 쓰신다면</h2>
+  <table>
+    <tr>
+      <td>내보내기 형식</td>
+      <td>메시 형식에서 <b>OBJ 나 PLY 를 하나는 켜 주세요.</b> meditMesh 만 켜 두면 올릴 파일이 없습니다.</td>
+    </tr>
+    <tr>
+      <td>메시 결합은 꺼 주세요</td>
+      <td>켜면 상악·하악이 한 파일로 합쳐져, 어느 쪽인지 가릴 수 없습니다.</td>
+    </tr>
+    <tr>
+      <td>압축·중복은 신경 안 쓰셔도</td>
+      <td>폴더든 zip 이든 둘 다 올라갑니다. '새로운 폴더를 만들고 내보내기' 를 고르셔도 같은 케이스로 알아보고 두 번 올리지 않습니다.</td>
+    </tr>
+  </table>
 
   <h2>알아 두실 것</h2>
   <table>
@@ -209,11 +226,7 @@
     </tr>
     <tr>
       <td>옛 파일은 올라가지 않습니다</td>
-      <td>지켜보기를 시작한 <b>뒤에 새로 생긴</b> 파일만 올립니다. 폴더에 쌓여 있던 것은 그대로 둡니다.</td>
-    </tr>
-    <tr>
-      <td>같은 케이스는 한 번만</td>
-      <td>같은 환자를 다시 내보내도 목록에 두 줄이 생기지 않습니다.</td>
+      <td>지켜보기를 시작한 <b>뒤에 새로 생긴</b> 것만 올립니다. 쌓여 있던 것은 그대로 두고, 같은 케이스를 다시 내보내도 두 줄이 생기지 않습니다.</td>
     </tr>
     <tr>
       <td>주문서를 못 쓰셨다면</td>
