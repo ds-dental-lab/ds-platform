@@ -27,17 +27,31 @@ import { getHolidayMap } from '@/server/repositories/holiday';
 import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate } from '@/server/domain/due-date';
 import NewOrderForm from '@/components/order/NewOrderForm';
+import { mapCategory } from '@/server/domain/medit-map';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DesignNewOrderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ clinic?: string }>;
+  /*
+    ★ 스캐너 회사 쪽 주문에서 넘어온 값들 (사용자 요청 2026-10-05).
+      DS Core·메딧 주문을 읽어 이 화면을 채운 채로 엽니다. 넘어온 값은
+      **채우기만** 하고, 등록은 사람이 보고 누릅니다.
+  */
+  searchParams: Promise<{
+    clinic?: string;
+    ref?: string;
+    source?: string;
+    patient?: string;
+    teeth?: string;
+    category?: string;
+    due?: string;
+  }>;
 }) {
   await requireSector('design_center');
 
-  const { clinic: clinicId } = await searchParams;
+  const { clinic: clinicId, ref, source, patient, teeth, category, due } = await searchParams;
   const partners = await listPartners();
 
   // ★ 거래중인 치과만입니다. 끊은 곳에 새 주문이 들어가면 청구할 데가 없습니다
@@ -69,6 +83,28 @@ export default async function DesignNewOrderPage({
 
   const today = todayInKst();
 
+  /*
+    ★ 치식은 **말이 되는 번호만** 둡니다 (11~48, 끝자리 1~8). 주소로 들어오는
+      값이라 그대로 믿지 않습니다.
+  */
+  const fromOrder = ref
+    ? {
+        ref,
+        source: (source ?? '').slice(0, 20) || '스캐너',
+        patientName: (patient ?? '').slice(0, 60),
+        teeth: [
+          ...new Set(
+            (teeth ?? '')
+              .split(',')
+              .map((t) => Number(t.trim()))
+              .filter((n) => Number.isInteger(n) && n >= 11 && n <= 48 && n % 10 >= 1 && n % 10 <= 8),
+          ),
+        ].sort((a, b) => a - b),
+        typeCode: mapCategory(category ?? ''),
+        due: due ?? null,
+      }
+    : undefined;
+
   return (
     <NewOrderForm
       /*
@@ -95,6 +131,7 @@ export default async function DesignNewOrderPage({
       optionGroups={optionGroups}
       optionPresets={optionPresets}
       prosthesisCatalog={prosthesisCatalog}
+      fromOrder={fromOrder}
     />
   );
 }

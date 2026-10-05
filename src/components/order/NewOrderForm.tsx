@@ -135,6 +135,27 @@ export interface NewOrderFormProps {
    * ★ 주면 환자 이름이 채워진 채로 열리고, 등록이 끝나는 순간 이 스캔이 주문에 붙습니다.
    *   파일을 다시 올리지 않습니다 — 저장소 안에서 옮깁니다 (actions/incoming-scan).
    */
+  /**
+   * 스캐너 회사 쪽에 들어온 **주문**에서 가져온 것 (사용자 요청 2026-10-05).
+   *
+   * ★ 스캔 파일이 아니라 **주문서**입니다. DS Core·메딧은 치과가 보낸 주문에
+   *   환자·치식·제품·마감일이 실려 옵니다. 그것을 미리 채워 두고, 사람은
+   *   확인만 합니다.
+   * ★ 치식은 **저절로 안 넣습니다.** 재료를 모르는 채로 찍으면 값이 틀립니다 —
+   *   단추를 누를 때 넣습니다 (incomingScan 과 같은 규칙).
+   */
+  fromOrder?: {
+    /** 저쪽 주문 번호 — 화면에 그대로 보여 줍니다 */
+    ref: string;
+    /** 'DS Core' · 'Medit' */
+    source: string;
+    patientName: string;
+    teeth: number[];
+    /** 알아본 보철 종류 (재료는 안 옵니다) */
+    typeCode: string | null;
+    /** 'YYYY-MM-DD' */
+    due: string | null;
+  };
   incomingScan?: {
     id: string;
     patientName: string;
@@ -187,6 +208,7 @@ function OrderFormBody({
   prosthesisCatalog,
   initial,
   incomingScan,
+  fromOrder,
 }: NewOrderFormProps & { onStartOver: () => void }) {
   const router = useRouter();
   const toast = useToast();
@@ -195,14 +217,31 @@ function OrderFormBody({
   // ---------- 환자정보 ----------
   // 적힌 글자와, 그 글자가 실제 환자와 맞아떨어졌을 때의 환자.
   // 안 맞아도 주문은 나갑니다 — 이름만 적고 지나가는 경우가 더 많습니다.
-  const [patientText, setPatientText] = useState(initial?.patientText ?? incomingScan?.patientName ?? '');
+  const [patientText, setPatientText] = useState(
+    initial?.patientText ?? incomingScan?.patientName ?? fromOrder?.patientName ?? '',
+  );
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [dueDate, setDueDate] = useState<IsoDate>(initial?.dueDate ?? defaultDue);
+  /*
+    ★ 저쪽 주문의 마감일을 그대로 씁니다 (2026-10-05). 모양이 아니면 버립니다 —
+      달력이 못 읽는 글자가 들어가면 화면이 깨집니다.
+  */
+  const fromDue = /^\d{4}-\d{2}-\d{2}$/.test(fromOrder?.due ?? '') ? (fromOrder!.due as IsoDate) : null;
+  const [dueDate, setDueDate] = useState<IsoDate>(initial?.dueDate ?? fromDue ?? defaultDue);
   const [orderType, setOrderType] = useState<string>(initial?.orderType ?? 'modelless');
 
   // ---------- 보철선택 ----------
-  const [typeCode, setTypeCode] = useState<string>(prosthesisCatalog[0]?.code ?? 'crown');
-  const [materialCode, setMaterialCode] = useState(getMaterials(prosthesisCatalog, prosthesisCatalog[0]?.code ?? 'crown')[0]?.code ?? '');
+  /*
+    ★ 저쪽 주문이 알려 준 종류가 **지금 제품표에 있을 때만** 미리 고릅니다.
+      없는 코드를 넣으면 재료 칸이 비어 아무것도 못 찍습니다.
+  */
+  const firstType = prosthesisCatalog[0]?.code ?? 'crown';
+  const presetType =
+    fromOrder?.typeCode && prosthesisCatalog.some((t) => t.code === fromOrder.typeCode)
+      ? fromOrder.typeCode
+      : firstType;
+
+  const [typeCode, setTypeCode] = useState<string>(presetType);
+  const [materialCode, setMaterialCode] = useState(getMaterials(prosthesisCatalog, presetType)[0]?.code ?? '');
   const [shadeSystem, setShadeSystem] = useState<ShadeSystemCode>('vita_classic');
   const [shade, setShade] = useState<ToothShade>(EMPTY_SHADE);
   const [implant, setImplant] = useState<ImplantSelection>(EMPTY_SELECTION);
@@ -809,6 +848,33 @@ function OrderFormBody({
           editing ? '수정 중인 내용이 있습니다. 이동할까요?' : '작성 중인 주문이 있습니다. 이동할까요?'
         }
       />
+      {/*
+        ★ 스캐너 회사 쪽 주문에서 가져왔다는 표시 (2026-10-05).
+          어디서 온 주문인지 안 보이면, 나중에 "이 값 누가 넣었냐" 를 아무도 모릅니다.
+          치식은 저절로 안 넣고 **누를 때** 넣습니다 — 재료를 모르는 채로 찍으면
+          값이 틀립니다.
+      */}
+      {fromOrder && (
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-lg border border-[#CFE3FB] bg-[#F2F7FE] px-4 py-3 text-[13.5px]">
+          <b className="font-bold text-[#1279E8]">{fromOrder.source} 주문에서 가져왔습니다</b>
+          <span className="rounded bg-white px-2 py-0.5 font-semibold tracking-wide text-[#4A5567]">
+            {fromOrder.ref}
+          </span>
+          {fromOrder.patientName && <span className="text-[#1A2130]">{fromOrder.patientName}</span>}
+          {fromDue && <span className="text-[#7C8595]">요청시한 {fromDue}</span>}
+
+          {fromOrder.teeth.length > 0 && (
+            <button
+              type="button"
+              onClick={() => applyFileTeeth(fromOrder.teeth)}
+              className="ml-auto rounded-md bg-[#1279E8] px-3 py-1.5 text-[13px] font-bold text-white hover:bg-[#0F68C9]"
+            >
+              치식 {fromOrder.teeth.join(', ')} 넣기
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ---------- ① 환자정보 ---------- */}
       <div id="sec-patient" className="scroll-mt-16">
         <OrderSection icon={SECTION_ICON.patient} title="환자정보">

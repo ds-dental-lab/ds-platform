@@ -16,6 +16,7 @@ DS Core 기공소 주문 읽기 (2026-10-05, 사용자 요청).
 
 사용:  python dscore_orders.py            받은 주문을 JSON 으로
        python dscore_orders.py --show     창을 보면서
+       python dscore_orders.py --open     맨 위 주문으로 덴플로우 주문등록 창 열기
 """
 from __future__ import annotations
 
@@ -23,6 +24,8 @@ import json
 import re
 import sys
 import time
+import urllib.parse
+import webbrowser
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 
@@ -150,11 +153,43 @@ def list_orders(core: DSCore, limit: int = 40) -> list[DsOrder]:
     return orders
 
 
+SITE = "https://denflow.kr"
+
+
+def denflow_url(order: DsOrder) -> str:
+    """
+    덴플로우 주문등록 화면 주소.
+
+    ★ **채우기만** 합니다. 등록은 사람이 보고 누릅니다.
+    ★ 치과는 안 넘깁니다 — 'DS치과' 가 덴플로우의 어느 치과인지는 아직 맺어 둔 것이
+      없습니다. 화면에서 고르면 됩니다 (맺는 자리는 다음 차례).
+    ★ 마감일은 날짜만 보냅니다. '2026-10-06 · 12:00' 의 시각은 덴플로우에 쓸 곳이 없습니다.
+    """
+    due = re.search(r"\d{4}-\d{2}-\d{2}", order.due or "")
+    first = order.products[0]["product"] if order.products else ""
+
+    query = {
+        "ref": order.order_id,
+        "source": "DS Core",
+        "patient": order.patient,
+        "teeth": ",".join(str(t) for t in order.teeth),
+        "category": first,
+        "due": due.group(0) if due else "",
+    }
+    clean = {k: v for k, v in query.items() if v}
+    return f"{SITE}/design/orders/new?" + urllib.parse.urlencode(clean)
+
+
 def main() -> None:
     core = DSCore(HERE / "logs", show="--show" in sys.argv, say=lambda m: print(m, file=sys.stderr), slot="orders")
     try:
         orders = list_orders(core)
         print(json.dumps([o.as_dict() for o in orders], ensure_ascii=False, indent=2))
+
+        if "--open" in sys.argv and orders:
+            url = denflow_url(orders[0])
+            print(chr(10) + "주문등록 창:", url, file=sys.stderr)
+            webbrowser.open(url)
     finally:
         try:
             core.d.quit()
