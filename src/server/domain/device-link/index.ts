@@ -31,6 +31,11 @@ export function linkCodeExpiry(now: Date = new Date()): string {
   return new Date(now.getTime() + LINK_CODE_TTL_MINUTES * 60_000).toISOString();
 }
 
+export interface ScanFile {
+  name: string;
+  size: number;
+}
+
 export interface ScanMeta {
   patientName: string;
   chartNo: string;
@@ -40,16 +45,50 @@ export interface ScanMeta {
   teeth: number[];
   fileName: string;
   fileSize: number;
+  /**
+   * 한 케이스의 파일들 (2026-10-05 — Medit).
+   *
+   * ★ dxd 는 한 건이 파일 하나지만 Medit 은 상악·하악·교합이 따로 나옵니다.
+   *   묶어서 zip 하나로 받지 않습니다 — exocad 런처가 **파일 이름의 부위 낱말**로
+   *   가려 넣기 때문에, 묶으면 그 자리에서 사람이 풀어야 합니다.
+   */
+  files: ScanFile[];
+}
+
+/** 스캔으로 받는 것 — 그 밖의 확장자는 받지 않습니다 */
+const SCAN_EXTENSIONS = ['.dxd', '.obj', '.stl', '.ply'];
+/** 한 케이스에 이보다 많으면 뭔가 잘못 든 것입니다 (상악·하악·교합·프리옵·스캔바디…) */
+const MAX_FILES = 24;
+
+function isScanFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return SCAN_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
 /** 프로그램이 보낸 값을 그대로 믿지 않습니다 — 길이와 모양만 봅니다 */
 export function cleanScanMeta(raw: Partial<ScanMeta> | null | undefined): ScanMeta | null {
-  if (!raw || typeof raw.fileName !== 'string' || !raw.fileName.toLowerCase().endsWith('.dxd')) {
-    return null;
-  }
+  if (!raw) return null;
 
   const text = (value: unknown, max: number) =>
     typeof value === 'string' ? value.trim().slice(0, max) : '';
+
+  const size = (value: unknown) =>
+    Number.isFinite(value) ? Math.max(0, Math.trunc(value as number)) : 0;
+
+  /*
+    ★ 파일 목록이 오면 그것을, 없으면 예전처럼 fileName 하나를 봅니다
+      (2026-10-05). 먼저 나간 올리미가 그대로 돌아야 합니다.
+  */
+  const listed = Array.isArray(raw.files) ? raw.files : [];
+  const files: ScanFile[] = (listed.length > 0
+    ? listed
+    : [{ name: raw.fileName, size: raw.fileSize }]
+  )
+    .map((f) => ({ name: text(f?.name, 200), size: size(f?.size) }))
+    .filter((f) => isScanFile(f.name))
+    .slice(0, MAX_FILES);
+
+  if (files.length === 0) return null;
 
   // ★ 치식으로 말이 되는 번호만 둡니다 — 11~48 이면서 끝자리가 1~8.
   //   '19' 나 '30' 같은 칸은 없습니다 (PC 가 보낸 값을 그대로 믿지 않습니다).
@@ -71,8 +110,10 @@ export function cleanScanMeta(raw: Partial<ScanMeta> | null | undefined): ScanMe
     caseGuid: text(raw.caseGuid, 60),
     scannedAt: text(raw.scannedAt, 20),
     teeth,
-    fileName: text(raw.fileName, 200),
-    fileSize: Number.isFinite(raw.fileSize) ? Math.max(0, Math.trunc(raw.fileSize as number)) : 0,
+    // ★ 대표 이름과 크기는 화면에 한 줄로 보이기 위한 것입니다
+    fileName: files[0].name,
+    fileSize: files.reduce((sum, f) => sum + f.size, 0),
+    files,
   };
 }
 

@@ -16,6 +16,7 @@ const base = {
   clinicNameInFile: '다서울치과',
   teeth: [16],
   fileSize: 65_000_000,
+  fileCount: 1,
   uploadStatus: 'uploaded',
   createdAt: '2026-10-02T10:12:00',
 };
@@ -46,6 +47,18 @@ const SCANS: IncomingScanRow[] = [
     scannedAt: '2026-10-02 18:10',
     fileName: '2026-10-02 유제옥.dxd',
     clinicNameInFile: '부산웃는치과',
+  },
+  // ★ Medit — 한 케이스가 obj 셋 (2026-10-05)
+  {
+    ...base,
+    id: '5',
+    patientName: 'Test',
+    chartNo: '',
+    scannedAt: '2026-09-09',
+    fileName: '2026-09-09-최정여-maxillary.obj',
+    fileSize: 15_700_000,
+    fileCount: 3,
+    clinicNameInFile: '',
   },
   {
     ...base,

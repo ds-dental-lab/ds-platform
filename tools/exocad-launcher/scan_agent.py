@@ -24,6 +24,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -35,6 +36,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
 
+import medit_case
 from dxd_case import read_case
 
 HERE = Path(__file__).resolve().parent
@@ -185,6 +187,16 @@ def settled(path: Path) -> bool:
         return False
 
 
+def settled_all(paths: list[Path]) -> bool:
+    """여러 파일이 다 쓰였는가 — 폴더로 내보내면 파일이 하나씩 떨어집니다"""
+    try:
+        first = [p.stat().st_size for p in paths]
+        time.sleep(SETTLE_SECONDS)
+        return all(n > 0 for n in first) and first == [p.stat().st_size for p in paths]
+    except OSError:
+        return False
+
+
 class Agent:
     """폴더를 보고 올리는 일. 창(App)이 이 객체를 쥐고 씁니다."""
 
@@ -208,24 +220,26 @@ class Agent:
         return True
 
     # -- 올리기 --
-    def upload(self, path: Path) -> None:
-        case = read_case(path)
-        if case.case_guid and case.case_guid in self.seen:
+    def upload_case(self, case_key: str, meta: dict, files: list[tuple[Path, str]], label: str) -> None:
+        """
+        한 케이스를 올립니다.
+
+        ★ 파일이 여럿일 수 있습니다 (Medit 은 상악·하악·교합이 따로 나옵니다).
+          묶어서 zip 하나로 보내지 않습니다 — exocad 런처가 파일 이름의 부위
+          낱말로 가려 넣기 때문에, 묶으면 그 자리에서 사람이 풀어야 합니다.
+        """
+        if case_key and case_key in self.seen:
             return
 
-        self.say(f"{path.name} — {case.patient_name or '이름 모름'} 올리는 중…")
+        self.say(f"{label} — {meta.get('patientName') or '이름 모름'} 올리는 중…")
 
         slot = post_json(
             f"{SITE}/api/device/scan",
             {
-                "patientName": case.patient_name,
-                "chartNo": case.chart_no,
-                "clinicNameInFile": case.clinic_name,
-                "caseGuid": case.case_guid,
-                "scannedAt": case.scanned_at,
-                "teeth": case.teeth,
-                "fileName": path.name,
-                "fileSize": path.stat().st_size,
+                **meta,
+                "fileName": files[0][1],
+                "fileSize": files[0][0].stat().st_size,
+                "files": [{"name": name, "size": path.stat().st_size} for path, name in files],
             },
             self.cfg.get("token"),
         )
@@ -237,9 +251,13 @@ class Agent:
         if slot.get("already"):
             self.say("   이미 올라간 케이스입니다 — 건너뜁니다")
         else:
-            if not put_file(path, slot["path"], slot["token"]):
-                self.say("   올리다 끊겼습니다. 다음 차례에 다시 해 봅니다")
-                return
+            # 자리는 보낸 차례 그대로 돌아옵니다
+            for (path, name), place in zip(files, slot.get("uploads") or [{"path": slot["path"], "token": slot["token"]}]):
+                if len(files) > 1:
+                    self.say(f"      {name}")
+                if not put_file(path, place["path"], place["token"]):
+                    self.say("   올리다 끊겼습니다. 다음 차례에 다시 해 봅니다")
+                    return
 
             done = post_json(f"{SITE}/api/device/scan/done", {"scanId": slot["scanId"]}, self.cfg.get("token"))
             if not done.get("ok"):
@@ -248,34 +266,101 @@ class Agent:
 
             self.say("   올렸습니다. 주문 등록 창을 엽니다")
 
-        if case.case_guid:
-            self.seen.add(case.case_guid)
+        if case_key:
+            self.seen.add(case_key)
             self.cfg["done_cases"] = sorted(self.seen)[-500:]
             save_settings(self.cfg)
 
         # ★ 주문 등록 창 — 환자 이름과 이 스캔이 채워진 채로 열립니다
         webbrowser.open(f"{SITE}/clinic/orders/new?scan={slot['scanId']}")
 
+    def upload_dxd(self, path: Path) -> None:
+        case = read_case(path)
+        self.upload_case(
+            case.case_guid,
+            {
+                "patientName": case.patient_name,
+                "chartNo": case.chart_no,
+                "clinicNameInFile": case.clinic_name,
+                "caseGuid": case.case_guid,
+                "scannedAt": case.scanned_at,
+                "teeth": case.teeth,
+            },
+            [(path, path.name)],
+            path.name,
+        )
+
+    def upload_medit(self, folder_name: str, files: list[Path]) -> None:
+        """Medit 한 벌 — 폴더째 또는 zip 에서 푼 것"""
+        case = medit_case.read_case(folder_name, [f.name for f in files])
+        self.upload_case(
+            case.case_key,
+            {
+                "patientName": case.patient_name,
+                "chartNo": "",
+                "clinicNameInFile": "",
+                "caseGuid": case.case_key,
+                "scannedAt": case.scanned_on,
+                "teeth": case.teeth,
+            },
+            [(f, f.name) for f in files],
+            f"{folder_name} (파일 {len(files)}개)",
+        )
+
+    def upload_zip(self, path: Path) -> None:
+        """압축해서 내보낸 경우 — 풀어서 그물 파일만 올립니다"""
+        try:
+            if not any(medit_case.is_mesh(n) for n in medit_case.names_in_zip(path)):
+                return
+        except Exception:
+            return                                   # zip 이 아니거나 깨진 것
+
+        with tempfile.TemporaryDirectory() as tmp:
+            files = medit_case.extract_zip(path, Path(tmp))
+            if files:
+                self.upload_medit(path.stem, sorted(files))
+
     # -- 지켜보기 --
     def watch(self, folder: Path) -> None:
-        # ★ 시작할 때 있던 파일은 '이미 있던 것' 으로 적어 둡니다 (쌓여 있던 것을 안 올립니다)
-        known = {p.name for p in folder.glob("*.dxd")}
+        """
+        ★ 세 가지를 봅니다 (2026-10-05).
+            ① 새 dxd 파일            — 프라임스캔·시로나
+            ② 새 폴더 (그물 파일 든)  — Medit '압축 안 함'
+            ③ 새 zip                 — Medit '압축함'
+        ★ 시작할 때 있던 것은 '이미 있던 것' 으로 적어 두고 건드리지 않습니다.
+        """
+        known = {p.name for p in folder.iterdir()} if folder.is_dir() else set()
         self.say(f"{folder} 를 봅니다. 이미 있던 {len(known)}개는 두고, 새로 들어오는 것만 올립니다.")
 
         while not self.stop.is_set():
             try:
-                for path in sorted(folder.glob("*.dxd")):
+                for path in sorted(folder.iterdir()):
                     if self.stop.is_set():
                         break
                     if path.name in known:
                         continue
-                    if not settled(path):
-                        continue
 
-                    known.add(path.name)
-                    self.upload(path)
+                    if path.is_dir():
+                        meshes = sorted(p for p in path.iterdir() if p.is_file() and medit_case.is_mesh(p.name))
+                        if not meshes or not settled_all(meshes):
+                            continue
+                        known.add(path.name)
+                        self.upload_medit(path.name, meshes)
+
+                    elif path.suffix.lower() == ".dxd":
+                        if not settled(path):
+                            continue
+                        known.add(path.name)
+                        self.upload_dxd(path)
+
+                    elif path.suffix.lower() == ".zip":
+                        if not settled(path):
+                            continue
+                        known.add(path.name)
+                        self.upload_zip(path)
+
             except Exception:
-                self.say("문제가 생겼습니다\n" + traceback.format_exc())
+                self.say("문제가 생겼습니다" + chr(10) + traceback.format_exc())
 
             self.stop.wait(POLL_SECONDS)
 

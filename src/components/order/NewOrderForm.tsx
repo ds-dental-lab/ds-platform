@@ -143,6 +143,8 @@ export interface NewOrderFormProps {
     teeth: number[];
     /** 파일 안에 적힌 치과명 — 우리 이름과 다르면 알립니다 */
     clinicNameInFile: string;
+    /** 한 케이스의 파일 수 (Medit 은 상악·하악·교합으로 여럿) */
+    fileCount: number;
   };
 }
 
@@ -632,7 +634,7 @@ function OrderFormBody({
       */
       const result = await submitOrder({
         ...payload,
-        plannedFileCount: pendingFiles.length + (incomingScan ? 1 : 0),
+        plannedFileCount: pendingFiles.length + (incomingScan?.fileCount ?? 0),
       });
 
       if (!result.ok) {
@@ -1165,6 +1167,9 @@ function OrderFormBody({
               <b className="font-bold text-[#1279E8]">구강스캐너에서 올라온 스캔</b>
               <span className="text-[#1A2130]">{incomingScan.fileName}</span>
               {incomingScan.chartNo && <span className="text-[#7C8595]">차트 {incomingScan.chartNo}</span>}
+              {incomingScan.fileCount > 1 && (
+                <span className="text-[#7C8595]">외 {incomingScan.fileCount - 1}개</span>
+              )}
               {incomingScan.teeth.length > 0 && (
                 <button
                   type="button"

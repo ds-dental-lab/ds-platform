@@ -97,6 +97,8 @@ export default function IncomingScanList({ scans, clinicName, rescanOrders }: In
                 )}
                 <span className="text-[12.5px] text-[#98A2B3]">
                   {scan.scannedAt || scan.createdAt.slice(0, 16).replace('T', ' ')} · {size(scan.fileSize)}
+                  {/* ★ Medit 은 한 케이스가 상악·하악·교합으로 나옵니다 (2026-10-05) */}
+                  {scan.fileCount > 1 && ` · 파일 ${scan.fileCount}개`}
                 </span>
 
                 {uploading ? (

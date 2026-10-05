@@ -15,6 +15,7 @@ import { randomUUID } from 'crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/server/policies/session';
+import { scanFilesOf } from '@/server/repositories/device-link';
 
 const BUCKET = 'order-files';
 
@@ -32,7 +33,7 @@ export async function submitAttachIncomingScan(
     supabase.from('orders').select('id').eq('id', orderId).maybeSingle(),
     supabase
       .from('incoming_scans')
-      .select('id, file_name, file_size, storage_path, upload_status, order_id')
+      .select('id, file_name, file_size, storage_path, files, upload_status, order_id')
       .eq('id', scanId)
       .maybeSingle(),
   ]);
@@ -42,6 +43,7 @@ export async function submitAttachIncomingScan(
     file_name: string;
     file_size: number | null;
     storage_path: string;
+    files: { name: string; path: string; size?: number }[] | null;
     upload_status: string;
     order_id: string | null;
   } | null;
@@ -52,31 +54,61 @@ export async function submitAttachIncomingScan(
   if (row.upload_status !== 'uploaded') return { ok: false, error: '아직 올라오는 중입니다' };
 
   const admin = createAdminClient();
-  const target = `orders/${orderId}/${randomUUID()}_file.dxd`;
+  const files = scanFilesOf(row);
 
-  const moved = await admin.storage.from(BUCKET).move(row.storage_path, target);
-  if (moved.error) return { ok: false, error: `파일을 옮기지 못했습니다: ${moved.error.message}` };
+  /*
+    ★ 파일마다 옮깁니다 (2026-10-05 — Medit 은 한 케이스가 obj 여럿).
+      **이름은 그대로 둡니다.** exocad 런처가 'maxillary·mandibular·occlusionfirst'
+      같은 부위 낱말로 상악·하악·교합을 가려 넣기 때문입니다.
+    ★ 하다 엎어지면 옮긴 것을 **전부 제자리로** 돌립니다. 반만 옮겨 둔 채로 두면
+      치과 목록에도 없고 주문에도 없는 파일이 생깁니다.
+  */
+  const moved: { from: string; to: string; name: string; size?: number }[] = [];
 
-  const { error: fileError } = await admin.from('order_files').insert({
-    order_id: orderId,
-    kind: 'scan',
-    storage_path: target,
-    file_name: row.file_name,
-    file_size: row.file_size,
-    mime_type: null,
-    uploaded_by: session.user.id,
-    upload_status: 'uploaded',
-  });
+  async function rollback() {
+    for (const m of moved) await admin.storage.from(BUCKET).move(m.to, m.from);
+  }
+
+  for (const file of files) {
+    const dot = file.path.lastIndexOf('.');
+    const ext = dot > 0 ? file.path.slice(dot) : '';
+    const target = `orders/${orderId}/${randomUUID()}_file${ext}`;
+
+    const result = await admin.storage.from(BUCKET).move(file.path, target);
+    if (result.error) {
+      await rollback();
+      return { ok: false, error: `파일을 옮기지 못했습니다: ${result.error.message}` };
+    }
+    moved.push({ from: file.path, to: target, name: file.name, size: file.size });
+  }
+
+  const { error: fileError } = await admin.from('order_files').insert(
+    moved.map((m) => ({
+      order_id: orderId,
+      kind: 'scan',
+      storage_path: m.to,
+      file_name: m.name,
+      file_size: m.size ?? null,
+      mime_type: null,
+      uploaded_by: session.user.id,
+      upload_status: 'uploaded',
+    })),
+  );
 
   if (fileError) {
     // 되돌려 둡니다 — 표에 없는 덩어리를 남기지 않습니다
-    await admin.storage.from(BUCKET).move(target, row.storage_path);
+    await rollback();
     return { ok: false, error: `주문에 붙이지 못했습니다: ${fileError.message}` };
   }
 
   await admin
     .from('incoming_scans')
-    .update({ order_id: orderId, storage_path: target, attached_at: new Date().toISOString() })
+    .update({
+      order_id: orderId,
+      storage_path: moved[0].to,
+      files: moved.map((m) => ({ name: m.name, path: m.to, size: m.size ?? 0 })),
+      attached_at: new Date().toISOString(),
+    })
     .eq('id', scanId);
 
   revalidatePath('/clinic/scans');
@@ -91,16 +123,23 @@ export async function submitDeleteIncomingScan(scanId: string): Promise<{ ok: bo
   const supabase = await createClient();
   const { data } = await supabase
     .from('incoming_scans')
-    .select('id, storage_path, order_id')
+    .select('id, storage_path, file_name, files, order_id')
     .eq('id', scanId)
     .maybeSingle();
 
-  const row = data as { id: string; storage_path: string; order_id: string | null } | null;
+  const row = data as {
+    id: string;
+    storage_path: string;
+    file_name: string | null;
+    files: { name: string; path: string }[] | null;
+    order_id: string | null;
+  } | null;
   if (!row) return { ok: false, error: '없는 스캔입니다' };
   if (row.order_id) return { ok: false, error: '이미 주문에 붙은 스캔입니다' };
 
   const admin = createAdminClient();
-  await admin.storage.from(BUCKET).remove([row.storage_path]);
+  // ★ 한 케이스의 파일을 **전부** 치웁니다 — 하나만 지우면 나머지가 떠돕니다
+  await admin.storage.from(BUCKET).remove(scanFilesOf(row).map((f) => f.path));
   await admin.from('incoming_scans').update({ deleted_at: new Date().toISOString() }).eq('id', scanId);
 
   revalidatePath('/clinic/scans');

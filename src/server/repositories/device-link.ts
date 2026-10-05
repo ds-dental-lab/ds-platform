@@ -85,10 +85,19 @@ export async function deviceFromToken(token: string | null): Promise<LinkedDevic
   return { id: row.id, clinicOrgId: row.clinic_org_id, name: row.name };
 }
 
-export interface ScanSlot {
-  scanId: string;
+export interface ScanUpload {
+  name: string;
   path: string;
   /** 저장소가 내준 업로드 열쇠 (이 주소로 PUT 하면 끝) */
+  token: string;
+}
+
+export interface ScanSlot {
+  scanId: string;
+  /** 파일마다 한 자리씩 (2026-10-05 — Medit 은 한 케이스가 obj 여럿) */
+  uploads: ScanUpload[];
+  /** 먼저 나간 올리미를 위해 첫 파일을 그대로도 적어 둡니다 */
+  path: string;
   token: string;
 }
 
@@ -118,11 +127,21 @@ export async function openScanSlot(
 
     const found = existing as { id: string; storage_path: string; upload_status: string } | null;
     if (found && found.upload_status === 'uploaded') {
-      return { ok: true, already: true, slot: { scanId: found.id, path: found.storage_path, token: '' } };
+      return {
+        ok: true,
+        already: true,
+        slot: { scanId: found.id, uploads: [], path: found.storage_path, token: '' },
+      };
     }
   }
 
-  const path = `incoming/${device.clinicOrgId}/${crypto.randomUUID()}.dxd`;
+  // ★ 파일마다 자리를 하나씩 엽니다. 확장자는 지켜 둡니다 — 뒤에 주문 폴더로
+  //   옮길 때도, exocad 런처가 부위를 가릴 때도 이름이 일입니다.
+  const placed = meta.files.map((f) => {
+    const dot = f.name.lastIndexOf('.');
+    const ext = dot > 0 ? f.name.slice(dot).toLowerCase() : '';
+    return { ...f, path: `incoming/${device.clinicOrgId}/${crypto.randomUUID()}${ext}` };
+  });
 
   const { data: row, error } = await admin
     .from('incoming_scans')
@@ -137,7 +156,8 @@ export async function openScanSlot(
       teeth: meta.teeth,
       file_name: meta.fileName,
       file_size: meta.fileSize,
-      storage_path: path,
+      storage_path: placed[0].path,
+      files: placed.map((f) => ({ name: f.name, path: f.path, size: f.size })),
       upload_status: 'pending',
     })
     .select('id')
@@ -145,12 +165,20 @@ export async function openScanSlot(
 
   if (error || !row) return { ok: false, error: `자리를 열지 못했습니다: ${error?.message ?? ''}` };
 
-  const signed = await admin.storage.from(BUCKET).createSignedUploadUrl(path);
-  if (signed.error || !signed.data) {
-    return { ok: false, error: '업로드 주소를 못 받았습니다' };
+  const uploads: ScanUpload[] = [];
+  for (const f of placed) {
+    const signed = await admin.storage.from(BUCKET).createSignedUploadUrl(f.path);
+    if (signed.error || !signed.data) {
+      return { ok: false, error: '업로드 주소를 못 받았습니다' };
+    }
+    uploads.push({ name: f.name, path: f.path, token: signed.data.token });
   }
 
-  return { ok: true, already: false, slot: { scanId: row.id, path, token: signed.data.token } };
+  return {
+    ok: true,
+    already: false,
+    slot: { scanId: row.id, uploads, path: uploads[0].path, token: uploads[0].token },
+  };
 }
 
 /** 다 올렸다고 표시합니다. 저장소에 실제로 있는지 확인한 뒤에만 */
@@ -162,29 +190,66 @@ export async function finishScan(
 
   const { data } = await admin
     .from('incoming_scans')
-    .select('id, storage_path, clinic_org_id')
+    .select('id, storage_path, clinic_org_id, files')
     .eq('id', scanId)
     .maybeSingle();
 
-  const row = data as { id: string; storage_path: string; clinic_org_id: string } | null;
+  const row = data as {
+    id: string;
+    storage_path: string;
+    clinic_org_id: string;
+    files: ScanFileRow[] | null;
+  } | null;
   if (!row || row.clinic_org_id !== device.clinicOrgId) return { ok: false, error: '없는 스캔입니다' };
 
-  const folder = row.storage_path.slice(0, row.storage_path.lastIndexOf('/'));
-  const name = row.storage_path.slice(row.storage_path.lastIndexOf('/') + 1);
-  const { data: listed } = await admin.storage.from(BUCKET).list(folder, { search: name });
+  const wanted = scanFilesOf(row);
 
-  const found = (listed ?? []).find((f) => f.name === name);
-  if (!found) return { ok: false, error: '저장소에 파일이 없습니다' };
+  /*
+    ★ **하나라도 없으면 '올라옴' 으로 안 바꿉니다** (2026-10-05).
+      Medit 은 한 케이스가 obj 여럿입니다. 셋 중 둘만 올라간 채로 목록에 뜨면
+      치과는 멀쩡한 줄 알고 주문서를 쓰고, 디자인센터는 교합이 없는 케이스를 받습니다.
+  */
+  let total = 0;
+  for (const file of wanted) {
+    const cut = file.path.lastIndexOf('/');
+    const { data: listed } = await admin.storage
+      .from(BUCKET)
+      .list(file.path.slice(0, cut), { search: file.path.slice(cut + 1) });
+
+    const found = (listed ?? []).find((f) => f.name === file.path.slice(cut + 1));
+    if (!found) return { ok: false, error: `저장소에 ${file.name} 이(가) 없습니다` };
+
+    total += (found.metadata as { size?: number } | null)?.size ?? 0;
+  }
 
   await admin
     .from('incoming_scans')
-    .update({
-      upload_status: 'uploaded',
-      file_size: (found.metadata as { size?: number } | null)?.size ?? null,
-    })
+    .update({ upload_status: 'uploaded', file_size: total })
     .eq('id', scanId);
 
   return { ok: true };
+}
+
+export interface ScanFileRow {
+  name: string;
+  path: string;
+  size?: number;
+}
+
+/**
+ * 이 스캔의 파일들.
+ *
+ * ★ 예전 줄(dxd)은 files 가 비어 있습니다. 그때는 storage_path 하나로 봅니다 —
+ *   지난 줄을 건드려 고치지 않습니다 (migration 20261005120000).
+ */
+export function scanFilesOf(row: {
+  storage_path: string;
+  file_name?: string | null;
+  files?: ScanFileRow[] | null;
+}): ScanFileRow[] {
+  const listed = (row.files ?? []).filter((f) => f?.path);
+  if (listed.length > 0) return listed;
+  return [{ name: row.file_name ?? '스캔', path: row.storage_path }];
 }
 
 
@@ -221,6 +286,8 @@ export interface IncomingScanRow {
   teeth: number[];
   fileName: string;
   fileSize: number | null;
+  /** 한 케이스의 파일 수 (Medit 은 상악·하악·교합으로 여럿) */
+  fileCount: number;
   uploadStatus: string;
   createdAt: string;
 }
@@ -232,7 +299,9 @@ export async function listIncomingScans(): Promise<IncomingScanRow[]> {
 
   const { data } = await supabase
     .from('incoming_scans')
-    .select('id, patient_name, chart_no, clinic_name_in_file, scanned_at, teeth, file_name, file_size, upload_status, created_at')
+    .select(
+      'id, patient_name, chart_no, clinic_name_in_file, scanned_at, teeth, file_name, file_size, files, storage_path, upload_status, created_at',
+    )
     .is('order_id', null)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -247,6 +316,7 @@ export async function listIncomingScans(): Promise<IncomingScanRow[]> {
     teeth: ((r.teeth as number[]) ?? []).slice(),
     fileName: (r.file_name as string) ?? '',
     fileSize: (r.file_size as number) ?? null,
+    fileCount: scanFilesOf(r as unknown as { storage_path: string; files?: ScanFileRow[] }).length,
     uploadStatus: (r.upload_status as string) ?? 'pending',
     createdAt: r.created_at as string,
   }));
