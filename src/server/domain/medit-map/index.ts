@@ -75,6 +75,22 @@ const PONTIC_WORDS = ['PONTIC', '폰틱'];
 /** 임플란트 쪽인가 */
 const IMPLANT_WORDS = ['IMPLANTCROWN', '임플란트', 'CUSTOMABUTMENT', '커스텀어버트먼트'];
 
+/**
+ * 종류만 가립니다 — 재료를 모를 때 (사용자 요청 2026-10-05).
+ *
+ * ★ DS Core 주문 목록에는 '크라운 · 13, 12, 11' 처럼 **종류와 치식만** 옵니다.
+ *   재료(지르코니아·PMMA)는 안 옵니다. 그래도 종류를 미리 골라 두면 사람이
+ *   재료 하나만 누르면 됩니다 — 아무것도 안 고르는 것보다 낫습니다.
+ * ★ 임플란트는 돌려주지 않습니다. 덴플로우 임플란트는 재료가 곧 방식이라
+ *   (SCRP·Cementation) 종류만으로는 고를 것이 정해지지 않습니다.
+ */
+export function mapCategory(category: string): string | null {
+  if (has(category, IMPLANT_WORDS)) return null;
+  if (has(category, ['INLAY', '인레이', 'ONLAY', '온레이'])) return 'inlay';
+  if (has(category, ['CROWN', '크라운', 'PONTIC', '폰틱', 'COPING', '코핑'])) return 'crown';
+  return null;
+}
+
 export function mapProduct(input: MeditProduct): MappedProduct | null {
   const { category, method, material } = input;
 
