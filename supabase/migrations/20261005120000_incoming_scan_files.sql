@@ -23,3 +23,22 @@ alter table incoming_scans
 
 comment on column incoming_scans.files is
   '한 케이스의 파일들 [{name, path, size}]. 비어 있으면 storage_path 하나 (2026-10-05)';
+
+
+-- ---------------------------------------------------------
+-- 같은 케이스를 **다시 스캔해서** 내보냈을 때 (2026-10-05)
+--
+-- ★★ 지금 색인은 '같은 케이스 번호면 한 줄' 이라, 이미 주문에 붙은 케이스를
+--   다시 내보내면 **아예 못 올라갑니다** (unique 위반). 그런데 다시 내보내는
+--   가장 흔한 이유가 **재스캔** 입니다 — 디자인센터가 "스캔이 이상하니 다시
+--   올려 달라" 고 한 그 케이스입니다. 막아 두면 그 길이 끊깁니다.
+--
+-- ★ 그래서 '아직 주문에 안 붙은 것' 끼리만 막습니다. 목록에 두 줄이 생기는
+--   것은 그대로 막고, 붙고 난 뒤의 새 스캔은 받습니다.
+-- ---------------------------------------------------------
+
+drop index if exists incoming_scans_case_unique;
+
+create unique index if not exists incoming_scans_case_unique
+  on incoming_scans (clinic_org_id, case_guid)
+  where case_guid <> '' and deleted_at is null and order_id is null;

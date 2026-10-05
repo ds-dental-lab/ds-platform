@@ -48,6 +48,30 @@ describe('실제 Medit 내보내기', () => {
   });
 });
 
+/*
+  ★★ 같은 이름이 이미 있으면 Medit 이 '…_(3)' 으로 폴더를 하나 더 만듭니다
+    (사용자 제보 2026-10-05 — 내보내기 창 그림). 치과는 보통 이쪽을 고릅니다,
+    덮어쓰기는 이전 결과를 지우니까요. 떼지 않으면 환자 이름이
+    'Test의 케이스_(3)' 으로 주문서에 찍히고, 같은 케이스가 두 줄이 됩니다.
+*/
+describe('★ 같은 이름으로 또 내보냈을 때', () => {
+  it('환자 이름에 꼬리가 안 붙습니다', () => {
+    expect(patientFromCaseName('2026-09-11-Test의 케이스_(3)')).toBe('Test');
+    expect(patientFromCaseName('2026-09-11-Test의 케이스_(1).zip')).toBe('Test');
+  });
+
+  it('같은 케이스로 봅니다 — 두 줄이 안 생깁니다', () => {
+    const first = readMeditCase('2026-09-11-Test의 케이스', FILES).caseKey;
+    expect(readMeditCase('2026-09-11-Test의 케이스_(3)', FILES).caseKey).toBe(first);
+    expect(readMeditCase('2026-09-11-Test의 케이스_(1).zip', FILES).caseKey).toBe(first);
+  });
+
+  // ★ 치과가 이름에 진짜로 (2) 를 쓴 것까지 뺏지는 않습니다 — Medit 꼬리는 '_(N)' 입니다
+  it('사람이 적은 괄호는 그대로 둡니다', () => {
+    expect(patientFromCaseName('2026-09-11-김민수 (상악)')).toBe('김민수 (상악)');
+  });
+});
+
 describe('케이스 이름에서 환자', () => {
   it("'…의 케이스' 를 뗍니다", () => {
     expect(patientFromCaseName('2026-09-11-Test의 케이스')).toBe('Test');

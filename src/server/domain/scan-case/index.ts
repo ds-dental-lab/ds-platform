@@ -47,9 +47,25 @@ export function isMeshFile(name: string): boolean {
 
 const DATE_HEAD = /^\d{4}-\d{2}-\d{2}[-_ ]+/;
 
+/**
+ * 같은 이름이 이미 있을 때 Medit 이 붙이는 꼬리 — '…_(1)', '…_(3)'.
+ *
+ * ★★ 떼지 않으면 두 군데가 틀립니다 (사용자 제보 2026-10-05, 내보내기 창 그림).
+ *   ① 환자 이름이 'Test의 케이스_(3)' 으로 주문서에 찍힙니다.
+ *   ② 같은 케이스인데 열쇠가 달라져 '들어온 스캔' 에 두 줄이 생깁니다.
+ *   치과는 '새로운 폴더를 만들고 내보내기' 를 고르는 쪽이 보통입니다 —
+ *   덮어쓰기는 이전 결과를 지우니까요. 즉 흔한 길입니다.
+ */
+const COPY_TAIL = /_\(\d+\)$/;
+
 /** 맨 앞의 'YYYY-MM-DD-' 를 뗍니다. 날짜는 이름이 아닙니다 */
 function withoutDate(name: string): string {
-  return name.replace(DATE_HEAD, '').trim();
+  return name.replace(DATE_HEAD, '').replace(COPY_TAIL, '').trim();
+}
+
+/** '…_(3)' 과 '…' 은 같은 케이스입니다 */
+export function withoutCopyTail(name: string): string {
+  return name.replace(/\.zip$/i, '').trim().replace(COPY_TAIL, '').trim();
 }
 
 /** 맨 앞의 날짜만 따로 */
@@ -111,6 +127,6 @@ export function readMeditCase(folderName: string, fileNames: string[]): MeditCas
     patientName: fromCase || fromMesh,
     scannedOn: (meshes.map(dateInName).find(Boolean) || dateInName(folderName)) ?? '',
     teeth: teeth.length > 0 ? teeth : teethFromName(meshes.join(' ')),
-    caseKey: `medit:${folderName.replace(/\.zip$/i, '').trim()}`,
+    caseKey: `medit:${withoutCopyTail(folderName)}`,
   };
 }

@@ -123,6 +123,10 @@ export async function openScanSlot(
       .eq('clinic_org_id', device.clinicOrgId)
       .eq('case_guid', meta.caseGuid)
       .is('deleted_at', null)
+      // ★ 이미 주문에 붙은 줄은 셈에 넣지 않습니다 (2026-10-05).
+      //   같은 케이스를 다시 내보내는 가장 흔한 이유가 **재스캔** 입니다 —
+      //   붙은 것을 이유로 막으면 그 길이 끊깁니다.
+      .is('order_id', null)
       .maybeSingle();
 
     const found = existing as { id: string; storage_path: string; upload_status: string } | null;

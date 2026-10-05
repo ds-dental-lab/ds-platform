@@ -38,6 +38,11 @@ REGION_WORDS = (
 )
 
 DATE_HEAD = re.compile(r"^\d{4}-\d{2}-\d{2}[-_ ]+")
+
+# ★★ 같은 이름이 이미 있을 때 Medit 이 붙이는 꼬리 — '…_(1)', '…_(3)'.
+#   떼지 않으면 환자가 'Test의 케이스_(3)' 으로 찍히고, 같은 케이스가 또 올라갑니다
+#   (사용자 제보 2026-10-05). 치과는 보통 '새 폴더로 내보내기' 를 고릅니다.
+COPY_TAIL = re.compile(r"_\(\d+\)$")
 DATE_ONLY = re.compile(r"^(\d{4}-\d{2}-\d{2})")
 
 
@@ -46,7 +51,12 @@ def is_mesh(name: str) -> bool:
 
 
 def _without_date(name: str) -> str:
-    return DATE_HEAD.sub("", name).strip()
+    return COPY_TAIL.sub("", DATE_HEAD.sub("", name).strip()).strip()
+
+
+def without_copy_tail(name: str) -> str:
+    """'…_(3)' 과 '…' 은 같은 케이스입니다"""
+    return COPY_TAIL.sub("", re.sub(r"\.zip$", "", name, flags=re.I).strip()).strip()
 
 
 def date_in_name(name: str) -> str:
@@ -99,7 +109,7 @@ def read_case(folder_name: str, file_names: list[str]) -> MeditCase:
         scanned_on=scanned,
         teeth=teeth,
         # ★ 케이스 번호가 없으니 폴더 이름을 열쇠로 — 다시 내보내도 두 줄이 안 생깁니다
-        case_key="medit:" + re.sub(r"\.zip$", "", folder_name, flags=re.I).strip(),
+        case_key="medit:" + without_copy_tail(folder_name),
     )
 
 

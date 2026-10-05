@@ -203,7 +203,6 @@ class Agent:
     def __init__(self, say) -> None:
         self.say = say
         self.cfg = load_settings()
-        self.seen: set[str] = set(self.cfg.get("done_cases", []))
         self.stop = threading.Event()
 
     # -- 연결 --
@@ -228,9 +227,9 @@ class Agent:
           묶어서 zip 하나로 보내지 않습니다 — exocad 런처가 파일 이름의 부위
           낱말로 가려 넣기 때문에, 묶으면 그 자리에서 사람이 풀어야 합니다.
         """
-        if case_key and case_key in self.seen:
-            return
-
+        # ★ 같은 케이스인지는 **서버가** 압니다 (2026-10-05).
+        #   여기서 혼자 막으면, 재스캔해서 다시 내보낸 것까지 막힙니다.
+        #   서버는 아직 주문에 안 붙은 줄만 '이미 올라감' 으로 봅니다.
         self.say(f"{label} — {meta.get('patientName') or '이름 모름'} 올리는 중…")
 
         slot = post_json(
@@ -265,11 +264,6 @@ class Agent:
                 return
 
             self.say("   올렸습니다. 주문 등록 창을 엽니다")
-
-        if case_key:
-            self.seen.add(case_key)
-            self.cfg["done_cases"] = sorted(self.seen)[-500:]
-            save_settings(self.cfg)
 
         # ★ 주문 등록 창 — 환자 이름과 이 스캔이 채워진 채로 열립니다
         webbrowser.open(f"{SITE}/clinic/orders/new?scan={slot['scanId']}")
@@ -341,8 +335,22 @@ class Agent:
                         continue
 
                     if path.is_dir():
-                        meshes = sorted(p for p in path.iterdir() if p.is_file() and medit_case.is_mesh(p.name))
-                        if not meshes or not settled_all(meshes):
+                        inside = [p for p in path.iterdir() if p.is_file()]
+                        meshes = sorted(p for p in inside if medit_case.is_mesh(p.name))
+
+                        if not meshes:
+                            # ★ Medit 내보내기 창에서 obj·stl·ply 를 하나도 안 고르면
+                            #   (meditMesh 만 켜면) 올릴 것이 없습니다. 조용히 지나가면
+                            #   치과는 올라간 줄 압니다 — 한 줄 적어 둡니다 (2026-10-05).
+                            if inside:
+                                known.add(path.name)
+                                self.say(
+                                    f"{path.name} — 올릴 파일이 없습니다. "
+                                    "메딧 내보내기에서 OBJ 나 PLY, STL 을 켜 주세요"
+                                )
+                            continue
+
+                        if not settled_all(meshes):
                             continue
                         known.add(path.name)
                         self.upload_medit(path.name, meshes)
