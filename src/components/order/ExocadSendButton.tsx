@@ -17,7 +17,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { issueExocadLaunch, recordExocadSend } from '@/server/actions/exocad';
+import { issueExocadLaunch, recordExocadSend, getExocadLast } from '@/server/actions/exocad';
 
 /** 토큰(10분)보다 짧게 — 눌렀을 때 항상 살아 있는 주소를 쥐고 있게 */
 const REFRESH_MS = 8 * 60 * 1000;
@@ -40,6 +40,43 @@ export default function ExocadSendButton({
   const [error, setError] = useState<string | null>(null);
   const [launched, setLaunched] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
+  /*
+    ★ 눌렀으면 결과가 올 때까지 2초마다 묻습니다. 끝나거나 2분이 지나면 멈춥니다 —
+      켜 둔 채로 두면 주문 화면을 띄워 놓는 동안 쓸데없이 계속 두드립니다.
+  */
+  useEffect(() => {
+    if (!launched) return;
+
+    const until = Date.now() + 2 * 60_000;
+    let alive = true;
+
+    const timer = setInterval(async () => {
+      const got = await getExocadLast(orderId);
+      if (!alive) return;
+
+      if (got?.status) {
+        setFresh(got);
+        setLaunched(false);
+        clearInterval(timer);
+      } else if (Date.now() > until) {
+        setLaunched(false);
+        clearInterval(timer);
+      }
+    }, 2000);
+
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [launched, orderId]);
+
+  /**
+   * 눌러 둔 뒤 서버에서 받아 온 결과 (2026-10-06).
+   *
+   * ★ 런처는 3~5초면 끝내고 결과도 보냅니다. 전에는 화면이 그걸 안 가져와서
+   *   '여는 중' 에 멈춰 있었고, 새로고침해야 보였습니다.
+   */
+  const [fresh, setFresh] = useState<ExocadLastResult | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -73,7 +110,7 @@ export default function ExocadSendButton({
     });
   }
 
-  const pill = pillOf(launched, last);
+  const pill = pillOf(launched, fresh ?? last);
 
   /*
     ★ 한 줄짜리 단추 (사용자 지적 2026-09-10 — "열도 안 맞고 이뻐 보이지 않는다").
@@ -121,7 +158,17 @@ function pillOf(launched: boolean, last: ExocadLastResult | null): React.ReactNo
   if (launched) return <Pill tone="wait" title="런처가 여는 중입니다. 안 뜨면 PC 에 덴플로우 런처가 설치돼 있는지 확인하세요">여는 중</Pill>;
   if (!last) return null;
   const when = last.requestedAt.slice(11, 16);
-  if (last.status === 'done') return <Pill tone="ok" title={`${last.requestedAt.slice(5, 16).replace('T', ' ')} exocad 로 보냄 · 완료`}>✓ {when}</Pill>;
+  if (last.status === 'done') {
+    // ★ 어느 폴더로 들어갔는지가 제일 궁금한 값입니다 — 그걸 알약에 적습니다
+    return (
+      <Pill
+        tone="ok"
+        title={`${last.requestedAt.slice(5, 16).replace('T', ' ')} exocad 로 보냄 · 완료${last.message ? ` · ${last.message}` : ''}`}
+      >
+        ✓ {last.message || when}
+      </Pill>
+    );
+  }
   if (last.status === 'failed') return <Pill tone="bad" title={`${when} 실패${last.message ? `: ${last.message}` : ''}`}>! {when}</Pill>;
   if (last.fetchedAt) return <Pill tone="wait" title={`${when} 런처가 받아 감 · 아직 결과 없음`}>… {when}</Pill>;
   return <Pill tone="mute" title={`${when} 보냈지만 런처 응답이 없었습니다`}>– {when}</Pill>;

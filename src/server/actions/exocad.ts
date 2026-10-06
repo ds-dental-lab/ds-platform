@@ -70,3 +70,16 @@ export async function requestExocadLaunch(orderId: string): Promise<ExocadLaunch
   await recordExocadSend(orderId);
   return issued;
 }
+
+/**
+ * exocad 로 보낸 마지막 결과 (사용자 지적 2026-10-06).
+ *
+ * ★★ 전에는 화면이 '여는 중' 에 멈춰 있었습니다. 런처는 3~5초면 끝내고 결과도
+ *   제대로 보내는데, 화면이 그걸 **가져오지 않아서** 새로고침해야 보였습니다.
+ *   눌러 놓고 뭐가 되고 있는지 모르는 것이 제일 답답한 자리입니다.
+ * ★ 가벼워야 해서 한 줄만 돌려줍니다 — 몇 초마다 묻습니다.
+ */
+export async function getExocadLast(orderId: string) {
+  const { getLastExocadExport } = await import('@/server/repositories/exocad');
+  return getLastExocadExport(orderId);
+}

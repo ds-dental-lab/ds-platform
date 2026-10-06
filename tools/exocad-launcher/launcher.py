@@ -400,7 +400,14 @@ class Job:
                 raise RuntimeError(f"덴플로우가 거절했습니다 ({r.status_code}): {r.json().get('error', r.text)}")
             data = r.json()
         patient = data["patientName"]
-        order_date = data["orderDate"]
+        # ★★ 폴더 날짜는 **오늘** 입니다 (사용자 지적 2026-10-06).
+        #   전에는 주문일을 썼습니다 — 어제 들어온 주문을 오늘 보내면 폴더가
+        #   어제 날짜로 생겨, exocad 목록에서 오늘 보낸 것을 못 찾습니다.
+        #   DB 의 t_date 와 XML 의 DateTime 도 같이 맞춥니다 (어긋나면 exocad 가
+        #   "이 프로젝트의 파일은 유효하지 않습니다" 라고 합니다 — 2026-09-10 확인).
+        # ★ 값: 같은 주문을 다른 날 또 보내면 폴더가 하나 더 생깁니다. 같은 날
+        #   다시 보내면 전처럼 덮어씁니다.
+        order_date = dt.date.today().isoformat()
         self.patient = patient
         self.order_no = data.get("orderNo", self.order_no)
         self.win.set_case(patient, self.order_no)
@@ -459,7 +466,7 @@ class Job:
         project_guid = str(uuid.uuid4())
         # ★ exocad 는 케이스 폴더를 "등록 날짜_이름" 으로 찾습니다 (2026-09-10 확인 —
         #   날짜가 어긋나면 "이 프로젝트의 파일은 유효하지 않습니다"). 그래서 DB 의 t_date 와
-        #   XML 의 DateTime 을 **폴더 날짜(주문일)** 로 맞추고 시각만 지금으로 둡니다.
+        #   XML 의 DateTime 을 **폴더 날짜(오늘)** 로 맞추고 시각만 지금으로 둡니다.
         now = dt.datetime.now().astimezone()
         made_at = dt.datetime.combine(dt.date.fromisoformat(order_date), now.time(), tzinfo=now.tzinfo)
         # ★ 주문서(XML)는 환자 번호가 정해진 뒤(DB 등록 뒤)에 씁니다. 여기서는 폴더만.
