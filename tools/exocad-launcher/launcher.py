@@ -34,6 +34,7 @@ import tempfile
 import threading
 import time
 import tkinter as tk
+import zipfile
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -113,6 +114,44 @@ def place_name(folder_name: str, original: str, jaw: str | None = None) -> str:
         return f"{folder_name}-{other}jaw{ext}"
 
     return original
+
+
+def unzip_scans(zip_path: Path, into: Path) -> list[Path]:
+    """
+    zip 으로 올라온 스캔을 풀어 둡니다 (사용자 물음 2026-10-06).
+
+    ★ exocad 는 zip 을 못 엽니다. 그대로 두면 사람이 손으로 풀어야 합니다.
+    ★ 쓸 만한 것만 꺼냅니다 — 그물(stl·obj·ply)·dxd·3Shape 주문서
+      (.constructionInfo). 그 밖의 것은 두고 옵니다.
+    ★ 한글 이름이 깨지지 않게 CP949 로 되돌립니다. 'UTF-8 이다' 표시가 없는
+      zip 은 파이썬이 CP437 로 읽어 '└╟ ─╔' 처럼 됩니다 (메딧 zip 에서 겪음).
+    ★ 폴더 구조는 버리고 **파일만** 꺼냅니다. exocad 는 케이스 폴더 바로 아래를 봅니다.
+    """
+    keep = (".stl", ".obj", ".ply", ".dxd", ".constructioninfo")
+    out: list[Path] = []
+
+    with zipfile.ZipFile(zip_path) as z:
+        for info in z.infolist():
+            if info.is_dir():
+                continue
+
+            name = info.filename
+            if not (info.flag_bits & 0x800):
+                try:
+                    name = name.encode("cp437").decode("cp949")
+                except (UnicodeEncodeError, UnicodeDecodeError):
+                    pass
+
+            leaf = name.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+            if not leaf or not leaf.lower().endswith(keep):
+                continue
+
+            target = into / leaf
+            with z.open(info) as src, open(target, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+            out.append(target)
+
+    return out
 
 
 def unique_folder(base: Path) -> Path:
@@ -440,6 +479,26 @@ class Job:
         scan_abutment = False
         if jaw is None:
             self.note("치식이 두 악에 걸쳐 있어 상·하악을 못 정했습니다 — 이름 그대로 둡니다")
+
+        # ★ zip 으로 올라온 것은 먼저 풉니다 — exocad 는 zip 을 못 엽니다
+        unpacked: list[Path] = []
+        for p in list(got):
+            if p.suffix.lower() != ".zip":
+                continue
+            try:
+                inner = unzip_scans(p, p.parent)
+            except Exception as e:  # noqa: BLE001
+                self.note(f"★ {p.name} 을 풀지 못했습니다 ({e}) — 그대로 넣습니다")
+                continue
+
+            if not inner:
+                self.note(f"{p.name} — 안에 쓸 파일이 없습니다. 그대로 넣습니다")
+                continue
+
+            got.remove(p)
+            unpacked.extend(inner)
+            self.note(f"{p.name} 을 풀었습니다 ({len(inner)}개)")
+        got.extend(unpacked)
 
         dxds: list[Path] = []
         for p in got:
