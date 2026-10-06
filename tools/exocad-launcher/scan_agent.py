@@ -478,6 +478,7 @@ INK, SUB, DIM, FAINT = "#1A2130", "#4A5567", "#7C8595", "#98A2B3"
 LINE, PAPER, BG, TINT = "#E8EBF0", "#FFFFFF", "#F4F6F9", "#F2F7FE"
 BLUE, BLUE_DARK = "#1279E8", "#0F68C9"
 GREEN, GREY = "#1F9254", "#C4CBD6"
+RED = "#D64545"   # 프린터 점검이 실패했을 때 (2026-10-06)
 F = "Malgun Gothic"
 
 
@@ -493,8 +494,8 @@ class App:
 
         self.root = tk.Tk()
         self.root.title("덴플로우 에이전트")
-        self.root.geometry("620x600")
-        self.root.minsize(560, 520)
+        self.root.geometry("620x740")
+        self.root.minsize(560, 640)
         self.root.configure(bg=BG)
         try:
             self.root.iconbitmap(str(asset("denflow.ico")))
@@ -505,12 +506,20 @@ class App:
         self.code = tk.StringVar(value="")
         self.auto = tk.BooleanVar(value=autostart_on())
 
+        # ★ 프린터는 **시리얼과 액세스 코드만** 적습니다 (2026-10-06).
+        #   IP 는 공유기가 빌려주는 번호라 정전·재부팅으로 바뀝니다.
+        #   주소는 보낼 때마다 시리얼로 찾습니다.
+        self.p_serial = tk.StringVar(value=self.agent.cfg.get("printer_serial", ""))
+        self.p_code = tk.StringVar(value=self.agent.cfg.get("printer_code", ""))
+        self.p_on = tk.BooleanVar(value=self.agent.cfg.get("printer_kind") == "bambu")
+
         self._header()
         body = tk.Frame(self.root, bg=BG)
         body.pack(fill="both", expand=True, padx=20, pady=(16, 18))
 
         self._step_connect(body)
         self._step_folder(body)
+        self._step_printer(body)
         self._controls(body)
         self._log(body)
 
@@ -642,6 +651,74 @@ class App:
             inner, text="스캐너 프로그램의 내보내기 설정에 적힌 그 폴더입니다",
             font=(F, 9), bg=PAPER, fg=FAINT,
         ).pack(anchor="w", pady=(7, 0))
+
+    def _step_printer(self, body) -> None:
+        """
+        치과에 프린터가 있을 때만 켭니다 (자동 템포러리, 2026-10-06).
+
+        ★ 꺼 두면 가짜로 돕니다 — 실수로 진짜 기계에 출력이 걸리지 않습니다.
+        ★ IP 칸이 없습니다. 일부러입니다 — 시리얼로 찾습니다.
+        """
+        card = self._card(body, "3", "프린터 (쓰실 때만)")
+        inner = tk.Frame(card, bg=PAPER)
+        inner.pack(fill="x", padx=14, pady=(8, 13))
+
+        tk.Checkbutton(
+            inner, text="이 치과에서 자동 출력을 씁니다", variable=self.p_on,
+            command=self.save_printer, font=(F, 9), bg=PAPER, fg=SUB,
+            activebackground=PAPER, activeforeground=SUB, selectcolor=PAPER,
+            cursor="hand2",
+        ).pack(anchor="w")
+
+        row = tk.Frame(inner, bg=PAPER)
+        row.pack(fill="x", pady=(8, 0))
+        tk.Label(row, text="시리얼", font=(F, 9), bg=PAPER, fg=SUB, width=7, anchor="w").pack(side="left")
+        self._field(row, self.p_serial).pack(side="left", fill="x", expand=True)
+
+        row2 = tk.Frame(inner, bg=PAPER)
+        row2.pack(fill="x", pady=(6, 0))
+        tk.Label(row2, text="접속 코드", font=(F, 9), bg=PAPER, fg=SUB, width=7, anchor="w").pack(side="left")
+        self._field(row2, self.p_code).pack(side="left", fill="x", expand=True)
+        self._button(row2, "프린터 찾기", self.find_printer).pack(side="left", padx=(8, 0), ipadx=8, ipady=5)
+
+        self.p_status = tk.Label(
+            inner, text="프린터에서 LAN 모드를 켜면 두 값이 화면에 뜹니다",
+            font=(F, 9), bg=PAPER, fg=FAINT, anchor="w", wraplength=520, justify="left",
+        )
+        self.p_status.pack(anchor="w", fill="x", pady=(7, 0))
+
+    def save_printer(self) -> None:
+        self.agent.cfg["printer_kind"] = "bambu" if self.p_on.get() else "mock"
+        self.agent.cfg["printer_serial"] = self.p_serial.get().strip()
+        self.agent.cfg["printer_code"] = self.p_code.get().strip()
+        save_settings(self.agent.cfg)
+
+    def find_printer(self) -> None:
+        """
+        ★ 왜 안 되는지까지 말합니다. 치과에서 "안 돼요" 대신 이 문장을
+          전해 주실 수 있어야 고칠 수 있습니다.
+        """
+        self.save_printer()
+        self.p_status.config(text="찾는 중…", fg=SUB)
+        self.root.update_idletasks()
+
+        def work() -> None:
+            try:
+                from printer_find import self_test
+                got = self_test(self.agent.cfg)
+                # 찾았으면 그 주소를 적어 둡니다 — 방송을 못 듣는 날의 보조 바퀴
+                if got.ip:
+                    self.agent.cfg["printer_last_ip"] = got.ip
+                    save_settings(self.agent.cfg)
+            except Exception as e:  # noqa: BLE001
+                got = type("X", (), {"ok": False, "message": f"찾다 멈췄습니다 — {e}"})()
+
+            def show() -> None:
+                self.p_status.config(text=got.message, fg=GREEN if got.ok else RED)
+                self.say(("프린터: " if got.ok else "프린터 — ") + got.message)
+            self.root.after(0, show)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _controls(self, body) -> None:
         row = tk.Frame(body, bg=BG)

@@ -112,27 +112,61 @@ class BambuPrinter:
     """
     LAN 모드의 Bambu 프린터.
 
-    설정에 필요한 값 셋 — **IP · 액세스 코드 · 시리얼**.
-    프린터에서 LAN 모드를 켜면 화면에 나옵니다.
+    ★ **IP 를 설정에 적지 않습니다** (2026-10-06). 공유기가 빌려주는 번호라
+      정전이나 재부팅으로 바뀝니다. 설정에는 **시리얼과 액세스 코드**만 두고,
+      주소는 보낼 때마다 시리얼로 찾습니다 (printer_find).
+    ★ `host` 는 마지막에 쓰던 주소입니다 — 방송을 못 듣는 공유기를 위한
+      보조 바퀴고, 찾으면 그 값으로 갱신됩니다.
     """
 
-    host: str
     access_code: str
     serial: str
+    host: str = ""
     timeout: int = 30
+
+    def resolve(self) -> str:
+        """
+        지금 주소를 알아냅니다.
+
+        시리얼로 찾기 → 안 되면 마지막에 쓰던 주소 → 그것도 없으면 실패.
+        """
+        from printer_find import find  # noqa: PLC0415 — 서로 부르는 것을 피합니다
+
+        got = find(self.serial) if self.serial else None
+        if got:
+            self.host = got.ip
+            return got.ip
+        if self.host:
+            return self.host
+        raise OSError("프린터를 찾지 못했습니다 (켜져 있는지, 같은 와이파이인지 봐 주세요)")
+
+    def login_test(self) -> None:
+        """들어가지기만 보고 끊습니다. 「프린터 찾기」가 씁니다"""
+        ftp = self._ftp(self.host or self.resolve())
+        try:
+            ftp.nlst()
+        finally:
+            try:
+                ftp.quit()
+            except (ftplib.all_errors, OSError):
+                pass
 
     # --- 파일 올리기 (FTPS 990) ---
 
-    def upload(self, path: Path) -> str:
+    def _ftp(self, host: str) -> _ImplicitFTPS:
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         ctx.set_ciphers("DEFAULT@SECLEVEL=1")  # 프린터 펌웨어가 옛 암호를 씁니다
 
         ftp = _ImplicitFTPS(context=ctx, timeout=self.timeout)
-        ftp.connect(self.host, 990)
+        ftp.connect(host, 990)
         ftp.login("bblp", self.access_code)
         ftp.prot_p()
+        return ftp
+
+    def upload(self, path: Path) -> str:
+        ftp = self._ftp(self.resolve())
         try:
             remote = f"{REMOTE_DIR}{path.name}"
             with open(path, "rb") as f:
@@ -187,7 +221,7 @@ class BambuPrinter:
         client.on_message = on_message
 
         try:
-            client.connect(self.host, 8883, keepalive=60)
+            client.connect(self.host or self.resolve(), 8883, keepalive=60)
         except Exception as e:  # noqa: BLE001
             yield Progress(None, "", failed=f"프린터에 연결하지 못했습니다 — {e}")
             return
@@ -241,8 +275,10 @@ def build(settings: dict, spool: Path) -> Printer:
     kind = (settings.get("printer_kind") or "mock").lower()
     if kind == "bambu":
         return BambuPrinter(
-            host=settings.get("printer_host", ""),
             access_code=settings.get("printer_code", ""),
             serial=settings.get("printer_serial", ""),
+            # ★ 설정에 적는 값이 아니라 **지난번에 쓰던 주소**입니다.
+            #   방송을 못 듣는 공유기에서만 쓰입니다.
+            host=settings.get("printer_last_ip", ""),
         )
     return MockPrinter(spool)
