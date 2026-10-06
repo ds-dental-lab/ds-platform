@@ -163,10 +163,25 @@ export default function OrderChat({ orderId, messages, sector }: OrderChatProps)
     ★ 새 탭은 **누르는 순간** 열어 둡니다. 서버에 주소를 물어본 뒤에 열면
       브라우저가 팝업으로 알고 막습니다 — 사용자 동작과 창 열기 사이에
       await 가 끼면 그렇습니다. 빈 탭을 먼저 열고 주소를 나중에 넣습니다.
+
+    ★★ **'noopener' 를 옵션으로 주면 안 됩니다** (사용자 지적 2026-10-06 —
+      "사진 눌렀더니 창이 사진으로 바뀌었다"). 규격상 noopener 를 주면
+      window.open 이 **늘 null 을 돌려줍니다.** 그래서 탭은 열렸는데 우리는
+      못 열린 줄 알고 아래 '현재 창으로 이동' 으로 빠졌습니다 — 보던 주문
+      화면이 사진으로 덮였습니다. 대신 **opener 를 직접 끊습니다.**
   */
   async function open(a: MessageAttachment) {
     setError('');
-    const tab = window.open('', '_blank', 'noopener');
+
+    const tab = window.open('', '_blank');
+    if (tab) {
+      try {
+        tab.opener = null;        // 새 창이 이 창을 못 건드리게
+      } catch {
+        /* 브라우저가 막으면 그냥 둡니다 */
+      }
+    }
+
     const result = await getOrderFileUrl(a.fileId, 'open');
 
     if (!result.ok) {
@@ -175,8 +190,17 @@ export default function OrderChat({ orderId, messages, sector }: OrderChatProps)
       return;
     }
 
-    if (tab) tab.location.href = result.url;
-    else window.location.assign(result.url);
+    if (tab) {
+      tab.location.href = result.url;
+      tab.focus();
+      return;
+    }
+
+    /*
+      ★ 팝업 차단에 진짜로 막혔을 때만 여기 옵니다. 보던 화면을 덮지 않습니다 —
+        주소를 알려 주고 사람이 고르게 합니다.
+    */
+    setError('새 창이 막혔습니다. 브라우저에서 이 사이트의 팝업을 허용해 주세요.');
   }
 
   async function save(a: MessageAttachment) {
