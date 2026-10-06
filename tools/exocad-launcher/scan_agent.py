@@ -37,6 +37,9 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
 
+import pystray
+from PIL import Image
+
 import medit_case
 from dxd_case import read_case
 
@@ -155,7 +158,9 @@ def set_autostart(on: bool) -> str:
     #   윈도우에 늘 있는 powershell 에게 맡깁니다.
     #   exe 로 묶였으면 exe 자체를 가리킵니다 — 뒤에 붙일 것이 없습니다.
     exe = Path(sys.executable).resolve()
-    target = "" if FROZEN else '\"%s\"' % Path(__file__).resolve()
+    #: ★ 윈도우가 켜질 때는 **창 없이** 트레이로만 뜹니다 (사용자 요청 2026-10-06).
+    #   진료실 화면에 창이 하나 떠 있는 것 자체가 거슬립니다.
+    target = "--tray" if FROZEN else '\"%s\" --tray' % Path(__file__).resolve()
 
     script = (
         "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}');"
@@ -248,8 +253,10 @@ def settled_all(paths: list[Path]) -> bool:
 class Agent:
     """폴더를 보고 올리는 일. 창(App)이 이 객체를 쥐고 씁니다."""
 
-    def __init__(self, say, on_link=None) -> None:
+    def __init__(self, say, on_link=None, notify=None) -> None:
         self.say = say
+        #: 트레이 풍선 — 창이 숨어 있어도 보입니다 (없으면 조용히 넘어갑니다)
+        self.notify = notify or (lambda _m: None)
         self.cfg = load_settings()
         self.stop = threading.Event()
         #: 연결이 끝나면 창이 자기 모습을 고칠 수 있게
@@ -320,6 +327,7 @@ class Agent:
                 return
 
             self.say("   올렸습니다. 주문 등록 창을 엽니다")
+            self.notify(f"{meta.get('patientName') or '스캔'} — 올라갔습니다")
 
         # ★ 주문 등록 창 — 환자 이름과 이 스캔이 채워진 채로 열립니다
         webbrowser.open(f"{SITE}/clinic/orders/new?scan={slot['scanId']}")
@@ -470,7 +478,7 @@ def asset(name: str) -> Path:
 
 class App:
     def __init__(self) -> None:
-        self.agent = Agent(self.say, on_link=self.refresh)
+        self.agent = Agent(self.say, on_link=self.refresh, notify=self.balloon)
         self.watching = False
 
         self.root = tk.Tk()
@@ -497,6 +505,15 @@ class App:
         self._log(body)
 
         self.refresh()
+        self._tray()
+
+        # ★★ X 를 누르면 **끄지 않고 숨깁니다** (사용자 요청 2026-10-06).
+        #   전에는 X 가 곧 종료라, 직원이 창을 닫으면 그 뒤 스캔이 안 올라갔습니다.
+        #   이제 오른쪽 아래 트레이에서 계속 지켜봅니다.
+        self.root.protocol("WM_DELETE_WINDOW", self.hide)
+
+        if "--tray" in sys.argv:
+            self.root.withdraw()          # 윈도우가 켜질 때는 창 없이
 
         if self.agent.cfg.get("token"):
             self.say(f"{self.agent.cfg.get('clinic') or '치과'} 에 연결된 PC 입니다.")
@@ -643,6 +660,73 @@ class App:
         self.text.pack(fill="both", expand=True, pady=(0, 10))
         self.text.tag_configure("time", foreground=FAINT)
 
+    # ---------- 트레이 (오른쪽 아래) ----------
+
+    def _tray(self) -> None:
+        """
+        ★ 창을 닫아도 오른쪽 아래에 남아 계속 지켜봅니다.
+        ★ 메뉴 글자는 상태에 따라 바뀝니다 (pystray 는 함수를 받아 줍니다).
+        """
+        try:
+            image = Image.open(asset("denflow.ico"))
+        except Exception:  # noqa: BLE001
+            image = Image.new("RGB", (64, 64), BLUE)
+
+        menu = pystray.Menu(
+            pystray.MenuItem("열기", lambda *_: self.show(), default=True),
+            pystray.MenuItem(
+                lambda _i: "지켜보기 멈춤" if self.watching else "지켜보기 시작",
+                lambda *_: self.root.after(0, self.toggle_watch),
+            ),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("끝내기", lambda *_: self.quit()),
+        )
+
+        self.tray = pystray.Icon("denflow-agent", image, "덴플로우 에이전트", menu)
+        threading.Thread(target=self.tray.run, daemon=True).start()
+
+    def _tray_title(self, state: str) -> None:
+        if getattr(self, "tray", None) is None:
+            return
+        try:
+            where = self.agent.cfg.get("clinic") or ""
+            self.tray.title = f"덴플로우 에이전트 — {state}" + (f" ({where})" if where else "")
+            self.tray.update_menu()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def balloon(self, msg: str) -> None:
+        try:
+            self.tray.notify(msg, "덴플로우 에이전트")
+        except Exception:  # noqa: BLE001
+            pass
+
+    def show(self) -> None:
+        def _do() -> None:
+            self.root.deiconify()
+            self.root.lift()
+            self.root.focus_force()
+        self.root.after(0, _do)
+
+    def hide(self) -> None:
+        """X 를 눌렀을 때 — 끄지 않고 숨깁니다"""
+        self.root.withdraw()
+        if not self.agent.cfg.get("told_tray"):
+            self.agent.cfg["told_tray"] = True
+            save_settings(self.agent.cfg)
+            try:
+                self.tray.notify("오른쪽 아래에서 계속 지켜봅니다. 끝내려면 트레이에서 '끝내기'.", "덴플로우 에이전트")
+            except Exception:  # noqa: BLE001
+                pass
+
+    def quit(self) -> None:
+        self.agent.stop.set()
+        try:
+            self.tray.stop()
+        except Exception:  # noqa: BLE001
+            pass
+        self.root.after(0, self.root.destroy)
+
     # ---------- 상태 ----------
 
     def refresh(self) -> None:
@@ -659,6 +743,7 @@ class App:
 
             self.state.config(text=text)
             self.dot.config(fg=color)
+            self._tray_title(text)
             self.start_btn.config(text="지켜보기 멈춤" if self.watching else "지켜보기 시작")
 
         self.root.after(0, _do)

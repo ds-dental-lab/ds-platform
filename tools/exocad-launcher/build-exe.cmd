@@ -6,7 +6,9 @@ rem ★ --onedir, NOT --onefile. A onefile exe unpacks itself into a temp folder
 rem   startup, which looks exactly like a packer to antivirus heuristics and causes
 rem   false positives. Clinics run V3 / ALYac, which are stricter than Defender.
 rem   The cost: the whole folder must be copied together, not a single file.
-rem Needs: pip install pyinstaller
+rem ★ numpy comes in through Pillow but the agent never uses it (-26MB).
+rem ★ Never put a rem between ^ continuation lines - it breaks the command.
+rem Needs: pip install pyinstaller pystray pillow
 rem Note: --icon must be an absolute path (PyInstaller resolves it from --specpath).
 rem       %~dp0 already expands to one.
 
@@ -17,6 +19,7 @@ if not exist "%PY%" set "PY=python"
   --name "덴플로우 에이전트" ^
   --icon "%~dp0denflow.ico" ^
   --add-data "%~dp0denflow.ico;." ^
+  --exclude-module numpy --exclude-module scipy --exclude-module matplotlib ^
   --distpath "%~dp0dist" --workpath "%~dp0build" --specpath "%~dp0build" ^
   "%~dp0scan_agent.py"
 
