@@ -41,6 +41,7 @@ interface RawType {
   is_active: boolean;
   sort_order: number;
   is_internal: boolean;
+  auto_pipeline: boolean;
   needs_implant_model: boolean;
   abbr_material_only: boolean;
   color: string;
@@ -73,7 +74,7 @@ export async function getProsthesisCatalog(
   const { data, error } = await supabase
     .from('prosthesis_types')
     .select(
-      'code, name, abbr, is_active, sort_order, is_internal, ' +
+      'code, name, abbr, is_active, sort_order, is_internal, auto_pipeline, ' +
         'needs_implant_model, abbr_material_only, color, color_soft, ' +
         'prosthesis_materials(code, name, abbr, is_active, sort_order, ' +
         'has_shade, has_pontic, has_pink, price, pontic_price, pink_price)',
@@ -104,6 +105,7 @@ export async function getProsthesisCatalog(
       name: type.name,
       abbr: type.abbr,
       needsImplantModel: type.needs_implant_model,
+      autoPipeline: type.auto_pipeline,
       abbrMaterialOnly: type.abbr_material_only,
       color: type.color,
       colorSoft: type.color_soft,

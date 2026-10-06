@@ -167,6 +167,18 @@ export function exocadLaunchUrl(orderId: string, token: string): string {
   return `denflow://exocad/${orderId}?t=${encodeURIComponent(token)}`;
 }
 
+/**
+ * 자동 출력 런처가 여는 주소 (2026-10-06).
+ *
+ * ★ 프로토콜을 새로 만들지 않습니다. `denflow:` 는 이미 등록돼 있고,
+ *   레지스트리 등록은 치과·기공소 PC 마다 한 번씩 해야 하는 일입니다.
+ *   같은 프로토콜의 **다른 방(netloc)** 으로 들어갑니다.
+ * ★ 토큰은 exocad 것과 같은 것을 씁니다 — 주문 하나에 10분입니다.
+ */
+export function autoPrintLaunchUrl(orderId: string, token: string): string {
+  return `denflow://print/${orderId}?t=${encodeURIComponent(token)}`;
+}
+
 export type ExocadResultStatus = 'done' | 'failed';
 
 export function isExocadResultStatus(v: unknown): v is ExocadResultStatus {

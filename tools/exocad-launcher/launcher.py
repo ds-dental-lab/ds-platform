@@ -593,15 +593,24 @@ class Job:
 
 # ---------- 시작 ----------
 
-def parse_launch(arg: str) -> tuple[str, str]:
+def parse_launch(arg: str) -> tuple[str, str, str]:
+    """
+    (하는 일, 주문 ID, 토큰).
+
+    ★ 프로토콜을 새로 만들지 않습니다 (2026-10-06). `denflow:` 는 이미
+      등록돼 있고, 레지스트리 등록은 PC 마다 한 번씩 해야 하는 일입니다.
+      같은 프로토콜의 **다른 방**으로 들어갑니다:
+        denflow://exocad/<주문ID>?t=…   exocad 로 보내기
+        denflow://print/<주문ID>?t=…    자동 출력 보내기
+    """
     u = urlparse(arg)
-    if u.scheme != "denflow" or u.netloc != "exocad":
+    if u.scheme != "denflow" or u.netloc not in ("exocad", "print"):
         raise SystemExit(f"모르는 주소: {arg}")
     order_id = u.path.strip("/")
     token = parse_qs(u.query).get("t", [""])[0]
     if not order_id or not token:
         raise SystemExit("주문 ID 나 토큰이 없습니다")
-    return order_id, token
+    return u.netloc, order_id, token
 
 
 def main() -> None:
@@ -618,13 +627,23 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", handlers=handlers)
     args = sys.argv[1:]
     mock: Path | None = None
+    kind = "exocad"
     order_id = token = None
     if len(args) >= 2 and args[0] == "--mock":
         mock = Path(args[1])
     elif len(args) >= 1:
-        order_id, token = parse_launch(args[0])
+        kind, order_id, token = parse_launch(args[0])
     else:
-        raise SystemExit("사용: launcher.py denflow://exocad/<주문ID>?t=<토큰>  |  --mock mock.json")
+        raise SystemExit(
+            "사용: launcher.py denflow://exocad/<주문ID>?t=<토큰>"
+            "  |  denflow://print/<주문ID>?t=<토큰>  |  --mock mock.json"
+        )
+
+    # ★ 자동 출력은 하는 일이 아예 다릅니다 — 여기서 갈라집니다
+    if kind == "print":
+        from auto_print_run import run_auto_print  # noqa: PLC0415
+
+        raise SystemExit(run_auto_print(order_id, token))
 
     cfg = load_config()
     win = Window()

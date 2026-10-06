@@ -18,6 +18,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { clearBed, jobOfOrder } from '@/server/repositories/auto-print';
 import { autoProgress, autoNotice, type AutoJob } from '@/server/domain/auto-print';
+import { autoPrintLaunchUrl } from '@/server/domain/exocad';
+import { issueExocadToken } from '@/server/exocad/token';
 
 export type ClearBedResult = { ok: true } | { ok: false; error: string };
 
@@ -60,4 +62,38 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
     notice: autoNotice(job),
     needsBed: job.step === 'queued' && job.bedClearedAt === null,
   };
+}
+
+// ---------------------------------------------------------------- 보내기 버튼
+
+export type LaunchResult = { ok: true; url: string } | { ok: false; error: string };
+
+/**
+ * 기공소 PC 를 여는 주소를 만듭니다.
+ *
+ * ★ **주소를 미리 받아 둡니다.** 크롬은 denflow:// 같은 바깥 프로토콜을
+ *   **클릭 그 순간**에만 엽니다. 눌러 놓고 서버에 토큰을 받으러 갔다 오면
+ *   그 순간이 지나 조용히 막힙니다 — 오류도 안 보여 줍니다.
+ *   exocad 보내기가 첫 실전에서 그렇게 안 떴습니다 (2026-09-10).
+ * ★ 센터 사람만. 실제로 덴트버드 앞에 앉는 사람입니다.
+ */
+export async function issueAutoPrintLaunch(orderId: string): Promise<LaunchResult> {
+  const session = await getSession();
+  if (!session?.orgId || session.orgType !== 'design_center') {
+    return { ok: false, error: '디자인센터만 보낼 수 있습니다' };
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('id', orderId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (!data) return { ok: false, error: '주문을 찾을 수 없습니다' };
+
+  const token = issueExocadToken(orderId);
+  if (!token) return { ok: false, error: '서버에 열쇠가 없어 토큰을 못 만듭니다' };
+
+  return { ok: true, url: autoPrintLaunchUrl(orderId, token) };
 }

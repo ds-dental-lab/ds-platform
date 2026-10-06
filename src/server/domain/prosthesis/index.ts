@@ -50,6 +50,14 @@ export interface ProsthesisType {
    *   알 수 없어집니다. 종류가 자기 성질을 들고 있어야 합니다.
    */
   needsImplantModel: boolean;
+  /**
+   * 주문이 들어오면 사람 손 없이 디자인·슬라이스·출력까지 가는가
+   * (자동 템포러리, 2026-10-06).
+   *
+   * ★ 있으면 true 입니다. 기공소가 보는 목록에는 안 실려 와서 없을 수
+   *   있습니다 — 기공소는 이 길과 상관이 없습니다.
+   */
+  autoPipeline?: boolean;
   /** 약칭에 재료 이름만 쓰는가. 켜면 'Zir-Cr' 대신 'Abut+Zir(SCRP)' */
   abbrMaterialOnly: boolean;
 
