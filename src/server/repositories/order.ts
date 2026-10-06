@@ -241,18 +241,23 @@ export async function listPartnerLabs(): Promise<PartnerLab[]> {
 
   const supabase = await createClient();
 
+  // ★ 치과와 같은 이유로 거래처 상태도 봅니다 (2026-10-06 — organizations.status)
   const { data, error } = await supabase
     .from('partnerships')
-    .select('lab:organizations!partnerships_to_org_id_fkey(id, name)')
+    .select('lab:organizations!partnerships_to_org_id_fkey(id, name, status)')
     .eq('from_org_id', session.orgId)
     .eq('relation', 'design_lab')
     .eq('status', 'active');
 
   const partners = error || !data
     ? []
-    : (data as unknown as { lab: Omit<PartnerLab, 'inHouse'> | null }[])
+    : (data as unknown as { lab: (Omit<PartnerLab, 'inHouse'> & { status: string }) | null }[])
         .map((row) => row.lab)
-        .filter((lab): lab is Omit<PartnerLab, 'inHouse'> => lab !== null)
+        .filter(
+          (lab): lab is Omit<PartnerLab, 'inHouse'> & { status: string } =>
+            lab !== null && lab.status === 'active',
+        )
+        .map(({ id, name }) => ({ id, name }))
         .map((lab) => ({ ...lab, inHouse: false }));
 
   return [
@@ -462,18 +467,29 @@ export async function listPartnerClinics(): Promise<PartnerClinic[]> {
 
   const supabase = await createClient();
 
+  /*
+    ★★ **거래관계와 거래처 상태는 다릅니다** (사용자 지적 2026-10-06).
+      전에는 partnerships.status 만 봤습니다. 그런데 '거래중지' 는
+      **organizations.status** 에 적힙니다 — 거래처 화면에서 내리는 그것입니다.
+      그래서 여덟 곳을 거래중지로 내려 뒀는데도 치과 배포 셀렉박스에 그대로
+      남아 있었습니다. 둘 다 봐야 합니다.
+      (같은 규칙: domain/billing '거래중지된 곳은 셀렉박스에서 뺍니다' 2026-08-17)
+  */
   const { data, error } = await supabase
     .from('partnerships')
-    .select('clinic:organizations!partnerships_from_org_id_fkey(id, name)')
+    .select('clinic:organizations!partnerships_from_org_id_fkey(id, name, status)')
     .eq('to_org_id', session.orgId)
     .eq('relation', 'clinic_design')
     .eq('status', 'active');
 
   if (error || !data) return [];
 
-  return (data as unknown as { clinic: PartnerClinic | null }[])
+  return (data as unknown as { clinic: (PartnerClinic & { status: string }) | null }[])
     .map((row) => row.clinic)
-    .filter((clinic): clinic is PartnerClinic => clinic !== null);
+    .filter((clinic): clinic is PartnerClinic & { status: string } =>
+      clinic !== null && clinic.status === 'active',
+    )
+    .map(({ id, name }) => ({ id, name }));
 }
 
 // ---------- 배송 보드 ----------
