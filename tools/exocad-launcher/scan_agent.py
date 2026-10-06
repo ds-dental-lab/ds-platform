@@ -59,6 +59,11 @@ else:
 
 SETTINGS = SETTINGS_DIR / "scan_agent.json"
 
+# ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
+#   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
+#   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
+AGENT_VERSION = "1.1.0"
+
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
 BUCKET = "order-files"
@@ -514,6 +519,7 @@ class App:
         self.p_on = tk.BooleanVar(value=self.agent.cfg.get("printer_kind") == "bambu")
 
         self._header()
+        self._update_bar()
         body = tk.Frame(self.root, bg=BG)
         body.pack(fill="both", expand=True, padx=20, pady=(16, 18))
 
@@ -551,7 +557,11 @@ class App:
 
         left = tk.Frame(bar, bg=PAPER)
         left.pack(side="left", padx=20, pady=(16, 14))
-        tk.Label(left, text="덴플로우 에이전트", font=(F, 14, "bold"), bg=PAPER, fg=INK).pack(anchor="w")
+        title = tk.Frame(left, bg=PAPER)
+        title.pack(anchor="w")
+        tk.Label(title, text="덴플로우 에이전트", font=(F, 14, "bold"), bg=PAPER, fg=INK).pack(side="left")
+        # ★ 판 번호를 보이게 둡니다 — 치과에 전화로 물을 때 읽어 주실 수 있게
+        tk.Label(title, text=AGENT_VERSION, font=(F, 9), bg=PAPER, fg=FAINT).pack(side="left", padx=(7, 0), pady=(5, 0))
         tk.Label(
             left, text="구강스캐너에서 내보내면 스캔이 덴플로우로 올라갑니다",
             font=(F, 9), bg=PAPER, fg=DIM,
@@ -565,6 +575,62 @@ class App:
         self.state.pack(side="left", padx=(0, 12), pady=5)
 
         tk.Frame(self.root, bg=LINE, height=1).pack(fill="x")
+
+    def _update_bar(self) -> None:
+        """
+        새 판이 있을 때만 뜨는 띠 (사용자 요청 2026-10-06).
+
+        ★ **저절로 받지 않습니다.** 알리고, 받는 것은 사람이 누릅니다.
+          치과 PC 에서 프로그램이 저 혼자 바뀌면 스캔이 안 올라가는 날
+          원인을 못 찾습니다.
+        ★ 평소에는 아예 안 보입니다 — 늘 떠 있는 띠는 아무도 안 봅니다.
+        """
+        self.up_bar = tk.Frame(self.root, bg="#FFF6E5")
+        self.up_text = tk.Label(
+            self.up_bar, text="", font=(F, 9), bg="#FFF6E5", fg="#8A5A00", anchor="w",
+        )
+        self.up_text.pack(side="left", padx=(20, 0), pady=8)
+        self._button(self.up_bar, "받는 곳 열기", self.open_update).pack(
+            side="right", padx=(0, 20), pady=6, ipadx=8, ipady=3,
+        )
+        # pack 은 새 판이 있을 때만 합니다 (check_update)
+        self.up_url = SITE
+        threading.Thread(target=self.check_update, daemon=True).start()
+
+    def check_update(self) -> None:
+        """
+        판 번호를 물어봅니다.
+
+        ★ 서버가 안 되거나 답이 이상해도 **조용히 넘어갑니다.** 판 확인
+          때문에 에이전트가 안 뜨면 그게 더 큰일입니다.
+        ★ 켤 때 한 번, 그 뒤 여섯 시간에 한 번. 치과 PC 는 며칠씩 켜 둡니다.
+        """
+        while True:
+            try:
+                got = post_json(
+                    f"{SITE}/api/device/agent",
+                    {"version": AGENT_VERSION},
+                    self.agent.cfg.get("token"),
+                )
+                if got.get("outdated"):
+                    self.up_url = got.get("url") or SITE
+                    note = (got.get("note") or "").strip()
+                    text = f"새 판이 있습니다 — {got.get('latest')}"
+                    if note:
+                        text += f" · {note}"
+                    self.root.after(0, lambda t=text: self._show_update(t))
+            except Exception:  # noqa: BLE001 — 판 확인이 에이전트를 막지 않습니다
+                pass
+            time.sleep(6 * 60 * 60)
+
+    def _show_update(self, text: str) -> None:
+        self.up_text.config(text=text)
+        if not self.up_bar.winfo_ismapped():
+            self.up_bar.pack(fill="x", after=self.root.winfo_children()[0])
+        self.say(text)
+
+    def open_update(self) -> None:
+        webbrowser.open(self.up_url)
 
     def _card(self, parent, step: str, title: str) -> tk.Frame:
         wrap = tk.Frame(parent, bg=LINE)
