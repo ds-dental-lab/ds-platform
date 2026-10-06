@@ -26,8 +26,22 @@ export const AGENT_VERSION = '1.1.0';
 /** 무엇이 바뀌었는지 한 줄. 에이전트 알림에 그대로 뜹니다 */
 export const AGENT_NOTE = '프린터 연결과 자동 출력이 들어갔습니다';
 
-/** 받는 곳. 아직 파일을 올려 둔 자리가 없어 안내 쪽을 가리킵니다 */
-export const AGENT_DOWNLOAD_URL = 'https://denflow.kr/';
+/**
+ * 받는 곳 — 안내 화면입니다.
+ *
+ * ★ zip 을 바로 가리키지 않습니다. **켜져 있는 폴더는 덮어쓸 수 없습니다** —
+ *   그냥 받으면 치과가 압축을 풀다 막힙니다. 끝내고·덮고·켜는 세 걸음을
+ *   읽고 받게 합니다.
+ */
+export const AGENT_DOWNLOAD_URL = 'https://denflow.kr/agent';
+
+/** 실제 zip 이 놓이는 자리. release.py 가 여기로 올립니다 */
+export const AGENT_ZIP_PATH = 'agent-release/latest.zip';
+
+/** 치과가 보는 받는 주소 */
+export function agentZipUrl(supabaseUrl: string): string {
+  return `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/${AGENT_ZIP_PATH}`;
+}
 
 /**
  * 판 번호를 견줍니다.
