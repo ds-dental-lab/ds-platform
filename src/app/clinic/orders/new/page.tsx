@@ -73,6 +73,7 @@ export default async function NewOrderPage({
               teeth: incomingScan.teeth,
               clinicNameInFile: incomingScan.clinicNameInFile,
               fileCount: incomingScan.fileCount,
+              uploadStatus: incomingScan.uploadStatus,
             }
           : undefined
       }

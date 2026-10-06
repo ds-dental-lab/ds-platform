@@ -16,11 +16,11 @@
 
 'use client';
 
-import { submitAttachIncomingScan } from '@/server/actions/incoming-scan';
+import { submitAttachIncomingScan, getScanUploadState } from '@/server/actions/incoming-scan';
 import { sameClinicName } from '@/server/domain/device-link';
 import { readDxd } from '@/lib/dxd-read';
 import type { DxdCase } from '@/server/domain/dxd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PatientPicker, { type Patient } from '@/components/order/PatientPicker';
 import ClinicSelect, { type ClinicOption } from '@/components/order/ClinicSelect';
@@ -166,6 +166,8 @@ export interface NewOrderFormProps {
     clinicNameInFile: string;
     /** 한 케이스의 파일 수 (Medit 은 상악·하악·교합으로 여럿) */
     fileCount: number;
+    /** 'pending' 이면 아직 올라오는 중입니다 (창을 먼저 띄웠습니다) */
+    uploadStatus: string;
   };
 }
 
@@ -282,6 +284,39 @@ function OrderFormBody({
    *   브라우저가 그대로 합니다 (lib/dxd-read).
    */
   const [fileCase, setFileCase] = useState<DxdCase | null>(null);
+
+  /**
+   * 올라온 스캔이 다 올라왔는가 (2026-10-06).
+   *
+   * ★ 주문등록 창은 **올리기가 끝나기 전에** 뜹니다. 그래야 치과가 기다리지
+   *   않습니다. 치식·쉐이드를 고르는 사이에 뒤에서 올라오고, 대개 고르는 쪽이
+   *   더 오래 걸려 기다릴 일이 없습니다.
+   */
+  const [scanReady, setScanReady] = useState(incomingScan?.uploadStatus === 'uploaded');
+
+  /*
+    ★ 다 올라왔는지 2초마다 물어봅니다. 다 되면 묻기를 멈춥니다 —
+      켜 둔 채로 두면 주문서를 오래 쓰는 동안 쓸데없이 계속 두드립니다.
+  */
+  useEffect(() => {
+    if (!incomingScan || scanReady) return;
+
+    let alive = true;
+    const timer = setInterval(async () => {
+      const state = await getScanUploadState(incomingScan.id);
+      if (!alive) return;
+      if (state !== 'pending') {
+        setScanReady(true);
+        clearInterval(timer);
+      }
+    }, 2000);
+
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [incomingScan, scanReady]);
+
 
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState('');
@@ -690,7 +725,27 @@ function OrderFormBody({
 
     // ★ 스캐너에서 올라온 스캔을 이 주문에 붙입니다 (옮기기만 — 다시 안 올립니다)
     if (incomingScan) {
-      const attached = await submitAttachIncomingScan(orderId, incomingScan.id);
+      /*
+        ★ 창을 올리기가 끝나기 전에 띄우므로, 여기서 아직 안 끝났을 수 있습니다.
+          대개는 치식·쉐이드를 고르는 동안 끝나 기다릴 일이 없습니다. 안 끝났으면
+          여기서 기다립니다 — 빈손으로 주문을 세우는 것보다 몇 초 기다리는 쪽이 낫습니다.
+        ★ 3분이 넘으면 포기합니다. 올리미가 죽었을 수도 있는데, 그때는 주문만
+          세우고 '주문서 대기' 에서 다시 붙이면 됩니다.
+      */
+      const until = Date.now() + 3 * 60_000;
+      let ready = scanReady;
+
+      while (!ready && Date.now() < until) {
+        setProgress('스캔이 올라오는 중입니다…');
+        await new Promise((r) => setTimeout(r, 1500));
+        ready = (await getScanUploadState(incomingScan.id)) !== 'pending';
+      }
+      setProgress('');
+
+      const attached = ready
+        ? await submitAttachIncomingScan(orderId, incomingScan.id)
+        : { ok: false as const, error: '스캔이 아직 다 올라오지 않았습니다' };
+
       if (!attached.ok) {
         setError(`주문은 등록되었습니다. 다만 스캔을 붙이지 못했습니다: ${attached.error ?? ''}`);
       }
@@ -1245,7 +1300,9 @@ function OrderFormBody({
                   치식 {incomingScan.teeth.join(', ')} 넣기
                 </button>
               )}
-              <span className="ml-auto text-[12.5px] text-[#4A5567]">등록하면 이 주문에 붙습니다</span>
+              <span className="ml-auto text-[12.5px] text-[#4A5567]">
+                {scanReady ? '등록하면 이 주문에 붙습니다' : '올라오는 중… 그동안 아래를 채우세요'}
+              </span>
             </div>
           )}
 

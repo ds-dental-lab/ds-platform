@@ -310,27 +310,37 @@ class Agent:
             self.say(f"   실패: {slot.get('error', '')}")
             return
 
-        if slot.get("already"):
-            self.say("   이미 올라간 케이스입니다 — 건너뜁니다")
-        else:
-            # 자리는 보낸 차례 그대로 돌아옵니다
-            for (path, name), place in zip(files, slot.get("uploads") or [{"path": slot["path"], "token": slot["token"]}]):
-                if len(files) > 1:
-                    self.say(f"      {name}")
-                if not put_file(path, place["path"], place["token"]):
-                    self.say("   올리다 끊겼습니다. 다음 차례에 다시 해 봅니다")
-                    return
-
-            done = post_json(f"{SITE}/api/device/scan/done", {"scanId": slot["scanId"]}, self.cfg.get("token"))
-            if not done.get("ok"):
-                self.say(f"   마무리 실패: {done.get('error', '')}")
-                return
-
-            self.say("   올렸습니다. 주문 등록 창을 엽니다")
-            self.notify(f"{meta.get('patientName') or '스캔'} — 올라갔습니다")
-
+        """
+        ★★ 창을 **올리기 전에** 띄웁니다 (사용자 요청 2026-10-06).
+          전에는 다 올리고 열어서, 65MB 면 8초 180MB 면 더 오래 빈 화면을 봤습니다.
+          자리를 여는 순간 이미 환자 이름이 서버에 있으니 주문서는 채워집니다.
+          치과가 치식·쉐이드를 고르는 사이에 뒤에서 올라가고, 대개 고르는 쪽이
+          더 오래 걸려 기다릴 일이 없습니다. 아직이면 등록할 때 화면이 기다립니다.
+        """
         # ★ 주문 등록 창 — 환자 이름과 이 스캔이 채워진 채로 열립니다
         webbrowser.open(f"{SITE}/clinic/orders/new?scan={slot['scanId']}")
+
+        if slot.get("already"):
+            self.say("   이미 올라간 케이스입니다 — 주문 등록 창만 다시 엽니다")
+            return
+
+        self.say("   주문 등록 창을 열었습니다. 뒤에서 올리는 중…")
+
+        # 자리는 보낸 차례 그대로 돌아옵니다
+        for (path, name), place in zip(files, slot.get("uploads") or [{"path": slot["path"], "token": slot["token"]}]):
+            if len(files) > 1:
+                self.say(f"      {name}")
+            if not put_file(path, place["path"], place["token"]):
+                self.say("   올리다 끊겼습니다. 다음 차례에 다시 해 봅니다")
+                return
+
+        done = post_json(f"{SITE}/api/device/scan/done", {"scanId": slot["scanId"]}, self.cfg.get("token"))
+        if not done.get("ok"):
+            self.say(f"   마무리 실패: {done.get('error', '')}")
+            return
+
+        self.say("   다 올렸습니다")
+        self.notify(f"{meta.get('patientName') or '스캔'} — 다 올라갔습니다")
 
     def upload_dxd(self, path: Path) -> None:
         case = read_case(path)

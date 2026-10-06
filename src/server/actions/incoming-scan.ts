@@ -197,3 +197,31 @@ export async function submitRescanWithIncomingScan(
   revalidatePath(`/clinic/orders/${orderId}`);
   return { ok: true };
 }
+
+/**
+ * 이 스캔이 다 올라왔는가 (사용자 요청 2026-10-06).
+ *
+ * ★★ 주문등록 창을 **올리기가 끝나기 전에** 엽니다. 65MB 면 8초, 180MB 면 더
+ *   걸리는데 그동안 치과는 빈 화면을 봅니다. 먼저 띄우고, 치과가 치식·쉐이드를
+ *   고르는 사이에 뒤에서 올립니다 — 대개 고르는 쪽이 더 오래 걸립니다.
+ * ★ 그래서 화면이 "다 올라왔나" 를 가끔 물어봅니다. 가벼워야 해서 **한 줄의
+ *   상태만** 돌려줍니다.
+ */
+export async function getScanUploadState(
+  scanId: string,
+): Promise<'pending' | 'uploaded' | 'gone'> {
+  const session = await getSession();
+  if (session?.orgType !== 'clinic') return 'gone';
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('incoming_scans')
+    .select('upload_status')
+    .eq('id', scanId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  const status = (data as { upload_status: string } | null)?.upload_status;
+  if (!status) return 'gone';
+  return status === 'uploaded' ? 'uploaded' : 'pending';
+}
