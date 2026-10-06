@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-치과 PC 스캔 올리미 (2026-10-02, 사용자 요청).
+덴플로우 에이전트 — 치과 PC 에서 스캔을 올리는 프로그램 (2026-10-02).
+이름은 '스캔 올리미' 였는데 치과에 드리는 것이라 바꿨습니다 (2026-10-06).
 
   구강스캐너 내보내기 폴더를 보고 있다가, **새 dxd 가 생기면** 덴플로우로 올리고
   주문 등록 창을 띄웁니다. 환자 이름과 차트번호는 dxd 안에서 읽습니다 (dxd_case).
@@ -116,7 +117,7 @@ def put_file(path: Path, storage_path: str, upload_token: str) -> bool:
 # ★ pythonw 로 띄웁니다. python 으로 두면 검은 창이 같이 떠서 원장님이 닫습니다.
 # ---------------------------------------------------------
 
-SHORTCUT_NAME = "덴플로우 스캔 올리미.lnk"
+SHORTCUT_NAME = "덴플로우 에이전트.lnk"
 
 
 def startup_link() -> Path:
@@ -377,12 +378,12 @@ class App:
     def __init__(self) -> None:
         self.agent = Agent(self.say)
         self.root = tk.Tk()
-        self.root.title("덴플로우 스캔 올리미")
+        self.root.title("덴플로우 에이전트")
         self.root.geometry("560x480")
         self.root.configure(bg="#FFFFFF")
         F = "Malgun Gothic"
 
-        tk.Label(self.root, text="덴플로우 스캔 올리미", font=(F, 15, "bold"), bg="#FFFFFF", fg="#1A2130").pack(anchor="w", padx=22, pady=(18, 2))
+        tk.Label(self.root, text="덴플로우 에이전트", font=(F, 15, "bold"), bg="#FFFFFF", fg="#1A2130").pack(anchor="w", padx=22, pady=(18, 2))
         tk.Label(
             self.root,
             text="구강스캐너에서 내보내면 스캔이 덴플로우로 올라가고 주문 등록 창이 열립니다.",

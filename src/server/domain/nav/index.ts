@@ -51,7 +51,7 @@ export interface NavItem {
   /**
    * 그 기능을 쓰는 곳에만 보이는 메뉴.
    *
-   * ★ '들어온 스캔' 은 구강스캐너를 연결한 치과에만 쓸모가 있습니다
+   * ★ '주문서 대기' 는 구강스캐너를 연결한 치과에만 쓸모가 있습니다
    *   (사용자 지적 2026-10-02 — "이거 있어야 해?"). 스캐너가 없는 치과에는
    *   영영 빈 화면입니다. 빈 메뉴를 늘 띄우면 메뉴 전체가 덜 읽힙니다.
    */
@@ -65,10 +65,12 @@ export const NAV: Record<Sector, NavItem[]> = {
     { label: '주문등록', href: '/clinic/orders/new', icon: 'new' },
     { label: '주문목록', href: '/clinic/orders', icon: 'list' },
     /*
-      구강스캐너에서 올라온 스캔 (2026-10-02) — 주문서를 쓰면 사라집니다.
+      올라왔는데 주문서를 아직 안 쓴 스캔 (2026-10-02, 이름 2026-10-06).
+      ★ '들어온 스캔' 이었는데 바꿨습니다 — 뭘 해야 하는 자리인지가 안 읽혔습니다.
+        '접수' 는 안 씁니다. 덴플로우에서 접수는 **주문 상태** 이름이라 섞입니다.
       ★ 스캐너 PC 를 연결한 치과에만 보입니다. 안 쓰는 치과에는 평생 빈 칸입니다.
     */
-    { label: '들어온 스캔', href: '/clinic/scans', icon: 'new', needs: 'scanner' },
+    { label: '주문서 대기', href: '/clinic/scans', icon: 'new', needs: 'scanner' },
     { label: '배송조회', href: '/clinic/deliveries', icon: 'delivery' },
     { label: '정산', href: '/clinic/billing', icon: 'billing' },
     { label: '사용자', href: '/clinic/users', icon: 'users', staffHidden: true },

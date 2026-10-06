@@ -33,16 +33,29 @@ describe('관리자는 다 봅니다', () => {
     "들어온 스캔 이거 있어야 해?"). 구강스캐너를 연결 안 한 치과에는
     평생 빈 화면이고, 빈 메뉴가 섞이면 메뉴 전체가 덜 읽힙니다.
 */
-describe('스캐너를 연결한 치과에만 들어온 스캔', () => {
+/*
+  ★★ 이름에 '접수' 를 쓰지 않습니다 (사용자 결정 2026-10-06).
+    덴플로우에서 접수는 **주문 상태** 이름입니다(접수→제작→배송→완료).
+    스캔에도 접수를 쓰면 전화로 "접수됐어요?" 물을 때 서로 다른 것을 말하게 됩니다.
+*/
+describe('스캐너를 연결한 치과에만 주문서 대기', () => {
+  it("★ 메뉴 이름에 '접수' 를 안 씁니다", () => {
+    for (const sector of ['clinic', 'design_center', 'lab'] as const) {
+      for (const item of NAV[sector]) {
+        expect(item.label).not.toContain('접수');
+      }
+    }
+  });
+
   it('연결 안 했으면 없습니다 — 관리자도', () => {
-    expect(labels('clinic', true)).not.toContain('들어온 스캔');
-    expect(labels('clinic', false)).not.toContain('들어온 스캔');
+    expect(labels('clinic', true)).not.toContain('주문서 대기');
+    expect(labels('clinic', false)).not.toContain('주문서 대기');
   });
 
   it('연결했으면 주문목록 바로 아래', () => {
     const shown = visibleNav('clinic', false, { scanner: true }).map((i) => i.label);
-    expect(shown).toContain('들어온 스캔');
-    expect(shown[shown.indexOf('들어온 스캔') - 1]).toBe('주문목록');
+    expect(shown).toContain('주문서 대기');
+    expect(shown[shown.indexOf('주문서 대기') - 1]).toBe('주문목록');
   });
 });
 

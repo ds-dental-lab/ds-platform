@@ -153,7 +153,7 @@ export interface SectorShellProps {
   navCounts?: Record<string, number>;
   /**
    * 이 조직이 쓰는 기능. 안 쓰는 기능의 메뉴는 아예 안 나옵니다.
-   * (구강스캐너를 연결 안 한 치과에 '들어온 스캔' 을 띄우지 않습니다)
+   * (구강스캐너를 연결 안 한 치과에 '주문서 대기' 를 띄우지 않습니다)
    */
   features?: NavFeatures;
   bell?: React.ReactNode;

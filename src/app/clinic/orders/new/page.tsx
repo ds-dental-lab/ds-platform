@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic';
 export default async function NewOrderPage({
   searchParams,
 }: {
-  // ★ '들어온 스캔' 에서 넘어오면 ?scan=<id> 가 붙습니다 (2026-10-02)
+  // ★ '주문서 대기' 에서 넘어오면 ?scan=<id> 가 붙습니다 (2026-10-02)
   searchParams: Promise<{ scan?: string }>;
 }) {
   const session = await requireSector('clinic');

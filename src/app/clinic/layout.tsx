@@ -13,7 +13,7 @@ export default async function ClinicLayout({ children }: { children: React.React
   const [notifications, unreadCount, scanner] = await Promise.all([
     listNotifications(),
     countUnreadNotifications(),
-    // 스캐너를 연결한 치과에만 '들어온 스캔' 이 보입니다 (2026-10-02)
+    // 스캐너를 연결한 치과에만 '주문서 대기' 가 보입니다 (2026-10-02)
     scannerNavState(),
   ]);
   return (

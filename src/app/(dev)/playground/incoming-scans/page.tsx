@@ -1,7 +1,7 @@
 // =========================================================
 // 놓을 위치: src/app/(dev)/playground/incoming-scans/page.tsx
 //
-// '들어온 스캔' 목록 세 가지 모양을 눈으로 봅니다 (2026-10-02).
+// '주문서 대기' 목록 모양을 눈으로 봅니다 (2026-10-02, 이름 2026-10-06).
 //   ① 그냥 올라온 스캔 — '주문서 쓰기'
 //   ② 같은 환자가 재스캔으로 걸려 있는 스캔 — 붉은 '재스캔에 붙이기' 가 먼저
 //   ③ 파일에 적힌 치과가 우리와 다른 스캔 — 노란 띠
@@ -80,9 +80,9 @@ export default function IncomingScansPlayground() {
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
       <header>
-        <h1 className="text-[19px] font-extrabold tracking-[-0.03em] text-[#1A2130]">들어온 스캔</h1>
+        <h1 className="text-[19px] font-extrabold tracking-[-0.03em] text-[#1A2130]">주문서 대기</h1>
         <p className="mt-1 text-[14px] text-[#7C8595]">
-          구강스캐너에서 내보낸 스캔입니다. 주문서를 쓰면 이 목록에서 사라집니다.
+          스캔은 올라왔는데 주문서를 아직 안 쓴 것들입니다. 주문서를 쓰면 사라집니다.
         </p>
       </header>
 
