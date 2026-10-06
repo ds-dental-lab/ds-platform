@@ -138,7 +138,14 @@ def build_project(
     when: dt.datetime | None = None,
     patient_id: int = 0,
     project_guid: str | None = None,
+    scan_abutment: bool = False,
 ) -> str:
+    """
+    ★ scan_abutment — **스캔바디를 뜬 임플란트**인가 (2026-10-06, 박상균 건).
+      틀(샘플)은 false 로 되어 있어, 스캔바디 스캔이 같이 왔는데도 exocad 가
+      안 썼습니다. 스캔바디 파일이 온 경우에만 켭니다 — 늘 켜면 안 뜬 케이스에서
+      exocad 가 없는 스캔을 찾습니다.
+    """
     xml = _read_sample()
     blocks = _tooth_blocks(xml)
     when = when or dt.datetime.now().astimezone()
@@ -171,6 +178,13 @@ def build_project(
     #   (next_patient_id()). 검증용 main 은 그대로 0 을 씁니다.
     out = re.sub(r"<PatientId>\d+</PatientId>", f"<PatientId>{patient_id}</PatientId>", out, count=1)
     out = re.sub(r"<PatientName>[^<]*</PatientName>", f"<PatientName>{patient_name}</PatientName>", out, count=1)
+
+    if scan_abutment:
+        out = out.replace(
+            "<ScanAbutmentScan ParentParamRef=\"ImplantType\">false</ScanAbutmentScan>",
+            "<ScanAbutmentScan ParentParamRef=\"ImplantType\">true</ScanAbutmentScan>",
+        )
+
     return out
 
 

@@ -60,23 +60,58 @@ def load_config() -> dict:
 UPPER = re.compile(r"upperjaw|maxillar|upper|상악", re.I)
 LOWER = re.compile(r"lowerjaw|mandibul|lower|하악", re.I)
 BITE = re.compile(r"occlusion|bite|바이트", re.I)
-MARKER = re.compile(r"marker|scanbody|scan-body", re.I)
+MARKER = re.compile(r"marker|scanbody|scan.?body|abutment.?align", re.I)
+#: ★★ 어느 악인지 **이름에 안 적는** 스캐너가 있습니다 (2026-10-06, 박상균 건).
+#:   'Raw Preparation scan' = 깎은 쪽, 'Raw Antagonist scan' = 그 반대쪽.
+#:   상·하악은 **주문의 치식**으로 정합니다 — 14번이면 상악입니다.
+PREP = re.compile(r"preparation|prep|die|지대", re.I)
+ANTAGONIST = re.compile(r"antagonist|opposing|대합", re.I)
 
 
-def place_name(folder_name: str, original: str) -> str:
-    """exocad 가 자동 인식하는 이름으로. 못 맞추면 원래 이름 그대로 (exocad 에서 고름)."""
+def working_jaw(teeth: list[int]) -> str | None:
+    """치식이 어느 악인가 — 'upper' · 'lower'. 두 악에 걸쳐 있으면 모릅니다"""
+    up = any(11 <= t <= 28 for t in teeth)
+    low = any(31 <= t <= 48 for t in teeth)
+    if up and not low:
+        return "upper"
+    if low and not up:
+        return "lower"
+    return None
+
+
+def place_name(folder_name: str, original: str, jaw: str | None = None) -> str:
+    """
+    exocad 가 자동 인식하는 이름으로. 못 맞추면 원래 이름 그대로 (exocad 에서 고름).
+
+    ★ exocad 는 폴더 안에서 **이름으로** 스캔을 찾습니다:
+        <폴더명>-upperjaw.stl · -lowerjaw.stl · -upperjaw-marker.stl
+      (사장님 케이스 폴더들에서 확인한 규칙입니다.)
+    ★ 바이트는 그대로 둡니다 — 쓰긴 쓰는데 exocad 가 자동으로 집는 이름이
+      무엇인지 아직 못 밝혔습니다. 사람이 고르면 됩니다.
+    """
     ext = Path(original).suffix.lower()
     stem = Path(original).stem
     if ext not in (".stl", ".obj", ".ply"):
         return original
+
+    other = {"upper": "lower", "lower": "upper"}.get(jaw or "")
+
+    # 스캔바디는 **깎은 쪽 악**에 붙습니다 (…-upperjaw-marker.stl)
     if MARKER.search(stem):
-        return original  # 스캔바디·마커는 그대로 둠 — 사람이 판단
+        return f"{folder_name}-{jaw}jaw-marker{ext}" if jaw else original
     if BITE.search(stem):
         return original
     if UPPER.search(stem):
         return f"{folder_name}-upperjaw{ext}"
     if LOWER.search(stem):
         return f"{folder_name}-lowerjaw{ext}"
+
+    # 이름에 악이 없는 스캐너 — 치식으로 정합니다
+    if PREP.search(stem) and jaw:
+        return f"{folder_name}-{jaw}jaw{ext}"
+    if ANTAGONIST.search(stem) and other:
+        return f"{folder_name}-{other}jaw{ext}"
+
     return original
 
 
@@ -400,12 +435,20 @@ class Job:
             folder_name = folder.name
             self.note(f"★ exocad 가 원래 폴더를 잡고 있어 {folder_name} 로 만듭니다. 케이스를 닫고 다시 보내면 원래 이름으로 갑니다")
             folder.mkdir(parents=True)
+        # ★ 깎은 쪽이 어느 악인지 — 'Preparation / Antagonist' 로만 오는 스캐너용
+        jaw = working_jaw([t["number"] for t in data["teeth"]])
+        scan_abutment = False
+        if jaw is None:
+            self.note("치식이 두 악에 걸쳐 있어 상·하악을 못 정했습니다 — 이름 그대로 둡니다")
+
         dxds: list[Path] = []
         for p in got:
             if p.suffix.lower() == ".dxd":
                 dxds.append(p)
                 continue
-            target = folder / place_name(folder_name, p.name)
+            target = folder / place_name(folder_name, p.name, jaw)
+            if MARKER.search(Path(p.name).stem):
+                scan_abutment = True
             if target.exists():
                 target.unlink()  # 지난번 보낸 같은 이름의 스캔은 새것으로
             shutil.move(str(p), target)
@@ -465,6 +508,8 @@ class Job:
         xml = make_project.build_project(
             patient_name=patient, teeth=data["teeth"], bridges=data.get("bridges", []),
             when=made_at, patient_id=patient_id, project_guid=project_guid,
+            # ★ 스캔바디 스캔이 같이 왔으면 주문서에서 켭니다 (2026-10-06, 박상균 건)
+            scan_abutment=scan_abutment,
         )
         (folder / f"{folder_name}.dentalProject").write_bytes(("﻿" + xml).encode("utf-8"))
 

@@ -259,3 +259,36 @@ DLAS 의 'STL TO IMAGE' 와 같은 일을 하는 **따로 도는 창**입니다 
 ★ 주문에 딸린 dxd 도 열어 봤지만 `<ToothDefinitions />` 가 비어 있습니다 (149MB,
   `9AFAAUB9_123213_DI_…dxd`). **주문 정보는 DS Core 안에만 있습니다.** 다만 파일 이름이
   `<주문ID>_<차트번호>_…` 라, 파일과 주문을 이름으로 맺을 수 있습니다.
+
+## 10. 스캔 이름이 '상·하악' 을 안 적는 스캐너 (2026-10-06, 박상균 ORD-261005-004)
+
+버튼은 3초에 '완료' 로 끝났는데 exocad 에서 스캔이 안 붙었습니다. 원인 둘.
+
+**① 이름을 하나도 못 바꿨습니다.** 로그의 화살표 양쪽이 같았습니다.
+
+```
+Raw Bite scan.stl         → Raw Bite scan.stl
+Raw Antagonist scan.stl   → Raw Antagonist scan.stl
+AbutmentAlignmentScan.stl → AbutmentAlignmentScan.stl
+Raw Preparation scan.stl  → Raw Preparation scan.stl
+```
+
+exocad 는 폴더 안에서 **이름으로** 찾습니다 (사장님 케이스들에서 확인):
+`<폴더명>-upperjaw.ply` · `-lowerjaw.ply` · `-upperjaw-marker.ply` · `-upperjaw-situ.ply`.
+그런데 이 스캐너는 `Preparation`(깎은 쪽) · `Antagonist`(대합) 로만 적고 **악을
+안 적습니다**. 런처가 알던 낱말은 upperjaw/maxillary/lowerjaw/mandibular 뿐이었습니다.
+
+→ **주문의 치식으로 악을 정합니다** (`working_jaw`): 11~28 상악, 31~48 하악.
+  14번이면 Preparation=upperjaw, Antagonist=lowerjaw, AbutmentAlignment=upperjaw-marker.
+  두 악에 걸쳐 있으면 못 정하므로 이름 그대로 두고 로그에 적습니다.
+
+**② 임플란트인데 주문서에 스캔바디가 꺼져 있었습니다.** 틀(template)이 false 라,
+스캔바디 스캔이 같이 와도 exocad 가 안 썼습니다. 사장님이 손으로 만든 같은 환자
+케이스는 `<ScanAbutmentScan …>true</ScanAbutmentScan>` 였습니다.
+
+→ **스캔바디 파일이 온 경우에만** true 로 켭니다 (`build_project(scan_abutment=True)`).
+  늘 켜면 안 뜬 케이스에서 exocad 가 없는 스캔을 찾습니다.
+
+★ 바이트(`Raw Bite scan.stl`)는 **그대로 둡니다.** 쓰시긴 하는데(사용자 확인),
+  exocad 가 자동으로 집는 이름이 무엇인지 아직 못 밝혔습니다 — 사장님 케이스
+  폴더 어디에도 바이트 파일이 없습니다. 사람이 고르면 됩니다.
