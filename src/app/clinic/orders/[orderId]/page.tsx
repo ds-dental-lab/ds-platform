@@ -19,6 +19,8 @@ import { getHolidayMap } from '@/server/repositories/holiday';
 import { todayInKst } from '@/server/domain/week';
 import { defaultDueDate } from '@/server/domain/due-date';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
+import AutoPrintPanel from '@/components/order/AutoPrintPanel';
+import { getAutoView } from '@/server/actions/auto-print';
 import RepairRequest from '@/components/order/RepairRequest';
 import RemakeRequest from '@/components/order/RemakeRequest';
 import RescanBar from '@/components/order/RescanBar';
@@ -104,6 +106,9 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
     pickups,
   });
 
+  // 자동 템포러리로 들어온 건이면 진행 줄이 붙습니다 (아니면 null)
+  const auto = await getAutoView(order.id);
+
   return (
     <OrderDetailScreen
       order={order}
@@ -125,6 +130,23 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           일이 벌어지는 중인지 고객의 말로 한 줄 적어 줍니다.
       */
       progressNote={progressNote(progress)}
+      /*
+        ★ 자동 출력 (사용자 요청 2026-10-06).
+          자동 템포러리로 들어온 건만 이 칸이 뜹니다. 치과가
+          「비웠습니다」를 눌러야 출력이 시작됩니다 — 치과에는
+          기공사가 없어서, 출력판을 봐 줄 사람이 여기밖에 없습니다.
+      */
+      autoSlot={
+        auto ? (
+          <AutoPrintPanel
+            orderId={order.id}
+            steps={auto.steps}
+            notice={auto.notice}
+            needsBed={auto.needsBed}
+            canClear={true}
+          />
+        ) : null
+      }
       issueSlot={
         <RepairPanel
           repair={repair}

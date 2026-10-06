@@ -24,6 +24,8 @@ import WorkOrderButton from '@/components/order/WorkOrderButton';
 import ExocadSendButton from '@/components/order/ExocadSendButton';
 import { getLastExocadExport } from '@/server/repositories/exocad';
 import OrderDetailScreen from '@/components/order/OrderDetailScreen';
+import AutoPrintPanel from '@/components/order/AutoPrintPanel';
+import { getAutoView } from '@/server/actions/auto-print';
 import OrderAdjustPanel from '@/components/order/OrderAdjustPanel';
 import { getOrderMoney } from '@/server/repositories/order-money';
 import { getSession } from '@/server/policies/session';
@@ -189,6 +191,9 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
   const showPickup = pickups.length > 0;
   const hasExtra = showPickup || Boolean(money);
 
+  // 자동 템포러리로 들어온 건이면 진행 줄이 붙습니다 (아니면 null)
+  const auto = await getAutoView(order.id);
+
   return (
     <OrderDetailScreen
       order={order}
@@ -261,6 +266,23 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
           */}
           <ExocadSendButton orderId={order.id} last={exocadLast} />
         </>
+      }
+      /*
+        ★ 자동 출력 (사용자 요청 2026-10-06).
+          자동 템포러리로 들어온 건만 이 칸이 뜹니다. 치과가
+          「비웠습니다」를 눌러야 출력이 시작됩니다 — 치과에는
+          기공사가 없어서, 출력판을 봐 줄 사람이 여기밖에 없습니다.
+      */
+      autoSlot={
+        auto ? (
+          <AutoPrintPanel
+            orderId={order.id}
+            steps={auto.steps}
+            notice={auto.notice}
+            needsBed={auto.needsBed}
+            canClear={false}
+          />
+        ) : null
       }
       issueSlot={
         <RepairPanel repair={repair} isRepair={order.is_repair} orderPath="/design/orders" />

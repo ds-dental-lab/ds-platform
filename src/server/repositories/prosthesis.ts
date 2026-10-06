@@ -40,6 +40,7 @@ interface RawType {
   abbr: string;
   is_active: boolean;
   sort_order: number;
+  is_internal: boolean;
   needs_implant_model: boolean;
   abbr_material_only: boolean;
   color: string;
@@ -72,7 +73,7 @@ export async function getProsthesisCatalog(
   const { data, error } = await supabase
     .from('prosthesis_types')
     .select(
-      'code, name, abbr, is_active, sort_order, ' +
+      'code, name, abbr, is_active, sort_order, is_internal, ' +
         'needs_implant_model, abbr_material_only, color, color_soft, ' +
         'prosthesis_materials(code, name, abbr, is_active, sort_order, ' +
         'has_shade, has_pontic, has_pink, price, pontic_price, pink_price)',
@@ -85,8 +86,19 @@ export async function getProsthesisCatalog(
 
   const rows = data as unknown as RawType[];
 
+  /*
+    ★ 아직 상품이 아닌 종류는 **치과에만** 감춥니다 (사용자 2026-10-06 —
+      "상품화하긴 이르니깐 DenFlow 홈페이지에는 눈에 아직 안띄게").
+
+      is_active 를 끄면 깨끗이 사라지지만 **시험도 못 합니다.** 그래서
+      감추기와 켜기를 따로 둡니다 — 센터는 보고 고를 수 있고, 치과
+      주문등록 목록에서만 빠집니다. 상품화할 때 성질 하나만 끄면 끝입니다.
+  */
+  const hideInternal = session?.orgType === 'clinic';
+
   return rows
     .filter((t) => options.includeInactive || t.is_active)
+    .filter((t) => !(hideInternal && t.is_internal))
     .map((type) => ({
       code: type.code as ProsthesisCatalog[number]['code'],
       name: type.name,

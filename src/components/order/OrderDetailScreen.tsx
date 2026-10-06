@@ -136,6 +136,14 @@ export interface OrderDetailScreenProps {
    *   어느 이가 몇 개인지보다 먼저 읽혀야 합니다.
    */
   issueSlot?: React.ReactNode;
+  /**
+   * 자동 출력 칸 (자동 템포러리).
+   *
+   * ★ 리페어 칸 바로 아래입니다. 지금 기계가 무엇을 하고 있는지는
+   *   사양보다 먼저 읽혀야 합니다 — 치과가 눌러 줘야 넘어가는
+   *   자리가 그 안에 있습니다.
+   */
+  autoSlot?: React.ReactNode;
   /** 아래줄에 끼워 넣을 것 (리메이크 · 리페어 신청) — 시안 .dt-bar */
   barSlot?: React.ReactNode;
   /**
@@ -174,6 +182,7 @@ export default function OrderDetailScreen({
   scanSlot,
   extraSlot,
   issueSlot,
+  autoSlot,
   progress,
   progressNote,
   barSlot,
@@ -381,6 +390,8 @@ export default function OrderDetailScreen({
         )}
 
         {issueSlot && <div className="px-[18px] pt-3.5">{issueSlot}</div>}
+
+        {autoSlot && <div className="px-[18px] pt-3.5">{autoSlot}</div>}
 
         {/* ---------- .dt-arch ---------- */}
         <div className="px-[18px] pb-2 pt-2">
