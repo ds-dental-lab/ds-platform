@@ -60,8 +60,14 @@ SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
 BUCKET = "order-files"
 
-POLL_SECONDS = 5
-SETTLE_SECONDS = 4          # 크기가 이만큼 안 변하면 다 쓴 것으로 봅니다
+# ★★ 거의 즉각 반응하게 만들었습니다 (사용자 요청 2026-10-06).
+#   전에는 폴더를 5초마다 보고(POLL) 다 썼는지 4초를 기다려(SETTLE), 내보내기와
+#   창이 뜨는 사이에 **최대 9초**가 그냥 흘렀습니다. 둘 다 없앴습니다.
+POLL_SECONDS = 1
+#: 크기가 멈췄는지 확인하는 간격 — 윈도우가 '아직 쓰는 중' 이라고 안 해 줄 때의 대비책
+SETTLE_TICK = 0.4
+#: 폴더(메딧)는 파일이 하나씩 떨어집니다. 이만큼 조용하면 다 떨어진 것으로 봅니다
+QUIET_SECONDS = 1.5
 
 
 def load_settings() -> dict:
@@ -178,22 +184,63 @@ def set_autostart(on: bool) -> str:
     return "윈도우를 켜면 저절로 떠서 지켜봅니다."
 
 
-def settled(path: Path) -> bool:
-    """쓰기가 끝났는가 — 크기가 SETTLE_SECONDS 동안 그대로면 끝난 것으로 봅니다."""
-    try:
-        first = path.stat().st_size
-        time.sleep(SETTLE_SECONDS)
-        return first > 0 and first == path.stat().st_size
-    except OSError:
+def _writer_done(path: Path) -> bool:
+    """
+    쓰던 프로그램이 파일을 **닫았는가** — 윈도우에게 직접 물어봅니다.
+
+    ★★ 이게 속도의 핵심입니다. 크기가 멈추기를 몇 초씩 기다리는 대신,
+      **아무도 안 쓰고 있는 파일인지**를 그 자리에서 알 수 있습니다.
+      공유를 하나도 허용하지 않고(dwShareMode=0) 열어 봐서, 열리면 쓰던 쪽이
+      이미 닫은 것입니다. 스캐너가 아직 쓰는 중이면 열리지 않습니다.
+    ★ 윈도우가 아니거나 뭔가 막히면 False 를 돌려주고, 크기 비교 쪽으로 넘깁니다.
+    """
+    if os.name != "nt":
+        return True
+
+    import ctypes
+    from ctypes import wintypes
+
+    GENERIC_READ = 0x80000000
+    OPEN_EXISTING = 3
+    INVALID = ctypes.c_void_p(-1).value
+
+    CreateFileW = ctypes.windll.kernel32.CreateFileW
+    CreateFileW.restype = wintypes.HANDLE
+    CreateFileW.argtypes = [
+        wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+        wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE,
+    ]
+
+    handle = CreateFileW(str(path), GENERIC_READ, 0, None, OPEN_EXISTING, 0, None)
+    if handle == INVALID or handle is None:
         return False
+
+    ctypes.windll.kernel32.CloseHandle(wintypes.HANDLE(handle))
+    return True
+
+
+def settled(path: Path) -> bool:
+    """이 파일을 지금 올려도 되는가"""
+    return settled_all([path])
 
 
 def settled_all(paths: list[Path]) -> bool:
-    """여러 파일이 다 쓰였는가 — 폴더로 내보내면 파일이 하나씩 떨어집니다"""
+    """
+    이 파일들을 지금 올려도 되는가.
+
+    ★ 먼저 **닫혔는지** 봅니다 (대개 그 자리에서 끝납니다).
+    ★ 닫혔다고 해도 크기를 한 번 더 견줍니다 — 네트워크 드라이브처럼 윈도우가
+      제대로 안 알려 주는 자리가 있어서, 아주 짧게(0.4초) 확인만 합니다.
+    """
     try:
-        first = [p.stat().st_size for p in paths]
-        time.sleep(SETTLE_SECONDS)
-        return all(n > 0 for n in first) and first == [p.stat().st_size for p in paths]
+        if not all(p.stat().st_size > 0 for p in paths):
+            return False
+        if not all(_writer_done(p) for p in paths):
+            return False
+
+        before = [p.stat().st_size for p in paths]
+        time.sleep(SETTLE_TICK)
+        return before == [p.stat().st_size for p in paths]
     except OSError:
         return False
 
@@ -335,6 +382,9 @@ class Agent:
         known = {p.name for p in folder.iterdir()} if folder.is_dir() else set()
         self.say(f"{folder} 를 봅니다. 이미 있던 {len(known)}개는 두고, 새로 들어오는 것만 올립니다.")
 
+        #: 폴더(메딧)는 파일이 하나씩 떨어집니다 — '언제 마지막으로 바뀌었나' 를 적어 둡니다
+        folder_seen: dict[str, tuple[tuple, float]] = {}
+
         while not self.stop.is_set():
             try:
                 for path in sorted(folder.iterdir()):
@@ -359,9 +409,21 @@ class Agent:
                                 )
                             continue
 
+                        # ★ 아직 더 떨어질 수 있습니다. 폴더 안이 **조용해질 때까지** 둡니다
+                        #   (파일 이름·크기가 안 바뀐 채로 QUIET_SECONDS).
+                        shape = tuple(sorted((f.name, f.stat().st_size) for f in inside))
+                        last_shape, since = folder_seen.get(path.name, (None, 0.0))
+                        if shape != last_shape:
+                            folder_seen[path.name] = (shape, time.time())
+                            continue
+                        if time.time() - since < QUIET_SECONDS:
+                            continue
+
                         if not settled_all(meshes):
                             continue
+
                         known.add(path.name)
+                        folder_seen.pop(path.name, None)
                         self.upload_medit(path.name, meshes)
 
                     elif path.suffix.lower() == ".dxd":
