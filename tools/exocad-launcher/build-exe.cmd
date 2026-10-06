@@ -16,6 +16,7 @@ if not exist "%PY%" set "PY=python"
 "%PY%" -m PyInstaller --noconfirm --onedir --windowed ^
   --name "덴플로우 에이전트" ^
   --icon "%~dp0denflow.ico" ^
+  --add-data "%~dp0denflow.ico;." ^
   --distpath "%~dp0dist" --workpath "%~dp0build" --specpath "%~dp0build" ^
   "%~dp0scan_agent.py"
 

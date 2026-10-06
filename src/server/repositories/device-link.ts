@@ -30,7 +30,7 @@ export interface LinkedDevice {
 export async function linkDevice(
   code: string,
   deviceName: string,
-): Promise<{ ok: true; token: string; deviceId: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; token: string; deviceId: string; clinicName: string } | { ok: false; error: string }> {
   const admin = createAdminClient();
 
   const { data } = await admin
@@ -63,7 +63,23 @@ export async function linkDevice(
     .update({ used_at: new Date().toISOString(), device_id: device.id })
     .eq('code', code);
 
-  return { ok: true, token, deviceId: device.id };
+  /*
+    ★ 어느 치과에 붙었는지 돌려줍니다 (2026-10-06). PC 프로그램 화면에
+      '○○치과에 연결됨' 이라고 적어 주면, 엉뚱한 치과에 연결한 것을
+      그 자리에서 압니다. 코드만 맞으면 연결되니 그럴 수 있습니다.
+  */
+  const { data: org } = await admin
+    .from('organizations')
+    .select('name')
+    .eq('id', row.clinic_org_id)
+    .maybeSingle();
+
+  return {
+    ok: true,
+    token,
+    deviceId: device.id,
+    clinicName: (org as { name: string } | null)?.name ?? '',
+  };
 }
 
 /** 헤더의 열쇠가 살아 있는 기기인가 */

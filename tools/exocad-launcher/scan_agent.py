@@ -201,10 +201,12 @@ def settled_all(paths: list[Path]) -> bool:
 class Agent:
     """폴더를 보고 올리는 일. 창(App)이 이 객체를 쥐고 씁니다."""
 
-    def __init__(self, say) -> None:
+    def __init__(self, say, on_link=None) -> None:
         self.say = say
         self.cfg = load_settings()
         self.stop = threading.Event()
+        #: 연결이 끝나면 창이 자기 모습을 고칠 수 있게
+        self.on_link = on_link
 
     # -- 연결 --
     def link(self, code: str, device_name: str) -> bool:
@@ -215,8 +217,14 @@ class Agent:
 
         self.cfg["token"] = result["token"]
         self.cfg["device_id"] = result["deviceId"]
+        # ★ 어느 치과에 붙었는지 화면에 적어 둡니다 — 엉뚱한 곳에 연결한 것을 바로 압니다
+        self.cfg["clinic"] = result.get("clinicName", "")
         save_settings(self.cfg)
-        self.say("연결됐습니다. 이제 내보내기만 하면 올라갑니다.")
+
+        where = self.cfg["clinic"] or "치과"
+        self.say(f"{where} 에 연결됐습니다. 이제 내보내기만 하면 올라갑니다.")
+        if self.on_link:
+            self.on_link()
         return True
 
     # -- 올리기 --
@@ -374,60 +382,226 @@ class Agent:
             self.stop.wait(POLL_SECONDS)
 
 
+# ---------------------------------------------------------
+# 창 (2026-10-06 — 치과에 드리는 프로그램이라 다시 그렸습니다)
+#
+# ★ 쓰는 색은 덴플로우 화면과 같습니다. 같은 회사 물건으로 보여야 합니다.
+# ★ 지금 어느 상태인지가 **오른쪽 위 한 곳**에만 적힙니다 —
+#   연결 안 됨 / 준비됨 / 지켜보는 중. 진료실에서는 흘깃 보고 알아야 합니다.
+# ★ 연결이 끝나면 코드 칸을 치우고 **치과 이름**을 보여 줍니다. 엉뚱한 치과에
+#   연결한 것을 그 자리에서 알 수 있습니다.
+# ★ tk 기본 위젯은 투박합니다. 입력칸은 테두리를 직접 두르고(Frame 1px),
+#   단추는 relief 를 없애고 hover 색을 답니다.
+# ---------------------------------------------------------
+
+INK, SUB, DIM, FAINT = "#1A2130", "#4A5567", "#7C8595", "#98A2B3"
+LINE, PAPER, BG, TINT = "#E8EBF0", "#FFFFFF", "#F4F6F9", "#F2F7FE"
+BLUE, BLUE_DARK = "#1279E8", "#0F68C9"
+GREEN, GREY = "#1F9254", "#C4CBD6"
+F = "Malgun Gothic"
+
+
+def asset(name: str) -> Path:
+    """묶인 뒤에는 _internal 안에 있습니다"""
+    return Path(getattr(sys, "_MEIPASS", HERE)) / name
+
+
 class App:
     def __init__(self) -> None:
-        self.agent = Agent(self.say)
+        self.agent = Agent(self.say, on_link=self.refresh)
+        self.watching = False
+
         self.root = tk.Tk()
         self.root.title("덴플로우 에이전트")
-        self.root.geometry("560x480")
-        self.root.configure(bg="#FFFFFF")
-        F = "Malgun Gothic"
-
-        tk.Label(self.root, text="덴플로우 에이전트", font=(F, 15, "bold"), bg="#FFFFFF", fg="#1A2130").pack(anchor="w", padx=22, pady=(18, 2))
-        tk.Label(
-            self.root,
-            text="구강스캐너에서 내보내면 스캔이 덴플로우로 올라가고 주문 등록 창이 열립니다.",
-            font=(F, 9), bg="#FFFFFF", fg="#7C8595", wraplength=500, justify="left",
-        ).pack(anchor="w", padx=22)
-
-        box = tk.Frame(self.root, bg="#FFFFFF")
-        box.pack(fill="x", padx=22, pady=(14, 0))
+        self.root.geometry("620x600")
+        self.root.minsize(560, 520)
+        self.root.configure(bg=BG)
+        try:
+            self.root.iconbitmap(str(asset("denflow.ico")))
+        except Exception:  # noqa: BLE001
+            pass
 
         self.folder = tk.StringVar(value=self.agent.cfg.get("folder", ""))
-        row = tk.Frame(box, bg="#FFFFFF")
-        row.pack(fill="x")
-        tk.Entry(row, textvariable=self.folder, font=(F, 10)).pack(side="left", fill="x", expand=True, ipady=4)
-        tk.Button(row, text="내보내기 폴더", command=self.pick, font=(F, 9, "bold"), relief="flat", bg="#EEF1F5").pack(side="left", padx=(6, 0))
-
         self.code = tk.StringVar(value="")
-        row2 = tk.Frame(box, bg="#FFFFFF")
-        row2.pack(fill="x", pady=(8, 0))
-        tk.Label(row2, text="연결 코드", font=(F, 10), bg="#FFFFFF").pack(side="left")
-        tk.Entry(row2, textvariable=self.code, width=10, font=(F, 12, "bold")).pack(side="left", padx=(8, 8))
-        tk.Button(row2, text="연결하기", command=self.link, font=(F, 9, "bold"), relief="flat", bg="#EEF1F5").pack(side="left")
-        tk.Label(row2, text="치과 계정정보 → 스캐너 PC 연결", font=(F, 9), bg="#FFFFFF", fg="#98A2B3").pack(side="left", padx=(10, 0))
-
         self.auto = tk.BooleanVar(value=autostart_on())
-        tk.Checkbutton(
-            box, text="윈도우 켤 때 저절로 시작", variable=self.auto, command=self.toggle_auto,
-            font=(F, 9), bg="#FFFFFF", fg="#4A5567", activebackground="#FFFFFF",
-        ).pack(anchor="w", pady=(8, 0))
 
-        self.start_btn = tk.Button(self.root, text="지켜보기 시작", command=self.start, font=(F, 11, "bold"), relief="flat", bg="#1279E8", fg="#FFFFFF")
-        self.start_btn.pack(fill="x", padx=22, pady=(14, 8), ipady=6)
+        self._header()
+        body = tk.Frame(self.root, bg=BG)
+        body.pack(fill="both", expand=True, padx=20, pady=(16, 18))
 
-        self.text = tk.Text(self.root, height=12, font=(F, 9), bg="#F8F9FB", fg="#4A5567", relief="flat", state="disabled", wrap="word")
-        self.text.pack(fill="both", expand=True, padx=22, pady=(0, 18))
+        self._step_connect(body)
+        self._step_folder(body)
+        self._controls(body)
+        self._log(body)
+
+        self.refresh()
 
         if self.agent.cfg.get("token"):
-            self.say("이미 연결된 PC 입니다. 폴더를 고르고 '지켜보기 시작' 을 누르세요.")
+            self.say(f"{self.agent.cfg.get('clinic') or '치과'} 에 연결된 PC 입니다.")
         else:
-            self.say("치과 계정정보에서 연결 코드를 받아 넣어 주세요.")
+            self.say("덴플로우 계정정보에서 연결 코드를 받아 넣어 주세요.")
 
-        # ★ 연결도 폴더도 이미 있으면 사람을 기다리지 않고 바로 봅니다.
-        #   윈도우가 켜질 때 저절로 떴다면 누를 사람이 없습니다.
-        if self.agent.cfg.get("token") and Path(self.folder.get().strip() or ".").is_dir() and self.folder.get().strip():
+        # ★ 연결도 폴더도 이미 있으면 사람을 안 기다립니다 (윈도우가 켜질 때 저절로 떴다면)
+        if self.agent.cfg.get("token") and self.folder.get().strip() and Path(self.folder.get().strip()).is_dir():
             self.root.after(800, self.start)
+
+    # ---------- 생김새 ----------
+
+    def _header(self) -> None:
+        bar = tk.Frame(self.root, bg=PAPER)
+        bar.pack(fill="x")
+
+        left = tk.Frame(bar, bg=PAPER)
+        left.pack(side="left", padx=20, pady=(16, 14))
+        tk.Label(left, text="덴플로우 에이전트", font=(F, 14, "bold"), bg=PAPER, fg=INK).pack(anchor="w")
+        tk.Label(
+            left, text="구강스캐너에서 내보내면 스캔이 덴플로우로 올라갑니다",
+            font=(F, 9), bg=PAPER, fg=DIM,
+        ).pack(anchor="w", pady=(2, 0))
+
+        pill = tk.Frame(bar, bg=TINT)
+        pill.pack(side="right", padx=20)
+        self.dot = tk.Label(pill, text="●", font=(F, 9), bg=TINT, fg=GREY)
+        self.dot.pack(side="left", padx=(10, 4), pady=5)
+        self.state = tk.Label(pill, text="연결 안 됨", font=(F, 9, "bold"), bg=TINT, fg=SUB)
+        self.state.pack(side="left", padx=(0, 12), pady=5)
+
+        tk.Frame(self.root, bg=LINE, height=1).pack(fill="x")
+
+    def _card(self, parent, step: str, title: str) -> tk.Frame:
+        wrap = tk.Frame(parent, bg=LINE)
+        wrap.pack(fill="x", pady=(0, 10))
+        card = tk.Frame(wrap, bg=PAPER)
+        card.pack(fill="x", padx=1, pady=1)
+
+        head = tk.Frame(card, bg=PAPER)
+        head.pack(fill="x", padx=14, pady=(11, 0))
+        tk.Label(head, text=step, font=(F, 9, "bold"), bg=BLUE, fg=PAPER, width=3).pack(side="left")
+        tk.Label(head, text=title, font=(F, 10, "bold"), bg=PAPER, fg=INK).pack(side="left", padx=(8, 0))
+        return card
+
+    def _field(self, parent, textvar, width=None, big=False) -> tk.Frame:
+        """테두리 있는 입력칸 — tk.Entry 기본 모양이 투박해서 테를 직접 두릅니다"""
+        box = tk.Frame(parent, bg=LINE)
+        tk.Entry(
+            box, textvariable=textvar,
+            font=(F, 13, "bold") if big else (F, 10),
+            relief="flat", bg=PAPER, fg=INK, insertbackground=INK,
+            width=width or 0, justify="center" if big else "left",
+        ).pack(padx=1, pady=1, ipady=6, ipadx=6, fill="x", expand=True)
+        return box
+
+    def _button(self, parent, text, command, kind="ghost") -> tk.Button:
+        fill, hover, fg = {
+            "primary": (BLUE, BLUE_DARK, PAPER),
+            "ghost": ("#EEF1F5", "#E2E7EE", SUB),
+        }[kind]
+
+        b = tk.Button(
+            parent, text=text, command=command, font=(F, 9, "bold"),
+            relief="flat", bd=0, cursor="hand2",
+            bg=fill, fg=fg, activebackground=hover, activeforeground=fg,
+        )
+        b.bind("<Enter>", lambda _e, w=b, c=hover: w.config(bg=c))
+        b.bind("<Leave>", lambda _e, w=b, c=fill: w.config(bg=c))
+        return b
+
+    def _step_connect(self, body) -> None:
+        card = self._card(body, "1", "치과 연결")
+        self.connect_body = tk.Frame(card, bg=PAPER)
+        self.connect_body.pack(fill="x", padx=14, pady=(8, 13))
+
+    def _draw_connect(self) -> None:
+        for w in self.connect_body.winfo_children():
+            w.destroy()
+
+        if self.agent.cfg.get("token"):
+            row = tk.Frame(self.connect_body, bg=PAPER)
+            row.pack(fill="x")
+            tk.Label(row, text="✓", font=(F, 11, "bold"), bg=PAPER, fg=GREEN).pack(side="left")
+            tk.Label(
+                row, text=f"{self.agent.cfg.get('clinic') or '치과'} 에 연결됨",
+                font=(F, 10, "bold"), bg=PAPER, fg=INK,
+            ).pack(side="left", padx=(6, 0))
+            self._button(row, "다시 연결", self.unlink).pack(side="right", ipadx=8, ipady=3)
+            tk.Label(
+                self.connect_body, text="비밀번호는 이 PC 에 저장되지 않습니다",
+                font=(F, 9), bg=PAPER, fg=FAINT,
+            ).pack(anchor="w", pady=(6, 0))
+            return
+
+        row = tk.Frame(self.connect_body, bg=PAPER)
+        row.pack(fill="x")
+        self._field(row, self.code, width=8, big=True).pack(side="left")
+        self._button(row, "연결하기", self.link, kind="primary").pack(side="left", padx=(8, 0), ipadx=14, ipady=5)
+        tk.Label(
+            self.connect_body,
+            text="덴플로우 → 계정정보 → 스캐너 PC 연결 → 연결 코드 만들기 (10분)",
+            font=(F, 9), bg=PAPER, fg=FAINT,
+        ).pack(anchor="w", pady=(7, 0))
+
+    def _step_folder(self, body) -> None:
+        card = self._card(body, "2", "내보내기 폴더")
+        inner = tk.Frame(card, bg=PAPER)
+        inner.pack(fill="x", padx=14, pady=(8, 13))
+
+        row = tk.Frame(inner, bg=PAPER)
+        row.pack(fill="x")
+        self._field(row, self.folder).pack(side="left", fill="x", expand=True)
+        self._button(row, "찾아보기", self.pick).pack(side="left", padx=(8, 0), ipadx=10, ipady=5)
+        tk.Label(
+            inner, text="스캐너 프로그램의 내보내기 설정에 적힌 그 폴더입니다",
+            font=(F, 9), bg=PAPER, fg=FAINT,
+        ).pack(anchor="w", pady=(7, 0))
+
+    def _controls(self, body) -> None:
+        row = tk.Frame(body, bg=BG)
+        row.pack(fill="x", pady=(2, 10))
+
+        tk.Checkbutton(
+            row, text="윈도우 켤 때 저절로 시작", variable=self.auto, command=self.toggle_auto,
+            font=(F, 9), bg=BG, fg=SUB, activebackground=BG, activeforeground=SUB,
+            selectcolor=PAPER, cursor="hand2",
+        ).pack(side="left")
+
+        self.start_btn = self._button(row, "지켜보기 시작", self.toggle_watch, kind="primary")
+        self.start_btn.pack(side="right", ipadx=22, ipady=7)
+
+    def _log(self, body) -> None:
+        wrap = tk.Frame(body, bg=LINE)
+        wrap.pack(fill="both", expand=True)
+        card = tk.Frame(wrap, bg=PAPER)
+        card.pack(fill="both", expand=True, padx=1, pady=1)
+
+        tk.Label(card, text="기록", font=(F, 9, "bold"), bg=PAPER, fg=FAINT).pack(anchor="w", padx=14, pady=(9, 2))
+        self.text = tk.Text(
+            card, font=(F, 9), bg=PAPER, fg=SUB, relief="flat",
+            state="disabled", wrap="word", height=8, padx=14, pady=4,
+        )
+        self.text.pack(fill="both", expand=True, pady=(0, 10))
+        self.text.tag_configure("time", foreground=FAINT)
+
+    # ---------- 상태 ----------
+
+    def refresh(self) -> None:
+        """지금 상태를 오른쪽 위 한 곳에 적습니다"""
+        def _do() -> None:
+            self._draw_connect()
+
+            if self.watching:
+                text, color = "지켜보는 중", GREEN
+            elif self.agent.cfg.get("token"):
+                text, color = "준비됨", BLUE
+            else:
+                text, color = "연결 안 됨", GREY
+
+            self.state.config(text=text)
+            self.dot.config(fg=color)
+            self.start_btn.config(text="지켜보기 멈춤" if self.watching else "지켜보기 시작")
+
+        self.root.after(0, _do)
+
+    # ---------- 동작 ----------
 
     def pick(self) -> None:
         picked = filedialog.askdirectory(title="구강스캐너 내보내기 폴더")
@@ -435,13 +609,16 @@ class App:
             self.folder.set(picked)
 
     def say(self, msg: str) -> None:
+        stamp = time.strftime("%H:%M")
+
         def _put() -> None:
             self.text.config(state="normal")
-            self.text.insert("end", msg.rstrip() + "\n")
+            self.text.insert("end", stamp + "  ", "time")
+            self.text.insert("end", msg.rstrip() + chr(10))
             self.text.see("end")
             self.text.config(state="disabled")
 
-        if hasattr(self, "root"):
+        if hasattr(self, "text"):
             self.root.after(0, _put)
         else:
             print(msg)
@@ -450,21 +627,53 @@ class App:
         self.say(set_autostart(self.auto.get()))
 
     def link(self) -> None:
-        threading.Thread(target=self.agent.link, args=(self.code.get(), os.environ.get("COMPUTERNAME", "스캐너 PC")), daemon=True).start()
+        code = self.code.get().strip()
+        if len(code) < 6:
+            self.say("연결 코드 여섯 자리를 넣어 주세요")
+            return
+        threading.Thread(
+            target=self.agent.link,
+            args=(code, os.environ.get("COMPUTERNAME", "스캐너 PC")),
+            daemon=True,
+        ).start()
+
+    def unlink(self) -> None:
+        """이 PC 에서만 지웁니다 — 덴플로우 쪽 연결 해제는 계정정보에서 합니다"""
+        self.stop_watch()
+        for key in ("token", "device_id", "clinic"):
+            self.agent.cfg.pop(key, None)
+        save_settings(self.agent.cfg)
+        self.code.set("")
+        self.say("이 PC 의 연결을 지웠습니다. 새 코드로 다시 연결해 주세요.")
+        self.refresh()
+
+    def toggle_watch(self) -> None:
+        self.stop_watch() if self.watching else self.start()
+
+    def stop_watch(self) -> None:
+        if not self.watching:
+            return
+        self.agent.stop.set()
+        self.watching = False
+        self.say("지켜보기를 멈췄습니다. 지금 내보낸 것은 안 올라갑니다.")
+        self.refresh()
 
     def start(self) -> None:
         folder = Path(self.folder.get().strip())
-        if not folder.is_dir():
-            self.say("내보내기 폴더를 골라 주세요")
-            return
         if not self.agent.cfg.get("token"):
             self.say("먼저 연결 코드로 연결해 주세요")
+            return
+        if not self.folder.get().strip() or not folder.is_dir():
+            self.say("내보내기 폴더를 골라 주세요")
             return
 
         self.agent.cfg["folder"] = str(folder)
         save_settings(self.agent.cfg)
 
-        self.start_btn.config(text="지켜보는 중…", state="disabled", bg="#9FC4EE")
+        # ★ 멈췄다 다시 켤 수 있게 새 신호를 답니다 (한 번 set 된 Event 는 계속 켜져 있습니다)
+        self.agent.stop = threading.Event()
+        self.watching = True
+        self.refresh()
         threading.Thread(target=self.agent.watch, args=(folder,), daemon=True).start()
 
     def run(self) -> None:
