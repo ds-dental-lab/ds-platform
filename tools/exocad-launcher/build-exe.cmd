@@ -8,6 +8,7 @@ rem   false positives. Clinics run V3 / ALYac, which are stricter than Defender.
 rem   The cost: the whole folder must be copied together, not a single file.
 rem ★ numpy comes in through Pillow but the agent never uses it (-26MB).
 rem ★ Never put a rem between ^ continuation lines - it breaks the command.
+rem ★ --version-file: 속성에 만든 이·판번호가 박힙니다. 비어 있으면 백신 휴리스틱 점수가 나쁩니다.
 rem Needs: pip install pyinstaller pystray pillow
 rem Note: --icon must be an absolute path (PyInstaller resolves it from --specpath).
 rem       %~dp0 already expands to one.
@@ -19,6 +20,7 @@ if not exist "%PY%" set "PY=python"
   --name "덴플로우 에이전트" ^
   --icon "%~dp0denflow.ico" ^
   --add-data "%~dp0denflow.ico;." ^
+  --version-file "%~dp0version.txt" ^
   --exclude-module numpy --exclude-module scipy --exclude-module matplotlib ^
   --distpath "%~dp0dist" --workpath "%~dp0build" --specpath "%~dp0build" ^
   "%~dp0scan_agent.py"

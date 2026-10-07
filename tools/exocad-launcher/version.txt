@@ -1,0 +1,41 @@
+# -*- coding: utf-8 -*-
+#
+# 실행 파일에 박히는 '속성' 정보 (2026-10-07).
+#
+# ★ 왜 넣는가 — 만든 이도 제품명도 없는 실행 파일은 백신 휴리스틱에서
+#   점수가 나쁩니다. 치과 PC 의 Defender(클라우드 보호 켜짐)가 에이전트를
+#   잡았습니다. 서명만큼은 아니지만, 속성이 비어 있는 것보다 낫습니다.
+# ★ 사람에게도 쓸모가 있습니다 — 파일 오른쪽 클릭 → 속성에서 만든 이와
+#   판 번호가 보입니다. 치과가 "이게 뭐죠?" 할 때 답이 됩니다.
+# ★ 판 번호는 scan_agent.py 의 AGENT_VERSION 과 맞춰야 합니다.
+
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(1, 1, 0, 0),
+    prodvers=(1, 1, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0),
+  ),
+  kids=[
+    StringFileInfo([
+      StringTable(
+        '041203B5',          # 한국어 · UTF-16
+        [
+          StringStruct('CompanyName', '덴플로우 치과기공소'),
+          StringStruct('FileDescription', '덴플로우 에이전트 — 구강스캐너 내보내기 자동 올리기'),
+          StringStruct('FileVersion', '1.1.0'),
+          StringStruct('InternalName', 'denflow-agent'),
+          StringStruct('LegalCopyright', 'Copyright (c) 2026 덴플로우'),
+          StringStruct('OriginalFilename', '덴플로우 에이전트.exe'),
+          StringStruct('ProductName', '덴플로우 에이전트'),
+          StringStruct('ProductVersion', '1.1.0'),
+        ],
+      )
+    ]),
+    VarFileInfo([VarStruct('Translation', [1042, 949])]),
+  ],
+)

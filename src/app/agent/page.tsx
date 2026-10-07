@@ -64,6 +64,19 @@ const STEPS = [
   },
 ];
 
+/*
+  ★ Windows 11 기준 경로입니다. 실제 치과에서 막혔습니다 (2026-10-07).
+    치과 직원이 전화 없이 혼자 따라갈 수 있게 **누르는 것만** 적습니다 —
+    왜 그런지는 화면에 한 줄로 끝냈습니다.
+*/
+const ALLOW = [
+  '화면 오른쪽 아래 방패 모양(Windows 보안)을 두 번 누릅니다.',
+  '「바이러스 및 위협 방지」 → 「보호 기록」 을 누릅니다.',
+  '목록에서 「덴플로우 에이전트」 가 있는 줄을 누릅니다.',
+  '「작업」 을 누르고 「디바이스에서 허용」 을 고릅니다.',
+  '받은 압축을 다시 풀어 폴더를 덮어쓰고 실행합니다.',
+];
+
 export default function AgentDownloadPage() {
   const zip = agentZipUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '');
 
@@ -114,11 +127,38 @@ export default function AgentDownloadPage() {
         ))}
       </ol>
 
-      <div className="mt-8 rounded-xl border border-[#CFE3FB] bg-[#F2F7FE] p-4">
+      {/*
+        ★ 실제 치과에서 Windows 보안이 막았습니다 (2026-10-07). 한 줄 안내로는
+          부족해서 따로 절을 둡니다 — 치과 직원이 이 화면만 보고 풀 수 있어야
+          합니다. 전화로 불러 주기 어려운 경로라 단계로 적습니다.
+        ★ 왜 막는지를 먼저 말합니다. "바이러스라는 뜻이 아니다" 를 먼저 읽히지
+          않으면 그 다음 설명을 안 봅니다.
+      */}
+      <h2 className="mt-9 text-[14px] font-extrabold tracking-[-0.02em] text-[#1A2130]">
+        &ldquo;위협이 검출되었습니다&rdquo; 가 뜨면
+      </h2>
+
+      <p className="mt-2 text-[12.5px] leading-relaxed text-[#4A5567]">
+        바이러스라는 뜻이 아닙니다. <b className="text-[#1A2130]">처음 보는 프로그램</b>이라
+        윈도우가 한 번 물어보는 것입니다. 아래대로 허용해 주시면 다음부터는 묻지 않습니다.
+      </p>
+
+      <ol className="mt-3 space-y-2">
+        {ALLOW.map((step, i) => (
+          <li key={step} className="flex gap-2.5">
+            <span className="mt-[3px] grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full bg-[#4A5567] text-[11px] font-extrabold text-white">
+              {i + 1}
+            </span>
+            <p className="text-[12.5px] leading-relaxed text-[#4A5567]">{step}</p>
+          </li>
+        ))}
+      </ol>
+
+      <div className="mt-5 rounded-xl border border-[#CFE3FB] bg-[#F2F7FE] p-4">
         <p className="text-[12.5px] leading-relaxed text-[#4A5567]">
-          <b className="text-[#1A2130]">백신이 막으면</b> 폴더째 허용해 주세요.
-          설치 프로그램이 아니라 압축을 푼 폴더라 처음 한 번 물어볼 수 있습니다.
-          궁금한 점은 덴플로우 화면의 대화로 남겨 주시면 됩니다.
+          <b className="text-[#1A2130]">잘 안 되시면 그냥 두세요.</b> 덴플로우 화면의 대화로
+          남겨 주시면 저희가 원격으로 봐 드립니다. 직접 백신 설정을 바꾸려다
+          다른 것이 꺼지는 편이 더 나쁩니다.
         </p>
       </div>
     </main>
