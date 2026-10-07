@@ -22,10 +22,12 @@
 
 from __future__ import annotations
 
+import os
 import socket
 import struct
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 #: 프린터가 방송하는 곳. 두 군데를 다 듣습니다 — 펌웨어마다 다릅니다
 GROUP = "239.255.255.250"
@@ -90,6 +92,24 @@ def _parse(data: bytes, addr: tuple[str, int]) -> Found | None:
     )
 
 
+#: 들은 것을 적어 두는 곳. 안 맞을 때 이 파일만 보내 주시면 됩니다
+LOG = Path(os.environ.get("APPDATA", str(Path.home()))) / "DenFlow" / "프린터찾기.txt"
+
+
+def _log(lines: list[str]) -> None:
+    """
+    ★ 실패해도 조용히 넘어갑니다. 기록을 못 남긴다고 찾기가 멈추면 안 됩니다.
+    ★ 파일이 커지지 않게 **마지막 한 번치만** 남깁니다 — 여러 번 눌러도
+      직전 것만 있으면 됩니다.
+    """
+    try:
+        LOG.parent.mkdir(parents=True, exist_ok=True)
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        LOG.write_text(f"[{stamp}]\n" + "\n".join(lines) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
 def discover(seconds: float = 4.0) -> list[Found]:
     """
     랜에 있는 프린터들을 모읍니다.
@@ -137,13 +157,30 @@ def discover(seconds: float = 4.0) -> list[Found]:
             if got:
                 seen[got.serial] = got
 
+    # ★ 닫기 전에 포트를 적어 둡니다 (닫은 소켓은 못 읽습니다)
+    ports = []
     for s in socks:
+        try:
+            ports.append(s.getsockname()[1])
+        except OSError:
+            pass
         try:
             s.close()
         except OSError:
             pass
 
-    return list(seen.values())
+    got = list(seen.values())
+
+    # ★ 들은 것을 그대로 남깁니다 — 실물에서 안 맞으면 이 파일을 봅니다
+    note = [f"들은 수: {len(got)}", f"연 포트: {ports}"]
+    for g in got:
+        note.append(f"  {g.serial} @ {g.ip} · {g.model} · {g.name}")
+        note += [f"      {k}: {v}" for k, v in sorted(g.raw.items())]
+    if not got:
+        note.append("  (아무 방송도 못 들었습니다)")
+    _log(note)
+
+    return got
 
 
 def find(serial: str, seconds: float = 4.0) -> Found | None:
