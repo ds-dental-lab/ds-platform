@@ -20,6 +20,7 @@ import {
   canMove,
   claimable,
   isAutoStep,
+  teethMismatch,
   type AutoJob,
   type AutoStep,
 } from '@/server/domain/auto-print';
@@ -340,17 +341,35 @@ const ROLE_EXT: Record<DeliverSlot['role'], string> = {
  */
 export async function openDeliverSlots(
   orderId: string,
-  body: { files?: unknown },
+  body: { files?: unknown; teeth?: unknown },
 ): Promise<{ ok: true; slots: DeliverSlot[]; bucket: string } | { ok: false; error: string }> {
   const admin = createAdminClient();
 
   const { data: order } = await admin
     .from('orders')
-    .select('id, clinic_org_id')
+    .select('id, clinic_org_id, order_items(tooth_number)')
     .eq('id', orderId)
     .maybeSingle();
-  const found = order as { id: string; clinic_org_id: string } | null;
+  const found = order as
+    | { id: string; clinic_org_id: string; order_items: { tooth_number: number }[] | null }
+    | null;
   if (!found) return { ok: false, error: '주문을 찾지 못했습니다' };
+
+  /*
+    ★★ **올리기 전에** 치식을 견줍니다. 덴트버드가 치식을 알아서 잡는데,
+      틀렸을 때 아무도 모르는 것이 위험합니다 — 엉뚱한 이의 크라운이 치과에서
+      그대로 출력됩니다. 디자인 쪽 치식은 `.constructionInfo` 에 적혀 옵니다.
+    ★ 1MB 를 올린 뒤에 막으면 올린 것이 저장소에 남습니다. 자리를 내주기
+      전에 봅니다.
+  */
+  const designTeeth = Array.isArray(body.teeth)
+    ? body.teeth.filter((t): t is number => Number.isInteger(t))
+    : [];
+  const why = teethMismatch(
+    (found.order_items ?? []).map((i) => i.tooth_number).filter((n) => Number.isInteger(n)),
+    designTeeth,
+  );
+  if (why) return { ok: false, error: why };
 
   const opened = await openAutoJob(orderId, found.clinic_org_id);
   if (!opened.ok) return { ok: false, error: opened.error };

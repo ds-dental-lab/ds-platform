@@ -30,10 +30,17 @@ from pathlib import Path
 
 from slice_job import SliceError, build
 from orca_profile import pick, ready
+from dentbird_case import check as check_case
 
 BASE = __import__("os").environ.get("DENFLOW_BASE", "https://denflow.kr")  # 시험 때만 DENFLOW_BASE 로 바꿔 끼웁니다
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
 BUCKET = "order-files"
+
+#: 주문에 올리는 세 가지. 자리를 먼저 받아야 해서 **이름을 미리** 들고 있습니다
+#:   print   치과 프린터가 받는 것
+#:   design  디자인 STL (기록)
+#:   preview 놓인 모습 그림 (사람이 눈으로 잡는 자리)
+ROLES = ("print", "design", "preview")
 
 
 def _post(url: str, body: dict) -> dict:
@@ -91,6 +98,39 @@ def deliver(
         say("프로파일이 없습니다: " + ", ".join(p.name for p in prof.missing()))
         return False
 
+    # --- 치식과 자세 먼저 ---
+    #
+    # ★★ 자르기 전에 봅니다. 덴트버드가 `.constructionInfo` 에 치식과
+    #   삽입축을 적어 줍니다. 치식이 어긋나면 **엉뚱한 이의 크라운**이
+    #   치과에서 그대로 출력됩니다 — 자르고 올린 뒤에 알면 늦습니다.
+    # ★ 「CAM 축에 좌표 정렬」을 끄고 내보내면 자세가 케이스마다 달라져
+    #   고정 각도가 뜻을 잃습니다. 그것도 여기서 잡습니다.
+    looked = check_case(stl)
+    if not looked.ok:
+        say(f"멈춤: {looked.message}")
+        return False
+    say(looked.message)
+
+    # --- 올릴 자리 받기 (치식 대조가 여기서 일어납니다) ---
+    #
+    # ★ **자르기보다 먼저** 부릅니다. 서버가 주문서 치식과 견줘 막아 주는데,
+    #   자른 뒤에 막히면 10초를 버립니다. 올리는 것은 뒤에 있으니 여기서
+    #   멈춰도 저장소에는 아무것도 안 남습니다.
+    url = f"{BASE}/api/device/print/deliver?t={urllib.parse.quote(token)}"
+    opened = _post(
+        url,
+        {
+            "orderId": order_id,
+            "files": [{"role": r} for r in ROLES],
+            # ★ 서버가 주문서 치식과 **다시** 견줍니다. 여기 것은 빨리
+            #   알려주기 위한 것이고, 막는 쪽은 서버입니다.
+            "teeth": looked.teeth,
+        },
+    )
+    if not opened.get("ok"):
+        say(f"자리를 못 받았습니다: {opened.get('error', '')}")
+        return False
+
     # --- 돌리고 자르기 ---
     say(f"자르는 중… (x {rx}° / y {ry}°)")
     try:
@@ -106,13 +146,7 @@ def deliver(
         "design": Path(made["stl"]),
         "preview": Path(made["preview"]),
     }
-
-    # --- 올릴 자리 받기 ---
-    url = f"{BASE}/api/device/print/deliver?t={urllib.parse.quote(token)}"
-    opened = _post(url, {"orderId": order_id, "files": [{"role": r} for r in local]})
-    if not opened.get("ok"):
-        say(f"자리를 못 받았습니다: {opened.get('error', '')}")
-        return False
+    assert set(local) == set(ROLES)
 
     # --- 올리기 ---
     uploaded = []

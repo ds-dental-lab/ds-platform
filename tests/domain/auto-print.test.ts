@@ -27,6 +27,7 @@ import {
   retryTo,
   shouldAutoRetry,
   stepLabel,
+  teethMismatch,
   type AutoJob,
   type AutoStep,
 } from '@/server/domain/auto-print';
@@ -244,5 +245,46 @@ describe('기종을 코드에 적지 않았습니다', () => {
     for (const word of ['P1S', 'X1C', 'A1 ', 'Bambu', 'bambu', 'FTPS', 'MQTT']) {
       expect(src).not.toContain(word);
     }
+  });
+});
+
+describe('치식 대조 — 엉뚱한 이가 출력되지 않게', () => {
+  /*
+    ★★ 덴트버드가 치식을 알아서 잡습니다. 틀렸을 때 아무도 모르는 것이
+      위험합니다 — 치과에서 엉뚱한 이의 크라운이 그대로 출력됩니다.
+      `.constructionInfo` 에 치식이 적혀 오므로 기계가 견줍니다
+      (2026-10-07, 실제 내보내기로 확인 — 차정순 27번).
+  */
+  it('맞으면 보냅니다', () => {
+    expect(teethMismatch([27], [27])).toBeNull();
+    expect(teethMismatch([26, 27], [26, 27])).toBeNull();
+  });
+
+  it('두 개짜리 주문에 하나만 먼저 보내는 것은 됩니다', () => {
+    expect(teethMismatch([26, 27], [27])).toBeNull();
+  });
+
+  it('주문에 없는 이가 섞이면 막습니다', () => {
+    const why = teethMismatch([26], [27]);
+    expect(why).not.toBeNull();
+    expect(why).toContain('26');
+    expect(why).toContain('27');
+  });
+
+  it('하나라도 섞이면 막습니다', () => {
+    expect(teethMismatch([26, 27], [27, 36])).not.toBeNull();
+  });
+
+  it('치식을 못 읽었으면 막지 않습니다', () => {
+    // ★ 사람이 크라운만 따로 옮겨 놓았을 수 있습니다 — 대조를 못 한 것뿐
+    expect(teethMismatch([27], [])).toBeNull();
+  });
+
+  it('주문에 치식이 없는데 디자인에 있으면 막습니다', () => {
+    expect(teethMismatch([], [27])).not.toBeNull();
+  });
+
+  it('같은 이가 여러 번 적혀 와도 흔들리지 않습니다', () => {
+    expect(teethMismatch([27], [27, 27])).toBeNull();
   });
 });

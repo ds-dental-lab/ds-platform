@@ -229,3 +229,34 @@ export function shouldAutoRetry(job: AutoJob, tries: number): boolean {
   if (!(AUTO_RETRY as readonly string[]).includes(at)) return false;
   return tries < MAX_TRIES;
 }
+
+// ---------------------------------------------------------------- 치식 대조
+
+/**
+ * 디자인에 적힌 치식이 주문서와 맞는가.
+ *
+ * ★★ 덴트버드가 치식을 **알아서 잡아 줍니다.** 좋은 기능이지만, 틀렸을 때
+ *   아무도 모르는 것이 위험합니다 — 엉뚱한 이의 크라운이 치과에서 그대로
+ *   출력됩니다. 다행히 덴트버드가 `.constructionInfo` 에 치식을 적어 주므로
+ *   **사람 눈이 아니라 기계가** 견줍니다.
+ *
+ * ★ **부분 납품은 됩니다.** 두 개짜리 주문에 크라운 하나만 먼저 보낼 수
+ *   있습니다. 막는 것은 **주문에 없는 이**가 섞여 들어오는 경우입니다.
+ *
+ * ★ 치식을 못 읽었으면(빈 배열) 막지 않습니다 — 사람이 크라운만 따로
+ *   옮겨 놓았을 수 있습니다. 대조를 못 했을 뿐, 틀렸다는 뜻은 아닙니다.
+ *
+ * 돌려주는 값: 막아야 할 까닭. 괜찮으면 null.
+ */
+export function teethMismatch(orderTeeth: number[], designTeeth: number[]): string | null {
+  if (designTeeth.length === 0) return null;
+
+  const inOrder = new Set(orderTeeth);
+  const stray = [...new Set(designTeeth)].filter((t) => !inOrder.has(t)).sort((a, b) => a - b);
+  if (stray.length === 0) return null;
+
+  return (
+    `치식이 주문서에 없습니다 — 주문서 ${[...inOrder].sort((a, b) => a - b).join('·') || '없음'} · ` +
+    `디자인 ${[...designTeeth].sort((a, b) => a - b).join('·')}`
+  );
+}
