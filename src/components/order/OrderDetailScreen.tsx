@@ -12,11 +12,14 @@
 //     .dt-cols   1.6fr / 1fr 그리드 — 아래 자리표대로
 //     .dt-bar    주문 삭제 · 수정 | 상태 전이 | 주문목록
 //
-//   자리표
-//     기타 요청사항  ← 치식도 바로 아래, 한 줄 통째로 (2026-10-07에 올림)
+//   자리표 (시안 .g-a ~ .g-g)
 //     ┌ 제작보철 (g-a) ┬ 스캔/쉐이드 (g-b) ┐
 //     ├ 제작옵션 (g-c) ┤ 디자인 파일 (g-d)  │
+//     ├ 요청사항 (g-e) ┤                    │
 //     └ 담당자   (g-f) ┴ 기공소     (g-g) ┘
+//
+//   ★ 임플란트 모델 칸은 제작옵션 칸 높이에 맞춰 잘립니다 (2026-10-07).
+//     그래야 모델이 많아도 요청사항이 아래로 안 밀립니다.
 //
 // ★ 진행 이력은 넣지 않습니다.
 //   시안 어디에도 없습니다. 상태가 지나온 길은 order_status_history 에
@@ -398,45 +401,27 @@ export default function OrderDetailScreen({
           <ToothChart placements={placements} catalog={prosthesisCatalog} readOnly />
         </div>
 
-        {/*
-          ---------- 기타 요청사항 ----------
-
-          ★★ 치식도 **바로 아래**입니다 (사용자 요청 2026-10-07 —
-            "스크롤 내리지 않아도 한눈에 보이게"). 전에는 아래 격자의 셋째
-            줄이라 한 번 스크롤해야 닿았고, 칸 안에도 max-h 가 걸려 **또**
-            스크롤이었습니다. 두 겹으로 가려져 있던 셈입니다.
-
-          ★ 키를 안 묶습니다. 적힌 만큼 늘어납니다 — 요청사항은 길어도
-            다 읽혀야 하는 글입니다. 대신 아래 카드들이 그만큼 밀립니다.
-
-          ★ 비어 있으면 **아예 안 그립니다.** 화면에서 제일 좋은 자리를
-            "적힌 내용이 없습니다" 가 차지하면 안 됩니다.
-        */}
-        {order.notes?.trim() && (
-          <div className="px-[18px] pb-1 pt-0.5">
-            <div className="rounded-[9px] border border-[#CFE3FB] bg-[#F7FAFF] px-4 py-2.5">
-              <p className="mb-[5px] text-[13px] font-bold text-[#4A5567]">기타 요청사항</p>
-              <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#1279E8]">
-                {order.notes}
-              </p>
-            </div>
-          </div>
-        )}
-
         {extraSlot && <div className="px-[18px] pb-3.5">{extraSlot}</div>}
 
         {/* ---------- .dt-cols ---------- */}
         {/*
           ★ flex-1 로 남은 높이를 받고, 줄 수만큼 **딱 맞는** 행 틀을 줍니다.
-            행 틀을 넉넉히 두면 빈 행에도 gap 이 붙어 아래에 10px 이 또
-            남습니다. 위 두 줄이 1fr 로 늘고 담당자 줄만 제 키대로 섭니다.
-          ★ 기타 요청사항은 2026-10-07에 **치식도 아래로 올렸습니다** —
-            여기 셋째 줄에 있을 때는 스크롤해야 보였습니다.
+            행 틀을 넉넉히 4줄로 두면 치과(3줄)에서 빈 4행에도 gap 이 붙어
+            아래에 10px 이 또 남습니다. 위 두 줄이 1fr 로 늘고 담당자 줄은
+            제 키대로 섭니다.
+
+          ★★ 요청사항 줄은 `auto` 가 아니라 **`max-content`** 입니다.
+            `auto` 로 두면 이 격자가 제 높이를 다 쓴 뒤 남은 만큼만 줘서,
+            요청사항이 길면 **글자가 칸 테두리 밖으로 넘쳐** 흘렀습니다
+            (실측 2026-10-07 — 364px 글이 68px 칸에). `max-content` 면
+            적힌 만큼 줄이 늘고, 넘치는 것은 격자가 통째로 굴러갑니다.
         */}
         <div
           className={
             'grid min-h-0 flex-1 grid-cols-1 items-stretch gap-2.5 overflow-y-auto px-[18px] pb-3 lg:grid-cols-[1.6fr_1fr] ' +
-            (showCost ? 'lg:grid-rows-[1fr_1fr_auto]' : 'lg:grid-rows-[1fr_1fr]')
+            (showCost
+              ? 'lg:grid-rows-[1fr_1fr_max-content_auto]'
+              : 'lg:grid-rows-[1fr_1fr_max-content]')
           }
         >
           {/* g-a — 제작보철 */}
@@ -573,8 +558,18 @@ export default function OrderDetailScreen({
             </Card>
 
             {hasImplant && (
-              <Card icon={ICON.implant} title="임플란트 모델">
-                <div className="flex max-h-[150px] flex-col gap-1.5 overflow-y-auto">
+              /*
+                ★★ 이 칸은 **제작옵션 칸 높이에 맞춥니다** (사용자 요청 2026-10-07).
+                  전에는 둘 중 **큰 쪽**이 줄 높이를 정해서, 임플란트가 여러 개인
+                  주문일수록 이 줄이 길어지고 기타 요청사항이 그만큼 더 멀리
+                  밀렸습니다 — 모델이 많은 주문이 곧 요청사항도 긴 주문입니다.
+                ★ absolute 로 띄워 **높이 계산에서 뺍니다.** 넘치는 것은 안에서
+                  굴립니다. 제작옵션이 비어 짧아질 때를 대비해 바닥만 잡아 둡니다.
+              */
+              <div className="relative min-h-[132px]">
+                <Card icon={ICON.implant} title="임플란트 모델" className="absolute inset-0">
+                  <div className="flex h-full min-h-0 flex-col">
+                <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
                   {implantRows.length === 0 ? (
                     <p className="px-0.5 py-1.5 text-[13.5px] text-[#98A2B3]">
                       등록된 모델 정보가 없습니다.
@@ -598,16 +593,25 @@ export default function OrderDetailScreen({
                     정작 "모델이 없다" 를 알려야 할 주문일수록 줄이 많습니다.
                 */}
                 {missingModels > 0 && (
-                  <p className="mt-2 rounded-md border border-[#F3C6C6] bg-[#FDECEA] px-[11px] py-[9px] text-[12.5px] font-bold leading-relaxed text-[#C4383A]">
+                  <p className="mt-2 shrink-0 rounded-md border border-[#F3C6C6] bg-[#FDECEA] px-[11px] py-[9px] text-[12.5px] font-bold leading-relaxed text-[#C4383A]">
                     ⚠ 모델이 지정되지 않은 치아가 {missingModels}개 있습니다. 제작을 진행할 수
                     없습니다.
                   </p>
                 )}
-              </Card>
+                  </div>
+                </Card>
+              </div>
             )}
           </div>
 
-          {/* g-d — 디자인 파일 (2~3행을 덮어 바닥선을 맞춥니다) */}
+          {/*
+            g-d — 디자인 파일
+
+            ★ 전에는 2~3행을 덮어 바닥선을 맞췄습니다. 그런데 그러면 3행
+              (기타 요청사항)이 **남은 높이만큼으로 눌려**, 요청사항이 길 때
+              글자가 칸 밖으로 넘쳤습니다 (실측 2026-10-07 — 402px 글이 87px
+              칸에). 덮기를 풀어 요청사항이 제 키대로 서게 합니다.
+          */}
           <Card
             className="lg:col-start-2 lg:row-start-2"
             title={`디자인 파일(${designFiles.length})`}
@@ -632,15 +636,30 @@ export default function OrderDetailScreen({
             </div>
           </Card>
 
+          {/*
+            g-e — 기타 요청사항
+
+            ★★ **칸 안에서 스크롤하지 않습니다** (사용자 요청 2026-10-07).
+              전에는 max-h-[104px] 라 긴 요청사항이 칸 안에서 잘렸습니다 —
+              화면을 내려 칸에 닿고도 **또** 굴려야 했습니다.
+              적힌 만큼 늘어납니다. 아래 격자가 통째로 굴러가면 됩니다.
+          */}
+          <div className="min-h-[68px] rounded-[9px] border border-[#E8EBF0] bg-white px-4 py-2.5 lg:col-start-1 lg:row-start-3">
+            <p className="mb-[7px] text-[14px] font-bold text-[#1A2130]">기타 요청사항</p>
+            <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#1279E8]">
+              {order.notes || <span className="text-[#C4CBD6]">적힌 내용이 없습니다.</span>}
+            </p>
+          </div>
+
           {/* g-f · g-g — 담당자 · 기공소 (치과에는 감춥니다) */}
           {showCost && (
             <>
-              <div className="flex flex-wrap items-center gap-3.5 px-1 py-0.5 text-[13.5px] text-[#4A5567] lg:col-start-1 lg:row-start-3">
+              <div className="flex flex-wrap items-center gap-3.5 px-1 py-0.5 text-[13.5px] text-[#4A5567] lg:col-start-1 lg:row-start-4">
                 {designerSlot}
                 {costLine}
               </div>
 
-              <div className="flex items-center gap-3.5 px-1 py-0.5 text-[13.5px] text-[#4A5567] lg:col-start-2 lg:row-start-3">
+              <div className="flex items-center gap-3.5 px-1 py-0.5 text-[13.5px] text-[#4A5567] lg:col-start-2 lg:row-start-4">
                 <LabAssignSelect
                   orderId={order.id}
                   labs={labs.map((l) => ({ id: l.id, name: l.name, inHouse: Boolean(l.inHouse) }))}
