@@ -59,3 +59,4 @@ tools/exocad-launcher/scan_agent.json
 tools/exocad-launcher/__pycache__/
 tools/exocad-launcher/dist/
 tools/exocad-launcher/build/
+tools/exocad-launcher/dist-embed/

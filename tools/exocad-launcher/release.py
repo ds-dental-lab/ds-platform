@@ -32,7 +32,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-DIST = HERE / "dist" / "덴플로우 에이전트"
+#: ★ **build-embed.py 가 만든 것**을 올립니다 (2026-10-07).
+#:   PyInstaller 로 묶은 dist/ 는 백신에 걸려 버렸습니다 — 서명 없는 새
+#:   실행 파일이라서입니다. dist-embed/ 안에는 우리가 만든 실행 파일이
+#:   하나도 없고, python.exe 는 파이썬 재단이 서명한 것입니다.
+DIST = HERE / "dist-embed" / "덴플로우 에이전트"
 BUCKET = "agent-release"
 
 

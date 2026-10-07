@@ -62,7 +62,7 @@ SETTINGS = SETTINGS_DIR / "scan_agent.json"
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.1.0"
+AGENT_VERSION = "1.2.0"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -147,6 +147,55 @@ def pythonw() -> str:
 
 def autostart_on() -> bool:
     return startup_link().exists()
+
+
+def desktop_link() -> Path:
+    return Path(os.environ.get("USERPROFILE", str(Path.home()))) / "Desktop" / SHORTCUT_NAME
+
+
+def make_desktop_link() -> None:
+    """
+    바탕화면에 아이콘을 하나 둡니다 (2026-10-07).
+
+    ★★ 실행 파일을 없애면서 생긴 일입니다. 전에는 `덴플로우 에이전트.exe` 를
+      두 번 누르면 됐는데, 이제 폴더 안에 있는 것은 `.cmd` 뿐입니다 —
+      치과 책상에 두기엔 모양이 안 납니다. **처음 켤 때 바탕화면에
+      제대로 된 아이콘을 만들어 둡니다.**
+
+    ★ zip 안에 .lnk 를 넣어 보내지 않습니다. 바로가기는 **절대 경로**를
+      품고 있어서, 치과가 다른 자리에 풀면 그 자리에서 깨집니다.
+      지금 돌고 있는 내 자리를 알고 만드는 쪽이 안 틀립니다.
+
+    ★ 이미 있으면 그냥 둡니다. 치과가 옮겨 뒀을 수 있습니다.
+    """
+    link = desktop_link()
+    if link.exists():
+        return
+
+    icon = asset("denflow.ico")
+    script = (
+        "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}');"
+        "$s.TargetPath='{py}';"
+        "$s.Arguments='{target}';"
+        "$s.WorkingDirectory='{here}';"
+        "$s.IconLocation='{icon}';"
+        "$s.Save()"
+    ).format(
+        lnk=link,
+        py=Path(sys.executable).resolve() if FROZEN else pythonw(),
+        target="" if FROZEN else '\"%s\"' % Path(__file__).resolve(),
+        here=Path(sys.executable).resolve().parent if FROZEN else HERE,
+        icon=icon,
+    )
+
+    try:
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+            check=True, capture_output=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except Exception:  # noqa: BLE001 — 아이콘을 못 만들어도 에이전트는 돕니다
+        pass
 
 
 def set_autostart(on: bool) -> str:
@@ -531,6 +580,9 @@ class App:
 
         self.refresh()
         self._tray()
+
+        # ★ 처음 켤 때 바탕화면 아이콘을 만들어 둡니다. 이미 있으면 그냥 둡니다.
+        threading.Thread(target=make_desktop_link, daemon=True).start()
 
         # ★★ X 를 누르면 **끄지 않고 숨깁니다** (사용자 요청 2026-10-06).
         #   전에는 X 가 곧 종료라, 직원이 창을 닫으면 그 뒤 스캔이 안 올라갔습니다.
