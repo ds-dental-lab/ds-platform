@@ -56,8 +56,10 @@ FROZEN = getattr(sys, "frozen", False)
 #   사라졌습니다. 그러면 설정이 **프로그램 폴더**에 쓰이고, 치과가 판을
 #   바꾸며 폴더를 덮으면 **연결이 통째로 날아갑니다.** 더 나쁘게는, 1.1.0 이
 #   AppData 에 적어 둔 연결을 1.2.0 이 못 찾아 "연결 안 됨" 이 됩니다.
-#   끼워 넣은 파이썬(런타임 폴더)이 옆에 있으면 묶어 보낸 것입니다.
-PACKAGED = FROZEN or (HERE / "런타임").is_dir()
+#   끼워 넣은 파이썬(runtime 폴더)이 옆에 있으면 묶어 보낸 것입니다.
+# ★ 옛 판은 그 폴더를 `런타임` 이라 불렀습니다 — cmd 가 한글을 깨뜨려
+#   영문으로 바꿨습니다(1.2.3). 둘 다 봅니다.
+PACKAGED = FROZEN or (HERE / "runtime").is_dir() or (HERE / "런타임").is_dir()
 
 if PACKAGED:
     SETTINGS_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "DenFlow"
@@ -71,7 +73,7 @@ SETTINGS = SETTINGS_DIR / "scan_agent.json"
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.2.2"
+AGENT_VERSION = "1.2.3"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"

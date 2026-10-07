@@ -33,6 +33,14 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "dist-embed" / "덴플로우 에이전트"
 
+#: 끼워 넣은 파이썬이 들어갈 폴더 이름.
+#:
+#: ★★ **영문이어야 합니다.** cmd 는 배치 파일을 콘솔 코드페이지(cp949)로
+#:   읽습니다. 파일을 utf-8 로 써 두면 그 안의 한글이 깨져서
+#:   `?고???pythonw.exe 를 찾을 수 없습니다` 가 납니다 (실제 치과 2026-10-07).
+#:   배치 파일 **안에 한글을 두지 않는 것**이 유일하게 안 틀리는 길입니다.
+RUNTIME_DIR = "runtime"
+
 #: 끼워 넣을 파이썬. 3.13 은 pystray·Pillow 바퀴가 넉넉히 나와 있습니다
 PY_VER = "3.13.7"
 PY_TAG = "313"
@@ -50,10 +58,19 @@ PRINT_SOURCES = ["print_loop.py", "printer_send.py", "printer_find.py"]
 
 NEEDS = ["pystray", "pillow"]
 
-CMD = """@echo off
-rem 덴플로우 에이전트 — 서명된 파이썬으로 바로 띄웁니다.
-rem ★ pythonw 라 검은 창이 안 뜹니다. start 로 띄워 이 창은 바로 닫힙니다.
-start "" "%~dp0런타임\\pythonw.exe" "%~dp0scan_agent.py" %*
+#: 치과가 두 번 누르는 것.
+#:
+#: ★★ **안에 한글을 한 글자도 두지 않습니다.** cmd 는 배치 파일을 콘솔
+#:   코드페이지(cp949)로 읽는데 우리는 utf-8 로 씁니다. 한글이 있으면
+#:   깨져서 `?고???pythonw.exe 를 찾을 수 없습니다` 가 납니다
+#:   (실제 치과에서 터졌습니다, 2026-10-07).
+#:   `%~dp0` 는 cmd 가 파일 체계에서 바로 읽어 와 한글 경로여도 괜찮습니다 —
+#:   **배치 파일 안에 적힌 글자**만 문제입니다. 그래서 주석도 영문입니다.
+CMD = f"""@echo off
+rem DenFlow Agent - launched with the signed Python runtime.
+rem Keep this file ASCII-only: cmd reads it in the console codepage,
+rem so Korean text here becomes garbage and the path breaks.
+start "" "%~dp0{RUNTIME_DIR}\\pythonw.exe" "%~dp0scan_agent.py" %*
 """
 
 
@@ -68,7 +85,7 @@ def fetch_python(work: Path) -> Path:
     if not cache.exists():
         say("파이썬 받는 중…", PY_URL)
         urllib.request.urlretrieve(PY_URL, cache)
-    runtime = work / "런타임"
+    runtime = work / RUNTIME_DIR
     runtime.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(cache) as z:
         z.extractall(runtime)
@@ -229,7 +246,12 @@ def main() -> int:
             shutil.copy(src, OUT / name)
             say("담음", name)
 
-    (OUT / "덴플로우 에이전트.cmd").write_text(CMD, encoding="utf-8")
+    # ★ 한글이 한 글자라도 섞이면 여기서 멈춥니다. 치과에서 깨지는 것보다
+    #   빌드가 서는 편이 낫습니다 (2026-10-07 에 한 번 당했습니다).
+    if not CMD.isascii():
+        say("!! 배치 파일에 한글이 섞였습니다 — cmd 가 깨뜨립니다")
+        return 1
+    (OUT / "덴플로우 에이전트.cmd").write_text(CMD, encoding="ascii")
 
     if not check_imports(runtime):
         return 1
@@ -238,7 +260,7 @@ def main() -> int:
     files = list(OUT.rglob("*"))
     size = sum(f.stat().st_size for f in files if f.is_file())
     exes = [f for f in files if f.suffix.lower() in (".exe", ".dll", ".pyd")]
-    ours = [f for f in exes if "런타임" not in f.parts]
+    ours = [f for f in exes if RUNTIME_DIR not in f.parts]
 
     print()
     say(f"폴더  {OUT}")

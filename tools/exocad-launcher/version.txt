@@ -11,8 +11,8 @@
 
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 2, 2, 0),
-    prodvers=(1, 2, 2, 0),
+    filevers=(1, 2, 3, 0),
+    prodvers=(1, 2, 3, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -27,12 +27,12 @@ VSVersionInfo(
         [
           StringStruct('CompanyName', '덴플로우 치과기공소'),
           StringStruct('FileDescription', '덴플로우 에이전트 — 구강스캐너 내보내기 자동 올리기'),
-          StringStruct('FileVersion', '1.2.2'),
+          StringStruct('FileVersion', '1.2.3'),
           StringStruct('InternalName', 'denflow-agent'),
           StringStruct('LegalCopyright', 'Copyright (c) 2026 덴플로우'),
           StringStruct('OriginalFilename', '덴플로우 에이전트.exe'),
           StringStruct('ProductName', '덴플로우 에이전트'),
-          StringStruct('ProductVersion', '1.2.2'),
+          StringStruct('ProductVersion', '1.2.3'),
         ],
       )
     ]),
