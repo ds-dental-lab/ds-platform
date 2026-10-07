@@ -16,7 +16,7 @@
   파일로 받아야 보입니다. 실패하면 그 로그 끝부분을 까닭으로 올립니다.
 
 혼자 돌려 보기:
-    python slice_job.py 크라운.stl --out 결과폴더 --rx 150 --ry 140
+    python slice_job.py 크라운.stl --out 결과폴더 --rx 135 --ry 0
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-from orient import place
+from orient import DEFAULT_RX, DEFAULT_RY, DEFAULT_RZ, place
 from orca_profile import orca_exe
 from stl_render import load_stl, render
 
@@ -169,9 +169,11 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="크라운 STL 을 출력 파일로")
     ap.add_argument("stl", type=Path)
     ap.add_argument("--out", type=Path, default=Path("out"))
-    ap.add_argument("--rx", type=float, default=0.0)
-    ap.add_argument("--ry", type=float, default=0.0)
-    ap.add_argument("--rz", type=float, default=0.0)
+    # ★ 안 주면 기본 각도로 눕힙니다 (orient.py 가 정합니다).
+    #   0 으로 두면 각도를 깜빡한 사람이 **안 눕힌 채** 뽑게 됩니다.
+    ap.add_argument("--rx", type=float, default=DEFAULT_RX)
+    ap.add_argument("--ry", type=float, default=DEFAULT_RY)
+    ap.add_argument("--rz", type=float, default=DEFAULT_RZ)
     args = ap.parse_args(argv)
 
     from orca_profile import pick, ready

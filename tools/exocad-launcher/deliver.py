@@ -15,7 +15,7 @@
 ★ 파일은 덴플로우 서버를 지나가지 않습니다. 저장소 서명 주소로 바로 올립니다.
 
 혼자 돌려 보기:
-    python deliver.py 크라운.stl --order <주문 id> --token <토큰> --rx 150 --ry 140
+    python deliver.py 크라운.stl --order <주문 id> --token <토큰> --rx 135 --ry 0
 """
 
 from __future__ import annotations
@@ -190,9 +190,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--order", required=True, help="주문 id")
     ap.add_argument("--token", required=True, help="주문별 토큰")
     ap.add_argument("--out", type=Path, default=Path("출력준비"))
-    ap.add_argument("--rx", type=float, default=150.0)
-    ap.add_argument("--ry", type=float, default=140.0)
-    ap.add_argument("--rz", type=float, default=0.0)
+    ap.add_argument("--rx", type=float, default=DEFAULT_RX)
+    ap.add_argument("--ry", type=float, default=DEFAULT_RY)
+    ap.add_argument("--rz", type=float, default=DEFAULT_RZ)
     args = ap.parse_args(argv)
 
     ok = deliver(args.stl, args.order, args.token, args.out, args.rx, args.ry, args.rz)
