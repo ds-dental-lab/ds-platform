@@ -51,10 +51,19 @@ HERE = Path(__file__).resolve().parent
 #   읽기 전용 폴더에서 돌려도 됩니다. 기기 열쇠는 PC 마다 다른 것이 맞습니다.
 FROZEN = getattr(sys, "frozen", False)
 
-if FROZEN:
+# ★★ **치과에 보낸 것인가**를 봅니다 (2026-10-07).
+#   전에는 `sys.frozen` 만 봤는데, 백신 때문에 exe 를 없애면서 그 표시가
+#   사라졌습니다. 그러면 설정이 **프로그램 폴더**에 쓰이고, 치과가 판을
+#   바꾸며 폴더를 덮으면 **연결이 통째로 날아갑니다.** 더 나쁘게는, 1.1.0 이
+#   AppData 에 적어 둔 연결을 1.2.0 이 못 찾아 "연결 안 됨" 이 됩니다.
+#   끼워 넣은 파이썬(런타임 폴더)이 옆에 있으면 묶어 보낸 것입니다.
+PACKAGED = FROZEN or (HERE / "런타임").is_dir()
+
+if PACKAGED:
     SETTINGS_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "DenFlow"
     SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
 else:
+    # 여기서 고치며 돌릴 때는 소스 옆에 둡니다
     SETTINGS_DIR = HERE
 
 SETTINGS = SETTINGS_DIR / "scan_agent.json"
@@ -62,7 +71,7 @@ SETTINGS = SETTINGS_DIR / "scan_agent.json"
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.2.1"
+AGENT_VERSION = "1.2.2"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
