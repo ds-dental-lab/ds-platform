@@ -165,10 +165,30 @@ class BambuPrinter:
         ftp.prot_p()
         return ftp
 
+    @staticmethod
+    def safe_name(name: str) -> str:
+        """
+        프린터에 올릴 이름 — **영문·숫자만** 남깁니다.
+
+        ★ 프린터 SD 카드와 펌웨어가 한글 이름을 어떻게 다루는지 믿을 수
+          없습니다. 올라가고도 출력 명령에서 못 찾으면 "보냈는데 안 뽑힘"
+          이 되고, 그 자리는 가장 알아내기 어렵습니다.
+        ★ 실제 흐름에서는 주문 id(ASCII)로 이름이 붙지만, 사람이 손으로
+          보낼 때를 대비해 여기서도 한 번 거릅니다.
+        """
+        safe = "".join(
+            c if (c.isascii() and (c.isalnum() or c in "._-")) else "_" for c in name
+        )
+        # ★ 이름이 통째로 한글이면 확장자만 남습니다 — 그때는 이름을 지어 줍니다
+        head, dot, tail = safe.rpartition(".")
+        if not head.strip("_"):
+            head = "print"
+        return f"{head.strip('_')}{dot}{tail}" if dot else head.strip("_")
+
     def upload(self, path: Path) -> str:
         ftp = self._ftp(self.resolve())
         try:
-            remote = f"{REMOTE_DIR}{path.name}"
+            remote = f"{REMOTE_DIR}{self.safe_name(path.name)}"
             with open(path, "rb") as f:
                 ftp.storbinary(f"STOR {remote}", f)
             return remote
