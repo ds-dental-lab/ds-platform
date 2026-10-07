@@ -247,8 +247,35 @@ export async function claimPrintJob(
   if (!claimable(asJob(row))) return { ok: true, job: null };
   if (!row.print_file_path) return { ok: false, error: '출력 파일이 없습니다' };
 
-  const moved = await moveStep(row.id, 'sending', { deviceId: device.id });
-  if (!moved.ok) return { ok: false, error: moved.error };
+  /*
+    ★★ **집어가는 것은 한 번만 됩니다.** 전에는 moveStep 을 거쳤는데, 그 안에
+      "이미 그 단계면 그냥 ok" 하는 길이 있어서 **둘이 동시에 물어보면 둘 다
+      가져갔습니다.** 치과 PC 에 에이전트가 두 번 떠 있거나, 치과가 PC 를
+      두 대 연결해 두면 **같은 것을 두 번 뽑습니다.**
+      (사용자 물음 2026-10-07 — "중복으로 실행이 되는게 문제가 안될까?")
+
+    ★ 그래서 **'queued' 인 줄만** 골라 한 번에 바꿉니다. DB 가 한 줄만
+      바꿔 주므로 늦게 온 쪽은 0줄을 받고 조용히 물러납니다.
+  */
+  const now = new Date().toISOString();
+  const { data: taken, error: takeError } = await admin
+    .from('auto_jobs')
+    .update({
+      step: 'sending',
+      claimed_at: now,
+      claimed_device_id: device.id,
+      updated_at: now,
+      failed_at: null,
+      failed_reason: null,
+    })
+    .eq('id', row.id)
+    .eq('step', 'queued')
+    .not('bed_cleared_at', 'is', null)
+    .select('id');
+
+  if (takeError) return { ok: false, error: takeError.message };
+  // 누가 먼저 가져갔습니다. 다음 번에 다시 물어보면 됩니다
+  if (!taken || taken.length === 0) return { ok: true, job: null };
 
   const signed = await admin.storage.from(BUCKET).createSignedUrl(row.print_file_path, DOWNLOAD_TTL);
   if (signed.error || !signed.data) {

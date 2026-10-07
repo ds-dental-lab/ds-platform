@@ -73,7 +73,7 @@ SETTINGS = SETTINGS_DIR / "scan_agent.json"
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.0"
+AGENT_VERSION = "1.3.1"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -143,6 +143,59 @@ def put_file(path: Path, storage_path: str, upload_token: str) -> bool:
 # ---------------------------------------------------------
 
 SHORTCUT_NAME = "덴플로우 에이전트.lnk"
+
+
+#: 이미 떠 있는지 알리는 표. 프로그램이 사는 동안 들고 있어야 합니다
+_ONLY_ONE: object | None = None
+
+
+def only_one() -> bool:
+    """
+    이미 떠 있으면 False — 그 창을 앞으로 올려 주고 물러납니다.
+
+    ★★ 두 번 뜨면 조용히 탈이 납니다 (사용자 물음 2026-10-07):
+      · 같은 내보내기를 **둘 다 보고** 주문서 창이 두 개 뜹니다
+      · **출력 작업을 둘이 가져가** 같은 것을 두 번 뽑습니다
+      · 설정 파일을 서로 덮어씁니다
+      치과는 자동 시작으로 떠 있는 줄 모르고 바탕화면 아이콘을 또 누릅니다.
+      트레이로 숨어 있으면 더 그렇습니다.
+
+    ★ 표는 **이 로그인 자리 안에서만**(Local) 봅니다. Global 은 권한 문제가
+      생길 수 있고, 치과 PC 는 한 사람이 씁니다.
+    """
+    global _ONLY_ONE
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateMutexW.restype = wintypes.HANDLE
+        kernel32.CreateMutexW.argtypes = [wintypes.LPCVOID, wintypes.BOOL, wintypes.LPCWSTR]
+
+        handle = kernel32.CreateMutexW(None, False, r"Local\DenFlowAgent")
+        already = ctypes.get_last_error() == 183  # ERROR_ALREADY_EXISTS
+        if already:
+            raise_existing()
+            return False
+
+        _ONLY_ONE = handle   # 놓으면 표가 사라집니다
+        return True
+    except Exception:  # noqa: BLE001 — 표를 못 달아도 프로그램은 떠야 합니다
+        return True
+
+
+def raise_existing() -> None:
+    """이미 떠 있는 창을 앞으로. 트레이에 숨어 있으면 다시 보여 줍니다"""
+    try:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        hwnd = user32.FindWindowW(None, "덴플로우 에이전트")
+        if hwnd:
+            user32.ShowWindow(hwnd, 9)        # SW_RESTORE
+            user32.SetForegroundWindow(hwnd)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def startup_link() -> Path:
@@ -1143,4 +1196,8 @@ class App:
 
 
 if __name__ == "__main__":
-    App().run()
+    # ★ 두 번째로 켜면 떠 있는 창만 앞으로 올리고 조용히 물러납니다.
+    #   "이미 켜져 있습니다" 같은 알림창을 띄우지 않습니다 — 치과는
+    #   창이 올라오는 것만 보면 됩니다.
+    if only_one():
+        App().run()
