@@ -56,7 +56,10 @@ SOURCES = ["scan_agent.py", "medit_case.py", "dxd_case.py", "denflow.ico"]
 #: 자동 출력까지 쓰려면 함께 가야 하는 것들 (치과 PC 가 프린터에 보냅니다)
 PRINT_SOURCES = ["print_loop.py", "printer_send.py", "printer_find.py"]
 
-NEEDS = ["pystray", "pillow"]
+#: ★ paho-mqtt 를 빠뜨렸었습니다. 「프린터 찾기」는 FTPS 만 써서 **통과하는데**
+#:   정작 출력을 걸 때 MQTT 가 없어 실패합니다 — 점검은 멀쩡하고 실전만
+#:   안 되는, 가장 알아내기 어려운 조합입니다 (2026-10-07에 찾음).
+NEEDS = ["pystray", "pillow", "paho-mqtt"]
 
 #: 치과가 두 번 누르는 것.
 #:
@@ -210,8 +213,14 @@ def check_imports(runtime: Path) -> bool:
     #   현재 폴더를 안 봅니다. **스크립트를 경로로 띄워야** 그 폴더가
     #   sys.path 에 들어갑니다 — 실제로 뜨는 방식과 같게 맞춥니다.
     probe = OUT / "_확인.py"
+    # ★ 출력 쪽(print_loop·printer_send·printer_find·paho)까지 봅니다.
+    #   paho 를 빠뜨렸는데 「프린터 찾기」는 FTPS 만 써서 **통과했습니다** —
+    #   점검이 멀쩡하면 아무도 안 찾아봅니다. 여기서 같이 봐야 합니다.
     probe.write_text(
-        "import scan_agent, medit_case, dxd_case, tkinter, pystray, PIL.Image\nprint('ok')\n",
+        "import scan_agent, medit_case, dxd_case, tkinter, pystray, PIL.Image\n"
+        "import print_loop, printer_send, printer_find\n"
+        "import paho.mqtt.client\n"
+        "print('ok')\n",
         encoding="utf-8",
     )
     try:

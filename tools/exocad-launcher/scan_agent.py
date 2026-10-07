@@ -73,7 +73,7 @@ SETTINGS = SETTINGS_DIR / "scan_agent.json"
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.2.3"
+AGENT_VERSION = "1.3.0"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -873,6 +873,11 @@ class App:
         self.agent.cfg["printer_code"] = self.p_code.get().strip()
         save_settings(self.agent.cfg)
 
+        # ★ 지켜보는 중에 체크를 켜면 그 자리에서 출력도 가져오기 시작합니다.
+        #   다시 켜 달라고 하지 않습니다 — 치과는 그런 걸 모릅니다.
+        if self.watching:
+            self.start_printing()
+
     def find_printer(self) -> None:
         """
         ★ 왜 안 되는지까지 말합니다. 치과에서 "안 돼요" 대신 이 문장을
@@ -1069,6 +1074,9 @@ class App:
             return
         self.agent.stop.set()
         self.watching = False
+        # ★ 출력 가져오기도 그 신호를 보고 끝납니다. 손잡이를 놓아 둬야
+        #   다시 켤 때 "아직 돌고 있다" 고 잘못 보지 않습니다.
+        self.print_thread = None
         self.say("지켜보기를 멈췄습니다. 지금 내보낸 것은 안 올라갑니다.")
         self.refresh()
 
@@ -1089,6 +1097,45 @@ class App:
         self.watching = True
         self.refresh()
         threading.Thread(target=self.agent.watch, args=(folder,), daemon=True).start()
+        self.start_printing()
+
+    # ---------- 출력 가져오기 ----------
+
+    def start_printing(self) -> None:
+        """
+        덴플로우에 "출력할 것 있나요" 하고 물어보는 일을 띄웁니다.
+
+        ★★ 이게 없으면 **아무도 출력 작업을 가져가지 않습니다.** 기공소에서
+          보내도 치과 화면은 '출력 대기' 에 멈춘 채고, 아무 오류도 안 납니다.
+          프린터 칸과 「프린터 찾기」만 만들어 두고 이걸 빠뜨렸습니다
+          (2026-10-07에 찾음).
+
+        ★ **프린터를 쓰겠다고 켠 치과만** 가져갑니다. 안 켠 치과가 작업을
+          집어가면 가짜 프린터로 '출력' 해 버리고, 그 건은 끝난 것으로
+          표시됩니다 — 아무 데서도 안 나온 채로요.
+        """
+        if self.agent.cfg.get("printer_kind") != "bambu":
+            return
+        if getattr(self, "print_thread", None) and self.print_thread.is_alive():
+            return
+        if not self.agent.cfg.get("token"):
+            return
+
+        try:
+            from print_loop import PrintWorker  # noqa: PLC0415
+        except Exception as e:  # noqa: BLE001
+            self.say(f"출력 가져오기를 켜지 못했습니다: {e}")
+            return
+
+        worker = PrintWorker(
+            self.agent.cfg["token"], self.agent.cfg, SETTINGS_DIR / "출력", say=self.say
+        )
+        self.print_thread = threading.Thread(
+            target=lambda: worker.loop(stop=lambda: self.agent.stop.is_set()),
+            daemon=True,
+        )
+        self.print_thread.start()
+        self.say("출력 작업도 지켜봅니다.")
 
     def run(self) -> None:
         self.root.mainloop()
