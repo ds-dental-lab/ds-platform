@@ -12,10 +12,10 @@
 //     .dt-cols   1.6fr / 1fr 그리드 — 아래 자리표대로
 //     .dt-bar    주문 삭제 · 수정 | 상태 전이 | 주문목록
 //
-//   자리표 (시안 .g-a ~ .g-g)
+//   자리표
+//     기타 요청사항  ← 치식도 바로 아래, 한 줄 통째로 (2026-10-07에 올림)
 //     ┌ 제작보철 (g-a) ┬ 스캔/쉐이드 (g-b) ┐
-//     ├ 제작옵션 (g-c) ┤                    │  ← 디자인 파일이 2~3행을
-//     ├ 요청사항 (g-e) ┤ 디자인 파일 (g-d)  │     덮어 바닥선을 맞춥니다
+//     ├ 제작옵션 (g-c) ┤ 디자인 파일 (g-d)  │
 //     └ 담당자   (g-f) ┴ 기공소     (g-g) ┘
 //
 // ★ 진행 이력은 넣지 않습니다.
@@ -398,19 +398,45 @@ export default function OrderDetailScreen({
           <ToothChart placements={placements} catalog={prosthesisCatalog} readOnly />
         </div>
 
+        {/*
+          ---------- 기타 요청사항 ----------
+
+          ★★ 치식도 **바로 아래**입니다 (사용자 요청 2026-10-07 —
+            "스크롤 내리지 않아도 한눈에 보이게"). 전에는 아래 격자의 셋째
+            줄이라 한 번 스크롤해야 닿았고, 칸 안에도 max-h 가 걸려 **또**
+            스크롤이었습니다. 두 겹으로 가려져 있던 셈입니다.
+
+          ★ 키를 안 묶습니다. 적힌 만큼 늘어납니다 — 요청사항은 길어도
+            다 읽혀야 하는 글입니다. 대신 아래 카드들이 그만큼 밀립니다.
+
+          ★ 비어 있으면 **아예 안 그립니다.** 화면에서 제일 좋은 자리를
+            "적힌 내용이 없습니다" 가 차지하면 안 됩니다.
+        */}
+        {order.notes?.trim() && (
+          <div className="px-[18px] pb-1 pt-0.5">
+            <div className="rounded-[9px] border border-[#CFE3FB] bg-[#F7FAFF] px-4 py-2.5">
+              <p className="mb-[5px] text-[13px] font-bold text-[#4A5567]">기타 요청사항</p>
+              <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#1279E8]">
+                {order.notes}
+              </p>
+            </div>
+          </div>
+        )}
+
         {extraSlot && <div className="px-[18px] pb-3.5">{extraSlot}</div>}
 
         {/* ---------- .dt-cols ---------- */}
         {/*
           ★ flex-1 로 남은 높이를 받고, 줄 수만큼 **딱 맞는** 행 틀을 줍니다.
-            행 틀을 넉넉히 4줄로 두면 치과(3줄)에서 빈 4행에도 gap 이 붙어
-            아래에 10px 이 또 남습니다. 위 두 줄이 1fr 로 늘고 기타 요청사항
-            (·담당자 줄)은 제 키대로 섭니다.
+            행 틀을 넉넉히 두면 빈 행에도 gap 이 붙어 아래에 10px 이 또
+            남습니다. 위 두 줄이 1fr 로 늘고 담당자 줄만 제 키대로 섭니다.
+          ★ 기타 요청사항은 2026-10-07에 **치식도 아래로 올렸습니다** —
+            여기 셋째 줄에 있을 때는 스크롤해야 보였습니다.
         */}
         <div
           className={
             'grid min-h-0 flex-1 grid-cols-1 items-stretch gap-2.5 overflow-y-auto px-[18px] pb-3 lg:grid-cols-[1.6fr_1fr] ' +
-            (showCost ? 'lg:grid-rows-[1fr_1fr_auto_auto]' : 'lg:grid-rows-[1fr_1fr_auto]')
+            (showCost ? 'lg:grid-rows-[1fr_1fr_auto]' : 'lg:grid-rows-[1fr_1fr]')
           }
         >
           {/* g-a — 제작보철 */}
@@ -583,7 +609,7 @@ export default function OrderDetailScreen({
 
           {/* g-d — 디자인 파일 (2~3행을 덮어 바닥선을 맞춥니다) */}
           <Card
-            className="lg:col-start-2 lg:row-start-2 lg:row-end-4"
+            className="lg:col-start-2 lg:row-start-2"
             title={`디자인 파일(${designFiles.length})`}
             /* ★ 올리기는 머리줄의 아이콘 하나입니다 — 본문은 목록만 씁니다 */
             right={
@@ -606,23 +632,15 @@ export default function OrderDetailScreen({
             </div>
           </Card>
 
-          {/* g-e — 기타 요청사항 */}
-          <div className="max-h-[104px] min-h-[68px] overflow-y-auto rounded-[9px] border border-[#E8EBF0] bg-white px-4 py-2.5 lg:col-start-1 lg:row-start-3">
-            <p className="mb-[7px] text-[14px] font-bold text-[#1A2130]">기타 요청사항</p>
-            <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#1279E8]">
-              {order.notes || <span className="text-[#C4CBD6]">적힌 내용이 없습니다.</span>}
-            </p>
-          </div>
-
           {/* g-f · g-g — 담당자 · 기공소 (치과에는 감춥니다) */}
           {showCost && (
             <>
-              <div className="flex flex-wrap items-center gap-3.5 px-1 py-0.5 text-[13.5px] text-[#4A5567] lg:col-start-1 lg:row-start-4">
+              <div className="flex flex-wrap items-center gap-3.5 px-1 py-0.5 text-[13.5px] text-[#4A5567] lg:col-start-1 lg:row-start-3">
                 {designerSlot}
                 {costLine}
               </div>
 
-              <div className="flex items-center gap-3.5 px-1 py-0.5 text-[13.5px] text-[#4A5567] lg:col-start-2 lg:row-start-4">
+              <div className="flex items-center gap-3.5 px-1 py-0.5 text-[13.5px] text-[#4A5567] lg:col-start-2 lg:row-start-3">
                 <LabAssignSelect
                   orderId={order.id}
                   labs={labs.map((l) => ({ id: l.id, name: l.name, inHouse: Boolean(l.inHouse) }))}
