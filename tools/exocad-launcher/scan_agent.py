@@ -62,7 +62,7 @@ SETTINGS = SETTINGS_DIR / "scan_agent.json"
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.2.0"
+AGENT_VERSION = "1.2.1"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -151,6 +151,57 @@ def autostart_on() -> bool:
 
 def desktop_link() -> Path:
     return Path(os.environ.get("USERPROFILE", str(Path.home()))) / "Desktop" / SHORTCUT_NAME
+
+
+def link_target(lnk: Path) -> str | None:
+    """바로가기가 가리키는 곳. 못 읽으면 None"""
+    if not lnk.exists():
+        return None
+    # ★ PowerShell 은 콘솔 코드페이지(cp949)로 뱉습니다. 그대로 utf-8 로 읽으면
+    #   **한글 경로가 깨져** 멀쩡한 바로가기도 "없는 파일" 로 판정됩니다.
+    #   뱉는 쪽을 utf-8 로 돌려 놓습니다.
+    script = (
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+        "(New-Object -ComObject WScript.Shell).CreateShortcut('%s').TargetPath" % lnk
+    )
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return (r.stdout or "").strip() or None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def heal_links() -> None:
+    """
+    옛 판이 남긴 바로가기를 고칩니다 (2026-10-07).
+
+    ★★ 판을 바꾸면 옛 바로가기가 **없어진 파일**을 가리킵니다. 1.1.0 까지는
+      `덴플로우 에이전트.exe` 를 가리켰는데 1.2.0 에는 그 파일이 없습니다.
+      그러면 **자동 시작이 조용히 죽습니다** — 치과는 PC 를 켜고 스캔을
+      내보냈는데 아무 일도 안 일어나는 것을 한참 뒤에야 압니다.
+      그게 이 프로그램에서 제일 나쁜 고장입니다.
+
+    ★ 그래서 켤 때마다 봅니다. 가리키는 곳이 없으면 지금 내 자리로 다시 씁니다.
+    ★ 치과가 일부러 지운 바탕화면 아이콘을 되살리지는 않습니다 —
+      **깨진 것만** 고치고, 없으면 그때만 새로 만듭니다.
+    """
+    start = startup_link()
+    if start.exists():
+        target = link_target(start)
+        if not target or not Path(target).exists():
+            set_autostart(True)
+
+    desk = desktop_link()
+    if desk.exists():
+        target = link_target(desk)
+        if not target or not Path(target).exists():
+            desk.unlink(missing_ok=True)
+
+    make_desktop_link()
 
 
 def make_desktop_link() -> None:
@@ -581,8 +632,8 @@ class App:
         self.refresh()
         self._tray()
 
-        # ★ 처음 켤 때 바탕화면 아이콘을 만들어 둡니다. 이미 있으면 그냥 둡니다.
-        threading.Thread(target=make_desktop_link, daemon=True).start()
+        # ★ 바탕화면 아이콘을 만들고, 옛 판이 남긴 깨진 바로가기를 고칩니다.
+        threading.Thread(target=heal_links, daemon=True).start()
 
         # ★★ X 를 누르면 **끄지 않고 숨깁니다** (사용자 요청 2026-10-06).
         #   전에는 X 가 곧 종료라, 직원이 창을 닫으면 그 뒤 스캔이 안 올라갔습니다.
