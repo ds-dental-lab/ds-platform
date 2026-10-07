@@ -102,13 +102,23 @@ export function groupRows(rows: readonly PriceRow[]): { group: PriceGroup; rows:
  * ★ 수가표에 없는 제품(Cementation·Abut+PMMA)은 건드리지 않습니다 —
  *   종이에 안 적은 것을 우리가 정해 버리면 안 됩니다.
  */
-export const SHEET_TO_PRODUCT: Record<string, { typeCode: string; materialCode: string }> = {
-  'Crown|PMMA': { typeCode: 'crown', materialCode: 'pmma' },
-  'Crown|Zirconia': { typeCode: 'crown', materialCode: 'zirconia' },
-  'Inlay|Hybrid': { typeCode: 'inlay', materialCode: 'hybrid' },
-  'Inlay|Zirconia': { typeCode: 'inlay', materialCode: 'zirconia' },
-  'Implant|Custom Abutment': { typeCode: 'implant', materialCode: 'custom_abut' },
-  'Implant|Custom Abutment + Zirconia': { typeCode: 'implant', materialCode: 'abut_zir_scrp' },
+export const SHEET_TO_PRODUCT: Record<string, { typeCode: string; materialCode: string }[]> = {
+  'Crown|PMMA': [{ typeCode: 'crown', materialCode: 'pmma' }],
+  'Crown|Zirconia': [{ typeCode: 'crown', materialCode: 'zirconia' }],
+  'Inlay|Hybrid': [{ typeCode: 'inlay', materialCode: 'hybrid' }],
+  'Inlay|Zirconia': [{ typeCode: 'inlay', materialCode: 'zirconia' }],
+  'Implant|Custom Abutment': [{ typeCode: 'implant', materialCode: 'custom_abut' }],
+
+  /*
+    ★ 한 줄이 **둘**을 가리킵니다 (사용자 결정 2026-10-07).
+      종이에는 '커스텀 어버트먼트 + 지르코니아' 한 줄로 적지만, 제품표에는
+      조이는 방식(SCRP)과 붙이는 방식(Cementation)으로 나뉘어 있습니다.
+      치과에는 한 값으로 말하기로 했으니 둘 다 그 값으로 맞춥니다.
+  */
+  'Implant|Custom Abutment + Zirconia': [
+    { typeCode: 'implant', materialCode: 'abut_zir_scrp' },
+    { typeCode: 'implant', materialCode: 'abut_zir_cem' },
+  ],
 };
 
 export interface MaterialRef {
@@ -131,14 +141,14 @@ export function sheetToClinicPrices(
   const out: { materialId: string; price: number }[] = [];
 
   for (const row of rows) {
-    const target = SHEET_TO_PRODUCT[`${row.group}|${row.item.trim()}`];
-    if (!target) continue;
-
-    const id = byCode.get(`${target.typeCode}|${target.materialCode}`);
-    if (!id) continue;
+    const targets = SHEET_TO_PRODUCT[`${row.group}|${row.item.trim()}`];
+    if (!targets) continue;
     if (!Number.isInteger(row.price) || row.price <= 0) continue;
 
-    out.push({ materialId: id, price: row.price });
+    for (const t of targets) {
+      const id = byCode.get(`${t.typeCode}|${t.materialCode}`);
+      if (id) out.push({ materialId: id, price: row.price });
+    }
   }
   return out;
 }

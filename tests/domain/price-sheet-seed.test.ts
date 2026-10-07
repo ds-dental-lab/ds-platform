@@ -35,7 +35,8 @@ const find = (rows: { materialId: string; price: number }[], id: string) =>
 describe('수가표를 치과 단가로', () => {
   it('여섯 줄이 제 제품으로 갑니다', () => {
     const got = sheetToClinicPrices(DEFAULT_PRICE_SHEET, MATERIALS);
-    expect(got).toHaveLength(6);
+    // ★ 임플란트 보철 한 줄이 둘(SCRP·Cementation)을 가리켜 일곱입니다
+    expect(got).toHaveLength(7);
     expect(find(got, 'm-crown-pmma')).toBe(10_000);
     expect(find(got, 'm-crown-zir')).toBe(45_000);
     expect(find(got, 'm-inlay-hyb')).toBe(40_000);
@@ -58,14 +59,23 @@ describe('수가표를 치과 단가로', () => {
     expect(find(got, 'm-inlay-zir')).toBe(40_000);
   });
 
-  it('수가표에 없는 제품은 **건드리지 않습니다**', () => {
+  it('임플란트 보철 한 줄이 **둘**을 같은 값으로 맞춥니다', () => {
     /*
-      ★ Cementation 과 Abut+PMMA 는 종이에 안 적힙니다. 우리가 값을 정해
-        버리면 센터가 적지도 않은 값으로 주문이 들어갑니다.
+      ★ 종이에는 한 줄인데 제품표는 조이는 방식(SCRP)과 붙이는 방식
+        (Cementation)으로 나뉩니다. 치과에는 한 값으로 말하기로 했습니다
+        (사용자 결정 2026-10-07).
     */
     const got = sheetToClinicPrices(DEFAULT_PRICE_SHEET, MATERIALS);
-    const touched = got.map((r) => r.materialId);
-    expect(touched).not.toContain('m-imp-cem');
+    expect(find(got, 'm-imp-scrp')).toBe(90_000);
+    expect(find(got, 'm-imp-cem')).toBe(90_000);
+  });
+
+  it('수가표에 없는 제품은 **건드리지 않습니다**', () => {
+    /*
+      ★ Abut+PMMA 는 종이에 안 적힙니다. 우리가 값을 정해 버리면 센터가
+        적지도 않은 값으로 주문이 들어갑니다.
+    */
+    const touched = sheetToClinicPrices(DEFAULT_PRICE_SHEET, MATERIALS).map((r) => r.materialId);
     expect(touched).not.toContain('m-imp-pmma');
   });
 
