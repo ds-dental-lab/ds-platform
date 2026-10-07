@@ -2,11 +2,18 @@
 """
 오르카 프로파일 고르기 (2026-10-06).
 
-★ **펼치지 않습니다.** 한 번 그 길로 갔다가 돌아왔습니다 —
-  오르카 프로파일은 `inherits` 로 부모를 가리키는 조각인데, 부모를 따라
-  올라가 하나로 합쳐서 주면 오르카가 거부합니다(`from unsupported`,
-  고쳐도 말없이 죽음). **오르카가 들고 있는 파일을 그대로 가리키면 됩니다** —
-  족보는 오르카가 제 안에서 풉니다.
+★★ **펼쳐서 줘야 합니다.** 오르카 프로파일은 `inherits` 로 부모를 가리키는
+  조각입니다 — '0.12mm Fine @BBL A1M' 은 **칸이 11개**뿐이고 layer_height 는
+  부모에 있습니다. `--load-settings` 에 그 조각을 그대로 주면 오르카가
+  **족보를 풀지 않고**, 이름만 그 프로파일이고 값은 기본값으로 자릅니다
+  (실측 2026-10-07 — print_settings_id 는 0.12mm 인데 layer_height 는 0.2).
+  **이름이 맞다고 설정이 먹은 게 아닙니다.** 잘린 결과를 열어 봐야 압니다.
+
+★ 한 번 펼치기를 포기했던 적이 있는데, 그때 실패한 까닭은 펼치기가 아니라
+  **오르카를 한 번도 안 켠 것**이었습니다(설정 폴더가 비어 CLI 가 죽음).
+  켠 뒤에는 펼친 프로파일이 그대로 먹습니다.
+
+★ `from` 칸은 **남겨야** 합니다. 지우면 "from unsupported" 로 죽습니다.
 
 ★ 다만 셋이 **서로 맞아야** 합니다. 공정·필라멘트에는
   `compatible_printers` 가 박혀 있고, 안 맞으면 자르지 않습니다.
@@ -66,14 +73,19 @@ class ProfileSet:
         )
 
 
-#: 자르는 것을 확인한 조합 (2026-10-06). 기종이 정해지면 바꿉니다.
-#: ★ 공정·필라멘트가 X1C 이름인데 P1S 에서 됩니다 — 그 둘의
-#:   compatible_printers 에 'Bambu Lab P1S 0.4 nozzle' 이 들어 있습니다.
+#: 쓰는 기계 — **Bambu Lab A1 mini** (사용자 결정 2026-10-07, 다음날 도착).
+#:
+#: ★ 셋이 서로 맞아야 합니다. compatible() 로 뽑은 조합입니다.
+#: ★ 공정을 0.12mm 로 둔 까닭 — 크라운이 12mm 남짓인데 0.2mm 로 쌓으면
+#:   교합면 홈이 뭉갭니다. 더 고우면(0.08mm) 시간이 배로 듭니다.
+#:   **출발점**이고, 첫 장 뽑아 보고 바꾸시면 됩니다.
+#: ★ 필라멘트는 기계에 딸려 오는 것으로 뒀습니다. 다른 PLA 를 쓰시면
+#:   'Generic PLA @BBL A1M' 으로 바꾸면 됩니다.
 VERIFIED = {
     "vendor": "BBL",
-    "machine": "Bambu Lab P1S 0.4 nozzle",
-    "process": "0.20mm Standard @BBL X1C",
-    "filament": "Bambu PLA Basic @BBL X1C",
+    "machine": "Bambu Lab A1 mini 0.4 nozzle",
+    "process": "0.12mm Fine @BBL A1M",
+    "filament": "Bambu PLA Basic @BBL A1M",
 }
 
 
@@ -113,6 +125,104 @@ def compatible(machine: str, vendor: str = "BBL") -> dict[str, list[str]]:
             if machine in (d.get("compatible_printers") or []):
                 out[kind].append(f.stem)
     return out
+
+
+#: 합치고 나서 버릴 칸 — **족보 한 줄뿐입니다.**
+#:
+#: ★ `from` 을 지우면 "from unsupported" 로 죽습니다.
+#: ★★ `compatible_printers` 도 지우면 안 됩니다 — "process not compatible
+#:   with printer" 로 죽습니다(실측). 오르카가 그걸로 셋의 궁합을 봅니다.
+#:   남겨 두는 편이 낫기도 합니다: 엉뚱한 조합을 들고 가면 오르카가 막아 줍니다.
+DROP = ("inherits",)
+
+
+def _find(vendor: str, name: str) -> Path | None:
+    """이름으로 프로파일 조각 찾기. 부모가 다른 칸에 있을 수 있습니다"""
+    for kind in ("machine", "process", "filament"):
+        f = PROFILES / vendor / kind / f"{name}.json"
+        if f.exists():
+            return f
+    return None
+
+
+def flatten(vendor: str, name: str, depth: int = 0) -> dict:
+    """`inherits` 를 따라 올라가 하나로 합칩니다. 부모 먼저, 자식이 이깁니다"""
+    if depth > 12:  # 족보가 돌면 멈춥니다
+        return {}
+    f = _find(vendor, name)
+    if not f:
+        raise FileNotFoundError(f"프로파일을 찾지 못했습니다: {vendor}/{name}")
+
+    child = json.loads(f.read_text(encoding="utf-8"))
+    merged: dict = {}
+    if child.get("inherits"):
+        merged.update(flatten(vendor, child["inherits"], depth + 1))
+    merged.update(child)
+    for key in DROP:
+        merged.pop(key, None)
+    return merged
+
+
+def spread(out_dir: Path, profiles: "ProfileSet", vendor: str = "BBL") -> "ProfileSet":
+    """
+    셋을 펼쳐 파일로 쓰고, **그 경로들**을 돌려줍니다.
+
+    ★ 자를 때마다 새로 씁니다. 오르카 판이 올라가 프로파일이 바뀌어도
+      다음 번에 따라옵니다.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    made = []
+    for kind, path in (
+        ("machine", profiles.machine),
+        ("process", profiles.process),
+        ("filament", profiles.filament),
+    ):
+        data = flatten(vendor, path.stem)
+        data["name"] = path.stem
+        target = out_dir / f"{kind}.json"
+        target.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+        made.append(target)
+    return ProfileSet(*made)
+
+
+def bed_size(machine: Path, vendor: str = "BBL") -> tuple[float, float]:
+    """
+    출력판 크기를 **프로파일에서 읽습니다**.
+
+    ★★ 손으로 적어 두면 기계를 바꾸는 날 틀립니다. A1 mini 는 180×180 인데
+      전에 쓰던 값이 256×256 이었습니다 — 그대로 뒀으면 크라운을 판 **밖에**
+      놓고 오르카가 거부했을 겁니다.
+    ★ `printable_area` 는 ['0x0', '180x0', '180x180', '0x180'] 모양입니다.
+      족보를 탈 수 있어 부모까지 따라 올라갑니다.
+    """
+    seen: set[str] = set()
+    cur: Path | None = machine
+    while cur and cur.exists():
+        try:
+            d = json.loads(cur.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            break
+
+        area = d.get("printable_area")
+        if isinstance(area, list) and area:
+            xs, ys = [], []
+            for point in area:
+                try:
+                    a, b = str(point).lower().split("x")
+                    xs.append(float(a))
+                    ys.append(float(b))
+                except ValueError:
+                    continue
+            if xs and ys:
+                return (max(xs) - min(xs), max(ys) - min(ys))
+
+        parent = d.get("inherits")
+        if not parent or parent in seen:
+            break
+        seen.add(parent)
+        cur = PROFILES / vendor / "machine" / f"{parent}.json"
+
+    return (256.0, 256.0)   # 못 읽으면 흔한 크기로
 
 
 def machines(vendor: str = "BBL") -> list[str]:
