@@ -85,3 +85,60 @@ export function groupRows(rows: readonly PriceRow[]): { group: PriceGroup; rows:
     (g) => g.rows.length > 0,
   );
 }
+
+// ---------------------------------------------------------------- 제품과 잇기
+
+/**
+ * 수가표 한 줄이 가리키는 제품.
+ *
+ * ★★ 왜 필요한가 — 수가표는 **상담용 종이**라 이름이 영어이고 여섯 줄뿐인데,
+ *   실제 단가는 **제품표**(prosthesis_materials)에서 옵니다. 둘이 따로 놀아서,
+ *   센터가 수가표에 48,000 을 적어 보내도 새로 가입한 치과는 제품표의
+ *   50,000 으로 주문이 들어갔습니다 (사용자 지적 2026-10-07).
+ *
+ * ★ 이름으로 짐작하지 않고 **여기 적어 둡니다.** '지르코니아' 가 크라운에도
+ *   인레이에도 있어서 이름만으로는 못 가립니다.
+ *
+ * ★ 수가표에 없는 제품(Cementation·Abut+PMMA)은 건드리지 않습니다 —
+ *   종이에 안 적은 것을 우리가 정해 버리면 안 됩니다.
+ */
+export const SHEET_TO_PRODUCT: Record<string, { typeCode: string; materialCode: string }> = {
+  'Crown|PMMA': { typeCode: 'crown', materialCode: 'pmma' },
+  'Crown|Zirconia': { typeCode: 'crown', materialCode: 'zirconia' },
+  'Inlay|Hybrid': { typeCode: 'inlay', materialCode: 'hybrid' },
+  'Inlay|Zirconia': { typeCode: 'inlay', materialCode: 'zirconia' },
+  'Implant|Custom Abutment': { typeCode: 'implant', materialCode: 'custom_abut' },
+  'Implant|Custom Abutment + Zirconia': { typeCode: 'implant', materialCode: 'abut_zir_scrp' },
+};
+
+export interface MaterialRef {
+  id: string;
+  typeCode: string;
+  materialCode: string;
+}
+
+/**
+ * 수가표를 치과 단가로 옮깁니다.
+ *
+ * ★ 못 잇는 줄은 **조용히 건너뜁니다.** 센터가 수가표에 새 줄을 적어도
+ *   화면이 멈추면 안 됩니다 — 이을 수 있는 것만 옮깁니다.
+ */
+export function sheetToClinicPrices(
+  rows: readonly PriceRow[],
+  materials: readonly MaterialRef[],
+): { materialId: string; price: number }[] {
+  const byCode = new Map(materials.map((m) => [`${m.typeCode}|${m.materialCode}`, m.id]));
+  const out: { materialId: string; price: number }[] = [];
+
+  for (const row of rows) {
+    const target = SHEET_TO_PRODUCT[`${row.group}|${row.item.trim()}`];
+    if (!target) continue;
+
+    const id = byCode.get(`${target.typeCode}|${target.materialCode}`);
+    if (!id) continue;
+    if (!Number.isInteger(row.price) || row.price <= 0) continue;
+
+    out.push({ materialId: id, price: row.price });
+  }
+  return out;
+}

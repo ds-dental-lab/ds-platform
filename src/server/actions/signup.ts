@@ -15,6 +15,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { seedClinicPrices } from '@/server/repositories/clinic-price-seed';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { canReview, checkRejectReason } from '@/server/domain/signup';
@@ -49,10 +50,34 @@ export async function submitApproveSignup(requestId: string): Promise<ReviewResu
   */
   const { data: approved } = await supabase
     .from('signup_requests')
-    .select('org_name, tel')
+    .select('org_name, tel, org_id, org_type')
     .eq('id', requestId)
     .maybeSingle();
-  const who = approved as { org_name: string | null; tel: string | null } | null;
+  const who = approved as {
+    org_name: string | null;
+    tel: string | null;
+    org_id: string | null;
+    org_type: string | null;
+  } | null;
+
+  /*
+    ★★ 새 치과에 **수가표 기본값**을 단가로 깔아 둡니다 (사용자 지적 2026-10-07).
+      전에는 수가표가 상담용 종이일 뿐이어서, 센터가 48,000 을 적어 보내도
+      가입하면 제품표의 50,000 으로 주문이 들어갔습니다 — 종이와 청구서가
+      달랐습니다.
+    ★ 곁다리라 실패해도 승인은 그대로입니다. 단가는 거래처 화면에서 고칠 수
+      있고, 승인이 막히는 쪽이 훨씬 나쁩니다.
+  */
+  if (who?.org_id && who.org_type === 'clinic') {
+    const session = await getSession();
+    if (session?.orgId) {
+      try {
+        await seedClinicPrices(who.org_id, session.orgId);
+      } catch {
+        /* 단가를 못 깔아도 승인은 끝났습니다 */
+      }
+    }
+  }
   if (who) {
     await queueAlimtalkToPhone({
       event: 'signup_approved',
