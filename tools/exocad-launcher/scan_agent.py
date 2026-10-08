@@ -73,7 +73,7 @@ SETTINGS = SETTINGS_DIR / "scan_agent.json"
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.1"
+AGENT_VERSION = "1.3.2"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -1181,7 +1181,12 @@ class App:
             return
 
         worker = PrintWorker(
-            self.agent.cfg["token"], self.agent.cfg, SETTINGS_DIR / "출력", say=self.say
+            self.agent.cfg["token"],
+            self.agent.cfg,
+            SETTINGS_DIR / "출력",
+            say=self.say,
+            # 프린터 주소가 바뀌면 적어 둡니다 (방화벽이 방송을 막는 날의 보조 바퀴)
+            save=save_settings,
         )
         self.print_thread = threading.Thread(
             target=lambda: worker.loop(stop=lambda: self.agent.stop.is_set()),

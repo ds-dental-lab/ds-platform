@@ -68,12 +68,35 @@ def _post(url: str, body: dict, token: str) -> dict:
 class PrintWorker:
     """작업 하나를 끝까지 데려가는 일꾼"""
 
-    def __init__(self, token: str, settings: dict, work_dir: Path, say=print) -> None:
+    def __init__(
+        self, token: str, settings: dict, work_dir: Path, say=print, save=None
+    ) -> None:
         self.token = token
         self.settings = settings
         self.work_dir = work_dir
         self.say = say
+        #: 설정을 적어 두는 쪽. 프린터 주소가 바뀌면 기억해 둡니다
+        self.save = save
         self.printer = build_printer(settings, work_dir / "보낸것")
+
+    def remember_host(self) -> None:
+        """
+        방금 쓴 프린터 주소를 적어 둡니다.
+
+        ★★ 왜 필요한가 (2026-10-08) — 프린터는 방송으로 찾습니다. 그런데
+          치과 윈도우 방화벽이 그 방송 듣기를 막으면(한 번 '취소' 를 누르면
+          다음부터 묻지도 않고 막습니다) 찾을 길이 **지난번 주소**뿐입니다.
+          전에는 「프린터 찾기」를 누를 때만 적어 뒀기 때문에, 공유기가
+          주소를 바꾼 날 사람이 그 단추를 다시 눌러야 했습니다.
+        """
+        host = getattr(self.printer, "host", "")
+        if not host or not self.save or self.settings.get("printer_last_ip") == host:
+            return
+        self.settings["printer_last_ip"] = host
+        try:
+            self.save(self.settings)
+        except Exception as e:  # noqa: BLE001 — 적어 두지 못해도 출력은 끝났습니다
+            self.say(f"프린터 주소를 적어 두지 못했습니다: {e}")
 
     # --- 서버와 주고받기 ---
 
@@ -120,15 +143,18 @@ class PrintWorker:
                     return
                 if p.note:
                     self.say(p.note)
-                if not started:
-                    # ★ 프린터가 받아 준 그 순간에만 '출력 중' 으로 옮깁니다.
-                    #   보내기도 전에 옮기면 화면이 거짓말을 합니다.
+                if p.started and not started:
+                    # ★★ 프린터가 **우리 파일을** 돌리기 시작한 것을 확인한
+                    #   순간에만 '출력 중' 으로 옮깁니다 (2026-10-08).
+                    #   전에는 '보냈습니다' 에서 옮겼습니다 — 보낸 것과 도는
+                    #   것은 다릅니다. 프린터가 딴 것을 뽑고 있으면 우리 명령은
+                    #   무시되는데 화면은 출력 중이라고 적혀 있었습니다.
                     self.report(job_id, step="printing", percent=p.percent or 0)
                     started = True
                 elif p.done:
                     self.report(job_id, step="done")
                     self.say("출력 완료")
-                elif p.percent is not None:
+                elif started and p.percent is not None:
                     self.report(job_id, percent=p.percent)
         except Exception as e:  # noqa: BLE001 — 까닭을 삼키면 아무도 모릅니다
             self.report(job_id, step="failed", reason=f"보내다 멈췄습니다 — {e}")
@@ -142,6 +168,7 @@ class PrintWorker:
         if not job:
             return False
         self.run_one(job)
+        self.remember_host()
         return True
 
     def loop(self, stop=lambda: False) -> None:
@@ -175,7 +202,10 @@ def main(argv: list[str] | None = None) -> int:
         print("기기 열쇠가 없습니다. 에이전트에서 연결 코드를 넣어 주세요.")
         return 2
 
-    worker = PrintWorker(token, settings, Path(path).parent / "출력")
+    def save(cfg: dict) -> None:
+        path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    worker = PrintWorker(token, settings, Path(path).parent / "출력", save=save)
     if args.once:
         had = worker.tick()
         print("할 일 없음" if not had else "한 건 끝")

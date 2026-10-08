@@ -219,11 +219,44 @@ def self_test(settings: dict, seconds: float = 4.0) -> Check:
         return Check(False, "액세스 코드를 넣어 주세요 (LAN 모드를 켜면 화면에 뜹니다)")
 
     others = discover(seconds)
+
     if not others:
+        """
+        방송을 못 들었습니다.
+
+        ★★ 치과에서 제일 흔할 까닭은 프린터가 아니라 **윈도우 방화벽**입니다
+          (2026-10-08). 방송을 들으려면 포트를 열어야 하는데, 처음에 뜨는
+          "Python 의 네트워크 접근을 허용할까요" 창에서 '취소' 를 누르면
+          윈도우가 그 차단을 기억합니다 — 그 뒤로는 **묻지도 않고** 조용히
+          막습니다. 사람은 프린터가 고장 난 줄 압니다.
+        ★ 그래서 포기하기 전에 **지난번 주소로 직접** 가 봅니다. 들어가지면
+          출력은 그대로 됩니다 — 막힌 것이 방송뿐임을 알려 줍니다.
+        """
+        last = (settings.get("printer_last_ip") or "").strip()
+
+        if last:
+            try:
+                from printer_send import BambuPrinter  # noqa: PLC0415
+
+                BambuPrinter(
+                    host=last, access_code=code, serial=serial, timeout=8
+                ).login_test()
+                return Check(
+                    True,
+                    f"지난번 주소({last})로 들어갔습니다 — 다만 프린터 방송은 "
+                    "못 듣고 있습니다. 윈도우 방화벽에서 이 프로그램의 네트워크를 "
+                    "허용해 주세요. 공유기가 주소를 바꾸면 못 찾게 됩니다.",
+                    ip=last,
+                )
+            except Exception:  # noqa: BLE001 — 지난번 주소도 아니면 아래로
+                pass
+
         return Check(
             False,
             "아무 프린터도 못 찾았습니다 — 프린터가 켜져 있는지, "
-            "이 PC 와 같은 와이파이인지 봐 주세요 (손님용 망이면 안 됩니다)",
+            "이 PC 와 같은 와이파이인지 봐 주세요 (손님용 망이면 안 됩니다). "
+            "윈도우 방화벽이 막고 있을 수도 있습니다 — 처음 뜬 허용 창에서 "
+            "'취소' 를 눌렀다면 막혀 있습니다.",
         )
 
     mine = next((g for g in others if g.serial.lower() == serial.lower()), None)

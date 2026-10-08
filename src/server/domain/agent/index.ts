@@ -21,10 +21,10 @@
  *   올리고 배포하면 치과 에이전트에 "새 판이 있습니다" 가 뜹니다.
  *   scan_agent.py 의 AGENT_VERSION 과 같아야 합니다.
  */
-export const AGENT_VERSION = '1.3.1';
+export const AGENT_VERSION = '1.3.2';
 
 /** 무엇이 바뀌었는지 한 줄. 에이전트 알림에 그대로 뜹니다 */
-export const AGENT_NOTE = '두 번 켜져도 하나만 돕니다';
+export const AGENT_NOTE = '프린터로 보내기가 실물에서 멈추던 것을 고쳤습니다';
 
 /**
  * 받는 곳 — 안내 화면입니다.

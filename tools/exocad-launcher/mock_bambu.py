@@ -354,8 +354,16 @@ class MqttServer(threading.Thread):
 
         printing = threading.Event()
 
-        def progress() -> None:
-            """출력하는 척하며 진행률을 흘립니다"""
+        def progress(name: str = "") -> None:
+            """
+            출력하는 척하며 진행률을 흘립니다.
+
+            ★★ **지금 뽑는 파일 이름을 같이 적습니다** (2026-10-08).
+              실물 프린터가 그렇게 합니다(subtask_name). 보내는 쪽은 그
+              이름으로 '내 것이 돌고 있는지' 를 가립니다 — 이름을 안 적으면
+              가짜 프린터가 실물과 달라져, 여기서 통과한 코드가 현장에서
+              "안 뽑혔는데 뽑혔다" 를 냅니다.
+            """
             steps = 6
             for i in range(1, steps + 1):
                 if printing.is_set():
@@ -363,8 +371,16 @@ class MqttServer(threading.Thread):
                 time.sleep(self.seconds / steps)
                 pct = round(i * 100 / steps)
                 body = (
-                    '{"print":{"mc_percent":%d,"gcode_state":"%s","mc_remaining_time":%d}}'
-                    % (pct, "RUNNING" if i < steps else "FINISH", steps - i)
+                    '{"print":{"mc_percent":%d,"gcode_state":"%s","mc_remaining_time":%d,'
+                    '"subtask_name":"%s","layer_num":%d,"total_layer_num":%d}}'
+                    % (
+                        pct,
+                        "RUNNING" if i < steps else "FINISH",
+                        steps - i,
+                        name,
+                        i,
+                        steps,
+                    )
                 ).encode()
                 try:
                     conn.sendall(_publish(f"device/{self.serial}/report", body))
@@ -402,7 +418,15 @@ class MqttServer(threading.Thread):
                     say("명령 받음:", topic)
                     say("  ", payload[:160])
                     if "project_file" in payload:
-                        threading.Thread(target=progress, daemon=True).start()
+                        # 명령에 적힌 파일 이름을 그대로 돌려줍니다
+                        name = ""
+                        if '"url"' in payload:
+                            tail = payload.split('"url"', 1)[1]
+                            if "sdcard/" in tail:
+                                name = tail.split("sdcard/", 1)[1].split('"', 1)[0]
+                        threading.Thread(
+                            target=progress, args=(name,), daemon=True
+                        ).start()
                 elif kind == 12:  # PINGREQ
                     conn.sendall(bytes([0xD0, 0x00]))
                 elif kind == 14:  # DISCONNECT
