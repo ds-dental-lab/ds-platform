@@ -32,6 +32,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { todayInKst } from '@/server/domain/week';
 import { resolvePartyPrice } from '@/server/domain/pricing';
+import { loadDatedOverrides, priceDay } from '@/server/repositories/price-history';
 import {
   itemAmount,
   moneyRanges,
@@ -181,11 +182,18 @@ export async function getHomeMoney(): Promise<HomeMoney> {
     // 어느 거래처의 단가인가. 기공소는 자기 것, 나머지는 그 치과 것
     const party = (orgType === 'lab' ? order.lab_org_id : order.clinic_org_id) ?? '';
 
+    /*
+      ★ 값은 **배송일**로 고릅니다 — 접수일로 세는 화면이라도요 (2026-10-08).
+        접수와 배송 사이에 단가가 바뀌면, 접수일 값으로 세어 둔 금액이
+        나중에 청구서와 어긋납니다. 세는 날과 값을 고르는 날은 다릅니다.
+    */
+    const priceAt = priceDay(order.shipped_at);
+
     for (const item of order.order_items ?? []) {
       const money = itemAmount({
         isPontic: item.is_pontic,
         hasGingival: item.has_gingival,
-        ...priceFor(party, item.type_code, item.material_code),
+        ...priceFor(party, item.type_code, item.material_code, priceAt),
       });
 
       bucket.amount += money.amount;
@@ -198,7 +206,13 @@ export async function getHomeMoney(): Promise<HomeMoney> {
 
 // ---------- 단가 ----------
 
-type PriceLookup = (party: string, typeCode: string, materialCode: string) => PriceRow;
+type PriceLookup = (
+  party: string,
+  typeCode: string,
+  materialCode: string,
+  /** 배송일. 그 날 유효했던 단가로 셉니다 (2026-10-08) */
+  day: string,
+) => PriceRow;
 
 const NO_PRICE: PriceRow = { price: null, ponticPrice: null, pinkPrice: null };
 
@@ -228,13 +242,12 @@ async function loadPricing(
           .from('prosthesis_materials')
           .select('id, code, price, pontic_price, pink_price, prosthesis_types!inner(code)'),
 
-    isLab
-      ? supabase
-          .from('lab_product_costs')
-          .select('lab_org_id, material_id, lab_cost, pontic_cost, pink_cost')
-      : supabase
-          .from('clinic_product_prices')
-          .select('clinic_org_id, material_id, price, pontic_price, pink_price'),
+    /*
+      ★ 거래처 단가는 **배송일 기준**입니다 (2026-10-08).
+        거래처를 좁히지 않습니다 — HOME 은 거래처 전부를 얕게 봅니다.
+        RLS 가 볼 수 있는 것만 내려 줍니다.
+    */
+    loadDatedOverrides(supabase, isLab ? 'lab' : 'clinic'),
   ]);
 
   // 제품 코드 → { id, 기본가 }
@@ -259,26 +272,13 @@ async function loadPricing(
     });
   }
 
-  // 거래처 단가 — 거래처와 제품 둘 다 열쇠입니다 (치과마다 값이 다름)
-  const byParty = new Map<string, PriceRow>();
-
-  for (const row of (overrides.data ?? []) as Record<string, unknown>[]) {
-    const party = (isLab ? row.lab_org_id : row.clinic_org_id) as string;
-
-    byParty.set(`${party}|${row.material_id as string}`, {
-      price: (isLab ? row.lab_cost : row.price) as number | null,
-      ponticPrice: (isLab ? row.pontic_cost : row.pontic_price) as number | null,
-      pinkPrice: (isLab ? row.pink_cost : row.pink_price) as number | null,
-    });
-  }
-
   const partyType = isLab ? 'lab' : 'clinic';
 
-  return (party, typeCode, materialCode) => {
+  return (party, typeCode, materialCode, day) => {
     const product = byProduct.get(`${typeCode}/${materialCode}`);
     if (!product) return NO_PRICE;
 
-    const over = byParty.get(`${party}|${product.id}`);
+    const over = overrides(party, product.id, day);
 
     /*
       ★ 기공소는 제품 기본가로 안 떨어집니다 (resolvePartyPrice).
@@ -287,9 +287,9 @@ async function loadPricing(
         안 정했으면 0원이 아니라 '미정' 입니다.
     */
     return {
-      price: resolvePartyPrice(product.price, over?.price ?? null, partyType),
-      ponticPrice: resolvePartyPrice(product.ponticPrice, over?.ponticPrice ?? null, partyType),
-      pinkPrice: resolvePartyPrice(product.pinkPrice, over?.pinkPrice ?? null, partyType),
+      price: resolvePartyPrice(product.price, over.price, partyType),
+      ponticPrice: resolvePartyPrice(product.ponticPrice, over.ponticPrice, partyType),
+      pinkPrice: resolvePartyPrice(product.pinkPrice, over.pinkPrice, partyType),
     };
   };
 }

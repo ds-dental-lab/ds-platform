@@ -19,6 +19,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { resolvePartyPrice } from '@/server/domain/pricing';
+import { loadDatedOverrides, priceDay } from '@/server/repositories/price-history';
 import {
   itemAmount,
   effectivePeriodOfDate,
@@ -172,7 +173,7 @@ export async function getSettlement(
   const supabase = await createClient();
   const isClinic = partner.orgType === 'clinic';
 
-  const [orders, prices, overrides, adjustments] = await Promise.all([
+  const [orders, prices, datedOverrides, adjustments] = await Promise.all([
     supabase
       .from('orders')
       .select(
@@ -200,15 +201,14 @@ export async function getSettlement(
           .from('prosthesis_materials')
           .select('id, code, price, pontic_price, pink_price, prosthesis_types!inner(code)'),
 
-    isClinic
-      ? supabase
-          .from('clinic_product_prices')
-          .select('material_id, price, pontic_price, pink_price')
-          .eq('clinic_org_id', partner.id)
-      : supabase
-          .from('lab_product_costs')
-          .select('material_id, lab_cost, pontic_cost, pink_cost')
-          .eq('lab_org_id', partner.id),
+    /*
+      ★ 거래처 단가는 **배송일 기준**으로 고릅니다 (2026-10-08).
+        전에는 지금 단가표를 읽어서, 값을 올리면 이미 배송된 건까지
+        올라갔습니다. 마감한 달만 안전했습니다.
+        이제 바뀐 날이 적힌 줄을 전부 받아 두고, 아래에서 건마다 그
+        배송일에 유효했던 값을 고릅니다.
+    */
+    loadDatedOverrides(supabase, isClinic ? 'clinic' : 'lab', [partner.id]),
 
     supabase
       .from('billing_adjustments')
@@ -225,17 +225,12 @@ export async function getSettlement(
     pinkPrice: number | null;
   }
 
-  const byId = new Map<string, PriceRow>();
-
-  for (const row of (overrides.data ?? []) as Record<string, unknown>[]) {
-    byId.set(row.material_id as string, {
-      price: (isClinic ? row.price : row.lab_cost) as number | null,
-      ponticPrice: (isClinic ? row.pontic_price : row.pontic_cost) as number | null,
-      pinkPrice: (isClinic ? row.pink_price : row.pink_cost) as number | null,
-    });
-  }
-
-  const byCode = new Map<string, PriceRow>();
+  /*
+    ★ 제품 기본가만 코드로 펴 둡니다. 거래처 단가는 **건마다** 배송일로
+      골라야 하므로 여기서 섞지 못합니다 — 제품의 id 를 같이 들고 가서
+      아래 줄을 펼 때 섞습니다.
+  */
+  const byCode = new Map<string, { id: string } & PriceRow>();
 
   for (const raw of (prices.data ?? []) as unknown as {
     id: string;
@@ -247,7 +242,6 @@ export async function getSettlement(
     type_code?: string;
   }[]) {
     const typeCode = raw.prosthesis_types?.code ?? raw.type_code ?? '';
-    const over = byId.get(raw.id);
 
     /*
       ★ 기공소에는 제품 기본가를 쓰지 않습니다.
@@ -259,19 +253,13 @@ export async function getSettlement(
         지급하는 셈입니다. 안 정했으면 0원이 아니라 '미정' 이어야 합니다.
 
       ★ `??` 여야 합니다. `||` 로 이으면 0원 거래처 단가가 기본가로 새어 나갑니다.
+        (섞는 일은 아래 priceOf 가 합니다)
     */
     byCode.set(`${typeCode}/${raw.code}`, {
-      price: resolvePartyPrice(raw.price ?? null, over?.price ?? null, partner.orgType),
-      ponticPrice: resolvePartyPrice(
-        raw.pontic_price ?? null,
-        over?.ponticPrice ?? null,
-        partner.orgType,
-      ),
-      pinkPrice: resolvePartyPrice(
-        raw.pink_price ?? null,
-        over?.pinkPrice ?? null,
-        partner.orgType,
-      ),
+      id: raw.id,
+      price: raw.price ?? null,
+      ponticPrice: raw.pontic_price ?? null,
+      pinkPrice: raw.pink_price ?? null,
     });
   }
 
@@ -291,16 +279,34 @@ export async function getSettlement(
     adjByItem.set(row.order_item_id, found);
   }
 
+  /**
+   * 그 건의 **배송일**에 유효했던 값. (2026-10-08)
+   *
+   * ★ 기본가는 아직 시점을 안 둡니다 — 제품탭 '판매 가격' 은 거래처
+   *   단가를 안 정한 곳에만 쓰이고, 지금 거래처 전부가 단가를 갖고
+   *   있습니다. 거기까지 시점을 두려면 제품탭도 같이 고쳐야 합니다.
+   */
+  function priceOf(typeCode: string, materialCode: string, day: string): PriceRow {
+    const base = byCode.get(`${typeCode}/${materialCode}`);
+    if (!base) return { price: null, ponticPrice: null, pinkPrice: null };
+
+    const over = datedOverrides(partner.id, base.id, day);
+
+    return {
+      price: resolvePartyPrice(base.price, over.price, partner.orgType),
+      ponticPrice: resolvePartyPrice(base.ponticPrice, over.ponticPrice, partner.orgType),
+      pinkPrice: resolvePartyPrice(base.pinkPrice, over.pinkPrice, partner.orgType),
+    };
+  }
+
   // ---------- 줄을 폅니다 ----------
   const items: SettlementItem[] = [];
 
   for (const order of orders.data as unknown as RawOrder[]) {
+    const day = priceDay(order.shipped_at);
+
     for (const raw of order.order_items ?? []) {
-      const price = byCode.get(`${raw.type_code}/${raw.material_code}`) ?? {
-        price: null,
-        ponticPrice: null,
-        pinkPrice: null,
-      };
+      const price = priceOf(raw.type_code, raw.material_code, day);
 
       // ★ 리메이크·리페어는 셈하지 않습니다. 0원으로 목록에만 남습니다
       const money: ItemAmount = order.is_billable

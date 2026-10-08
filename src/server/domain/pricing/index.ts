@@ -160,3 +160,47 @@ export function parseAmount(text: string): { ok: true; value: number | null } | 
 export function formatAmount(value: number | null): string {
   return value === null ? '-' : value.toLocaleString('ko-KR');
 }
+
+// ---------- 그 날의 단가 ----------
+//
+// 사용자 결정 2026-10-08 — "앞으로는 수가가 바뀐 이후에 적용이 되는게 맞다".
+//
+// ★★ 전에는 정산이 **지금 단가표**를 볼 때마다 다시 읽었습니다. 그래서
+//   10월 8일에 값을 올리면 10월 1일에 이미 배송된 건까지 그 값이 됐습니다.
+//   마감한 달만 안전했습니다. 이제 바뀐 날을 같이 남기고(product_price_history),
+//   **그 건의 배송일에 유효했던 줄**을 고릅니다.
+//
+// ★ 이 파일은 DB 를 모릅니다. 줄을 받아 고르기만 합니다.
+
+/** 한 제품의 한 시점. 값이 전부 비어 있으면 '그 날부터 덮어쓰기 없음' 입니다 */
+export interface DatedPrice extends PriceSet {
+  /** 'YYYY-MM-DD' — 이 날 배송된 건부터 이 값입니다 (그 날 포함) */
+  effectiveFrom: string;
+}
+
+/**
+ * 그 날짜에 유효한 덮어쓰기. 줄이 없으면 비어 있는 값(= 기본가로)을 줍니다.
+ *
+ * ★ 날짜가 **이하**인 줄 중 가장 늦은 것입니다. 바꾼 날 배송된 건은
+ *   새 값입니다 — "오늘부터" 라고 말했을 때 사람이 기대하는 쪽입니다.
+ *
+ * ★ 모든 줄보다 이른 날짜면 **가장 오래된 줄**을 씁니다.
+ *   기록을 남기기 시작한 2026-10-08 전에 배송된 건들이 여기 걸립니다.
+ *   기본가로 떨어뜨리면 그 건들의 청구액이 **오늘 갑자기 달라집니다** —
+ *   지나간 값을 모르니 '처음부터 그 값이었다' 로 두는 것이 덜 틀립니다.
+ */
+export function priceOn(rows: DatedPrice[], date: string): PriceSet {
+  if (rows.length === 0) return { ...EMPTY_PRICES };
+
+  // ISO 날짜는 글자 순서가 곧 날짜 순서입니다
+  const sorted = [...rows].sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1));
+
+  let picked = sorted[0];
+
+  for (const row of sorted) {
+    if (row.effectiveFrom > date) break;
+    picked = row;
+  }
+
+  return { price: picked.price, ponticPrice: picked.ponticPrice, pinkPrice: picked.pinkPrice };
+}

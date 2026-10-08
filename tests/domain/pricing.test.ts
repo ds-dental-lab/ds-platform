@@ -14,6 +14,8 @@ import {
   parseAmount,
   formatAmount,
   EMPTY_PRICES,
+  priceOn,
+  type DatedPrice,
   type PriceSet,
 } from '@/server/domain/pricing';
 
@@ -176,5 +178,86 @@ describe('거래처 종류에 따른 기본가', () => {
 
   it('치과는 덮어쓴 값이 이긴다', () => {
     expect(resolvePartyPrice(base, 130000, 'clinic')).toBe(130000);
+  });
+});
+
+// =========================================================
+// 배송일에 유효했던 단가 (사용자 결정 2026-10-08)
+//
+// ★★ 전에는 정산이 **지금** 단가표를 읽어서, 10월 8일에 값을 올리면
+//   10월 1일에 이미 배송된 건까지 올라갔습니다. 메이트 치과에서 실제로
+//   났습니다(임플란트 1 → 2). 이제 바뀐 날을 같이 남기고 그 건의
+//   배송일에 유효했던 줄을 고릅니다.
+// =========================================================
+
+function at(day: string, price: number | null): DatedPrice {
+  return { effectiveFrom: day, price, ponticPrice: null, pinkPrice: null };
+}
+
+describe('배송일로 단가를 고릅니다', () => {
+  const 줄 = [at('2026-09-21', 1), at('2026-10-08', 2)];
+
+  it('바뀌기 전에 나간 건은 옛 값입니다', () => {
+    expect(priceOn(줄, '2026-10-01').price).toBe(1);
+  });
+
+  // ★ "오늘부터" 라고 말했을 때 사람이 기대하는 쪽입니다
+  it('★ 바꾼 날 나간 건은 새 값입니다', () => {
+    expect(priceOn(줄, '2026-10-08').price).toBe(2);
+  });
+
+  it('그 뒤로도 새 값입니다', () => {
+    expect(priceOn(줄, '2026-12-25').price).toBe(2);
+  });
+
+  it('줄 순서가 뒤섞여 와도 같습니다', () => {
+    const 뒤섞임 = [at('2026-10-08', 2), at('2026-09-21', 1)];
+    expect(priceOn(뒤섞임, '2026-10-01').price).toBe(1);
+  });
+
+  // ★ 하루에 세 번 고쳐도 DB 가 한 줄만 남깁니다(unique index).
+  //   그래도 두 줄이 들어오면 **마지막에 적힌 값**을 씁니다.
+  it('같은 날짜가 둘이면 뒤에 온 줄이 이깁니다', () => {
+    expect(priceOn([at('2026-10-08', 2), at('2026-10-08', 3)], '2026-10-08').price).toBe(3);
+  });
+
+  /*
+    ★★ 기록을 남기기 **전에** 배송된 건들입니다 (2026-10-08 미그레이션 전).
+      지나간 값은 아무도 적어 두지 않았으니 알 길이 없습니다. 기본가로
+      떨어뜨리면 그 건들의 청구액이 **오늘 갑자기 달라집니다** —
+      '처음부터 그 값이었다' 로 두는 것이 덜 틀립니다.
+  */
+  it('★ 모든 줄보다 이른 날이면 가장 오래된 줄을 씁니다', () => {
+    expect(priceOn(줄, '2026-08-01').price).toBe(1);
+  });
+
+  it('줄이 없으면 덮어쓰기가 없습니다 (기본가로)', () => {
+    expect(priceOn([], '2026-10-08')).toEqual(EMPTY_PRICES);
+  });
+
+  // ★ 0 과 비어 있음은 다릅니다. 0 원 거래처 단가가 기본가로 새면 안 됩니다
+  it('★ 0원도 값입니다', () => {
+    expect(priceOn([at('2026-10-01', 0)], '2026-10-08').price).toBe(0);
+  });
+
+  // ★ 줄을 지운 날 — 그 날부터 덮어쓰기가 없습니다(치과는 기본가로)
+  it('★ 비운 줄은 비운 채로 옵니다', () => {
+    const 지움 = [at('2026-09-21', 1), at('2026-10-08', null)];
+    expect(priceOn(지움, '2026-10-08').price).toBeNull();
+    expect(priceOn(지움, '2026-10-07').price).toBe(1);
+  });
+
+  it('폰틱·핑크도 그 날 값으로 함께 옵니다', () => {
+    const 줄들: DatedPrice[] = [
+      { effectiveFrom: '2026-09-21', price: 1, ponticPrice: 1, pinkPrice: 1 },
+      { effectiveFrom: '2026-10-08', price: 2, ponticPrice: 3, pinkPrice: 4 },
+    ];
+    expect(priceOn(줄들, '2026-10-08')).toEqual({ price: 2, ponticPrice: 3, pinkPrice: 4 });
+  });
+
+  it('받은 줄을 건드리지 않습니다', () => {
+    const 원본 = [at('2026-10-08', 2), at('2026-09-21', 1)];
+    priceOn(원본, '2026-10-01');
+    expect(원본[0].effectiveFrom).toBe('2026-10-08');
   });
 });

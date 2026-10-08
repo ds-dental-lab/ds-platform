@@ -22,6 +22,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { resolvePartyPrice } from '@/server/domain/pricing';
+import { loadDatedOverrides, priceDay } from '@/server/repositories/price-history';
 import { itemAmount, adjustmentTiming } from '@/server/domain/billing';
 
 export interface OrderMoneyItem {
@@ -121,22 +122,21 @@ export async function getOrderMoney(orderId: string): Promise<OrderMoney | null>
   const inHouse = Boolean(order.lab_org_id) && order.lab_org_id === order.design_org_id;
   const payableLab = inHouse ? null : order.lab_org_id;
 
-  const [baseRes, clinicRes, labRes, adjRes] = await Promise.all([
+  const [baseRes, clinicPriceAt, labPriceAt, adjRes] = await Promise.all([
     supabase
       .from('prosthesis_materials')
       .select('id, code, price, pontic_price, pink_price, prosthesis_types!inner(code)'),
 
-    supabase
-      .from('clinic_product_prices')
-      .select('material_id, price, pontic_price, pink_price')
-      .eq('clinic_org_id', order.clinic_org_id),
+    /*
+      ★ 거래처 단가는 **이 건의 배송일**에 유효했던 값입니다 (2026-10-08).
+        아직 안 나간 건은 오늘 값으로 미리 보여 줍니다 — 나가는 날
+        값이 다시 정해지므로 그때 바뀔 수 있습니다.
+    */
+    loadDatedOverrides(supabase, 'clinic', [order.clinic_org_id]),
 
     payableLab
-      ? supabase
-          .from('lab_product_costs')
-          .select('material_id, lab_cost, pontic_cost, pink_cost')
-          .eq('lab_org_id', payableLab)
-      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+      ? loadDatedOverrides(supabase, 'lab', [payableLab])
+      : Promise.resolve(null),
 
     supabase
       .from('billing_adjustments')
@@ -145,23 +145,10 @@ export async function getOrderMoney(orderId: string): Promise<OrderMoney | null>
   ]);
 
   // ---------- 단가표를 (종류/재료) 로 폅니다 ----------
-  const clinicOver = new Map<string, PriceRow>();
-  for (const r of (clinicRes.data ?? []) as Record<string, unknown>[]) {
-    clinicOver.set(r.material_id as string, {
-      price: r.price as number | null,
-      ponticPrice: r.pontic_price as number | null,
-      pinkPrice: r.pink_price as number | null,
-    });
-  }
-
-  const labOver = new Map<string, PriceRow>();
-  for (const r of (labRes.data ?? []) as Record<string, unknown>[]) {
-    labOver.set(r.material_id as string, {
-      price: r.lab_cost as number | null,
-      ponticPrice: r.pontic_cost as number | null,
-      pinkPrice: r.pink_cost as number | null,
-    });
-  }
+  //
+  // ★ 주문 하나라 날짜도 하나입니다 — 건마다 고를 필요 없이 여기서
+  //   한 번 섞어 둡니다 (정산 화면은 여러 건이라 건마다 고릅니다).
+  const day = priceDay(order.shipped_at);
 
   const byCode = new Map<string, { clinic: PriceRow; lab: PriceRow; label: string }>();
 
@@ -174,8 +161,8 @@ export async function getOrderMoney(orderId: string): Promise<OrderMoney | null>
     prosthesis_types: { code: string };
   }[]) {
     const typeCode = raw.prosthesis_types?.code ?? '';
-    const c = clinicOver.get(raw.id);
-    const l = labOver.get(raw.id);
+    const c = clinicPriceAt(order.clinic_org_id, raw.id, day);
+    const l = payableLab && labPriceAt ? labPriceAt(payableLab, raw.id, day) : null;
 
     byCode.set(`${typeCode}/${raw.code}`, {
       label: `${typeCode}/${raw.code}`,

@@ -40,14 +40,14 @@ const FIELDS: { key: PriceField; label: string }[] = [
 
 export interface PartnerPriceTableProps {
   /**
-   * 지금 이 단가를 바꾸면 흔들리는 것에 대한 경고. 없으면 안 띄웁니다.
+   * 언제부터 적용되는지 알려 주는 말.
    *
-   * ★ 정산은 단가표를 **볼 때마다 다시 읽습니다.** 그래서 아직 안 닫힌
-   *   기간에 이미 배송된 건은 단가를 바꾸는 순간 청구액이 따라 바뀝니다.
-   *   막지는 않습니다 — 진짜로 소급해야 할 때도 있습니다. 다만
-   *   **모르고 그러는 일**은 없어야 합니다.
+   * ★ 2026-10-08 전에는 **경고**였습니다 — 정산이 단가표를 볼 때마다
+   *   다시 읽어서, 값을 바꾸면 아직 안 닫힌 기간에 이미 배송된 건의
+   *   청구액까지 따라 바뀌었습니다. 이제 바뀐 날부터만 적용되므로
+   *   흔들릴 것이 없습니다. 경고가 아니라 **안내**입니다.
    */
-  repriceWarning?: string | null;
+  priceNotice?: string | null;
   partner: PartnerRow;
   rows: PartnerPriceRow[];
 }
@@ -55,7 +55,7 @@ export interface PartnerPriceTableProps {
 export default function PartnerPriceTable({
   partner,
   rows,
-  repriceWarning,
+  priceNotice,
 }: PartnerPriceTableProps) {
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
@@ -191,9 +191,9 @@ export default function PartnerPriceTable({
       </div>
 
       {/* ★ 저장 단추 바로 아래입니다. 표 밑에 두면 스크롤해야 보입니다 */}
-      {repriceWarning && (
-        <p className="mx-5 mb-3 rounded-md border border-[#F3D9A8] bg-[#FDF7EC] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#8A5A00]">
-          {repriceWarning}
+      {priceNotice && (
+        <p className="mx-5 mb-3 rounded-md border border-[#CFE3FB] bg-[#F7FAFF] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#2F6FB5]">
+          {priceNotice}
         </p>
       )}
 

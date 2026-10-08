@@ -16,7 +16,6 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import type { InvoiceMethod } from '@/server/domain/invoice-method';
 import { EMPTY_PRICES, type PriceSet } from '@/server/domain/pricing';
-import { effectivePeriodOfDate, type RepriceImpact } from '@/server/domain/billing';
 
 export type PartnerType = 'clinic' | 'lab';
 
@@ -258,60 +257,3 @@ export async function getPartnerPrices(partner: PartnerRow): Promise<PartnerPric
 /** 아직 아무 값도 없는 거래처를 위한 빈 칸 */
 export const NO_OVERRIDE: PriceSet = EMPTY_PRICES;
 
-/**
- * 이 거래처의 단가를 지금 바꾸면 몇 건이 흔들리는가.
- *
- * ★ **아직 안 닫힌 기간에 이미 배송된 건**만 셉니다.
- *   마감된 달은 billing_lines 에 굳어 있어 단가를 바꿔도 안 흔들립니다
- *   (999,000 으로 바꿔 확인해 둔 규칙입니다).
- *
- * ★ 지난 달이 아직 안 닫혀 있을 수 있습니다.
- *   오늘이 8월이라고 8월만 보면 안 됩니다 — 7월을 안 닫아 뒀으면
- *   7월 청구액도 같이 바뀝니다. 그래서 배송된 건을 전부 훑어
- *   **달별로 묶고, 닫힌 달만 빼는** 방식입니다.
- *
- * ★ 리메이크·리페어는 안 셉니다. 어차피 0원이라 단가와 무관합니다.
- */
-export async function getRepriceImpact(partner: PartnerRow): Promise<RepriceImpact> {
-  const supabase = await createClient();
-
-  const [shipped, periods] = await Promise.all([
-    supabase
-      .from('orders')
-      .select('shipped_at')
-      .eq(partner.orgType === 'clinic' ? 'clinic_org_id' : 'lab_org_id', partner.id)
-      .is('deleted_at', null)
-      .eq('is_billable', true)
-      .not('shipped_at', 'is', null),
-    supabase
-      .from('billing_periods')
-      .select('year_month, closed_at, period_from, period_to')
-      .eq('party_org_id', partner.id),
-  ]);
-
-  const periodRows = (periods.data ?? []) as {
-    year_month: string;
-    closed_at: string | null;
-    period_from: string;
-    period_to: string;
-  }[];
-  const closed = new Set(periodRows.filter((p) => p.closed_at).map((p) => p.year_month));
-  // ★ 기준일을 바꾼 뒤의 경계까지 맞춰 달을 셉니다 (2026-09-11)
-  const stored = periodRows.map((p) => ({ yearMonth: p.year_month, from: p.period_from, to: p.period_to }));
-
-  const counted = new Map<string, number>();
-
-  for (const row of (shipped.data ?? []) as { shipped_at: string }[]) {
-    const month = effectivePeriodOfDate(row.shipped_at, partner.closingDay, stored);
-    if (closed.has(month)) continue;
-
-    counted.set(month, (counted.get(month) ?? 0) + 1);
-  }
-
-  const months = [...counted.keys()].sort();
-
-  return {
-    months,
-    orderCount: months.reduce((sum, m) => sum + (counted.get(m) ?? 0), 0),
-  };
-}

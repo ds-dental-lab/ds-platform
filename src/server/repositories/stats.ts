@@ -24,6 +24,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { itemAmount } from '@/server/domain/billing';
 import { resolvePartyPrice } from '@/server/domain/pricing';
+import { loadDatedOverrides, priceDay } from '@/server/repositories/price-history';
 import {
   ratePercent,
   sortDesigners,
@@ -268,7 +269,8 @@ async function addShippedAmounts(
   const { data: shipped } = await supabase
     .from('orders')
     .select(
-      'id, clinic_org_id, designer_user_id, ' +
+      // shipped_at — 그 날 유효했던 단가로 셉니다 (2026-10-08)
+      'id, clinic_org_id, designer_user_id, shipped_at, ' +
         'order_items(type_code, material_code, is_pontic, has_gingival)',
     )
     .is('deleted_at', null)
@@ -282,6 +284,7 @@ async function addShippedAmounts(
     id: string;
     clinic_org_id: string;
     designer_user_id: string;
+    shipped_at: string | null;
     order_items:
       | { type_code: string; material_code: string; is_pontic: boolean; has_gingival: boolean }[]
       | null;
@@ -290,13 +293,12 @@ async function addShippedAmounts(
   if (rows.length === 0) return;
 
   // ---------- 단가표 ----------
-  const [baseRes, overrideRes] = await Promise.all([
+  const [baseRes, priceAt] = await Promise.all([
     supabase
       .from('prosthesis_materials')
       .select('id, code, price, pontic_price, pink_price, prosthesis_types!inner(code)'),
-    supabase
-      .from('clinic_product_prices')
-      .select('material_id, clinic_org_id, price, pontic_price, pink_price'),
+    // ★ 치과 단가는 **배송일 기준**입니다 (2026-10-08) — 정산과 같은 셈
+    loadDatedOverrides(supabase, 'clinic'),
   ]);
 
   type Base = {
@@ -315,29 +317,17 @@ async function addShippedAmounts(
     if (typeCode) baseOf.set(`${typeCode}/${row.code}`, row);
   }
 
-  /** '치과|재료id' → 치과별 단가 */
-  type Over = {
-    material_id: string;
-    clinic_org_id: string;
-    price: number | null;
-    pontic_price: number | null;
-    pink_price: number | null;
-  };
-  const overOf = new Map<string, Over>();
-  for (const row of (overRes(overrideRes) ?? []) as Over[]) {
-    overOf.set(`${row.clinic_org_id}|${row.material_id}`, row);
-  }
-
   // ---------- 더하기 ----------
   for (const order of rows) {
     const who = order.designer_user_id ?? designerOf.get(order.id);
     if (!who) continue;
 
     const target = seat(who);
+    const day = priceDay(order.shipped_at);
 
     for (const item of order.order_items ?? []) {
       const base = baseOf.get(`${item.type_code}/${item.material_code}`);
-      const over = base ? overOf.get(`${order.clinic_org_id}|${base.id}`) : undefined;
+      const over = base ? priceAt(order.clinic_org_id, base.id, day) : null;
 
       const money = itemAmount({
         isPontic: item.is_pontic,
@@ -345,12 +335,12 @@ async function addShippedAmounts(
         price: resolvePartyPrice(base?.price ?? null, over?.price ?? null, 'clinic'),
         ponticPrice: resolvePartyPrice(
           base?.pontic_price ?? null,
-          over?.pontic_price ?? null,
+          over?.ponticPrice ?? null,
           'clinic',
         ),
         pinkPrice: resolvePartyPrice(
           base?.pink_price ?? null,
-          over?.pink_price ?? null,
+          over?.pinkPrice ?? null,
           'clinic',
         ),
       });
@@ -361,7 +351,3 @@ async function addShippedAmounts(
   }
 }
 
-/** supabase 응답에서 data 만 꺼냅니다 (타입을 좁히려고 따로 뺐습니다) */
-function overRes<T>(res: { data: T[] | null }): T[] | null {
-  return res.data;
-}
