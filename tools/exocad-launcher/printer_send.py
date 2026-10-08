@@ -31,6 +31,10 @@ REMOTE_DIR = ""
 #: 진행률을 몇 초마다 올릴지. 너무 자주 보내면 서버만 시끄럽습니다
 REPORT_EVERY = 20
 
+#: 파일을 다 보낸 뒤 '잘 받았다' 인사를 몇 초까지 기다릴지 (2026-10-08).
+#: 밤부는 안 돌려줍니다 — 그만큼 기다리다 그냥 끊습니다.
+SHUTDOWN_WAIT = 3
+
 
 @dataclass
 class Progress:
@@ -106,6 +110,48 @@ class _ImplicitFTPS(ftplib.FTP_TLS):
             value = self.context.wrap_socket(value)
         self._sock = value
 
+    def storbinary(self, cmd, fp, blocksize=8192, callback=None, rest=None):
+        """
+        파일을 보냅니다. 파이썬 기본 것을 쓰지 않습니다.
+
+        ★★ 실물 A1 mini 에서 처음 걸린 자리입니다 (2026-10-08).
+          파이썬 FTP_TLS 는 보내고 나서 데이터 통로의 TLS 를 **곱게**
+          닫습니다(`conn.unwrap()` — 서로 '끝' 인사를 주고받음). 밤부
+          펌웨어는 그 인사를 돌려주지 않아, 1MB 를 다 보낸 뒤 거기서
+          멈춰 서 있다가 시간이 끝났습니다.
+          **파일은 이미 다 간 뒤**라 더 할 일이 없습니다 — 인사를 기다리지
+          않고 그냥 끊습니다.
+
+        ★ 가짜 프린터(mock_bambu)는 규격대로 답했기 때문에 여기까지
+          오지 못했습니다. 실물로 한 번 보내 봐야 알 수 있는 종류입니다.
+
+        ★★ 그렇다고 인사를 **아예 안 하면** 규격대로 구는 쪽(가짜
+          프린터)이 '226 다 받았다' 를 안 보내고 끊습니다. 그래서
+          **짧게만 기다립니다** — 돌려주면 곱게 닫고, 안 돌려주면
+          3초 뒤 그냥 끊습니다. 파일은 어느 쪽이든 이미 다 갔습니다.
+        """
+        self.voidcmd("TYPE I")
+        conn = self.transfercmd(cmd, rest)
+        try:
+            while True:
+                buf = fp.read(blocksize)
+                if not buf:
+                    break
+                conn.sendall(buf)
+                if callback:
+                    callback(buf)
+        finally:
+            try:
+                conn.settimeout(SHUTDOWN_WAIT)
+                conn.unwrap()
+            except (OSError, ValueError, ssl.SSLError):
+                pass  # 밤부는 여기서 아무 말도 안 합니다
+            try:
+                conn.close()
+            except OSError:
+                pass
+        return self.voidresp()
+
 
 @dataclass
 class BambuPrinter:
@@ -148,7 +194,7 @@ class BambuPrinter:
         finally:
             try:
                 ftp.quit()
-            except (ftplib.all_errors, OSError):
+            except (*ftplib.all_errors, OSError):
                 pass
 
     # --- 파일 올리기 (FTPS 990) ---
@@ -195,7 +241,7 @@ class BambuPrinter:
         finally:
             try:
                 ftp.quit()
-            except (ftplib.all_errors, OSError):
+            except (*ftplib.all_errors, OSError):
                 pass
 
     # --- 출력 걸고 지켜보기 (MQTT 8883) ---
