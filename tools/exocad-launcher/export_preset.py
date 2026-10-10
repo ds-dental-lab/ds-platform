@@ -29,7 +29,7 @@ import orca_profile as op
 USER_DIR = Path(os.environ.get("APPDATA", "")) / "OrcaSlicer" / "user" / "default"
 
 #: 화면 목록에 뜰 이름
-PROCESS_NAME = "덴플로우 임시치아 0.12"
+PROCESS_NAME = "덴플로우 임시치아 0.16"
 FILAMENT_NAME = "덴플로우 DENTAL PLA"
 
 #: 받은 치과 장비 프로파일과 같은 판 번호로 적습니다
@@ -37,8 +37,8 @@ VERSION = "2.2.0.4"
 
 NOTE = (
     "덴플로우 임시치아용. 치과 장비 프로파일(0.10mm Fine / DENTAL PLA)의 값을 "
-    "A1 mini 로 옮긴 것입니다. 토출 보정(0.98)과 최대 토출량(21)은 A1 mini 것을 "
-    "지켰습니다 — 기계마다 따로 잡는 값입니다. "
+    "A1 mini 로 옮긴 것입니다. 층 0.16 · 토출 0.96 은 실제로 뽑아 보고 정했습니다 "
+    "(2026-10-10). 최대 토출량(21)은 A1 mini 것을 지켰습니다 — 기계의 한계입니다. "
     "★ 판 종류를 '텍스처 PEI 판'으로 고르세요. 'Cool Plate' 면 베드가 35도로 돕니다."
 )
 
