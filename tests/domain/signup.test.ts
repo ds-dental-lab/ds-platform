@@ -323,29 +323,35 @@ describe('비밀번호 확인·적합성 (2026-09-14)', () => {
 
 describe('서버가 답을 못 줬을 때', () => {
   // ★ 이것이 이 화면의 전부입니다 — 네 탓이 아니라고 말해 주는 것
-  it('★ 가입 문제가 아니라고 분명히 말합니다', () => {
+  it('★ 자료와 계정은 괜찮다고 말해 줍니다', () => {
     const view = serverTroubleView('PGRST303');
 
-    expect(view.body).toContain('가입이나 계정 문제가 아닙니다');
+    expect(view.body).toContain('아무 이상 없습니다');
     expect(view.title).not.toContain('소속된 조직이 없습니다');
   });
 
   // ★ 사람이 할 수 있는 일이 기다리는 것뿐일 때는 그렇게 말합니다
   it('무엇을 하면 되는지 적습니다', () => {
-    expect(serverTroubleView('PGRST303').body).toContain('잠시 뒤');
+    expect(serverTroubleView('PGRST303').body).toContain('새로고침');
   });
 
-  // ★ 치과에는 뜻 없는 글자지만, 화면을 찍어 보내 주면 사진만으로
-  //   같은 고장인지 압니다. 이번엔 이게 없어서 진단 창을 새로 올렸습니다
-  it('★ 오류 코드를 같이 남깁니다', () => {
-    expect(serverTroubleView('PGRST303').body).toContain('PGRST303');
+  /*
+    ★★ 치과 선생님이 읽는 글입니다 (사용자 요청 2026-10-10 —
+      "이용자가 이 글을 보면 당황스러울 것 아니야").
+      기계 이야기가 한 글자라도 섞이면, 안심시키려던 글이 겁을 줍니다.
+  */
+  it('★ 본문에 기계 이야기를 안 섞습니다', () => {
+    const body = serverTroubleView('PGRST303').body;
+
+    for (const word of ['서버', '소속', '오류', 'PGRST303', '토큰', 'DB']) {
+      expect(body, word).not.toContain(word);
+    }
   });
 
-  it('코드를 몰라도 화면은 뜹니다', () => {
-    const view = serverTroubleView(null);
-
-    expect(view.title).toBeTruthy();
-    expect(view.body).not.toContain('(');
+  // ★ 코드는 본문 밖에 따로 — 화면 구석에 흐리게 찍습니다
+  it('★ 코드는 따로 돌려줍니다', () => {
+    expect(serverTroubleView('PGRST303').code).toBe('PGRST303');
+    expect(serverTroubleView(null).code).toBeNull();
   });
 
   // ★ '다시 가입하기' 를 주면 안 됩니다. 가입은 멀쩡합니다 —

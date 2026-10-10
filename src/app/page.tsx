@@ -97,6 +97,12 @@ export default async function Home() {
           <p className="mt-3 text-[13.5px] leading-relaxed text-[#4A5567]">{trouble.body}</p>
 
           <p className="mt-4 text-[13.5px] text-[#98A2B3]">{session.email}</p>
+
+          {/* ★ 사람 읽으라고 두는 글자가 아닙니다 — 화면을 찍어 보내 주면
+              사진만으로 같은 고장인지 알아보려고 남깁니다 */}
+          {trouble.code && (
+            <p className="mt-2 text-[11px] tracking-wide text-[#D5DAE2]">{trouble.code}</p>
+          )}
         </div>
       </main>
     );
