@@ -17,7 +17,7 @@
 
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
-import { FALLBACK_TYPES, type ProsthesisCatalog } from '@/server/domain/prosthesis';
+import { FALLBACK_TYPES, hidesInternal, type ProsthesisCatalog } from '@/server/domain/prosthesis';
 import { getSession } from '@/server/policies/session';
 
 interface RawMaterial {
@@ -94,8 +94,12 @@ export async function getProsthesisCatalog(
       is_active 를 끄면 깨끗이 사라지지만 **시험도 못 합니다.** 그래서
       감추기와 켜기를 따로 둡니다 — 센터는 보고 고를 수 있고, 치과
       주문등록 목록에서만 빠집니다. 상품화할 때 성질 하나만 끄면 끝입니다.
+
+    ★ 다만 **미리 쓰기로 한 치과**는 봅니다 (사용자 요청 2026-10-10 —
+      organizations.sees_internal). 한 사이클을 끝까지 돌리려면 치과가
+      그 주문을 넣을 수 있어야 합니다.
   */
-  const hideInternal = session?.orgType === 'clinic';
+  const hideInternal = hidesInternal(session?.orgType, session?.seesInternal);
 
   return rows
     .filter((t) => options.includeInactive || t.is_active)

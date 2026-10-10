@@ -15,6 +15,7 @@ import {
   requiresImplantModel,
   changeOptions,
   specLabel,
+  hidesInternal,
 } from '@/server/domain/prosthesis';
 
 /**
@@ -175,3 +176,36 @@ describe('리메이크 보철 선택지', () => {
     expect(specLabel(FALLBACK_TYPES, 'unknown', 'x')).toBe('unknown · x');
   });
 });
+
+// =========================================================
+// 아직 상품이 아닌 보철을 누구에게 감추나 (2026-10-10)
+//
+// ★ '자동 템포러리' 는 치과 주문등록 목록에서 빠집니다 — 상품화 전이라
+//   눈에 안 띄게 두기로 했습니다(2026-10-06). 그런데 한 사이클을 끝까지
+//   돌려 보려면 **시험하는 치과 한 곳**은 넣을 수 있어야 합니다.
+// =========================================================
+
+describe('아직 상품이 아닌 보철', () => {
+  it('치과에는 감춥니다', () => {
+    expect(hidesInternal('clinic', false)).toBe(true);
+  });
+
+  it('★ 미리 쓰기로 한 치과에는 보여 줍니다', () => {
+    expect(hidesInternal('clinic', true)).toBe(false);
+  });
+
+  // ★ 센터는 늘 봅니다 — 안 보이면 시험도 못 합니다
+  it('★ 디자인센터는 늘 봅니다', () => {
+    expect(hidesInternal('design_center', false)).toBe(false);
+  });
+
+  it('기공소도 봅니다 (만들 것을 알아야 합니다)', () => {
+    expect(hidesInternal('lab', false)).toBe(false);
+  });
+
+  // ★ 소속을 모르는 사람에게는 애초에 주문등록 화면이 없습니다
+  it('소속이 없으면 감추지 않습니다', () => {
+    expect(hidesInternal(null, null)).toBe(false);
+  });
+});
+

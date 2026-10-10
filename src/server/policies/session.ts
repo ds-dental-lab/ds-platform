@@ -57,7 +57,7 @@ export const getSession = cache(async function getSession() {
   const [{ data, error }, { data: profile }] = await Promise.all([
     supabase
       .from('memberships')
-      .select('role, org_id, organizations(name, org_type)')
+      .select('role, org_id, organizations(name, org_type, sees_internal)')
       .eq('user_id', userId)
       .eq('is_active', true)
       .maybeSingle(),
@@ -69,6 +69,7 @@ export const getSession = cache(async function getSession() {
   const org = (data?.organizations ?? null) as {
     name: string;
     org_type: Sector;
+    sees_internal: boolean | null;
   } | null;
 
   /*
@@ -102,6 +103,8 @@ export const getSession = cache(async function getSession() {
     orgId: data?.org_id ?? null,
     orgName: org?.name ?? null,
     orgType: org?.org_type ?? null,
+    /** 아직 상품이 아닌 보철을 이 조직에는 보여 줍니다 (시험용) */
+    seesInternal: Boolean(org?.sees_internal),
     userName: profile?.name ?? email.split('@')[0] ?? '',
     /** 소속을 **묻다가 실패**했는가. 소속이 없는 것과 다릅니다 */
     lookupFailed: Boolean(error),

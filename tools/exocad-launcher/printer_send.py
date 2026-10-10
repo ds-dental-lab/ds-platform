@@ -356,6 +356,106 @@ class BambuPrinter:
         return seen
 
     @staticmethod
+    def target_temps(path: Path) -> tuple[int, int] | None:
+        """
+        자른 파일에서 **첫 층 목표 온도**를 꺼냅니다 → (베드, 노즐).
+
+        ★ 판 종류에 따라 베드 온도가 **다른 칸**에 적힙니다. 'Cool Plate' 면
+          35도, 텍스처 PEI 면 55도 — 엉뚱한 칸을 읽으면 20도를 틀립니다.
+        ★ 못 읽으면 None 입니다. 모르면서 아무 온도나 올리지 않습니다.
+        """
+        import json  # noqa: PLC0415
+        import zipfile  # noqa: PLC0415
+
+        bed_of = {
+            "Textured PEI Plate": "textured_plate_temp_initial_layer",
+            "Cool Plate": "cool_plate_temp_initial_layer",
+            "Supertack Plate": "supertack_plate_temp_initial_layer",
+            "Engineering Plate": "eng_plate_temp_initial_layer",
+            "High Temp Plate": "hot_plate_temp_initial_layer",
+        }
+
+        def one(v) -> int:
+            return int(float(v[0] if isinstance(v, list) else v))
+
+        try:
+            with zipfile.ZipFile(path) as z:
+                cfg = json.loads(z.read("Metadata/project_settings.config"))
+            bed = one(cfg[bed_of[cfg["curr_bed_type"]]])
+            nozzle = one(cfg["nozzle_temperature_initial_layer"])
+        except (OSError, KeyError, ValueError, IndexError, zipfile.BadZipFile):
+            return None
+
+        # 말이 되는 값인지 봅니다 — 잘못 읽은 값으로 노즐을 지지면 안 됩니다
+        if not (0 <= bed <= 120) or not (150 <= nozzle <= 300):
+            return None
+        return bed, nozzle
+
+    def warm(self, client, bed: int, nozzle: int) -> None:
+        """
+        **베드만** 미리 데우라고 한 줄 보냅니다 (2026-10-10).
+
+        ★★ 왜 — 출력 명령을 받고서야 데우기 시작합니다. 시작부터 첫 층까지
+          3분이 걸리는데 그 대부분이 예열입니다(판 고르기는 아니었습니다 —
+          끄고 재 봤더니 초 단위까지 같았습니다).
+          우리는 작업을 집어든 순간부터 곧 뽑을 것을 압니다. 파일을 올리는
+          동안 데우면 그만큼 벌 수 있습니다.
+
+        ★★ **노즐은 건드리지 않습니다** — 데웠다가 오히려 2분을 잃었습니다
+          (실측). A1 mini 는 시작할 때 노즐을 **일부러 식힙니다**:
+              M104 S170 ; set temp down to heatbed acceptable
+              M109 S170   ← 170도까지 **내려가기를 기다림**
+              M104 S140   ← 닦으려고 더 식힘
+          215도로 올려 두면 거기서 내려올 때까지 기다리는데, 식는 것은
+          데우는 것보다 훨씬 느립니다. 노즐 인자는 받아 두되 **안 씁니다** —
+          다른 기종이 오면 그때 그 기종의 시작 코드를 보고 정합니다.
+
+        ★ 이것은 무시당한 bed_leveling 과 **다른 통로**입니다 — 임의의 G코드를
+          보내는 길(gcode_line)이라 펌웨어가 그대로 실행합니다.
+        """
+        import json  # noqa: PLC0415
+
+        client.publish(
+            f"device/{self.serial}/request",
+            json.dumps(
+                {
+                    "print": {
+                        "sequence_id": str(int(time.time())),
+                        "command": "gcode_line",
+                        "param": f"M140 S{bed}\n",
+                    }
+                }
+            ),
+        )
+
+    def cool(self, client) -> None:
+        """
+        데워 놓고 안 뽑게 됐을 때 식힙니다.
+
+        ★ 안 식히면 **노즐이 215도로 혼자 서 있습니다.** 필라멘트가 녹아
+          흘러 다음 출력 첫 층을 망치고, 사람이 없는 밤이면 계속 그렇습니다.
+        """
+        import json  # noqa: PLC0415
+
+        try:
+            client.publish(
+                f"device/{self.serial}/request",
+                json.dumps(
+                    {
+                        "print": {
+                            "sequence_id": str(int(time.time())),
+                            "command": "gcode_line",
+                            #: 노즐은 애초에 안 데웠습니다 (warm 참고)
+                            "param": "M140 S0\n",
+                        }
+                    }
+                ),
+            )
+            time.sleep(1)  # 보내고 바로 끊으면 안 나갑니다
+        except OSError:
+            pass
+
+    @staticmethod
     def _is_mine(state: dict, remote: str) -> bool:
         """
         프린터가 지금 **우리가 보낸 파일**을 뽑고 있는가.
@@ -427,7 +527,7 @@ class BambuPrinter:
             )
             return
 
-        # ---------- 1) 올립니다 ----------
+        # ---------- 1) 데우면서 올립니다 ----------
         #
         # ★ 올리기 **전에** 자리를 치웁니다. 끝난 뒤에만 치우면, 취소·실패한
         #   건들이 그대로 쌓입니다 — 카드가 차면 출력이 '취소' 로 떨어지고
@@ -437,10 +537,39 @@ class BambuPrinter:
         except Exception:  # noqa: BLE001 — 못 치워도 보내는 것이 먼저입니다
             pass
 
+        # ★★ 올리는 동안 미리 데웁니다 (2026-10-10). 실패하면 아래에서 식힙니다.
+        warmed = None
+        heater = None
+        temps = self.target_temps(path)
+
+        if temps:
+            try:
+                heater = self._mqtt()
+                heater.connect(self.host or self.resolve(), 8883, keepalive=60)
+                heater.loop_start()
+                time.sleep(1)  # 붙을 틈
+                self.warm(heater, *temps)
+                warmed = temps
+                yield Progress(None, f"베드를 미리 데웁니다 ({temps[0]}°)")
+            except Exception:  # noqa: BLE001 — 못 데워도 출력은 됩니다
+                heater = None
+
+        def give_up(why: str) -> Progress:
+            """데워 놓고 못 뽑게 됐으면 식히고 나갑니다"""
+            if heater is not None:
+                if warmed:
+                    self.cool(heater)
+                heater.loop_stop()
+                try:
+                    heater.disconnect()
+                except OSError:
+                    pass
+            return Progress(None, "", failed=why)
+
         try:
             remote = self.upload(path)
         except Exception as e:  # noqa: BLE001 — 까닭을 그대로 올려야 합니다
-            yield Progress(None, "", failed=f"프린터에 올리지 못했습니다 — {e}")
+            yield give_up(f"프린터에 올리지 못했습니다 — {e}")
             return
 
         yield Progress(None, f"보냈습니다 ({remote})")
@@ -464,10 +593,19 @@ class BambuPrinter:
         try:
             client.connect(self.host or self.resolve(), 8883, keepalive=60)
         except Exception as e:  # noqa: BLE001
-            yield Progress(None, "", failed=f"프린터에 연결하지 못했습니다 — {e}")
+            yield give_up(f"프린터에 연결하지 못했습니다 — {e}")
             return
 
         client.loop_start()
+
+        # 예열용 연결은 할 일을 마쳤습니다 (온도는 프린터가 들고 있습니다)
+        if heater is not None:
+            heater.loop_stop()
+            try:
+                heater.disconnect()
+            except OSError:
+                pass
+            heater = None
 
         client.publish(
             f"device/{self.serial}/request",

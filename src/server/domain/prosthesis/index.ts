@@ -366,3 +366,21 @@ export function changeOptions(
   return out;
 }
 
+/**
+ * 아직 상품이 아닌 보철(is_internal)을 **감출 것인가**.
+ *
+ * ★ 치과에만 감춥니다 (사용자 결정 2026-10-06 — "상품화하긴 이르니깐
+ *   눈에 아직 안 띄게"). 센터는 보고 골라야 시험을 합니다.
+ *
+ * ★ 다만 **미리 쓰기로 한 치과**는 봅니다 (사용자 요청 2026-10-10 —
+ *   "치ㅣ치과에서만 활성화 해줘"). 한 사이클을 끝까지 돌리려면 치과가
+ *   그 주문을 넣을 수 있어야 합니다.
+ *   `is_active` 를 켜는 것과 다릅니다 — 그건 모든 치과에 보입니다.
+ */
+export function hidesInternal(
+  orgType: string | null | undefined,
+  seesInternal: boolean | null | undefined,
+): boolean {
+  return orgType === 'clinic' && !seesInternal;
+}
+
