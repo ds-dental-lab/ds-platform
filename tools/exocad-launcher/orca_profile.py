@@ -208,10 +208,11 @@ def spread(
     ):
         data = flatten(vendor, path.stem)
 
-        # ★ 공정에만 임시치아 설정을 덮습니다 (2026-10-08).
-        #   기계·필라멘트는 만든 쪽 값을 그대로 씁니다.
-        if kind == "process" and dental:
-            missed = apply(data)
+        # ★ 공정과 필라멘트에 임시치아 설정을 덮습니다 (2026-10-10).
+        #   **기계는 안 건드립니다** — A1 mini 것을 그대로 씁니다.
+        over = {"process": DENTAL, "filament": DENTAL_FILAMENT}.get(kind)
+        if over and dental:
+            missed = apply(data, over)
             if missed:
                 # 조용히 넘기지 않습니다 — 오타면 그 설정이 없는 것이 됩니다
                 raise KeyError(f"오르카가 모르는 칸: {', '.join(missed)}")
@@ -273,104 +274,193 @@ def machines(vendor: str = "BBL") -> list[str]:
 # ---------------------------------------------------------------- 임시치아 설정
 #
 # 사용자 요청 2026-10-08 — "레이어는 0.12로 일단 해주고 나머지 설정좀 해줘".
+# 2026-10-10 — 쓰시던 **치과 전용 장비의 프로파일**을 받아 그 값으로 갈았습니다
+#   (process '0.10mm Fine' · filament 'DENTAL PLA' · machine 'DENTAL QD').
+#
+# ★★ 받은 기계 프로파일은 **A1 mini 가 아닙니다.** 클리퍼 장비였고
+#   베드가 95×120(A1 mini 는 180×180), 매크로도 START_PRINT/END_PRINT 였습니다.
+#   그래서 **기계는 A1 mini 것을 그대로 두고 숫자만** 옮겼습니다.
 #
 # ★★ **첫 출력이 왜 실패했나** — 서포트가 꺼져 있었습니다
 #   (0.12mm Fine 의 기본값 enable_support = 0). 크라운을 X 135도로 눕히면
 #   첫 층부터 허공에 걸치는 면이 생깁니다. 받칠 것이 없으니 바닥부터
 #   무너졌습니다. 기계 탓이 아니고 설정 탓입니다.
 #
-# ★★ 두 번째 까닭은 **속도**입니다. 기본값은 큰 물건을 빨리 뽑는 쪽으로
-#   맞춰져 있습니다 — 겉벽 200mm/s, 첫 층 50mm/s, 서포트 150mm/s.
-#   치아 하나는 12mm 짜리입니다. 서포트 기둥 밑동이 손톱만 한데 그 속도로
-#   지나가면 판에서 뜯깁니다. 가느다란 나뭇가지도 그 속도에선 휘청합니다.
+# ★ 값은 **글자**로 적습니다 (2026-10-08에 데인 자리).
+#   오르카 프로파일은 숫자도 "0.12" 처럼 글자로 담습니다. 숫자로 넣으면
+#   오르카가 **조용히 버립니다** — 0.12로 적어 뒀는데 0.2로 잘렸고,
+#   자른 결과를 읽어 보고서야 알았습니다. 여러 개짜리 칸은 글자의 목록입니다.
 #
-# ★ 여기 적는 값은 **출발점**입니다. 한 장 뽑아 보고 고치는 자리고,
-#   고칠 때는 이 표 하나만 봅니다 — 오르카 화면을 뒤질 필요가 없습니다.
-#
-# ★ 칸 이름이 틀리면 **조용히 무시됩니다.** 그래서 쓰기 전에 원본 프로파일에
-#   그 칸이 있는지 봅니다(아래 apply).
+# ★ **안 옮긴 것**이 넷입니다. 까닭은 아래 NOT_PORTED 에 적어 둡니다 —
+#   적어 두지 않으면 "왜 이것만 빠졌지" 를 다시 따져야 합니다.
 
-#: ★★ 값은 **글자**로 적습니다 (2026-10-08에 데인 자리).
-#:   오르카 프로파일은 숫자도 "0.12" 처럼 글자로 담습니다. 숫자로 넣으면
-#:   오르카가 **조용히 버립니다** — 0.12로 적어 뒀는데 0.2로 잘렸고,
-#:   자른 결과를 읽어 보고서야 알았습니다. 여러 개짜리 칸은 글자의 목록입니다.
-DENTAL: dict[str, object] = {
-    # ---------- 층 ----------
-    #: 사용자 지정. 교합면 홈이 살아 있는 가장 두꺼운 값입니다
-    "layer_height": "0.12",
-    #: 첫 층만 두껍게 — 판에 눌러 붙는 면적이 늘어납니다
-    "initial_layer_print_height": "0.2",
-
-    # ---------- 서포트 (첫 실패의 까닭) ----------
-    "enable_support": "1",
-    #: 나무 서포트. 크라운 안쪽 빈 곳까지 가지를 뻗어 받칩니다
-    "support_type": "tree(auto)",
-    "support_style": "organic",
-    #: 20도는 곡면이 많은 치아에 모자랍니다 — 더 자주 받치게 합니다
-    "support_threshold_angle": "30",
-    #: 한 층만큼 띄웁니다. 더 붙이면 마진이 뭉개지고, 더 띄우면 처집니다
-    "support_top_z_distance": "0.12",
-    "support_bottom_z_distance": "0.12",
-    "support_object_xy_distance": "0.3",
-    #: 닿는 자리를 촘촘히 — 마진 끝이 늘어지지 않게
-    "support_interface_top_layers": "3",
-    "support_interface_spacing": "0.2",
-    #: 밑동을 1mm 넓힙니다. 판에 붙는 면적이 그만큼 늘어납니다
-    "support_expansion": "1",
-    #: 기둥을 굵게, 속에 벽 한 겹 — 가늘고 빈 가지는 넘어집니다
-    "tree_support_branch_diameter": "3",
-    "tree_support_wall_count": "1",
-
-    # ---------- 판에 붙이기 ----------
-    #: ★★ 물건 테두리(brim_*)는 **안 건드립니다** (2026-10-08 확인).
-    #:   서포트를 켜면 오르카가 물건 테두리를 아예 안 그립니다 — 세 가지
-    #:   (auto_brim · outer_only · outer_and_inner) 로 잘라 봤는데 첫 층이
-    #:   66.71mm 로 **똑같았습니다.** 값만 적어 두고 아무 일도 안 하는 칸은
-    #:   나중에 "분명히 테두리를 켰는데" 로 사람을 헷갈리게 합니다.
-    #:
-    #: ★ 실제로 판에 붙는 것은 **나무 서포트가 스스로 두르는 테두리**입니다.
-    #:   135도로 눕히면 판에 닿는 것이 거의 서포트 밑동뿐이니까요. 그것을
-    #:   3mm 에서 5mm 로 넓힙니다.
-    "tree_support_brim_width": "5",
-    "tree_support_auto_brim": "1",
-    #: ★ 라프트(raft_layers)도 안 씁니다. 2·3 장으로 잘라 봤지만 첫 층이
-    #:   65.86 / 67.38mm — 넓어지지 않습니다. 떼어낼 것만 늘어납니다.
-
-    # ---------- 속도 (두 번째 까닭) ----------
-    #: ★ 작은 둘레(small_perimeter)는 안 건드립니다 — 겉벽의 50%로
-    #:   따라오게 되어 있어서, 겉벽을 줄이면 그쪽도 같이 줄어듭니다
-    "initial_layer_speed": ["20"],
-    "initial_layer_infill_speed": ["50"],
-    "outer_wall_speed": ["60"],
-    "inner_wall_speed": ["100"],
-    #: 서포트를 빨리 뽑으면 가지가 휘청이다 끊깁니다
-    "support_speed": ["60"],
-    "support_interface_speed": ["40"],
-    "top_surface_speed": ["50"],
-    "sparse_infill_speed": ["120"],
-
-    # ---------- 속을 채웁니다 ----------
-    #: 임시치아는 **속이 비면 안 됩니다** — 씹는 힘을 받고, 빈 곳에
-    #: 침이 들어가면 냄새가 납니다. 0.5g 짜리라 꽉 채워도 필라멘트가
-    #: 더 들지 않습니다
-    "sparse_infill_density": "100%",
-    "wall_loops": "3",
-    "top_shell_layers": "6",
-    "bottom_shell_layers": "6",
-
-    # ---------- 얇은 벽 ----------
-    #: ★ 마진(치아와 잇몸이 만나는 칼날 같은 끝)은 노즐보다 얇습니다.
-    #:   이것을 끄면 그 끝이 **그냥 사라집니다** — 뽑고 나서야 압니다
-    "detect_thin_wall": "1",
+#: 받은 프로파일에 있었지만 **일부러 안 옮긴 값**과 그 까닭
+NOT_PORTED = {
+    "filament_flow_ratio": (
+        "1.025 → A1 mini 의 0.98 을 지킵니다. 토출 보정은 **기계와 필라멘트마다**"
+        " 따로 잡는 값입니다. 남의 장비에서 맞춘 값을 그대로 들고 오면 4.6% 더"
+        " 짜내는 셈이고, 그건 크라운이 두꺼워지는 것으로 바로 나타납니다."
+        " 맞물림이 빡빡하면 **이 값부터** 만지시면 됩니다."
+    ),
+    "filament_max_volumetric_speed": (
+        "24 → A1 mini 의 21 을 지킵니다. 노즐이 녹일 수 있는 한계라 기계의 성질입니다."
+        " 어차피 겉벽 25mm/s 로는 근처도 못 갑니다."
+    ),
+    "travel_speed": (
+        "200 → A1 mini 의 700 을 지킵니다. 200 은 그 클리퍼 장비의 한계였지,"
+        " 치과용으로 고른 값이 아닙니다. 빈 이동이 느릴수록 노즐이 흘릴 시간만 늡니다."
+    ),
+    "가속도 전부": (
+        "A1 mini 것을 지킵니다. 받은 값은 그 장비의 역학에 맞춘 것이고,"
+        " 정작 중요한 **첫 층 가속도**는 A1 mini 가 이미 더 얌전합니다 (500 < 1000)."
+    ),
 }
 
+DENTAL: dict[str, object] = {
+    # ---------- 층·선 ----------
+    #: 사용자 지정. 교합면 홈이 살아 있는 가장 두꺼운 값입니다
+    "layer_height": "0.12",
+    "initial_layer_print_height": "0.2",
+    #: 선 굵기는 받은 값과 A1 mini 기본값이 **이미 같습니다** (0.42/0.45/0.5).
+    #: 같은 값을 또 적지 않습니다 — 적어 두면 나중에 A1 mini 쪽이 바뀌어도
+    #: 우리가 옛 값을 붙들게 됩니다.
+
+    # ---------- 벽과 속 ----------
+    "wall_loops": "2",
+    #: 임시치아는 **속이 비면 안 됩니다** — 씹는 힘을 받고, 빈 곳에 침이
+    #: 들어가면 냄새가 납니다. 0.5g 짜리라 꽉 채워도 필라멘트가 더 들지 않습니다
+    "sparse_infill_density": "100%",
+    #: 받은 설정은 zig-zag 인데 오르카가 rectilinear 로 바꿔 적습니다.
+    #: 적힌 대로 두면 "넣었는데 왜 다르지" 가 됩니다 — 오르카가 쓰는 이름으로 적습니다
+    #: (어차피 100% 채움이라 무늬는 거의 뜻이 없습니다)
+    "sparse_infill_pattern": "rectilinear",
+    "infill_wall_overlap": "10%",
+    "ensure_vertical_shell_thickness": "ensure_moderate",
+    "min_width_top_surface": "200%",
+    "gap_fill_target": "everywhere",
+    "reduce_crossing_wall": "1",
+
+    # ---------- 치수 정확도 ----------
+    #: ★ 여기가 **맞물림**을 정하는 자리입니다. 치과 장비 쪽에서 가장
+    #:   눈여겨본 대목이고, 우리 설정에는 없던 것들입니다.
+    "precise_outer_wall": "1",
+    "precise_z_height": "1",
+    "wall_generator": "classic",
+    "wall_direction": "cw",
+    #: 첫 층이 눌려 퍼지는 만큼 미리 깎습니다. 마진이 두꺼워지는 것을 막습니다
+    "elefant_foot_compensation": "0.15",
+    #: ★ 그쪽에 없던 것을 **우리가 더합니다** — 마진(치아와 잇몸이 만나는
+    #:   칼날 같은 끝)은 노즐보다 얇습니다. 이걸 끄면 그 끝이 그냥 사라집니다
+    "detect_thin_wall": "1",
+
+    # ---------- 서포트 ----------
+    #: ★★ 나무(organic)에서 **snug** 으로 갈아탔습니다. 받은 설정이 그렇고,
+    #:   띄움도 0.12 → 0.18 로 넉넉합니다 — 더 잘 떨어집니다. 치아는
+    #:   떼다가 마진이 깨지면 그 건은 버리는 것이라, 떼기 쉬운 쪽이 맞습니다
+    "enable_support": "1",
+    "support_type": "normal(auto)",
+    "support_style": "snug",
+    #: 20도는 곡면이 많은 치아에 모자랍니다. 60도면 훨씬 자주 받칩니다
+    "support_threshold_angle": "60",
+    "support_top_z_distance": "0.18",
+    "support_bottom_z_distance": "0.18",
+    "support_object_xy_distance": "0.18",
+    "support_interface_spacing": "0.4",
+    "support_bottom_interface_spacing": "0.4",
+    "support_base_pattern_spacing": "2",
+    #: ★ **판 위에서만** 세웁니다. 치아 표면을 짚고 올라서면 그 자국이
+    #:   그대로 남습니다 — 입에 들어가는 면입니다
+    "support_on_build_plate_only": "1",
+    #: ★★ **서포트도 같은 층 높이로** 갑니다 (받은 설정에 있던 값).
+    #:   안 끄면 오르카가 서포트만 따로 0.06mm 로 쪼개 넣습니다 — 자른 것을
+    #:   읽어 보니 층 간격에 0.06 이 60개 섞여 있었고, 층 수가 100 → 132 로
+    #:   늘어 있었습니다. 치아 층과 서포트 층이 어긋나면 닿는 면도 지저분해집니다.
+    "independent_support_layer_height": "0",
+
+    # ---------- 판에 붙이기 ----------
+    #: ★★ **라프트를 깝니다.** 2026-10-08에는 라프트가 첫 층을 안 넓힌다고
+    #:   뺐는데, 그건 접촉거리를 기본값(0.1)으로 둔 채였습니다. 받은 설정은
+    #:   **접촉거리 0 + 첫 층 1.5mm 넓힘** 입니다 — 판에 꽉 붙여 깔고
+    #:   가장자리를 넓혀 들뜸을 막는 방식입니다.
+    "raft_layers": "2",
+    "raft_contact_distance": "0",
+    "raft_first_layer_expansion": "1.5",
+    #: ★★ **판 종류를 박아 둡니다** (2026-10-10). 안 정하면 'Cool Plate' 로
+    #:   잡혀 베드가 **35도**로 돕니다 — A1 mini 에 딸려 오는 텍스처 PEI 판에서
+    #:   35도면 손톱만 한 라프트가 안 붙습니다. 받은 설정의 55도를 쓰려면
+    #:   판 종류가 그 55도를 가리키고 있어야 합니다.
+    "curr_bed_type": "Textured PEI Plate",
+    "brim_type": "outer_only",
+    "brim_object_gap": "0.05",
+    "skirt_height": "1",
+    "min_skirt_length": "0",
+    "slow_down_layers": "1",
+
+    # ---------- 속도 ----------
+    #: ★★ 겉벽 **25mm/s**. A1 mini 기본값은 200 입니다 — 큰 물건을 빨리
+    #:   뽑는 쪽으로 맞춰진 값이고, 12mm 짜리 치아에는 맞지 않습니다.
+    "outer_wall_speed": ["25"],
+    "inner_wall_speed": ["80"],
+    "internal_solid_infill_speed": ["80"],
+    "sparse_infill_speed": ["80"],
+    "top_surface_speed": ["80"],
+    "gap_infill_speed": ["60"],
+    "bridge_speed": ["30"],
+    #: 기울수록 더 느리게. 치아는 거의 전부가 기울어진 면입니다
+    "overhang_1_4_speed": ["20"],
+    "overhang_2_4_speed": ["15"],
+    "overhang_3_4_speed": ["10"],
+    #: 서포트를 빨리 뽑으면 가늘어서 휘청입니다
+    "support_speed": ["60"],
+    "support_interface_speed": ["60"],
+    #: 첫 층은 천천히 — 바닥 면적이 손톱만 한 물건입니다
+    "initial_layer_speed": ["20"],
+    "initial_layer_infill_speed": ["50"],
+}
+
+#: 필라멘트 쪽 — 받은 'DENTAL PLA' 에서 옮깁니다
+#:
+#: ★ 온도를 **낮춥니다** (220 → 205 / 첫 층 215, 베드 60·65 → 55).
+#:   낮을수록 덜 흐르고 덜 줄어듭니다. 치수가 중요한 물건이라 그쪽을 택합니다.
+#: ★ 식히는 방식도 다릅니다 — 속도를 줄이는 대신 **팬을 끝까지** 씁니다
+#:   (최대 80 → 100, 느려지는 기준 6초 → 1초). 겉벽이 이미 25mm/s 라
+#:   층 시간이 충분합니다.
+DENTAL_FILAMENT: dict[str, object] = {
+    "nozzle_temperature": ["205"],
+    "nozzle_temperature_initial_layer": ["215"],
+    "hot_plate_temp": ["55"],
+    "hot_plate_temp_initial_layer": ["55"],
+    "textured_plate_temp": ["55"],
+    "textured_plate_temp_initial_layer": ["55"],
+    "fan_max_speed": ["100"],
+    "fan_min_speed": ["60"],
+    "overhang_fan_threshold": ["75%"],
+    "fan_cooling_layer_time": ["40"],
+    "slow_down_layer_time": ["1"],
+    "slow_down_min_speed": ["10"],
+}
 
 #: 프로파일에는 없지만 **오르카가 아는** 칸 (2026-10-08).
 #:
 #: ★ BBL 프로파일은 기본값과 같은 칸을 안 적습니다. 그래도 자른 결과
 #:   (project_settings.config)에는 들어 있습니다 — 거기서 확인한 것만
 #:   여기 적습니다. 확인 없이 더하면 오타가 조용히 묻힙니다.
-EXTRA_OK = ("tree_support_brim_width", "tree_support_auto_brim")
+EXTRA_OK = (
+    "brim_type",
+    "curr_bed_type",
+    "min_width_top_surface",
+    "precise_outer_wall",
+    "precise_z_height",
+    "wall_direction",
+    "gap_fill_target",
+    "ensure_vertical_shell_thickness",
+    "support_bottom_interface_spacing",
+    "raft_contact_distance",
+    "raft_first_layer_expansion",
+    "min_skirt_length",
+    "slow_down_layers",
+    "independent_support_layer_height",
+)
 
 
 def apply(data: dict, over: dict | None = None) -> list[str]:
@@ -401,4 +491,3 @@ def apply(data: dict, over: dict | None = None) -> list[str]:
         data[key] = value
 
     return unknown
-
