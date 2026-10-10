@@ -27,13 +27,36 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 #: 오르카가 설치되는 곳
 ORCA_DIR = Path(r"C:\Program Files\OrcaSlicer")
 
-#: 벤더 프로파일 묶음
+#: 벤더 프로파일 묶음 — 설치 폴더 쪽
 PROFILES = ORCA_DIR / "resources" / "profiles"
+
+#: ★★ **같은 것이 사용자 폴더에도 있습니다** (2026-10-10에 데인 자리).
+#:   오르카는 켤 때 설치 폴더의 프로파일을 %APPDATA% 로 복사해 두고,
+#:   판이 올라가면 그쪽을 갱신합니다. 사람이 자기 프로파일을 설치 폴더에
+#:   넣다가 원본을 덮어 버리는 일이 실제로 났습니다 — BBL 폴더에 파일이
+#:   셋만 남아 A1 mini 프로파일을 통째로 못 찾았습니다.
+#:   사용자 폴더 쪽이 더 안전하고 더 최신이라 **먼저** 봅니다.
+USER_PROFILES = Path(os.environ.get("APPDATA", "")) / "OrcaSlicer" / "system"
+
+
+def roots() -> list[Path]:
+    """프로파일을 찾을 곳. 앞엣것부터 봅니다"""
+    return [p for p in (USER_PROFILES, PROFILES) if p.is_dir()]
+
+
+def _folder(vendor: str, kind: str) -> Path:
+    """그 벤더의 그 칸. **파일이 든** 쪽을 고릅니다"""
+    found = [r / vendor / kind for r in roots() if (r / vendor / kind).is_dir()]
+    for f in found:
+        if any(f.glob("*.json")):
+            return f
+    return found[0] if found else PROFILES / vendor / kind
 
 
 def orca_exe() -> Path:
@@ -97,7 +120,7 @@ def pick(
 ) -> ProfileSet:
     """이름으로 프로파일 셋을 집습니다. 안 주면 확인된 조합"""
     v = vendor or VERIFIED["vendor"]
-    root = PROFILES / v
+    root = (_folder(v, "machine")).parent
     return ProfileSet(
         root / "machine" / f"{machine or VERIFIED['machine']}.json",
         root / "process" / f"{process or VERIFIED['process']}.json",
@@ -114,7 +137,7 @@ def compatible(machine: str, vendor: str = "BBL") -> dict[str, list[str]]:
     """
     out: dict[str, list[str]] = {"process": [], "filament": []}
     for kind in out:
-        folder = PROFILES / vendor / kind
+        folder = _folder(vendor, kind)
         if not folder.is_dir():
             continue
         for f in sorted(folder.glob("*.json")):
@@ -139,9 +162,10 @@ DROP = ("inherits",)
 def _find(vendor: str, name: str) -> Path | None:
     """이름으로 프로파일 조각 찾기. 부모가 다른 칸에 있을 수 있습니다"""
     for kind in ("machine", "process", "filament"):
-        f = PROFILES / vendor / kind / f"{name}.json"
-        if f.exists():
-            return f
+        for root in roots():
+            f = root / vendor / kind / f"{name}.json"
+            if f.exists():
+                return f
     return None
 
 
@@ -234,14 +258,14 @@ def bed_size(machine: Path, vendor: str = "BBL") -> tuple[float, float]:
         if not parent or parent in seen:
             break
         seen.add(parent)
-        cur = PROFILES / vendor / "machine" / f"{parent}.json"
+        cur = _folder(vendor, "machine") / f"{parent}.json"
 
     return (256.0, 256.0)   # 못 읽으면 흔한 크기로
 
 
 def machines(vendor: str = "BBL") -> list[str]:
     """그 벤더의 기계 프로파일 이름들 (기종 고를 때 보려고)"""
-    folder = PROFILES / vendor / "machine"
+    folder = _folder(vendor, "machine")
     if not folder.is_dir():
         return []
     return sorted(f.stem for f in folder.glob("*.json") if not f.stem.startswith("fdm_"))
