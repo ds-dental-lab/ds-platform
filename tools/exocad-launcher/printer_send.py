@@ -379,11 +379,24 @@ class BambuPrinter:
                 return True
         return False
 
-    def send(self, path: Path) -> Iterator[Progress]:
+    def send(self, path: Path, level: bool = True) -> Iterator[Progress]:
         """
         파일을 보내고 출력을 건 뒤, **우리 것이 돌고 있는 동안만** 지켜봅니다.
 
         나가는 길목마다 시한이 있습니다 — 조용히 영원히 기다리지 않습니다.
+
+        ★★ `level` 은 **A1 mini 에서 듣지 않습니다** (실측 2026-10-10).
+          판 고르기·토출 보정을 끄려고 거짓으로 보내 봤는데, 시작부터 첫 층까지
+          **3분 01초로 초 단위까지 같았고**(켬/끔 두 번), 판 앞 턱의 그 한 줄도
+          그대로 그어졌습니다. LAN 명령의 이 항목을 펌웨어가 무시합니다.
+
+        ★ 그래서 **항상 켜 둡니다.** 끄는 길만 남겨 두면, 나중에 펌웨어가
+          말을 듣기 시작하는 날 아무도 모르게 판 고르기가 빠집니다 —
+          버는 것 없이 위험만 남습니다. 다음 사람이 이 길을 다시 파지 않도록
+          측정값을 여기 적어 둡니다.
+
+        ★ 그 3분은 **예열·호밍·노즐 닦기**입니다. 끌 수 있는 것이 아닙니다.
+          줄이려면 한 판에 여러 개를 올려 그 3분을 나눠 쓰는 수밖에 없습니다.
         """
         try:
             import paho.mqtt.client as mqtt  # noqa: F401, PLC0415
@@ -466,7 +479,10 @@ class BambuPrinter:
                         "param": "Metadata/plate_1.gcode",
                         "url": f"file:///sdcard/{remote}",
                         "timelapse": False,
-                        "bed_leveling": True,
+                        #: ★ 둘 다 A1 mini 가 무시합니다 (위 설명). 그래도 적어
+                        #:   보냅니다 — 다른 기종이 오면 그쪽은 들을 수 있습니다
+                        "bed_leveling": level,
+                        "flow_cali": level,
                         "use_ams": False,
                     }
                 }
