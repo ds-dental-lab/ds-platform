@@ -17,6 +17,7 @@ import {
   checkReviewable,
   checkRejectReason,
   waitingView,
+  serverTroubleView,
   MIN_PASSWORD,
   type SignupForm,
 } from '@/server/domain/signup';
@@ -310,3 +311,47 @@ describe('비밀번호 확인·적합성 (2026-09-14)', () => {
     expect(passwordStrength('Goodpass1234!')).toMatchObject({ level: 4, label: '매우 안전' });
   });
 });
+
+// =========================================================
+// 서버가 답을 못 줬을 때 (2026-10-10 사건)
+//
+// ★★ Supabase 쪽 시계가 틀어져 DB 가 로그인 토큰을 "미래에 발급됐다"
+//   (PGRST303)며 거절했습니다. 소속은 DB 에 멀쩡히 있었는데 화면은
+//   "소속된 조직이 없습니다" 라고 했습니다 — 가입이 잘못된 것처럼요.
+//   사장님은 초대 메일을 뒤지러 갔고, 진짜 까닭을 찾기까지 41시간.
+// =========================================================
+
+describe('서버가 답을 못 줬을 때', () => {
+  // ★ 이것이 이 화면의 전부입니다 — 네 탓이 아니라고 말해 주는 것
+  it('★ 가입 문제가 아니라고 분명히 말합니다', () => {
+    const view = serverTroubleView('PGRST303');
+
+    expect(view.body).toContain('가입이나 계정 문제가 아닙니다');
+    expect(view.title).not.toContain('소속된 조직이 없습니다');
+  });
+
+  // ★ 사람이 할 수 있는 일이 기다리는 것뿐일 때는 그렇게 말합니다
+  it('무엇을 하면 되는지 적습니다', () => {
+    expect(serverTroubleView('PGRST303').body).toContain('잠시 뒤');
+  });
+
+  // ★ 치과에는 뜻 없는 글자지만, 화면을 찍어 보내 주면 사진만으로
+  //   같은 고장인지 압니다. 이번엔 이게 없어서 진단 창을 새로 올렸습니다
+  it('★ 오류 코드를 같이 남깁니다', () => {
+    expect(serverTroubleView('PGRST303').body).toContain('PGRST303');
+  });
+
+  it('코드를 몰라도 화면은 뜹니다', () => {
+    const view = serverTroubleView(null);
+
+    expect(view.title).toBeTruthy();
+    expect(view.body).not.toContain('(');
+  });
+
+  // ★ '다시 가입하기' 를 주면 안 됩니다. 가입은 멀쩡합니다 —
+  //   누르면 이미 있는 계정으로 또 신청하게 됩니다
+  it('★ 다시 가입하라고 하지 않습니다', () => {
+    expect(serverTroubleView('PGRST303').canRetry).toBe(false);
+  });
+});
+

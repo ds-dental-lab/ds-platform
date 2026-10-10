@@ -54,7 +54,7 @@ export const getSession = cache(async function getSession() {
       순서대로 두면 왕복이 두 번입니다 — 서버와 DB가 멀수록 그 차이가
       그대로 화면 뜨는 시간이 됩니다.
   */
-  const [{ data }, { data: profile }] = await Promise.all([
+  const [{ data, error }, { data: profile }] = await Promise.all([
     supabase
       .from('memberships')
       .select('role, org_id, organizations(name, org_type)')
@@ -71,6 +71,30 @@ export const getSession = cache(async function getSession() {
     org_type: Sector;
   } | null;
 
+  /*
+    ★★ **묻다가 실패한 것과 소속이 없는 것은 다릅니다** (2026-10-10).
+
+      전에는 이 오류를 그냥 버렸습니다. 그래서 조회가 **실패**해도
+      `orgType: null` 이 되고, 화면은 "소속된 조직이 없습니다" 라고
+      말했습니다 — 소속은 DB 에 멀쩡히 있는데요.
+
+      실제로 그 일이 났습니다. Supabase 쪽 시계가 틀어져 DB 가 로그인
+      토큰을 "미래에 발급됐다"(PGRST303)며 거절했는데, 화면은 가입이
+      잘못된 것처럼 말했습니다. 사람은 초대 메일을 뒤지러 갔고,
+      **41시간 동안** 아무도 진짜 까닭을 몰랐습니다.
+
+    ★ 그래서 ① 기록에 남기고 ② 센터에 알리고 ③ 화면이 다른 말을
+      하도록 `lookupFailed` 를 같이 돌려줍니다.
+  */
+  if (error) {
+    console.error('[session] 소속 조회 실패', error.code, error.message);
+
+    // 기다리지 않습니다 — 알림 때문에 화면이 늦어지면 안 됩니다
+    void import('@/server/events/server-trouble')
+      .then((m) => m.reportServerTrouble(error.code ?? '알 수 없음', error.message))
+      .catch(() => {});
+  }
+
   return {
     user,
     email,
@@ -79,6 +103,9 @@ export const getSession = cache(async function getSession() {
     orgName: org?.name ?? null,
     orgType: org?.org_type ?? null,
     userName: profile?.name ?? email.split('@')[0] ?? '',
+    /** 소속을 **묻다가 실패**했는가. 소속이 없는 것과 다릅니다 */
+    lookupFailed: Boolean(error),
+    troubleCode: error?.code ?? null,
   };
 });
 

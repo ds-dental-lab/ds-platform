@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { getSession } from "@/server/policies/session";
 import { getMySignup } from "@/server/repositories/signup";
-import { waitingView } from "@/server/domain/signup";
+import { waitingView, serverTroubleView } from "@/server/domain/signup";
 import LogoutButton from "@/components/logout-button";
 import LandingPage from "@/components/site/LandingPage";
 import SiteJsonLd from "@/components/site/SiteJsonLd";
@@ -77,6 +77,29 @@ export default async function Home() {
     }
 
     redirect(HOME_BY_SECTOR[session.orgType]);
+  }
+
+  /*
+    ★★ **묻다가 실패한 것과 소속이 없는 것을 가릅니다** (2026-10-10).
+      서버가 답을 못 줬을 때까지 "소속된 조직이 없습니다" 로 보내면,
+      사람은 자기 가입을 의심하며 초대 메일을 뒤집니다. 실제로 그랬습니다.
+  */
+  if (session.lookupFailed) {
+    const trouble = serverTroubleView(session.troubleCode);
+
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#F4F6F9] p-6">
+        <div className="w-full max-w-[420px] rounded-[10px] border border-[#E8EBF0] bg-white p-9 text-center">
+          <h1 className="text-[17px] font-extrabold tracking-[-0.03em] text-[#1A2130]">
+            {trouble.title}
+          </h1>
+
+          <p className="mt-3 text-[13.5px] leading-relaxed text-[#4A5567]">{trouble.body}</p>
+
+          <p className="mt-4 text-[13.5px] text-[#98A2B3]">{session.email}</p>
+        </div>
+      </main>
+    );
   }
 
   const request = await getMySignup();
