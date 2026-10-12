@@ -262,7 +262,8 @@ function OrderFormBody({
   // ---------- 치식선택 ----------
   const [isPontic, setIsPontic] = useState(false);
   const [entries, setEntries] = useState<Entry[]>(initial?.entries ?? []);
-  const [severedKeys, setSeveredKeys] = useState<string[]>([]);
+  // ★ 저장된 묶음에서 되읽은 값으로 시작합니다 (2026-10-12)
+  const [severedKeys, setSeveredKeys] = useState<string[]>(initial?.severedKeys ?? []);
 
   // ---------- 제작옵션 · 나머지 ----------
   const [options, setOptions] = useState<Record<string, string>>(() => {

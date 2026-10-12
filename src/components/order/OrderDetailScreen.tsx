@@ -398,7 +398,14 @@ export default function OrderDetailScreen({
 
         {/* ---------- .dt-arch ---------- */}
         <div className="px-[18px] pb-2 pt-2">
-          <ToothChart placements={placements} catalog={prosthesisCatalog} readOnly />
+          {/* ★ 끊어 둔 연결을 같이 넘깁니다 — 안 넘기면 다시 계산해서
+              **도로 이어 그립니다** (2026-10-12) */}
+          <ToothChart
+            placements={placements}
+            severedKeys={order.severed_keys}
+            catalog={prosthesisCatalog}
+            readOnly
+          />
         </div>
 
         {extraSlot && <div className="px-[18px] pb-3.5">{extraSlot}</div>}

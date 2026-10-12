@@ -38,6 +38,14 @@ export interface OrderFormInitial {
   orderType: string;
   notes: string;
   entries: OrderFormEntry[];
+  /**
+   * 사람이 끊어 둔 연결 지점 (2026-10-12).
+   *
+   * ★★ 안 넘기면 수정 화면을 열 때마다 **도로 이어집니다.** 싱글로
+   *   쪼개 저장해 놓고 다시 들어가면 브릿지로 보이고, 그대로 저장하면
+   *   정말로 다시 붙습니다 — 고쳤다고 생각한 것이 조용히 되돌아갑니다.
+   */
+  severedKeys: string[];
   /** { 옵션그룹id: 옵션값id } — 저장된 것이 이름으로 오므로 id 로 되돌립니다 */
   options: Record<string, string>;
   /**
@@ -107,6 +115,7 @@ export function toFormInitial(
     orderType: order.order_type,
     notes: order.notes ?? '',
     entries,
+    severedKeys: order.severed_keys,
     options,
     /*
       ★ 디자인 파일은 뺍니다. 이 드롭존은 스캔·쉐이드 칸입니다 —

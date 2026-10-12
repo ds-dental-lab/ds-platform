@@ -13,6 +13,7 @@ import {
   canRejoin,
   findBridgeOf,
   type ToothPlacement,
+  severedFromBridges,
 } from '@/server/domain/bridge';
 
 /** 짧게 쓰기 위한 도우미 */
@@ -212,3 +213,74 @@ describe('브릿지 찾기', () => {
     expect(findBridgeOf(bridges, 26, 'crown', 'zirconia')).toBeNull();
   });
 });
+
+// =========================================================
+// 저장된 묶음에서 '끊어 둔 자리' 되읽기 (2026-10-12)
+//
+// ★★ 사용자 지적 — "주문수정 시 연결부분을 싱글싱글로 나눠도 반영이
+//   안되네". 저장은 제대로 됐고 **화면이 다시 계산**하고 있었습니다.
+//   치식도는 늘 computeBridges 로 그리는데, 주문상세·기공의뢰서·수정폼이
+//   끊어 둔 자리를 안 넘겨 줘서 도로 이어져 보였습니다.
+//
+// ★ 끊어 둔 목록을 따로 저장하지 않습니다 — order_bridges 가 이미
+//   사실입니다. "이어질 자리인데 같은 묶음에 없다" 가 곧 끊은 자리입니다.
+// =========================================================
+
+describe('저장된 묶음에서 끊어 둔 자리 되읽기', () => {
+  const crown = (tooth: number, isPontic = false) => ({
+    tooth,
+    typeCode: 'crown',
+    materialCode: 'zirconia',
+    isPontic,
+  });
+
+  it('통째로 한 묶음이면 끊은 곳이 없습니다', () => {
+    expect(severedFromBridges([crown(15), crown(16), crown(17)], [[15, 16, 17]])).toEqual([]);
+  });
+
+  // ★★ 이것이 사용자가 겪은 바로 그 경우입니다
+  it('★ 셋을 싱글로 쪼개 두면 두 자리가 끊긴 것입니다', () => {
+    const got = severedFromBridges([crown(15), crown(16), crown(17)], []);
+
+    // ★ 치식 순서는 어금니 → 앞니입니다 (17 → 16 → 15)
+    expect(got).toEqual(['17-16', '16-15']);
+  });
+
+  it('★ 가운데만 끊어 둔 경우', () => {
+    const got = severedFromBridges([crown(15), crown(16), crown(17)], [[15, 16]]);
+
+    expect(got).toEqual(['17-16']);
+  });
+
+  // ★ 되읽은 값을 다시 넣으면 저장된 모양이 그대로 나와야 합니다.
+  //   둘이 어긋나면 화면과 저장이 영영 다른 말을 합니다
+  it('★ 되읽어 다시 계산하면 저장된 묶음과 같습니다', () => {
+    const placements = [crown(15), crown(16), crown(17)];
+    const severed = severedFromBridges(placements, [[15, 16]]);
+    const again = computeBridges(placements, severed);
+
+    expect(again).toHaveLength(1);
+    expect(again[0].teeth).toEqual([16, 15]);
+  });
+
+  // ★ 폰틱은 혼자 설 수 없어 끊을 수 없는 연결입니다.
+  //   저장이 어떻든 '끊었다' 로 읽으면 안 됩니다
+  it('★ 폰틱이 낀 자리는 끊긴 것으로 안 읽습니다', () => {
+    expect(severedFromBridges([crown(15), crown(16, true), crown(17)], [])).toEqual([]);
+  });
+
+  // ★ 애초에 안 이어지는 자리(떨어진 이)는 끊고 말고가 없습니다
+  it('떨어져 있으면 아무것도 안 셉니다', () => {
+    expect(severedFromBridges([crown(15), crown(17)], [])).toEqual([]);
+  });
+
+  it('종류가 다르면 안 셉니다', () => {
+    const pmma = { tooth: 16, typeCode: 'crown', materialCode: 'pmma', isPontic: false };
+    expect(severedFromBridges([crown(15), pmma], [])).toEqual([]);
+  });
+
+  it('보철이 하나뿐이면 셀 자리가 없습니다', () => {
+    expect(severedFromBridges([crown(15)], [])).toEqual([]);
+  });
+});
+

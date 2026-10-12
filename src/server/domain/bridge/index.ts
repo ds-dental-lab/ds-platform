@@ -203,3 +203,65 @@ export function findBridgeOf(
     ) ?? null
   );
 }
+
+// ---------- 저장된 묶음에서 '끊어 둔 자리' 를 되읽기 ----------
+//
+// 사용자 지적 2026-10-12 — "주문수정 시 연결부분을 싱글싱글로 나눠도
+// 반영이 안되네".
+//
+// ★★ **저장은 제대로 되고 있었습니다.** 화면이 문제였습니다.
+//   치식도(ToothChart)는 늘 `computeBridges(placements, severedKeys)` 로
+//   **다시 계산**하는데, 주문상세·기공의뢰서·수정폼이 severedKeys 를
+//   안 넘겨 줍니다. 그래서 손으로 끊어 둔 자리가 **도로 이어져** 보입니다.
+//   특히 기공의뢰서는 **상자에 붙여 보내는 종이**라, 주문서에는 싱글인데
+//   종이에는 브릿지로 찍혀 나갑니다.
+//
+// ★ 끊어 둔 목록을 따로 저장하지 않습니다. order_bridges 가 이미
+//   사실입니다 — "규칙대로면 이어질 자리인데 **같은 묶음에 없는 곳**"
+//   이 곧 끊어 둔 자리입니다. 저장을 하나 더 만들면 둘이 어긋납니다.
+
+/**
+ * 저장된 브릿지 묶음을 보고, 사람이 끊어 둔 연결 지점을 되살립니다.
+ *
+ * @param placements 지금 주문의 보철들
+ * @param groups     저장된 묶음 — 묶음마다 치식 번호 목록
+ */
+export function severedFromBridges(
+  placements: ToothPlacement[],
+  groups: number[][],
+  catalog: ProsthesisCatalog = FALLBACK_TYPES,
+): string[] {
+  // 치식 → 그 이가 속한 묶음 번호 (안 묶였으면 없음)
+  const groupOf = new Map<number, number>();
+
+  groups.forEach((teeth, index) => {
+    for (const tooth of teeth) groupOf.set(tooth, index);
+  });
+
+  const severed: string[] = [];
+
+  for (const layer of groupByMaterial(placements)) {
+    const sorted = [...layer].sort((x, y) => byArchOrder(x.tooth, y.tooth));
+
+    for (let i = 1; i < sorted.length; i += 1) {
+      const prev = sorted[i - 1];
+      const here = sorted[i];
+
+      // 규칙상 이어지지 않을 자리는 끊고 말고 할 것이 없습니다
+      if (!canLink(prev, here, catalog)) continue;
+
+      // 폰틱은 끊을 수 없습니다 — 저장이 어떻든 이어진 것입니다
+      if (isForcedLink(prev, here, catalog)) continue;
+
+      const a = groupOf.get(prev.tooth);
+      const b = groupOf.get(here.tooth);
+
+      // 같은 묶음에 들어 있으면 이어진 것, 아니면 사람이 끊은 것
+      if (a === undefined || b === undefined || a !== b) {
+        severed.push(linkKey(prev.tooth, here.tooth));
+      }
+    }
+  }
+
+  return severed;
+}

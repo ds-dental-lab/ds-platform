@@ -40,6 +40,7 @@ function item(tooth: number, patch: Partial<OrderDetailItem> = {}): OrderDetailI
 
 const ORDER: OrderDetail = {
   id: 'demo',
+  severed_keys: [],
   order_no: 'ORD-260819-004',
   patient_label: '김철수 (10001)',
   status: 'received',

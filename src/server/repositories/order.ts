@@ -8,6 +8,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
+import { severedFromBridges } from '@/server/domain/bridge';
 import { recordAccess } from '@/server/audit';
 import type { OrderStatus, Sector } from '@/server/domain/order-status';
 import type { IssueType } from '@/server/domain/order-list';
@@ -137,6 +138,9 @@ export async function countByStatus(): Promise<Record<string, number>> {
 
 // ---------- 상세 ----------
 
+/** 사람이 − 로 끊어 둔 연결 지점. 저장된 묶음에서 되읽습니다 (2026-10-12) */
+export type SeveredKeys = string[];
+
 export interface OrderDetailItem {
   id: string;
   tooth_number: number;
@@ -184,6 +188,8 @@ export interface OrderDetailOption {
 
 export interface OrderDetail {
   id: string;
+  /** 사람이 끊어 둔 연결 지점 — 치식도가 도로 잇지 않게 (2026-10-12) */
+  severed_keys: SeveredKeys;
   order_no: string;
   patient_label: string;
   status: OrderStatus;
@@ -350,6 +356,13 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
         'designer:user_profiles!orders_designer_user_id_fkey(name), ' +
         'order_items(id, tooth_number, slot, type_code, material_code, is_pontic, shade_system, shade_cervical, shade_incisal, implant_manufacturer, implant_type, implant_size, implant_screw, implant_option, has_gingival), ' +
         'order_files(id, kind, file_name, file_size, mime_type, created_at, upload_status, preview_path), ' +
+        /*
+          ★★ 묶음을 **같이 읽습니다** (2026-10-12).
+            치식도는 늘 computeBridges 로 다시 그리는데, 끊어 둔 자리를
+            안 넘겨 주면 **도로 이어져** 보입니다 — 사용자가 싱글로
+            쪼개 저장해도 화면과 기공의뢰서에는 브릿지로 찍혔습니다.
+        */
+        'order_bridges(order_bridge_members(order_item_id)), ' +
         'order_options(production_option_groups(name, sort_order), production_option_values(value))',
     )
     .eq('id', orderId)
@@ -386,6 +399,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
           production_option_values: { value: string } | null;
         }[]
       | null;
+    order_bridges: { order_bridge_members: { order_item_id: string }[] | null }[] | null;
   };
 
   const row = data as unknown as RawDetailRow;
@@ -413,6 +427,26 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     in_house: Boolean(row.lab_org_id && row.lab_org_id === row.design_org_id),
     roles: rolesOf(row, session?.orgId ?? null),
     items: row.order_items ?? [],
+    /*
+      ★ 끊어 둔 목록을 따로 저장하지 않습니다. order_bridges 가 이미
+        사실입니다 — "이어질 자리인데 같은 묶음에 없다" 가 곧 끊은 자리입니다.
+    */
+    severed_keys: severedFromBridges(
+      (row.order_items ?? []).map((i) => ({
+        tooth: i.tooth_number,
+        typeCode: i.type_code,
+        materialCode: i.material_code,
+        isPontic: i.is_pontic,
+      })),
+      (row.order_bridges ?? []).map((b) =>
+        (b.order_bridge_members ?? [])
+          .map(
+            (m) =>
+              (row.order_items ?? []).find((i) => i.id === m.order_item_id)?.tooth_number ?? -1,
+          )
+          .filter((t) => t > 0),
+      ),
+    ),
     files: await withPreviewUrls(supabase, row.order_files ?? [], session?.orgType),
     // 등록 화면에 놓였던 순서 그대로 보여 줍니다
     options: (row.order_options ?? [])

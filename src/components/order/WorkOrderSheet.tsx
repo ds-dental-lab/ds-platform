@@ -143,7 +143,15 @@ export default function WorkOrderSheet({
       {/* ★ 한 폭에 줄여 담습니다 — 넘치면 종이에서 오른쪽 치아가 잘립니다 (FitWidth) */}
       <div className="mt-3">
         <FitWidth>
-          <ToothChart placements={placements} catalog={prosthesisCatalog} readOnly />
+          {/* ★★ 여기가 제일 중요합니다 — **상자에 붙여 보내는 종이**입니다.
+              끊어 둔 연결을 안 넘기면 주문서에는 싱글인데 종이에는
+              브릿지로 찍혀 나갑니다 (2026-10-12) */}
+          <ToothChart
+            placements={placements}
+            severedKeys={order.severed_keys}
+            catalog={prosthesisCatalog}
+            readOnly
+          />
         </FitWidth>
       </div>
 
