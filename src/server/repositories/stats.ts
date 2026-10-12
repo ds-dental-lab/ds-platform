@@ -40,6 +40,8 @@ export interface DesignStats {
 
   /** 그 기간에 접수된 주문 */
   orders: number;
+  /** 그 주문들의 **치아 개수** 합 (2026-10-12) */
+  teeth: number;
   remakes: number;
   repairs: number;
   /** 리메이크 비율(%). 모수가 없으면 null */
@@ -57,6 +59,8 @@ interface RawOrder {
   parent_order_id: string | null;
   received_at: string | null;
   clinic: { name: string } | null;
+  /** 치아 개수를 세려고 같이 읽습니다 (2026-10-12) */
+  order_items: { id: string }[] | null;
 }
 
 interface RawHistory {
@@ -74,6 +78,9 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
       .from('orders')
       .select(
         'id, clinic_org_id, is_remake, is_repair, parent_order_id, received_at, ' +
+          // ★ 개수만 셀 것이라 id 하나만 받아 옵니다 — 치식·재료까지
+          //   끌고 오면 주문 수백 건에서 그만큼 느려집니다
+          'order_items(id), ' +
           'clinic:organizations!orders_clinic_org_id_fkey(name)',
       )
       .is('deleted_at', null)
@@ -98,6 +105,11 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
   const orders = (orderRes.data ?? []) as unknown as RawOrder[];
   const history = (historyRes.data ?? []) as unknown as RawHistory[];
 
+  /** 주문 → 치아 개수. 디자이너 쪽에서도 씁니다 */
+  const teethOf = new Map<string, number>(
+    orders.map((o) => [o.id, (o.order_items ?? []).length]),
+  );
+
   // ---------- 치과별 ----------
   const byClinic = new Map<string, ClinicTally>();
 
@@ -106,11 +118,13 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
       orgId: order.clinic_org_id,
       name: order.clinic?.name ?? '',
       orders: 0,
+      teeth: 0,
       remakes: 0,
       repairs: 0,
     };
 
     found.orders += 1;
+    found.teeth += teethOf.get(order.id) ?? 0;
     if (order.is_remake) found.remakes += 1;
     if (order.is_repair) found.repairs += 1;
 
@@ -164,7 +178,9 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
       userId,
       name: '',
       picked: 0,
+      pickedTeeth: 0,
       handed: 0,
+      handedTeeth: 0,
       remade: 0,
       amount: 0,
       amountUnpriced: false,
@@ -182,10 +198,12 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
 
     const seatRow = seat(who);
     seatRow.picked += 1;
+    seatRow.pickedTeeth += teethOf.get(orderId) ?? 0;
 
     const done = handed.get(orderId);
     if (done && done.created_at >= row.created_at) {
       seatRow.handed += 1;
+      seatRow.handedTeeth += teethOf.get(orderId) ?? 0;
       seatRow.spans.push(daysBetween(row.created_at, done.created_at));
     }
   }
@@ -232,6 +250,7 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
     from,
     to,
     orders: orders.length,
+    teeth: [...teethOf.values()].reduce((sum, n) => sum + n, 0),
     remakes,
     repairs: orders.filter((o) => o.is_repair).length,
     remakeRate: ratePercent(remakes, orders.length),

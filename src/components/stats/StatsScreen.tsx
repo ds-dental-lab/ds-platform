@@ -65,6 +65,10 @@ export default function StatsScreen({ stats, reasons, months, month }: StatsScre
 
         <div className="mt-3.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           <Stat label="접수" value={`${stats.orders}건`} />
+          {/* ★ 건수 옆에 개수를 붙입니다 (사용자 요청 2026-10-12).
+              한 건이 치아 하나일 때도 스물셋일 때도 있어, 건수만으로는
+              일량이 안 보입니다 */}
+          <Stat label="치아" value={`${stats.teeth}개`} />
           <Stat label="리메이크" value={`${stats.remakes}건`} />
           <Stat label="리페어" value={`${stats.repairs}건`} />
           <Stat
@@ -105,6 +109,7 @@ export default function StatsScreen({ stats, reasons, months, month }: StatsScre
                 <Th className="pl-5">디자이너</Th>
                 <Th right>잡음</Th>
                 <Th right>넘김</Th>
+                <Th right>치아</Th>
                 <Th right>완성 금액</Th>
                 <Th right>평균 소요</Th>
                 <Th right>리메이크</Th>
@@ -119,6 +124,8 @@ export default function StatsScreen({ stats, reasons, months, month }: StatsScre
                   <Td className="pl-5 font-semibold text-[#1A2130]">{row.name}</Td>
                   <Td right>{row.picked}</Td>
                   <Td right>{row.handed}</Td>
+                  {/* ★ 넘긴 건의 치아 개수. 큰 건을 맡은 사람이 여기서 드러납니다 */}
+                  <Td right>{row.handedTeeth}</Td>
                   {/*
                     ★ 단가 미정이 섞이면 그 사실을 답니다 (2026-08-13).
                       0원으로 조용히 세면 그 사람 능률이 낮아 보입니다.
@@ -163,6 +170,7 @@ export default function StatsScreen({ stats, reasons, months, month }: StatsScre
               <tr className="border-b border-[#E8EBF0] text-left text-[13px] text-[#98A2B3]">
                 <Th className="pl-5">치과</Th>
                 <Th right>주문</Th>
+                <Th right>치아</Th>
                 <Th right>리메이크</Th>
                 <Th right>리페어</Th>
                 <Th right className="pr-5">
@@ -175,6 +183,7 @@ export default function StatsScreen({ stats, reasons, months, month }: StatsScre
                 <tr key={row.orgId} className="hover:bg-[#F8F9FB]">
                   <Td className="pl-5 font-semibold text-[#1A2130]">{row.name}</Td>
                   <Td right>{row.orders}</Td>
+                  <Td right>{row.teeth}</Td>
                   <Td right>{row.remakes}</Td>
                   <Td right>{row.repairs}</Td>
                   <Td right className="pr-5">

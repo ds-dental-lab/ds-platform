@@ -14,13 +14,17 @@ import {
   SMALL_SAMPLE,
   type DesignerTally,
   type ClinicTally,
+  sortDesignersByTeeth,
+  sortClinicsByTeeth,
 } from '@/server/domain/stats';
 
 const designer = (over: Partial<DesignerTally>): DesignerTally => ({
   userId: 'u',
   name: '아무개',
   picked: 0,
+  pickedTeeth: 0,
   handed: 0,
+  handedTeeth: 0,
   remade: 0,
   avgDays: null,
   amount: 0,
@@ -95,6 +99,7 @@ describe('치과 차례', () => {
     orgId: 'o',
     name: '치과',
     orders: 0,
+    teeth: 0,
     remakes: 0,
     repairs: 0,
     ...over,
@@ -119,3 +124,55 @@ describe('평균', () => {
     expect(average([])).toBeNull();
   });
 });
+
+// =========================================================
+// 치아 개수로도 줄 세우기 (사용자 요청 2026-10-12)
+//
+// ★★ 건수만으로는 일량이 안 보입니다. 한 건이 치아 하나일 때도 있고
+//   스물셋일 때도 있습니다 — 건수로만 세우면 작은 건을 많이 한 사람이
+//   위로 올라갑니다. 둘 다 일량이고 어느 쪽도 혼자서는 전부를 말하지
+//   못해서, 두 가지 차례를 다 둡니다.
+// =========================================================
+
+describe('치아 개수 차례', () => {
+  // ★ 치과 helper 는 다른 describe 안에 있어 여기서 하나 더 둡니다
+  const clinicRow = (over: Partial<ClinicTally>): ClinicTally => ({
+    orgId: 'o',
+    name: '치과',
+    orders: 0,
+    teeth: 0,
+    remakes: 0,
+    repairs: 0,
+    ...over,
+  });
+
+  it('★ 건수가 적어도 치아가 많으면 위로 옵니다', () => {
+    const 큰건 = designer({ userId: 'a', name: '가', handed: 2, handedTeeth: 30 });
+    const 잔건 = designer({ userId: 'b', name: '나', handed: 9, handedTeeth: 9 });
+
+    expect(sortDesignersByTeeth([잔건, 큰건])[0].userId).toBe('a');
+    // ★ 건수로 세우면 차례가 뒤집힙니다 — 그래서 둘 다 둡니다
+    expect(sortDesigners([잔건, 큰건])[0].userId).toBe('b');
+  });
+
+  it('치아 수가 같으면 잡은 개수로, 그다음 이름순', () => {
+    const a = designer({ userId: 'a', name: '나', handedTeeth: 5, pickedTeeth: 5 });
+    const b = designer({ userId: 'b', name: '가', handedTeeth: 5, pickedTeeth: 9 });
+
+    expect(sortDesignersByTeeth([a, b])[0].userId).toBe('b');
+  });
+
+  it('치과도 치아 개수로 세웁니다', () => {
+    const 많이 = clinicRow({ orgId: 'x', name: '가', orders: 1, teeth: 20 });
+    const 자주 = clinicRow({ orgId: 'y', name: '나', orders: 8, teeth: 8 });
+
+    expect(sortClinicsByTeeth([자주, 많이])[0].orgId).toBe('x');
+    expect(sortClinics([자주, 많이])[0].orgId).toBe('y');
+  });
+
+  it('빈 목록도 됩니다', () => {
+    expect(sortDesignersByTeeth([])).toEqual([]);
+    expect(sortClinicsByTeeth([])).toEqual([]);
+  });
+});
+

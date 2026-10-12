@@ -45,8 +45,20 @@ export interface DesignerTally {
   name: string;
   /** 디자인을 잡은 건수 */
   picked: number;
+  /**
+   * 잡은 건의 **치아 개수** 합 (사용자 요청 2026-10-12).
+   *
+   * ★★ 건수만으로는 일량이 안 보입니다. 한 건이 치아 하나일 때도 있고
+   *   스물셋일 때도 있습니다(유제옥 건이 실제로 23개였습니다).
+   *   건수로만 줄 세우면 작은 건을 많이 한 사람이 위로 올라갑니다.
+   *
+   * ★ 폰틱도 셉니다. 안 만드는 이가 아니라 **만드는 자리**입니다.
+   */
+  pickedTeeth: number;
   /** 제작주문까지 넘긴 건수 */
   handed: number;
+  /** 넘긴 건의 치아 개수 합 */
+  handedTeeth: number;
   /** 그 사람이 디자인한 건 중 나중에 리메이크가 걸린 건수 */
   remade: number;
   /** 잡아서 넘길 때까지 걸린 날 (평균). 넘긴 게 없으면 null */
@@ -90,11 +102,29 @@ export function sortDesigners(rows: DesignerTally[]): DesignerTally[] {
   );
 }
 
+/**
+ * 치아 개수로 줄 세우기 (2026-10-12).
+ *
+ * ★ 차례를 **바꿔 보는** 용도입니다. 건수로 보면 작은 건을 많이 한 사람이,
+ *   개수로 보면 큰 건을 맡은 사람이 위로 옵니다. 둘 다 일량이고 어느 쪽도
+ *   혼자서는 전부를 말하지 못합니다 — 그래서 둘 다 둡니다.
+ */
+export function sortDesignersByTeeth(rows: DesignerTally[]): DesignerTally[] {
+  return [...rows].sort(
+    (a, b) =>
+      b.handedTeeth - a.handedTeeth ||
+      b.pickedTeeth - a.pickedTeeth ||
+      a.name.localeCompare(b.name),
+  );
+}
+
 /** 치과 한 곳 */
 export interface ClinicTally {
   orgId: string;
   name: string;
   orders: number;
+  /** 그 치과가 보낸 **치아 개수** 합 (2026-10-12) */
+  teeth: number;
   remakes: number;
   repairs: number;
 }
@@ -102,6 +132,11 @@ export interface ClinicTally {
 /** 많이 넣은 곳부터 */
 export function sortClinics(rows: ClinicTally[]): ClinicTally[] {
   return [...rows].sort((a, b) => b.orders - a.orders || a.name.localeCompare(b.name));
+}
+
+/** 치아를 많이 보낸 곳부터 (2026-10-12) */
+export function sortClinicsByTeeth(rows: ClinicTally[]): ClinicTally[] {
+  return [...rows].sort((a, b) => b.teeth - a.teeth || a.name.localeCompare(b.name));
 }
 
 /** 평균 — 잰 것이 없으면 null */
