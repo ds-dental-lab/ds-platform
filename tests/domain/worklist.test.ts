@@ -137,9 +137,14 @@ describe('어떤 상태가 내 손에 있는 일인가', () => {
     expect(WORK_STATUSES.clinic).toContain('shipping');
   });
 
-  // ★ 제작주문으로 넘기면 그때부터 기공소의 일입니다
-  it('★ 디자인센터는 디자인을 잡은 동안만', () => {
-    expect(WORK_STATUSES.design_center).toEqual(['designing']);
+  /*
+    ★★ 2026-10-12 에 넓혔습니다. 전에는 ['designing'] 뿐이었는데, 넘기는
+      순간 목록에서 사라져 **"오늘 몇 케이스 했나"** 가 안 보였습니다.
+  */
+  it('★ 디자인센터는 넘긴 뒤에도 봅니다', () => {
+    expect(WORK_STATUSES.design_center).toContain('designing');
+    expect(WORK_STATUSES.design_center).toContain('production_wait');
+    expect(WORK_STATUSES.design_center).toContain('shipping');
   });
 
   it('★ 기공소는 제작대기·제작. 배송으로 넘어가면 손을 뗍니다', () => {

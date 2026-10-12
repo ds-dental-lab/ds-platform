@@ -55,13 +55,18 @@ export const WORK_SECTORS: Sector[] = ['design_center', 'lab'];
  *
  * ★ 치과는 넣은 뒤로 **끝날 때까지** 자기 일입니다. 물건을 기다리는
  *   쪽이라 어느 단계에 있든 궁금합니다.
- * ★ 디자인센터는 **디자인을 잡은 동안**만입니다. 제작주문으로 넘기면
- *   그때부터 기공소의 일입니다.
+ * ★★ 디자인센터는 전에 **디자인을 잡은 동안**만이었습니다. 넘기고 나면
+ *   기공소 일이라고 봤는데, 쓰는 쪽에서는 **"오늘 몇 케이스 했나"** 를
+ *   보는 자리였습니다 (사용자 2026-10-12). 넘긴 순간 목록에서 사라지니
+ *   정작 그날 한 일이 안 보였습니다. 제작대기 뒤도 보여 줍니다.
+ *
+ *   ★ 완료·취소는 여전히 안 담습니다 (DONE). 끝난 것까지 담으면
+ *     목록이 아니라 기록이 됩니다 — 그건 주문목록과 통계가 합니다.
  * ★ 기공소는 **제작대기·제작** 입니다. 배송으로 넘어가면 손을 뗍니다.
  */
 export const WORK_STATUSES: Record<Sector, OrderStatus[]> = {
   clinic: ['rescan', 'received', 'designing', 'production_wait', 'production', 'shipping'],
-  design_center: ['designing'],
+  design_center: ['designing', 'production_wait', 'production', 'shipping'],
   lab: ['production_wait', 'production'],
 };
 
