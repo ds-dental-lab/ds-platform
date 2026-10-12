@@ -16,7 +16,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
-import { clearBed, jobOfOrder } from '@/server/repositories/auto-print';
+import { clearBed, jobOfOrder, retryJob } from '@/server/repositories/auto-print';
 import { autoProgress, autoNotice, type AutoJob } from '@/server/domain/auto-print';
 import { autoPrintLaunchUrl } from '@/server/domain/exocad';
 import { issueExocadToken } from '@/server/exocad/token';
@@ -39,6 +39,40 @@ export async function submitClearBed(orderId: string): Promise<ClearBedResult> {
   if (result.ok) {
     revalidatePath(`/clinic/orders/${orderId}`);
     revalidatePath(`/design/orders/${orderId}`);
+  }
+  return result;
+}
+
+export type RetryResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * 멈춘 작업을 다시 겁니다 (사용자 2026-10-12 — 필라멘트가 떨어져 멈춘 건을
+ * 다시 걸 길이 아예 없었습니다).
+ *
+ * ★ **치과와 센터 둘 다** 누를 수 있습니다. 멈추는 까닭은 프린터 쪽이
+ *   많아 치과가 고치고 바로 누르는 것이 빠르고, 센터는 흐름을 지켜보는
+ *   쪽이라 대신 걸어 줄 수 있어야 합니다.
+ *
+ * ★ 다시 걸면 **「비웠습니다」를 다시 눌러야** 합니다 (repositories 가
+ *   같이 지웁니다). 실패한 판 위에 무엇이 남았는지는 아무도 모릅니다.
+ */
+export async function submitRetryAutoPrint(orderId: string): Promise<RetryResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: '로그인이 필요합니다' };
+  if (session.orgType === 'lab') {
+    return { ok: false, error: '자동 출력은 기공소가 다루지 않습니다' };
+  }
+
+  // 자기 주문인지 — RLS 가 한 번 더 봅니다
+  const supabase = await createClient();
+  const { data } = await supabase.from('orders').select('id').eq('id', orderId).maybeSingle();
+  if (!data) return { ok: false, error: '주문을 찾을 수 없습니다' };
+
+  const result = await retryJob(orderId);
+  if (result.ok) {
+    revalidatePath(`/clinic/orders/${orderId}`);
+    revalidatePath(`/design/orders/${orderId}`);
+    return { ok: true };
   }
   return result;
 }

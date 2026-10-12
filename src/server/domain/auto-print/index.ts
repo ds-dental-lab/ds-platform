@@ -126,13 +126,31 @@ export function canMove(from: AutoStep, to: AutoStep): boolean {
 /**
  * 다시 걸면 어디로 돌아가는가.
  *
- * ★ 실패한 그 자리입니다. 사람이 고쳐 놓고 다시 거는 것이니
- *   앞으로 건너뛰게 두면 고치지 않은 채로 지나갑니다.
+ * ★★ 실패한 **그 자리가 아니라 그 일이 시작되는 자리**입니다
+ *   (2026-10-12에 고쳤습니다). 전에는 failedAt 을 그대로 돌려줬는데,
+ *   'sending' 에서 실패한 건을 'sending' 으로 되돌리면 **치과 PC 가
+ *   집어갈 수 없습니다** — 집어가는 조건이 `queued` 라서요.
+ *   다시 걸어도 아무 일이 안 일어나는 길이었습니다.
+ *
+ * ★ 보내다·뽑다 실패한 것은 `queued` 로 돌아갑니다. 파일은 이미
+ *   올라가 있으니 자르기부터 다시 할 이유가 없습니다.
+ * ★ 자르다 실패한 것은 `waiting_design` 입니다 — 디자인 파일부터
+ *   다시 받아야 합니다.
  */
+const RETRY_FROM: Record<AutoStep, AutoStep | null> = {
+  waiting_design: 'waiting_design',
+  slicing: 'waiting_design',
+  queued: 'queued',
+  sending: 'queued',
+  printing: 'queued',
+  done: null,
+  failed: null,
+};
+
 export function retryTo(job: AutoJob): AutoStep | null {
   if (job.step !== 'failed') return null;
-  if (!job.failedAt || job.failedAt === 'failed' || job.failedAt === 'done') return null;
-  return job.failedAt;
+  if (!job.failedAt) return null;
+  return RETRY_FROM[job.failedAt];
 }
 
 /**

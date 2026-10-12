@@ -20,6 +20,7 @@ import {
   canMove,
   claimable,
   isAutoStep,
+  retryTo,
   teethMismatch,
   type AutoJob,
   type AutoStep,
@@ -508,4 +509,50 @@ export async function finishDeliver(
     printFilePath: print.path,
     rotate: { x: num(r.x), y: num(r.y), z: num(r.z) },
   });
+}
+
+/**
+ * 멈춘 작업을 **다시 겁니다** (2026-10-12).
+ *
+ * ★★ 전에는 실패하면 **거기서 끝이었습니다.** retryTo 는 도메인에 있었는데
+ *   아무도 부르지 않았고, 표도 failed 에서 나가는 길을 막아 두었습니다
+ *   (`failed: []`). 프린터에 필라멘트가 떨어지기만 해도 그 주문은 영영
+ *   자동 출력으로 못 돌아왔습니다 — 실제로 그래서 막혔습니다.
+ *
+ * ★ **베드 비움을 같이 지웁니다.** 실패한 판 위에 무엇이 남아 있는지
+ *   아무도 모릅니다. 다시 한 번 사람이 보고 눌러야 합니다.
+ *
+ * ★ 횟수를 0 으로 되돌립니다. 사람이 손을 봐서 다시 거는 것이라,
+ *   자동 재시도도 처음부터 다시 셀 자격이 있습니다.
+ */
+export async function retryJob(
+  orderId: string,
+): Promise<{ ok: true; step: AutoStep } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+
+  const { data } = await admin.from('auto_jobs').select(COLUMNS).eq('order_id', orderId).maybeSingle();
+  const row = data as JobRow | null;
+  if (!row) return { ok: false, error: '자동 진행 중인 주문이 아닙니다' };
+
+  const back = retryTo(asJob(row));
+  if (!back) return { ok: false, error: '다시 걸 수 있는 상태가 아닙니다' };
+
+  const { error } = await admin
+    .from('auto_jobs')
+    .update({
+      step: back,
+      failed_at: null,
+      failed_reason: null,
+      tries: 0,
+      bed_cleared_at: null,
+      bed_cleared_by: null,
+      claimed_at: null,
+      claimed_device_id: null,
+      percent: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', row.id)
+    .eq('step', 'failed');
+
+  return error ? { ok: false, error: error.message } : { ok: true, step: back };
 }

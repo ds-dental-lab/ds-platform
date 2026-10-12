@@ -19,7 +19,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitClearBed } from '@/server/actions/auto-print';
+import { submitClearBed, submitRetryAutoPrint } from '@/server/actions/auto-print';
 import type { AutoProgressStep } from '@/server/domain/auto-print';
 
 const COLOR = {
@@ -53,6 +53,20 @@ export default function AutoPrintPanel({
     setError(null);
     start(async () => {
       const got = await submitClearBed(orderId);
+      if (got.ok) router.refresh();
+      else setError(got.error);
+    });
+  };
+
+  /*
+    ★★ 멈춘 작업을 다시 겁니다 (2026-10-12). 전에는 실패하면 **거기서
+      끝이었습니다** — 필라멘트가 떨어지기만 해도 그 주문은 영영 자동
+      출력으로 못 돌아왔습니다. 치과와 센터 둘 다 누를 수 있습니다.
+  */
+  const retry = () => {
+    setError(null);
+    start(async () => {
+      const got = await submitRetryAutoPrint(orderId);
       if (got.ok) router.refresh();
       else setError(got.error);
     });
@@ -125,6 +139,23 @@ export default function AutoPrintPanel({
             {pending ? '확인하는 중…' : '비웠습니다'}
           </button>
           {error ? <p className="mt-2 text-[12px] text-[#D64545]">{error}</p> : null}
+        </div>
+      ) : null}
+
+      {stopped ? (
+        <div className="mt-3 rounded-lg border border-[#F3C6C6] bg-[#FDECEA] p-3">
+          <p className="text-[12.5px] leading-relaxed text-[#8A3A3A]">
+            멈춘 까닭을 고치고 다시 걸어 주세요. 다시 걸면{' '}
+            <b className="text-[#6B2B2B]">출력판을 비웠는지 한 번 더</b> 확인합니다.
+          </p>
+          <button
+            type="button"
+            onClick={retry}
+            disabled={pending}
+            className="mt-2.5 rounded-lg bg-[#C4383A] px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-50"
+          >
+            {pending ? '다시 거는 중…' : '다시 걸기'}
+          </button>
         </div>
       ) : null}
 

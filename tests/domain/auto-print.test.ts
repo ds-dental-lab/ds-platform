@@ -76,10 +76,26 @@ describe('길은 한 방향입니다', () => {
   });
 });
 
-describe('다시 걸면 실패한 자리로 돌아갑니다', () => {
+describe('다시 걸면 그 일이 시작되는 자리로 돌아갑니다', () => {
+  /*
+    ★★ 2026-10-12 에 고쳤습니다. 전에는 failedAt 을 **그대로** 돌려줬는데,
+      'sending' 에서 실패한 건을 'sending' 으로 되돌리면 치과 PC 가
+      집어갈 수 없습니다 — 집어가는 조건이 `queued` 이기 때문입니다.
+      다시 걸어도 아무 일이 안 일어나는 길이었습니다.
+  */
+  it('★ 보내다 실패한 것은 집어갈 수 있는 자리로 돌아갑니다', () => {
+    expect(retryTo(job({ step: 'failed', failedAt: 'sending' }))).toBe('queued');
+    expect(retryTo(job({ step: 'failed', failedAt: 'printing' }))).toBe('queued');
+  });
+
+  // ★ 자르다 실패한 것은 디자인 파일부터 다시 받아야 합니다
+  it('★ 자르다 실패한 것은 처음으로', () => {
+    expect(retryTo(job({ step: 'failed', failedAt: 'slicing' }))).toBe('waiting_design');
+  });
+
   it('앞으로 건너뛰지 않습니다', () => {
-    expect(retryTo(job({ step: 'failed', failedAt: 'slicing' }))).toBe('slicing');
-    expect(retryTo(job({ step: 'failed', failedAt: 'sending' }))).toBe('sending');
+    // 'queued' 에서 멈춘 것은 자르기를 다시 할 이유가 없습니다
+    expect(retryTo(job({ step: 'failed', failedAt: 'queued' }))).toBe('queued');
   });
 
   it('멈추지 않은 작업은 다시 걸 것이 없습니다', () => {
