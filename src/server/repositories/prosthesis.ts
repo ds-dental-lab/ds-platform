@@ -29,6 +29,7 @@ interface RawMaterial {
   has_shade: boolean;
   has_pontic: boolean;
   has_pink: boolean;
+  unit_count: number | null;
   price: number | null;
   pontic_price: number | null;
   pink_price: number | null;
@@ -77,7 +78,7 @@ export async function getProsthesisCatalog(
       'code, name, abbr, is_active, sort_order, is_internal, auto_pipeline, ' +
         'needs_implant_model, abbr_material_only, color, color_soft, ' +
         'prosthesis_materials(code, name, abbr, is_active, sort_order, ' +
-        'has_shade, has_pontic, has_pink, price, pontic_price, pink_price)',
+        'has_shade, has_pontic, has_pink, unit_count, price, pontic_price, pink_price)',
     )
     .order('sort_order');
 
@@ -123,6 +124,8 @@ export async function getProsthesisCatalog(
           hasShade: m.has_shade,
           hasPontic: m.has_pontic,
           hasPink: m.has_pink,
+          // ★ 옛 자료에 칸이 없으면 1 입니다 (2026-10-12)
+          unitCount: m.unit_count ?? 1,
           price: m.price,
           ponticPrice: m.pontic_price,
           pinkPrice: m.pink_price,
@@ -191,6 +194,7 @@ interface RawEditType {
         has_shade: boolean;
         has_pontic: boolean;
         has_pink: boolean;
+        unit_count: number | null;
         price: number | null;
         pontic_price: number | null;
         pink_price: number | null;
@@ -215,7 +219,7 @@ export async function listProducts(): Promise<{
     .select(
       'id, code, name, abbr, is_active, sort_order, ' +
         'prosthesis_materials(id, code, name, abbr, is_active, sort_order, ' +
-        'has_shade, has_pontic, has_pink, price, pontic_price, pink_price)',
+        'has_shade, has_pontic, has_pink, unit_count, price, pontic_price, pink_price)',
     )
     .order('sort_order');
 
@@ -277,6 +281,7 @@ interface RawPublicRow {
   has_shade: boolean;
   has_pontic: boolean;
   has_pink: boolean;
+  unit_count: number | null;
   sort_order: number;
   is_active: boolean;
 }
@@ -327,6 +332,7 @@ async function getPublicCatalog(options: CatalogOptions = {}): Promise<Prosthesi
       abbr: row.abbr,
       hasShade: row.has_shade,
       hasPontic: row.has_pontic,
+      unitCount: row.unit_count ?? 1,
       hasPink: row.has_pink,
       // ★ 값은 기공소에 주지 않습니다
       price: null,

@@ -22,11 +22,13 @@
 
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
+import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { itemAmount } from '@/server/domain/billing';
 import { resolvePartyPrice } from '@/server/domain/pricing';
 import { loadDatedOverrides, priceDay } from '@/server/repositories/price-history';
 import {
   ratePercent,
+  countUnits,
   sortDesigners,
   sortClinics,
   average,
@@ -59,8 +61,8 @@ interface RawOrder {
   parent_order_id: string | null;
   received_at: string | null;
   clinic: { name: string } | null;
-  /** 치아 개수를 세려고 같이 읽습니다 (2026-10-12) */
-  order_items: { id: string }[] | null;
+  /** 개수를 세려고 같이 읽습니다. 제품마다 1개인지 2개인지 다릅니다 (2026-10-12) */
+  order_items: { type_code: string; material_code: string }[] | null;
 }
 
 interface RawHistory {
@@ -78,9 +80,9 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
       .from('orders')
       .select(
         'id, clinic_org_id, is_remake, is_repair, parent_order_id, received_at, ' +
-          // ★ 개수만 셀 것이라 id 하나만 받아 옵니다 — 치식·재료까지
-          //   끌고 오면 주문 수백 건에서 그만큼 느려집니다
-          'order_items(id), ' +
+          // ★ 종류·재료만 받아 옵니다 — 'Abut+크라운' 한 줄은 2개로
+          //   세기 때문에 무엇인지 알아야 합니다 (unitCount)
+          'order_items(type_code, material_code), ' +
           'clinic:organizations!orders_clinic_org_id_fkey(name)',
       )
       .is('deleted_at', null)
@@ -105,9 +107,25 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
   const orders = (orderRes.data ?? []) as unknown as RawOrder[];
   const history = (historyRes.data ?? []) as unknown as RawHistory[];
 
-  /** 주문 → 치아 개수. 디자이너 쪽에서도 씁니다 */
+  /*
+    주문 → 개수. 디자이너 쪽에서도 씁니다.
+
+    ★ 'Abut+Zir' 한 줄은 **2개**입니다 (2026-10-12). 몇 개인지는 제품이
+      들고 있고(unitCount), 세는 규칙은 domain/stats 한 곳에 있습니다.
+  */
+  const catalog = await getProsthesisCatalog({ includeInactive: true });
+
   const teethOf = new Map<string, number>(
-    orders.map((o) => [o.id, (o.order_items ?? []).length]),
+    orders.map((o) => [
+      o.id,
+      countUnits(
+        (o.order_items ?? []).map((i) => ({
+          typeCode: i.type_code,
+          materialCode: i.material_code,
+        })),
+        catalog,
+      ),
+    ]),
   );
 
   // ---------- 치과별 ----------

@@ -31,6 +31,17 @@ export interface Material {
   hasPontic: boolean;
   hasPink: boolean;
 
+  /**
+   * 통계에서 **몇 개로 세는가** (사용자 요청 2026-10-12).
+   *
+   * ★ 'Abut+Zir' 은 어버트먼트와 크라운 **둘**을 만드는 일입니다.
+   *   주문서에는 치식 하나지만 손은 두 번 갑니다. 1로 세면 임플란트를
+   *   많이 맡은 사람의 일량이 실제보다 작아 보입니다.
+   * ★ 커스텀 어버트먼트는 1 입니다 — 크라운이 없습니다.
+   * ★ 금액에는 안 씁니다. 단가는 제품마다 따로 매깁니다.
+   */
+  unitCount: number;
+
   /** 비어 있으면 아직 안 정한 값입니다. 0 은 무료입니다 */
   price: number | null;
   ponticPrice: number | null;
@@ -81,7 +92,7 @@ function mat(
   code: string,
   name: string,
   abbr: string,
-  opts: { shade?: boolean; pontic?: boolean; pink?: boolean } = {},
+  opts: { shade?: boolean; pontic?: boolean; pink?: boolean; units?: number } = {},
 ): Material {
   return {
     code,
@@ -90,6 +101,7 @@ function mat(
     hasShade: opts.shade ?? true,
     hasPontic: opts.pontic ?? false,
     hasPink: opts.pink ?? false,
+    unitCount: opts.units ?? 1,
     price: null,
     ponticPrice: null,
     pinkPrice: null,

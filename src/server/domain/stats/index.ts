@@ -40,6 +40,29 @@ export function isSmallSample(whole: number): boolean {
 }
 
 /** 디자이너 한 사람 */
+import { getMaterial, type ProsthesisCatalog } from '@/server/domain/prosthesis';
+
+/**
+ * 보철 목록을 **개수**로 셉니다 (사용자 요청 2026-10-12).
+ *
+ * ★★ 'Abut+Zir' 한 줄은 **2개**입니다 — 어버트먼트와 크라운 둘을
+ *   만드는 일이라서요. 주문서에는 치식 하나지만 손은 두 번 갑니다.
+ *
+ * ★ 몇 개인지는 **제품이 들고 있습니다**(unitCount). 여기에 재료 이름을
+ *   박지 않습니다 — 제품이 늘 때마다 이 함수를 고치게 됩니다.
+ * ★ 제품을 못 찾으면 1 로 셉니다. 판매중지된 옛 제품이 섞여도 0 이
+ *   되지 않게 — 0 으로 세면 그 사람 일량이 조용히 사라집니다.
+ */
+export function countUnits(
+  items: { typeCode: string; materialCode: string }[],
+  catalog: ProsthesisCatalog,
+): number {
+  return items.reduce((sum, item) => {
+    const material = getMaterial(catalog, item.typeCode, item.materialCode);
+    return sum + (material?.unitCount ?? 1);
+  }, 0);
+}
+
 export interface DesignerTally {
   userId: string;
   name: string;

@@ -16,6 +16,7 @@ import {
   type ClinicTally,
   sortDesignersByTeeth,
   sortClinicsByTeeth,
+  countUnits,
 } from '@/server/domain/stats';
 
 const designer = (over: Partial<DesignerTally>): DesignerTally => ({
@@ -173,6 +174,109 @@ describe('치아 개수 차례', () => {
   it('빈 목록도 됩니다', () => {
     expect(sortDesignersByTeeth([])).toEqual([]);
     expect(sortClinicsByTeeth([])).toEqual([]);
+  });
+});
+
+// =========================================================
+// 'Abut+크라운' 은 두 개로 셉니다 (사용자 요청 2026-10-12)
+//
+// ★★ 주문서에는 치식 하나지만 손은 두 번 갑니다 — 어버트먼트와 크라운.
+//   1로 세면 임플란트를 많이 맡은 사람의 일량이 실제보다 작아 보입니다.
+// =========================================================
+
+describe('개수 세기', () => {
+  const catalog = [
+    {
+      code: 'crown',
+      name: '크라운',
+      abbr: 'Cr',
+      needsImplantModel: false,
+      autoPipeline: false,
+      abbrMaterialOnly: false,
+      color: '#000',
+      colorSoft: '#eee',
+      materials: [
+        {
+          code: 'zirconia',
+          name: '지르코니아',
+          abbr: 'Zir',
+          hasShade: true,
+          hasPontic: true,
+          hasPink: true,
+          unitCount: 1,
+          price: null,
+          ponticPrice: null,
+          pinkPrice: null,
+        },
+      ],
+    },
+    {
+      code: 'implant',
+      name: '임플란트',
+      abbr: 'Im',
+      needsImplantModel: true,
+      autoPipeline: false,
+      abbrMaterialOnly: false,
+      color: '#000',
+      colorSoft: '#eee',
+      materials: [
+        {
+          code: 'abut_zir_scrp',
+          name: 'Abut+Zir(SCRP)',
+          abbr: 'SCRP',
+          hasShade: true,
+          hasPontic: true,
+          hasPink: true,
+          unitCount: 2,
+          price: null,
+          ponticPrice: null,
+          pinkPrice: null,
+        },
+        {
+          code: 'custom_abut',
+          name: '커스텀 어버트먼트',
+          abbr: 'Abut',
+          hasShade: false,
+          hasPontic: false,
+          hasPink: false,
+          unitCount: 1,
+          price: null,
+          ponticPrice: null,
+          pinkPrice: null,
+        },
+      ],
+    },
+  ];
+
+  const crown = { typeCode: 'crown', materialCode: 'zirconia' };
+  const scrp = { typeCode: 'implant', materialCode: 'abut_zir_scrp' };
+  const abut = { typeCode: 'implant', materialCode: 'custom_abut' };
+
+  it('크라운 하나는 한 개', () => {
+    expect(countUnits([crown], catalog)).toBe(1);
+  });
+
+  it('★ Abut+Zir 하나는 두 개', () => {
+    expect(countUnits([scrp], catalog)).toBe(2);
+  });
+
+  // ★ 이름이 비슷하다고 같이 2로 두면 조용히 틀립니다
+  it('★ 커스텀 어버트먼트는 한 개입니다 (크라운이 없습니다)', () => {
+    expect(countUnits([abut], catalog)).toBe(1);
+  });
+
+  it('섞여 있으면 더합니다', () => {
+    expect(countUnits([crown, scrp, scrp, abut], catalog)).toBe(6);
+  });
+
+  // ★ 판매중지된 옛 제품이 섞여도 0 이 되면 안 됩니다 —
+  //   0 으로 세면 그 사람 일량이 조용히 사라집니다
+  it('★ 모르는 제품은 한 개로 셉니다', () => {
+    expect(countUnits([{ typeCode: '없음', materialCode: '없음' }], catalog)).toBe(1);
+  });
+
+  it('비어 있으면 0', () => {
+    expect(countUnits([], catalog)).toBe(0);
   });
 });
 
