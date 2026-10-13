@@ -24,6 +24,8 @@ import {
   ownerOf,
   WORK_STATUSES,
   WORK_SECTORS,
+  HANDOFF_STATUS,
+  countHanded,
 } from '@/server/domain/worklist';
 import { listNotices, type NoticeRow } from '@/server/repositories/notice';
 import { pickupStillListed, pickupWaiting } from '@/server/domain/pickup';
@@ -99,6 +101,14 @@ export interface HomeSummary {
   money: HomeMoney;
   /** 디자인센터 작업 리스트. 급한 것부터 */
   worklist: HomeWork[];
+  /**
+   * 오늘 넘긴 케이스 수. **넘김이 없는 섹터는 null** 입니다.
+   *
+   * ★ 0 과 null 을 가릅니다 — 0 은 "오늘 아직 없다", null 은 "셈하지
+   *   않는 자리" 입니다. 둘을 합치면 치과 화면에 '오늘 넘김 0건' 이
+   *   뜹니다.
+   */
+  handedToday: number | null;
   /** 오른쪽 위 공지 카드. 고정 먼저, 최근 먼저 */
   notices: NoticeRow[];
 }
@@ -148,6 +158,17 @@ export async function getHomeSummary(): Promise<HomeSummary> {
   const money = getHomeMoney();
   const notices = listNotices(HOME_NOTICES);
   const pickups = listOpenPickups(supabase);
+  /*
+    ★ 이것도 주문 조회를 안 씁니다 — 이력만 봅니다. 그래서 같이 띄웁니다.
+      관리자는 조직 전체, 사용자는 자기가 넘긴 것만 (목록과 같은 규칙).
+  */
+  const handed = countHandedToday(
+    supabase,
+    sector,
+    today,
+    me?.user.id ?? null,
+    canManageMembers(me?.role as MemberRole | null),
+  );
 
   const { data, error } = await supabase
     .from('orders')
@@ -234,8 +255,52 @@ export async function getHomeSummary(): Promise<HomeSummary> {
     pickups: await pickups,
     money: await money,
     worklist: mine,
+    handedToday: await handed,
     notices: await notices,
   };
+}
+
+/**
+ * 오늘 넘긴 케이스 수. 넘김이 없는 섹터는 null.
+ *
+ * ★★ **이력을 셉니다, 주문을 세지 않습니다.** 주문의 지금 상태를 세면
+ *   오늘 넘긴 것이 기공소를 거쳐 배송으로 가 버린 뒤에는 안 세집니다.
+ *   "오늘 넘겼다" 는 지나간 사건이라 사건이 쌓이는 표에서 읽어야 합니다.
+ *
+ * ★ 사용자는 **자기가 넘긴 것**만, 관리자는 조직이 넘긴 것 전부입니다 —
+ *   작업 리스트와 같은 규칙입니다(visibleWork). 보는 사람을 모르면
+ *   세지 않습니다(0): 모를 때 다 보여 주는 쪽으로 기울지 않습니다.
+ *
+ * ★ 하루의 경계는 **한국 시각**입니다. UTC 로 자르면 아침 9시 전에 넘긴
+ *   건이 어제로 갑니다.
+ *
+ * ★ 지워진 주문은 이력도 함께 지워집니다(on delete cascade) — 따로
+ *   걸러 낼 것이 없습니다.
+ */
+async function countHandedToday(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  sector: Sector,
+  today: string,
+  viewerId: string | null,
+  isManager: boolean,
+): Promise<number | null> {
+  const to = HANDOFF_STATUS[sector];
+  if (!to) return null;
+  if (!isManager && !viewerId) return 0;
+
+  let query = supabase
+    .from('order_status_history')
+    .select('order_id')
+    .eq('to_status', to)
+    .gte('created_at', `${today}T00:00:00+09:00`)
+    .lt('created_at', `${today}T23:59:59.999+09:00`);
+
+  if (!isManager) query = query.eq('actor_user_id', viewerId);
+
+  const { data, error } = await query;
+  if (error || !data) return 0;
+
+  return countHanded((data as { order_id: string }[]).map((r) => ({ orderId: r.order_id })));
 }
 
 /**

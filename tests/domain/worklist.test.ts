@@ -12,6 +12,8 @@ import {
   WORK_STATUSES,
   WORK_SECTORS,
   homeLeftLayout,
+  HANDOFF_STATUS,
+  countHanded,
   type WorklistRow,
 } from '@/server/domain/worklist';
 import type { Sector } from '@/server/domain/order-status';
@@ -222,5 +224,30 @@ describe('HOME 왼쪽 칸 배치', () => {
         expect(growing, `${sector} / 금액 ${canSeeMoney}`).toBe(1);
       }
     }
+  });
+});
+
+describe('오늘 넘긴 건수', () => {
+  it('디자인센터의 넘김은 제작대기로 옮기는 것입니다', () => {
+    expect(HANDOFF_STATUS.design_center).toBe('production_wait');
+  });
+
+  it('치과·기공소에는 넘김이 없습니다 — 세지 않습니다', () => {
+    expect(HANDOFF_STATUS.clinic).toBeUndefined();
+    expect(HANDOFF_STATUS.lab).toBeUndefined();
+  });
+
+  it('건수를 셉니다', () => {
+    expect(countHanded([{ orderId: 'a' }, { orderId: 'b' }, { orderId: 'c' }])).toBe(3);
+  });
+
+  it('없으면 0', () => {
+    expect(countHanded([])).toBe(0);
+  });
+
+  // ★★ 되돌아온 건이 같은 날 다시 넘어가면 이력에 두 줄이 쌓입니다.
+  //    그대로 세면 한 케이스가 둘로 보입니다.
+  it('★★ 같은 주문을 두 번 넘겼어도 한 건입니다', () => {
+    expect(countHanded([{ orderId: 'a' }, { orderId: 'b' }, { orderId: 'a' }])).toBe(2);
   });
 });

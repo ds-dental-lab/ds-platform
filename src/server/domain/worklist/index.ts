@@ -183,3 +183,34 @@ export function homeLeftLayout(sector: Sector, canSeeMoney: boolean): HomeLeftLa
     statusGrows: !hasWork && !showTrend,
   };
 }
+
+// ---------- 오늘 넘긴 건수 ----------
+//
+// ★★ **왜 — 목록이 그날 한 일을 다 못 보여 줍니다.** 넘긴 뒤에도 보이게
+//   고쳤지만(2026-10-12), 넘긴 건은 기공소가 제작을 끝내면 목록에서
+//   빠집니다. 그러면 오후에 열어 본 사람은 자기가 아침에 넘긴 것을
+//   못 봅니다. 사장님이 보려던 것은 "하루동안에 몇케이스를 했는지"
+//   입니다 — 그건 목록이 아니라 **숫자**로 답하는 질문입니다.
+
+/**
+ * 어느 단계로 옮기는 것이 그 섹터의 '넘김' 인가.
+ *
+ * ★ 디자인센터만 둡니다. 기공소의 '넘김' 은 배송으로 보내는 것이겠지만,
+ *   그건 아직 사장님이 보자고 한 적이 없습니다 — 쓰지도 않는 숫자를
+ *   화면에 올리면 카드만 복잡해집니다. 필요하면 여기 한 줄입니다.
+ */
+export const HANDOFF_STATUS: Partial<Record<Sector, OrderStatus>> = {
+  design_center: 'production_wait',
+};
+
+/**
+ * 오늘 넘긴 **케이스** 수.
+ *
+ * ★★ **주문 하나는 한 번만 셉니다.** 기공소가 수정을 요청해 디자인으로
+ *   되돌아왔다가 같은 날 다시 넘어가면 이력에 두 줄이 쌓입니다. 그걸
+ *   그대로 세면 한 케이스가 둘로 보입니다 — "몇 케이스 했나" 에 대한
+ *   답으로는 틀립니다. 다시 한 수고는 '며칠째' 가 말해 줍니다.
+ */
+export function countHanded(rows: { orderId: string }[]): number {
+  return new Set(rows.map((row) => row.orderId)).size;
+}

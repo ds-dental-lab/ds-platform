@@ -327,6 +327,7 @@ export default function HomeScreen({
           <Worklist
             rows={summary.worklist}
             total={summary.worklist.length}
+            handedToday={summary.handedToday}
             ordersPath={path.orders}
             sector={sector}
             grow={workGrows}
@@ -541,6 +542,7 @@ function Worklist({
   ordersPath,
   sector,
   total,
+  handedToday,
   grow,
 }: {
   rows: HomeWork[];
@@ -548,6 +550,8 @@ function Worklist({
   sector: Sector;
   /** 접기 전 전체 건수 */
   total: number;
+  /** 오늘 넘긴 케이스 수. 넘김이 없는 섹터는 null */
+  handedToday?: number | null;
   /** 왼쪽 칸에서 남는 높이를 가져갈 것인가 */
   grow?: boolean;
 }) {
@@ -559,6 +563,21 @@ function Worklist({
     <Card className={grow ? 'flex-1' : 'shrink-0'}>
       <div className="flex items-center">
         <h2 className="text-[14px] font-bold tracking-tight text-[#1A2130]">{label.title}</h2>
+
+        {/*
+          ★★ **목록이 그날 한 일을 다 못 보여 줍니다.** 넘긴 건도 보이게
+            고쳤지만(2026-10-12), 기공소가 제작을 끝내면 목록에서 빠집니다.
+            오후에 열면 아침에 넘긴 것이 없습니다. 사장님이 보려던 것은
+            "하루동안에 몇케이스를 했는지" 라, 목록이 아니라 숫자로 답합니다.
+          ★ 0 건이어도 적습니다 — 숫자가 사라지면 "오늘 아직 없다" 와
+            "이 자리에 그런 숫자가 없다" 가 구별되지 않습니다.
+        */}
+        {handedToday !== null && handedToday !== undefined && (
+          <span className="ml-2 rounded bg-[#F4F8FE] px-1.5 py-0.5 text-[12px] font-semibold tabular-nums text-[#2D6FE0]">
+            오늘 넘김 {handedToday}건
+          </span>
+        )}
+
         <span className="ml-auto text-[13px] text-[#98A2B3]">{total}건</span>
       </div>
 

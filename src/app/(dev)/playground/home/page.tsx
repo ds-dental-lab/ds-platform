@@ -28,6 +28,7 @@ const BLANK: HomeSummary = {
   pickups: [],
   money: { current: EMPTY_BUCKET, trend: [], basis: 'period', countBy: 'received' },
   worklist: [],
+  handedToday: 0,
   notices: [],
 };
 
@@ -106,6 +107,7 @@ const BUSY: HomeSummary = {
       dayCount: 1,
     },
   ],
+  handedToday: 5,
   notices: [
     {
       id: 'n1',
@@ -165,7 +167,15 @@ export default function HomePlayground() {
           <h1 className="mb-2 text-[14px] font-bold text-[#4A5567]">{c.label}</h1>
           <HomeScreen
             sector={c.sector}
-            summary={c.summary}
+            /*
+              ★ '오늘 넘김' 은 디자인센터에만 있습니다 (domain/worklist 의
+                HANDOFF_STATUS). 한 벌의 가짜 자료를 세 섹터에 돌려 쓰다 보니
+                기공소 카드에도 띠가 붙어, 실제로는 없는 것이 있는 것처럼
+                보였습니다. 여기서 끊습니다.
+            */
+            summary={
+              c.sector === 'design_center' ? c.summary : { ...c.summary, handedToday: null }
+            }
             
             canSeeMoney={c.money !== false}
           />
