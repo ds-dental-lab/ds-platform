@@ -259,11 +259,26 @@ class BambuPrinter:
         safe = "".join(
             c if (c.isascii() and (c.isalnum() or c in "._-")) else "_" for c in name
         )
-        # ★ 이름이 통째로 한글이면 확장자만 남습니다 — 그때는 이름을 지어 줍니다
-        head, dot, tail = safe.rpartition(".")
-        if not head.strip("_"):
-            head = "print"
-        return f"{head.strip('_')}{dot}{tail}" if dot else head.strip("_")
+
+        # ★★ 확장자는 **두 겹**입니다 (`.gcode.3mf`). 마지막 점에서만 자르면
+        #   이름이 통째로 한글일 때 `___.gcode` 가 '이름' 으로 남아, 아래
+        #   빈 이름 검사를 그냥 지나갑니다. 그러면 `.gcode.3mf` 를 올리고,
+        #   프린터가 돌려주는 이름도 `.gcode.3mf` 라 `_is_mine` 이 견줄 것이
+        #   없어집니다 — **뽑고 있는데 "받지 않았습니다"** 가 됩니다
+        #   (2026-10-13, 작은판.gcode.3mf 로 겪음).
+        tail = ""
+        for suffix in (".gcode.3mf", ".gcode.3MF", ".gcode", ".3mf"):
+            if safe.lower().endswith(suffix.lower()):
+                safe, tail = safe[: -len(suffix)], safe[-len(suffix) :]
+                break
+        else:
+            safe, dot, ext = safe.rpartition(".")
+            tail = f"{dot}{ext}" if dot else ""
+            safe = safe or ext
+
+        # ★ 이름이 통째로 한글이면 아무것도 안 남습니다 — 그때는 지어 줍니다
+        head = safe.strip("_") or "print"
+        return f"{head}{tail}"
 
     def _open(self, path: Path):
         """
