@@ -83,6 +83,22 @@ def _kill_stale_chrome(profile: Path) -> None:
         pass
 
 
+def abandon() -> None:
+    """**이 PC 가 쓰던 자리를 통째로 놓습니다** (2026-10-13).
+
+    런처가 시한을 넘겨 멈출 때 부릅니다. 멈추는 쪽은 변환 중간이라
+    Chrome 이 뜬 채이고 자리(lock)도 쥐고 있습니다 — 그냥 죽으면 그
+    Chrome 이 프로필을 물고 남아 **다음 실행이 못 뜹니다**, 그리고 자리는
+    30분이 지나야 풀립니다. 나가기 전에 치우고 갑니다.
+    """
+    for slot in list(range(1, SLOTS + 1)) + ["orders"]:
+        _kill_stale_chrome(STATE / f"chrome-profile-{slot}")
+        try:
+            (STATE / f"dscore-{slot}.lock").unlink()
+        except OSError:
+            pass
+
+
 class DSCore:
     def __init__(self, download_dir: Path, show: bool = False, say=None, slot: int = 1) -> None:
         self.download_dir = download_dir

@@ -177,6 +177,19 @@ def unique_folder(base: Path) -> Path:
 STEPS = ["주문 정보 받기", "스캔 파일 내려받기", "exocad 주문서 만들기", "dxd 변환 (DS Core)", "exocad 목록에 등록"]
 TOAST_MS = 3000
 
+#: 한 건이 이보다 오래 걸리면 **스스로 멈춥니다** (사용자 요청 2026-10-13 —
+#: "5분 이상 넘어가면 멈추는걸로 해줘, 메모리만 차지하는거같은데").
+#:
+#: ★★ **왜 — 안 끝나는 길이 실제로 있습니다.** DS Core 가 응답을 안 하거나
+#:   로그인 화면이 바뀌면 셀레니움이 기다림 안에서 서 있고, 자리가 안 비면
+#:   `_wait_slot` 이 20분을 기다립니다. 그동안 창과 Chrome 이 떠 있습니다.
+#:   사람은 화면에서 '여는 중' 만 보고, 뭘 해야 할지 알 길이 없습니다.
+#: ★ 평소 dxd 한 건은 **56초**입니다 (DESIGN.md 6-4). 5분은 느린 날에도
+#:   넉넉하고, 매달려 있는 것과는 분명히 다릅니다.
+#: ★ 조용히 죽지 않습니다 — 서버에 '실패' 로 알리고 갑니다. 그래야 주문
+#:   화면의 알약이 '여는 중' 에서 '!' 로 바뀝니다.
+JOB_LIMIT_MINUTES = 5
+
 
 class Window:
     """
@@ -334,6 +347,8 @@ class Job:
         self.marks: list[tuple[str, float]] = []   # (단계, 끝난 시각) — 어디가 느린지 보려고
         self.order_no = order_id or "mock"
         self.after_done = None                     # 완료 표시 뒤에 할 뒷정리 (임시 환자 삭제)
+        self.over = False                          # 끝났는가 — 시한 지킴이가 이걸 봅니다
+        self.told = False                          # 서버에 결과를 알린 적이 있는가
 
     def mark(self, name: str) -> None:
         self.marks.append((name, time.time()))
@@ -369,6 +384,9 @@ class Job:
         self.win.log("  " + msg)
 
     def report(self, status: str, message: str) -> None:
+        # ★ 알린 적이 있으면 지킴이는 다시 안 알립니다 — 끝난 일을
+        #   '실패' 로 덮어쓰면 화면이 거짓말을 합니다
+        self.told = True
         if self.mock:
             return
         try:
@@ -386,14 +404,59 @@ class Job:
             self.summary("실패", str(e))
             self.win.finish(f"실패 — {e}", ok=False, log_dir=LOG_DIR)
             self.report("failed", str(e))
+            # ★ 실패 창은 사람이 읽으라고 띄워 둡니다. 지킴이가 그걸 닫아
+            #   버리지 않게 여기서 깃발을 꽂습니다.
+            self.over = True
             return
-        # ★ 뒷정리(임시 환자 삭제)는 완료 토스트 뒤에 — 사람은 안 기다립니다
+
+        # ★ 뒷정리(임시 환자 삭제)는 완료 토스트 뒤에 — 사람은 안 기다립니다.
+        #   ★ 깃발은 **뒷정리까지 끝난 뒤**에 꽂습니다. 뒷정리도 DS Core 를
+        #     건드리는 일이라 거기서 설 수 있습니다 — 그 자리도 지킴이가
+        #     봐야 합니다. 이미 '완료' 를 알린 뒤라 지킴이는 조용히 닫습니다.
         if self.after_done:
             try:
                 self.after_done()
             except Exception:  # noqa: BLE001
                 self.log.exception("뒷정리 실패")
+        self.over = True
         self.win.root.after(0, self.win.root.quit)
+
+    def give_up(self) -> None:
+        """시한을 넘겼습니다. 치우고 나갑니다 (2026-10-13).
+
+        ★★ **일하는 실을 깨울 수가 없습니다.** 셀레니움 기다림이나 소켓
+          안에 서 있으면 밖에서 멈추게 할 길이 없습니다. 그래서 치울 것을
+          치우고 **프로세스째** 나갑니다 — 남겨 두면 그게 사장님이 보신
+          '메모리만 차지하는' 창입니다.
+        ★ 나가기 전에 두 가지를 합니다. 서버에 까닭을 알리고(알린 적이
+          없을 때만), DS Core 가 띄운 Chrome 과 쥐고 있던 자리를 놓습니다.
+          안 놓으면 다음 실행이 프로필을 못 잡고 자리도 30분 묶입니다.
+        """
+        if self.over:
+            return
+
+        at = self.marks[-1][0] if self.marks else "시작"
+        why = f"{JOB_LIMIT_MINUTES}분이 지나도 안 끝나 멈췄습니다 (마지막 단계: {at})"
+        self.log.error(why)
+        self.summary("시한초과", why)
+
+        if not self.told:
+            self.report("failed", why)
+
+        # ★ **이미 불러온 때만** 치웁니다. dxd 변환이 없는 주문은 dscore 를
+        #   건드린 적이 없습니다 — 그때 여기서 처음 불러오면 셀레니움을
+        #   끌고 오느라 나가는 길이 느려지고, 그 import 가 터지면 알리지도
+        #   못하고 멈춥니다. 안 띄웠으면 치울 것도 없습니다.
+        mod = sys.modules.get("dscore")
+        if mod is not None:
+            try:
+                mod.abandon()
+            except Exception:  # noqa: BLE001
+                self.log.exception("DS Core 뒷정리 실패")
+
+        # ★ quit() 이 아니라 _exit 입니다 — 일하는 실이 어딘가에 서 있어서
+        #   보통의 끝내기로는 안 끝납니다.
+        os._exit(1)
 
     def _run(self) -> None:
         # 1. 주문 정보
@@ -653,7 +716,10 @@ def main() -> None:
 
     cfg = load_config()
     win = Window()
-    threading.Thread(target=Job(win, cfg, order_id, token, mock).run, daemon=True).start()
+    job = Job(win, cfg, order_id, token, mock)
+    threading.Thread(target=job.run, daemon=True).start()
+    # ★ 시한 지킴이. 창이 살아 있는 동안만 돌므로 따로 끌 것이 없습니다
+    win.root.after(JOB_LIMIT_MINUTES * 60_000, job.give_up)
     win.root.mainloop()   # quit() 은 Job 이 (뒷정리까지 끝낸 뒤) 부릅니다
 
 

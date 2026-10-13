@@ -22,6 +22,17 @@ import { issueExocadLaunch, recordExocadSend, getExocadLast } from '@/server/act
 /** 토큰(10분)보다 짧게 — 눌렀을 때 항상 살아 있는 주소를 쥐고 있게 */
 const REFRESH_MS = 8 * 60 * 1000;
 
+/**
+ * '여는 중' 을 이만큼까지 기다립니다.
+ *
+ * ★★ **런처의 시한(5분)보다 조금 깁니다** (2026-10-13). 런처는 5분이
+ *   지나면 스스로 멈추면서 서버에 '실패' 로 알립니다 — 그 알림이 도착할
+ *   틈을 줘야 알약이 '여는 중' 에서 **까닭이 적힌 '!'** 로 바뀝니다.
+ *   전에는 2분이라, 멈춘 까닭이 도착할 때쯤 화면은 이미 안 보고
+ *   있었습니다. 그러면 사람은 왜 안 됐는지 영영 모릅니다.
+ */
+const WAIT_MS = 5 * 60 * 1000 + 20_000;
+
 export interface ExocadLastResult {
   requestedAt: string;
   fetchedAt: string | null;
@@ -40,14 +51,22 @@ export default function ExocadSendButton({
   const [error, setError] = useState<string | null>(null);
   const [launched, setLaunched] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
+  /**
+   * 눌러 둔 뒤 서버에서 받아 온 결과 (2026-10-06).
+   *
+   * ★ 런처는 3~5초면 끝내고 결과도 보냅니다. 전에는 화면이 그걸 안 가져와서
+   *   '여는 중' 에 멈춰 있었고, 새로고침해야 보였습니다.
+   */
+  const [fresh, setFresh] = useState<ExocadLastResult | null>(null);
+
   /*
-    ★ 눌렀으면 결과가 올 때까지 2초마다 묻습니다. 끝나거나 2분이 지나면 멈춥니다 —
+    ★ 눌렀으면 결과가 올 때까지 2초마다 묻습니다. 끝나거나 시한이 지나면 멈춥니다 —
       켜 둔 채로 두면 주문 화면을 띄워 놓는 동안 쓸데없이 계속 두드립니다.
   */
   useEffect(() => {
     if (!launched) return;
 
-    const until = Date.now() + 2 * 60_000;
+    const until = Date.now() + WAIT_MS;
     let alive = true;
 
     const timer = setInterval(async () => {
@@ -69,14 +88,6 @@ export default function ExocadSendButton({
       clearInterval(timer);
     };
   }, [launched, orderId]);
-
-  /**
-   * 눌러 둔 뒤 서버에서 받아 온 결과 (2026-10-06).
-   *
-   * ★ 런처는 3~5초면 끝내고 결과도 보냅니다. 전에는 화면이 그걸 안 가져와서
-   *   '여는 중' 에 멈춰 있었고, 새로고침해야 보였습니다.
-   */
-  const [fresh, setFresh] = useState<ExocadLastResult | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -155,7 +166,15 @@ export default function ExocadSendButton({
 
 /** 오른쪽 작은 알약 — 마지막 보낸 결과. 없으면 아무것도 안 그립니다 */
 function pillOf(launched: boolean, last: ExocadLastResult | null): React.ReactNode {
-  if (launched) return <Pill tone="wait" title="런처가 여는 중입니다. 안 뜨면 PC 에 덴플로우 런처가 설치돼 있는지 확인하세요">여는 중</Pill>;
+  if (launched)
+    return (
+      <Pill
+        tone="wait"
+        title="런처가 여는 중입니다. 안 뜨면 PC 에 덴플로우 런처가 설치돼 있는지 확인하세요 · 5분이 지나면 런처가 스스로 멈추고 까닭을 적어 보냅니다"
+      >
+        여는 중
+      </Pill>
+    );
   if (!last) return null;
   const when = last.requestedAt.slice(11, 16);
   if (last.status === 'done') {
