@@ -66,9 +66,23 @@ export async function submitDeactivateImplantNode(
 
 // ---------- 즐겨찾기 ----------
 
-/** 즐겨찾기가 바뀌면 주문등록 화면의 빠른 선택도 달라집니다 */
+/**
+ * 즐겨찾기가 바뀌면 주문등록 화면의 빠른 선택도 달라집니다.
+ *
+ * ★★ **센터 주문등록이 빠져 있었습니다** (2026-10-13). 같은 폼을 쓰는
+ *   화면이 넷인데 둘만 적혀 있었습니다 — 센터가 치과 대신 담으면
+ *   담기긴 해도 그 자리에서 단추가 안 나왔습니다.
+ *
+ * ★ 수정 화면도 같은 폼입니다. 주문을 고치다 담는 일이 있습니다.
+ *
+ * ★ 수정 화면은 주소에 주문 id 가 들어가 하나씩 못 집습니다 —
+ *   'layout' 으로 그 아래를 통째로 다시 그립니다.
+ */
 function revalidateFavoriteConsumers(): void {
   revalidatePath('/clinic/orders/new');
+  revalidatePath('/design/orders/new');
+  revalidatePath('/clinic/orders', 'layout');
+  revalidatePath('/design/orders', 'layout');
   revalidatePath('/design/implants/distribution');
 }
 
