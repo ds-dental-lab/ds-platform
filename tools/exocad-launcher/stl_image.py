@@ -29,7 +29,8 @@ from PIL import Image, ImageDraw, ImageFont
 from stl_render import load_stl, render_six_tris
 
 HERE = Path(__file__).resolve().parent
-SETTINGS = HERE / "stl_image.json"
+from state import folder as state_folder
+SETTINGS = state_folder() / "stl_image.json"
 DONE_FLAG = "processed.stl-image"      # 이 파일이 있으면 '이미 한 폴더'
 FONT_PATHS = [r"C:\Windows\Fonts\malgun.ttf", r"C:\Windows\Fonts\gulim.ttc"]
 

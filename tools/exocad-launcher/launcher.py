@@ -43,9 +43,15 @@ import requests
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import make_project  # noqa: E402
+from state import folder as state_folder, migrate  # noqa: E402
 
-CONFIG_PATH = HERE / "config.json"
-LOG_DIR = HERE / "logs"
+#: ★★ 적어 두는 것은 **코드 폴더 밖**입니다 (2026-10-13 — state.py 참고).
+#:   등록된 자리를 저장소로 옮기면서, 설정·로그·크롬 로그인은 옛 폴더에서
+#:   한 번 옮겨 옵니다. 다시 로그인하지 않아도 되게요.
+migrate(Path.home() / "Desktop" / "denflow-exocad")
+
+CONFIG_PATH = state_folder() / "config.json"
+LOG_DIR = state_folder() / "logs"
 
 
 # ---------- 설정 ----------

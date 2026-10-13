@@ -4,6 +4,7 @@
 import sys, winreg
 from pathlib import Path
 HERE = Path(__file__).resolve().parent
+from state import folder as state_folder
 PYW = Path(sys.executable).with_name("pythonw.exe")
 CMD = f'"{PYW}" "{HERE / "launcher.py"}" "%1"'
 root = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"Software\Classes\denflow")
@@ -12,4 +13,4 @@ winreg.SetValueEx(root, "URL Protocol", 0, winreg.REG_SZ, "")
 ico = winreg.CreateKey(root, "DefaultIcon"); winreg.SetValueEx(ico, "", 0, winreg.REG_SZ, f"{PYW},0")
 so = winreg.CreateKey(root, r"shell\open"); winreg.SetValueEx(so, "FriendlyAppName", 0, winreg.REG_SZ, "덴플로우 런처")
 cmd = winreg.CreateKey(root, r"shell\open\command"); winreg.SetValueEx(cmd, "", 0, winreg.REG_SZ, CMD)
-(HERE / "logs" / "install_machine.txt").write_text("ok " + CMD, encoding="utf-8")
+(state_folder() / "logs" / "install_machine.txt").write_text("ok " + CMD, encoding="utf-8")

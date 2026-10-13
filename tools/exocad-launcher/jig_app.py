@@ -32,7 +32,8 @@ from jig import (
 from stl_render import load_stl
 
 HERE = Path(__file__).resolve().parent
-SETTINGS = HERE / "jig_app.json"
+from state import folder as state_folder
+SETTINGS = state_folder() / "jig_app.json"
 
 # 지그로 만들 파일 — exocad 가 내놓는 설계 이름들
 DESIGN_WORDS = ("crown", "waxup", "coping", "abutment", "inlay", "onlay", "veneer", "pontic", "bridge")

@@ -30,6 +30,7 @@ from dataclasses import dataclass, asdict, field
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+from state import folder as state_folder
 sys.path.insert(0, str(HERE))
 
 from dscore import BASE, DSCore  # noqa: E402
@@ -274,7 +275,7 @@ def denflow_url(order: DsOrder) -> str:
 
 
 def main() -> None:
-    core = DSCore(HERE / "logs", show="--show" in sys.argv, say=lambda m: print(m, file=sys.stderr), slot="orders")
+    core = DSCore(state_folder() / "logs", show="--show" in sys.argv, say=lambda m: print(m, file=sys.stderr), slot="orders")
     try:
         orders = list_orders(core)
         print(json.dumps([o.as_dict() for o in orders], ensure_ascii=False, indent=2))

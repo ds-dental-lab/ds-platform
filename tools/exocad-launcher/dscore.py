@@ -43,12 +43,16 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 HERE = Path(__file__).resolve().parent
-LOG_DIR = HERE / "logs"
+#: ★ 로그인이 담긴 크롬 프로필은 저장소에 둘 수 없습니다 (state.py 참고)
+from state import folder as state_folder  # noqa: E402
+
+STATE = state_folder()
+LOG_DIR = STATE / "logs"
 BASE = "https://r9.dscore.com"
 log = logging.getLogger("dscore")
 
 
-SETTINGS = HERE / "settings.json"
+SETTINGS = STATE / "settings.json"
 
 
 def has_settings() -> bool:
@@ -83,11 +87,11 @@ class DSCore:
     def __init__(self, download_dir: Path, show: bool = False, say=None, slot: int = 1) -> None:
         self.download_dir = download_dir
         self.say = say or (lambda m: None)
-        profile = HERE / f"chrome-profile-{slot}"
+        profile = STATE / f"chrome-profile-{slot}"
         _kill_stale_chrome(profile)
         # ★ 2·3번 자리는 새로 로그인하지 않습니다 (2026-09-10 — 새 프로필 첫 로그인이 자주 틀어지고,
         #   반복 실패로 DS Core 가 계정을 잠시 막기도 함). 1번 자리(로그인된 프로필)를 통째로 복사해 씁니다.
-        base = HERE / "chrome-profile-1"
+        base = STATE / "chrome-profile-1"
         if slot != 1 and not profile.exists() and base.exists():
             _kill_stale_chrome(base)
             shutil.copytree(base, profile, ignore=shutil.ignore_patterns("lockfile", "SingletonLock", "SingletonCookie", "SingletonSocket", "*Cache*", "GrShaderCache", "GraphiteDawnCache"))
@@ -540,7 +544,7 @@ def _acquire_slot(say, wait_minutes: int = 20) -> int:
     told = False
     while True:
         for slot in range(1, SLOTS + 1):
-            lock = HERE / f"dscore-{slot}.lock"
+            lock = STATE / f"dscore-{slot}.lock"
             try:
                 if lock.exists() and time.time() - lock.stat().st_mtime > 1800:
                     lock.unlink()
@@ -560,7 +564,7 @@ def _acquire_slot(say, wait_minutes: int = 20) -> int:
 
 def _release_slot(slot: int) -> None:
     try:
-        (HERE / f"dscore-{slot}.lock").unlink()
+        (STATE / f"dscore-{slot}.lock").unlink()
     except FileNotFoundError:
         pass
 
