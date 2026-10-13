@@ -187,6 +187,40 @@ def flatten(vendor: str, name: str, depth: int = 0) -> dict:
     return merged
 
 
+#: 토출 보정을 건너뛰게 만드는 한 줄 (2026-10-13).
+#:
+#: ★★ **그것 하나가 3분입니다.** 프린터가 단계를 말해 주게 해서 재 봤더니,
+#:   출력 전 5분 38초 중 **토출 보정이 183초**였습니다 (베드 데우기 24초 ·
+#:   소음 측정 56초 · 판 고르기 43초 …). 출력 자체가 5분 04초인데 준비가
+#:   더 길었습니다.
+#:
+#: ★ 끄는 스위치는 **밤부가 이미 만들어 뒀습니다** — 시작 G코드에
+#:   `;M1002 set_flag extrude_cali_flag=1` 이 주석으로 들어 있습니다. 그 자리에
+#:   0 을 넣으면 바로 아래 `M622 J1` 블록이 통째로 안 돕니다. 남의 코드를
+#:   지우지 않고 그쪽이 둔 손잡이를 쓰는 셈입니다.
+#:
+#: ★ 출력 명령의 `flow_cali: false` 는 A1 mini 가 **무시했습니다**(실측
+#:   2026-10-10). 이 길은 G코드라 펌웨어가 따질 것이 없습니다.
+#:
+#: ★★ 건너뛰면 **압출 보정값(K)을 그때그때 재지 않고** 기계에 들어 있는 값을
+#:   씁니다. 겉벽 25mm/s 로 뽑는 물건이라 조금 달라도 눈에 안 띕니다 —
+#:   빨리 뽑을수록 중요해지는 값입니다. 필라멘트를 바꾸고 결이 이상하면
+#:   **여기부터** 되돌려 보세요.
+CALI_OFF = (
+    ";M1002 set_flag extrude_cali_flag=1",
+    "M1002 set_flag extrude_cali_flag=0",
+)
+
+
+def skip_flow_cali(machine: dict) -> bool:
+    """시작 G코드에서 토출 보정을 끕니다. 바꿨으면 True"""
+    gcode = machine.get("machine_start_gcode")
+    if not isinstance(gcode, str) or CALI_OFF[0] not in gcode:
+        return False
+    machine["machine_start_gcode"] = gcode.replace(CALI_OFF[0], CALI_OFF[1], 1)
+    return True
+
+
 def spread(
     out_dir: Path,
     profiles: "ProfileSet",
@@ -210,6 +244,10 @@ def spread(
 
         # ★ 공정과 필라멘트에 임시치아 설정을 덮습니다 (2026-10-10).
         #   **기계는 안 건드립니다** — A1 mini 것을 그대로 씁니다.
+        # ★ 기계는 값을 안 바꿉니다 — 시작 G코드의 스위치 하나만 끕니다
+        if kind == "machine" and dental:
+            skip_flow_cali(data)
+
         over = {"process": DENTAL, "filament": DENTAL_FILAMENT}.get(kind)
         if over and dental:
             missed = apply(data, over)
@@ -396,6 +434,12 @@ DENTAL: dict[str, object] = {
     "curr_bed_type": "Textured PEI Plate",
     "brim_type": "outer_only",
     "brim_object_gap": "0.05",
+    #: ★★ **스커트 한 바퀴** (2026-10-13). 물건을 붙잡으려는 것이 아니라
+    #:   **노즐을 미리 밀어 두려는** 것입니다. 아래 기계 쪽에서 토출 보정을
+    #:   건너뛰는데, 그 안에 노즐을 밀어내는 줄이 같이 들어 있어서 그냥
+    #:   끄면 첫 층이 비어 나옵니다. 스커트가 그 일을 대신합니다.
+    "skirt_loops": "1",
+    "skirt_distance": "3",
     "skirt_height": "1",
     "min_skirt_length": "0",
     "slow_down_layers": "1",
