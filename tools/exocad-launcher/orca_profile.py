@@ -221,6 +221,51 @@ def skip_flow_cali(machine: dict) -> bool:
     return True
 
 
+#: 소음 줄이기 측정(공진 측정)을 건너뛰게 하는 줄들 (2026-10-13).
+#:
+#: ★ 54초짜리입니다. 토출 보정(183초) 다음으로 큰 덩어리입니다.
+#:
+#: ★★ 이쪽은 **밤부가 끄는 손잡이를 안 달아 뒀습니다.** 토출 보정처럼
+#:   깃발 하나로 못 끄고, 재는 줄을 직접 집어내야 합니다. 같은 블록에
+#:   Z·X 원점잡기와 판 감지가 들어 있어서 **통째로 지우면 안 됩니다** —
+#:   재는 줄(M970/M974) 네 개만 뺍니다.
+#:
+#: ★★ 건너뛰면 **기계에 저장된 지난 측정값**을 씁니다. 그 값이 하는 일은
+#:   빠르게 움직일 때 생기는 잔물결(고스팅)을 줄이는 것인데, 우리는 겉벽을
+#:   25mm/s 로 뽑습니다 — 잔물결이 생길 속도가 아닙니다.
+#:   기계를 옮겼거나 벨트를 만졌으면 **한 번은 재게 두세요**(아래를 끄면 됩니다).
+VIBRATION_LINES = (
+    "M970.3 Q1 A7 K0 O2",
+    "M974 Q1 S2 P0",
+    "M970 Q0 A10 B50 C90 H15 K0 M20 O3",
+    "M974 Q0 S2 P0",
+)
+
+
+def skip_vibration(machine: dict) -> int:
+    """시작 G코드에서 공진 측정 줄을 뺍니다. 뺀 줄 수를 돌려줍니다"""
+    gcode = machine.get("machine_start_gcode")
+    if not isinstance(gcode, str):
+        return 0
+
+    out = []
+    gone = 0
+    for line in gcode.split(chr(10)):
+        if line.strip() in VIBRATION_LINES:
+            gone += 1
+            continue
+        out.append(line)
+
+    if gone:
+        machine["machine_start_gcode"] = chr(10).join(out)
+    return gone
+
+
+#: 공진 측정을 건너뛸 것인가. 품질에 닿는 값이라 **따로 둡니다** —
+#: 토출 보정과 달리 되돌릴 일이 생길 수 있습니다.
+SKIP_VIBRATION = True
+
+
 def spread(
     out_dir: Path,
     profiles: "ProfileSet",
@@ -244,9 +289,11 @@ def spread(
 
         # ★ 공정과 필라멘트에 임시치아 설정을 덮습니다 (2026-10-10).
         #   **기계는 안 건드립니다** — A1 mini 것을 그대로 씁니다.
-        # ★ 기계는 값을 안 바꿉니다 — 시작 G코드의 스위치 하나만 끕니다
+        # ★ 기계는 값을 안 바꿉니다 — 시작 G코드에서 재는 구간만 뺍니다
         if kind == "machine" and dental:
             skip_flow_cali(data)
+            if SKIP_VIBRATION:
+                skip_vibration(data)
 
         over = {"process": DENTAL, "filament": DENTAL_FILAMENT}.get(kind)
         if over and dental:
