@@ -53,13 +53,22 @@ BACKOFF_SECONDS = 60
 
 def say(line: str) -> None:
     text = f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {line}"
-    print(text, flush=True)
+    # ★ pythonw 에는 화면이 없습니다. 판에 따라 sys.stdout 이 None 이라
+    #   print 하나로 죽을 수 있습니다 — 적는 일이 일을 막으면 안 됩니다.
+    try:
+        print(text, flush=True)
+    except Exception:  # noqa: BLE001
+        pass
     try:
         LOG.parent.mkdir(parents=True, exist_ok=True)
         with LOG.open("a", encoding="utf-8") as f:
             f.write(text + "\n")
     except OSError:
         pass
+
+
+#: 마지막으로 '살아 있습니다' 를 적은 때
+_beat = time.time()
 
 
 def settings_path() -> Path | None:
@@ -82,7 +91,13 @@ def ask(base: str, token: str) -> dict:
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read().decode("utf-8", "replace"))
+            body = r.read().decode("utf-8", "replace")
+        # ★★ 200 이어도 JSON 이 아닐 수 있습니다 — 배포 중이거나 앞단이
+        #   안내 쪽을 돌려줄 때입니다. 여기서 터지면 지켜보기가 **죽습니다.**
+        try:
+            return json.loads(body)
+        except ValueError:
+            return {"ok": False, "error": f"답이 JSON 이 아닙니다 ({body[:60]!r})"}
     except urllib.error.HTTPError as e:
         try:
             return json.loads(e.read().decode("utf-8", "replace"))
@@ -122,7 +137,15 @@ def main() -> int:
     quiet = False
 
     while True:
-        got = ask(base, token)
+        try:
+            got = ask(base, token)
+        except Exception as e:  # noqa: BLE001
+            # ★★ **지켜보기는 안 죽습니다.** 오늘(2026-10-14) 11분 만에
+            #   조용히 죽어 있었고, 사람은 또 "왜 안 되지" 를 했습니다.
+            #   무엇이 터지든 적고 쉬었다 다시 묻습니다.
+            say(f"알 수 없는 문제 — {e!r}")
+            time.sleep(BACKOFF_SECONDS)
+            continue
 
         if not got.get("ok"):
             # ★ 같은 말을 3초마다 적지 않습니다 — 로그가 쓸려 나갑니다
@@ -145,6 +168,13 @@ def main() -> int:
             #   띄웁니다 — exocad 케이스가 둘로 만들어집니다.
             time.sleep(15)
             continue
+
+        # ★ 살아 있다는 표시를 한 시간에 한 번 남깁니다. 로그가 조용한 것이
+        #   '할 일이 없어서' 인지 '죽어서' 인지 구별되게요.
+        global _beat
+        if time.time() - _beat > 3600:
+            _beat = time.time()
+            say("살아 있습니다")
 
         time.sleep(POLL_SECONDS)
 
