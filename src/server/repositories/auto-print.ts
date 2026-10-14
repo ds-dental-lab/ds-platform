@@ -587,19 +587,44 @@ export async function matchWaitingJob(
     return { ok: false, error: '설계 PC 만 물어볼 수 있습니다' };
   }
 
+  /*
+    ★★ **작업 줄을 보면 안 됩니다** (2026-10-14 에 고침). `auto_jobs` 는
+      파일을 **올릴 때** 생깁니다(openDeliverSlots). 그러니 'waiting_design'
+      으로 기다리는 줄은 **영영 없습니다** — 처음 쓴 조회는 늘 빈손이었고,
+      실제로 "치식 27 로 기다리는 주문이 없습니다" 만 돌려줬습니다.
+      기다리는 것은 작업이 아니라 **주문**입니다.
+    ★ 아직 안 보낸 주문만 봅니다 — 줄이 없거나, 있어도 설계를 기다리거나
+      실패한 것. 이미 자른 주문에 두 번째 크라운이 떨어져도 다시 안 보냅니다.
+  */
   const { data, error } = await admin
-    .from('auto_jobs')
-    .select('order_id, orders!inner(order_items(tooth_number))')
-    .eq('step', 'waiting_design')
-    .limit(50);
+    .from('orders')
+    .select('id, order_items(tooth_number, type_code), auto_jobs(step)')
+    .is('deleted_at', null)
+    .not('status', 'in', '(completed,cancelled)')
+    .order('created_at', { ascending: false })
+    .limit(200);
 
   if (error) return { ok: false, error: error.message };
 
-  type Row = { order_id: string; orders: { order_items: { tooth_number: number }[] } | null };
-  const jobs = ((data ?? []) as unknown as Row[]).map((r) => ({
-    orderId: r.order_id,
-    teeth: (r.orders?.order_items ?? []).map((i) => i.tooth_number),
-  }));
+  type Row = {
+    id: string;
+    order_items: { tooth_number: number; type_code: string }[] | null;
+    auto_jobs: { step: string }[] | null;
+  };
+
+  /** 아직 설계를 기다리는 것으로 보는 단계 */
+  const WAITING = ['waiting_design', 'failed'];
+
+  const jobs = ((data ?? []) as unknown as Row[])
+    .filter((r) => (r.order_items ?? []).some((i) => i.type_code === 'auto_temp'))
+    .filter((r) => {
+      const step = (r.auto_jobs ?? [])[0]?.step;
+      return !step || WAITING.includes(step);
+    })
+    .map((r) => ({
+      orderId: r.id,
+      teeth: (r.order_items ?? []).map((i) => i.tooth_number),
+    }));
 
   const picked = matchWaiting(jobs, designTeeth);
   if (!picked.ok) return { ok: false, error: picked.why };
