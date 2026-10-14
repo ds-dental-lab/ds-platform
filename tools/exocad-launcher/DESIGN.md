@@ -538,3 +538,31 @@ API 는 못 받습니다. 그런데 덴트버드가 **웹**이고, 단추마다 
 
 ★ 사진은 **PC 밖으로 안 나갑니다.** 카메라가 앞을 보기 때문에 방과 사람도
   찍힙니다 — 서버로 보내지 않고, 견줄 때도 판 부분만 봅니다.
+
+### 15-1. 새 케이스 → 설계까지 (실측 2026-10-14)
+
+```
+신규(사이드바) → 유형에서 Dentbird Crown
+  /crown/new-crown
+  #file-input          ★ 숨은 input[type=file]. .stl .ply .obj, 여러 개
+                         → 파일 고르기 창이 **안 뜹니다**
+  (AI가 데이터를 분류)   상악·하악을 스스로 가립니다
+  import-next-btn
+  (AI가 케이스를 분석)   → /crown/preparation
+  workspace-preparation-tooth-info-setter   "크라운 24" ★ 치식이 적힘
+  workspace-preparation-preset-select       "Preset - 3D Printing"
+  workspace-preparation-design-btn          설계 시작
+그다음 케이스 목록에서 viewer-dialog-export-button (15번 글)
+```
+
+★★★ **치식이 다르면 멈춥니다** (`dentbird_macro.py`). 덴트버드가 치식을
+  스스로 잡아 주는데, 틀렸을 때 아무도 모르는 것이 제일 위험합니다 —
+  엉뚱한 이의 크라운이 치과에서 그대로 출력됩니다. 화면에 적힌 치식을
+  읽어 주문서와 견주고, 다르거나 못 읽으면 **사람을 부릅니다.**
+  (서버도 올릴 때 한 번 더 막습니다 — 두 겹입니다.)
+
+★ 올리기가 제일 쉬웠습니다. `#file-input` 에 경로를 밀어 넣으면 끝이라,
+  파일 고르기 창을 다룰 일이 없습니다 (DS Core 때 20초를 0초로 만든 수법).
+
+★ 아직 안 해 본 것: 설계가 끝나기까지 몇 분인지, 끝난 것을 어떻게
+  알아채는지. 그건 한 건 돌려 봐야 압니다.
