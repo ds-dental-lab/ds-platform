@@ -556,3 +556,56 @@ export async function retryJob(
 
   return error ? { ok: false, error: error.message } : { ok: true, step: back };
 }
+
+/**
+ * 폴더에 떨어진 크라운이 어느 주문 것인가 (2026-10-14).
+ *
+ * ★★ **마지막 사람 손을 없애는 자리입니다.** 덴트버드에서 받은 STL 을
+ *   사람이 창에서 골라 줘야 했습니다 — 다른 데는 다 자동인데 그 한 번
+ *   때문에 사람이 PC 앞에 있어야 했습니다.
+ * ★ 고르는 재료는 **치식**입니다. 덴트버드가 `.constructionInfo` 에 적어
+ *   주고, 이미 그 값으로 주문서와 대조하고 있습니다. 같은 재료를 막는 데
+ *   말고 **찾는 데**도 씁니다.
+ * ★ 디자인센터 기기만. 고르는 규칙은 domain/auto-print 의 matchWaiting —
+ *   애매하면 안 고르고 까닭을 돌려줍니다.
+ */
+export async function matchWaitingJob(
+  orgId: string,
+  designTeeth: number[],
+): Promise<{ ok: true; orderId: string; token: string } | { ok: false; error: string }> {
+  const { matchWaiting } = await import('@/server/domain/auto-print');
+  const { issueExocadToken } = await import('@/server/exocad/token');
+
+  const admin = createAdminClient();
+
+  const { data: org } = await admin
+    .from('organizations')
+    .select('org_type')
+    .eq('id', orgId)
+    .maybeSingle();
+  if ((org as { org_type?: string } | null)?.org_type !== 'design_center') {
+    return { ok: false, error: '설계 PC 만 물어볼 수 있습니다' };
+  }
+
+  const { data, error } = await admin
+    .from('auto_jobs')
+    .select('order_id, orders!inner(order_items(tooth_number))')
+    .eq('step', 'waiting_design')
+    .limit(50);
+
+  if (error) return { ok: false, error: error.message };
+
+  type Row = { order_id: string; orders: { order_items: { tooth_number: number }[] } | null };
+  const jobs = ((data ?? []) as unknown as Row[]).map((r) => ({
+    orderId: r.order_id,
+    teeth: (r.orders?.order_items ?? []).map((i) => i.tooth_number),
+  }));
+
+  const picked = matchWaiting(jobs, designTeeth);
+  if (!picked.ok) return { ok: false, error: picked.why };
+
+  const token = issueExocadToken(picked.orderId);
+  if (!token) return { ok: false, error: '서버에 열쇠가 없어 토큰을 못 만듭니다' };
+
+  return { ok: true, orderId: picked.orderId, token };
+}

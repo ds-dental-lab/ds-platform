@@ -278,3 +278,62 @@ export function teethMismatch(orderTeeth: number[], designTeeth: number[]): stri
     `디자인 ${[...designTeeth].sort((a, b) => a - b).join('·')}`
   );
 }
+
+// ---------- 떨어진 파일이 어느 주문 것인가 ----------
+//
+// ★★ **왜 — 여기가 마지막 사람 손입니다** (2026-10-14). 덴트버드에서 받은
+//   STL 을 사람이 **창에서 골라** 줘야 했습니다. 다른 자리는 다 자동인데
+//   그 한 번 때문에 사람이 PC 앞에 있어야 합니다. 폴더에 떨어진 파일이
+//   어느 주문 것인지 기계가 정할 수 있으면 그 손이 없어집니다.
+//
+// ★ 고를 재료는 **치식**입니다. 덴트버드가 `.constructionInfo` 에 적어 주고
+//   (dentbird_case.py), 이미 그 값으로 서버가 주문서와 대조하고 있습니다.
+//   같은 재료를 '막는 데' 말고 '찾는 데' 도 씁니다.
+
+export interface WaitingJob {
+  orderId: string;
+  /** 그 주문의 치식 */
+  teeth: number[];
+}
+
+export type Matched =
+  | { ok: true; orderId: string }
+  | { ok: false; why: string };
+
+/**
+ * 치식으로 기다리는 주문 하나를 고릅니다.
+ *
+ * ★★ **둘이면 멈춥니다.** 같은 치식으로 기다리는 주문이 둘이면 어느
+ *   환자 것인지 알 길이 없습니다. 반쯤 맞는 것으로 고르면 **엉뚱한 이의
+ *   크라운이 치과에서 그대로 출력됩니다.** 멈춰서 사람이 고르게 두는
+ *   쪽이 훨씬 쌉니다.
+ * ★★ **치식을 못 읽었으면 안 고릅니다.** `teethMismatch` 는 못 읽은 것을
+ *   통과시키지만(대조를 못 했을 뿐이니까), **찾는 데는 다릅니다** —
+ *   아무 근거 없이 하나를 집는 셈이 됩니다.
+ * ★ 주문에 든 이를 **모두 덮어야** 고릅니다. 부분 납품은 사람이 창에서
+ *   고르면 되고, 자동으로는 하지 않습니다 — 두 개짜리 주문의 첫 크라운이
+ *   떨어졌을 때 그걸 '그 주문' 으로 잡아 출력까지 보내면 나머지 하나가
+ *   영영 안 나옵니다.
+ */
+export function matchWaiting(jobs: WaitingJob[], designTeeth: number[]): Matched {
+  const want = [...new Set(designTeeth)].sort((a, b) => a - b);
+  if (want.length === 0) {
+    return { ok: false, why: '디자인에서 치식을 못 읽었습니다' };
+  }
+
+  const same = (a: number[]) => {
+    const b = [...new Set(a)].sort((x, y) => x - y);
+    return b.length === want.length && b.every((t, i) => t === want[i]);
+  };
+
+  const hit = jobs.filter((j) => same(j.teeth));
+
+  if (hit.length === 1) return { ok: true, orderId: hit[0].orderId };
+  if (hit.length === 0) {
+    return { ok: false, why: `치식 ${want.join('·')} 로 기다리는 주문이 없습니다` };
+  }
+  return {
+    ok: false,
+    why: `치식 ${want.join('·')} 로 기다리는 주문이 ${hit.length}건입니다 — 사람이 골라 주세요`,
+  };
+}
