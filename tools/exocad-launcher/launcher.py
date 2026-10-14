@@ -22,6 +22,36 @@
 """
 from __future__ import annotations
 
+# ★★ 아래 import 보다 **먼저** 둡니다. requests 나 tkinter 가 없는 날이면
+#   그 줄에서 죽는데, 그러면 이 기록조차 안 남습니다.
+
+def _called(note: str) -> None:
+    """**불렸다는 사실 하나**를 가장 먼저 적습니다 (2026-10-14).
+
+    ★★ **왜 — 조용히 죽으면 아무 데도 안 남습니다.** pythonw 는 창도
+      콘솔도 없어서, 로그 설정에 닿기 전에 터지면 흔적이 0 입니다. 화면엔
+      '여는 중' 만 남고, 사람은 브라우저가 안 부른 건지 런처가 죽은 건지
+      **구별할 수가 없습니다.** 실제로 그 자리에서 이틀을 썼습니다.
+    ★ 그래서 import 보다 먼저, 표준 라이브러리만으로 한 줄 적습니다.
+      이 줄이 있으면 '불리긴 했다', 없으면 '브라우저가 안 불렀다' 입니다.
+    """
+    try:
+        import datetime
+        import os
+        import sys
+        from pathlib import Path
+
+        d = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow" / "launcher"
+        d.mkdir(parents=True, exist_ok=True)
+        with (d / "불렸습니다.txt").open("a", encoding="utf-8") as f:
+            f.write(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S} {note}\n")
+    except Exception:  # noqa: BLE001 — 기록 때문에 런처가 죽으면 안 됩니다
+        pass
+
+
+import sys as _sys  # noqa: E402 — 기록 한 줄에만 씁니다
+_called(" ".join(_sys.argv[1:]) or "(인자 없음)")
+
 import datetime as dt
 import json
 import logging
@@ -42,6 +72,9 @@ import requests
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+
+
+
 import make_project  # noqa: E402
 from state import folder as state_folder, migrate  # noqa: E402
 
