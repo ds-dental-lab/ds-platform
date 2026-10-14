@@ -71,7 +71,19 @@ MARKER = re.compile(r"marker|scanbody|scan.?body|abutment.?align", re.I)
 #: ★★ 어느 악인지 **이름에 안 적는** 스캐너가 있습니다 (2026-10-06, 박상균 건).
 #:   'Raw Preparation scan' = 깎은 쪽, 'Raw Antagonist scan' = 그 반대쪽.
 #:   상·하악은 **주문의 치식**으로 정합니다 — 14번이면 상악입니다.
-PREP = re.compile(r"preparation|prep|die|지대", re.I)
+#: ★ 전에 여기 `\bprep\b` 를 적었는데 소스에 **진짜 백스페이스 문자**가
+#:   들어가 있었습니다(0x08). 날것 문자열이라 그대로 남아, 그 갈래는
+#:   아무것도 못 맞췄습니다 — `Prep.stl` 만 온 날이면 이름을 못 바꿉니다.
+PREP = re.compile(r"preparation|\bprep\b|die|지대|작업치", re.I)
+#: ★★ **삭제 전 스캔**입니다 (2026-10-14). 치과가 `PrePreparationScan.stl`
+#:   을 같이 올립니다 — 깎기 **전** 모양이라 지대치가 아닙니다. 이름에
+#:   'prep' 이 들어 있어 PREP 에 걸렸고, 그러면 지대치 스캔과 **같은**
+#:   **이름**이 되어 둘 중 하나가 덮여 사라졌습니다. 어느 쪽이 남을지는
+#:   내려받는 차례에 달려 있었습니다 — 삭제 전 것이 남으면 exocad 가
+#:   **안 깎은 치아 위에** 설계합니다.
+#: ★ exocad 가 쓰는 이름은 `-situ` 입니다. 사장님 케이스 폴더에서 찾았습니다
+#:   (…-upperjaw-situ.ply 가 …-upperjaw.ply 옆에 나란히 있습니다).
+SITU = re.compile(r"pre.?preparation|pre.?op|situation|situ|삭제.?전|프렙.?전", re.I)
 ANTAGONIST = re.compile(r"antagonist|opposing|대합", re.I)
 
 
@@ -101,25 +113,40 @@ def place_name(folder_name: str, original: str, jaw: str | None = None) -> str:
     if ext not in (".stl", ".obj", ".ply"):
         return original
 
-    other = {"upper": "lower", "lower": "upper"}.get(jaw or "")
-
-    # 스캔바디는 **깎은 쪽 악**에 붙습니다 (…-upperjaw-marker.stl)
-    if MARKER.search(stem):
-        return f"{folder_name}-{jaw}jaw-marker{ext}" if jaw else original
+    # 바이트는 그대로 둡니다 — exocad 가 자동으로 집는 이름을 아직 모릅니다
     if BITE.search(stem):
         return original
+
+    other = {"upper": "lower", "lower": "upper"}.get(jaw or "")
+
+    # ★★ **무엇인지**(꼬리표)와 **어느 악인지**(쪽)를 따로 정합니다 (2026-10-14).
+    #   전에는 하나의 긴 if 사슬이라 **먼저 걸리는 쪽이 이겼습니다.**
+    #   `UpperJaw_PreOp.stl` 이면 상악에 먼저 걸려, 삭제 전 스캔이
+    #   지대치 자리를 차지했습니다. 둘은 다른 질문이라 따로 묻습니다.
+    if MARKER.search(stem):
+        tag = "-marker"          # 스캔바디
+    elif SITU.search(stem):
+        tag = "-situ"            # 삭제 전 — 지대치와 **다른 이름**이어야 합니다
+    else:
+        tag = ""
+
+    # 쪽은 이름에 적혀 있으면 그대로, 없으면 **주문의 치식**으로 정합니다.
+    # ★ SITU 를 UPPER/LOWER 보다 먼저 보지 않습니다 — 이름에 악이 적혀
+    #   있으면 그게 더 정확합니다. 꼬리표는 위에서 이미 떼어 뒀습니다.
     if UPPER.search(stem):
-        return f"{folder_name}-upperjaw{ext}"
-    if LOWER.search(stem):
-        return f"{folder_name}-lowerjaw{ext}"
+        side = "upper"
+    elif LOWER.search(stem):
+        side = "lower"
+    elif ANTAGONIST.search(stem):
+        side = other             # 대합치 — 깎은 쪽의 **반대**
+    elif tag or PREP.search(stem):
+        side = jaw               # 지대치(작업치) · 스캔바디 · 삭제 전
+    else:
+        side = None
 
-    # 이름에 악이 없는 스캐너 — 치식으로 정합니다
-    if PREP.search(stem) and jaw:
-        return f"{folder_name}-{jaw}jaw{ext}"
-    if ANTAGONIST.search(stem) and other:
-        return f"{folder_name}-{other}jaw{ext}"
-
-    return original
+    if not side:
+        return original          # 못 맞추면 원래 이름 — exocad 에서 사람이 고릅니다
+    return f"{folder_name}-{side}jaw{tag}{ext}"
 
 
 def unzip_scans(zip_path: Path, into: Path) -> list[Path]:
@@ -577,11 +604,25 @@ class Job:
         got.extend(unpacked)
 
         dxds: list[Path] = []
+        # ★★ **이번에 놓은 이름**을 적어 둡니다 (2026-10-14). 두 파일이 같은
+        #   이름으로 가면 뒤엣것이 앞엣것을 지웁니다 — 실제로 삭제 전
+        #   스캔이 지대치 스캔을 덮어썼습니다. 이름 짓는 규칙은 고쳤지만,
+        #   모르는 스캐너가 또 겹치게 보낼 수 있습니다. 그때는 **덮지 않고**
+        #   원래 이름으로 두고 **말해 줍니다** — 조용히 지는 쪽이 없게.
+        placed: dict[str, str] = {}
         for p in got:
             if p.suffix.lower() == ".dxd":
                 dxds.append(p)
                 continue
-            target = folder / place_name(folder_name, p.name, jaw)
+
+            name = place_name(folder_name, p.name, jaw)
+            if name in placed:
+                self.note(f"⚠ {p.name} 과 {placed[name]} 이 같은 이름이 됩니다 — {p.name} 은 그대로 둡니다")
+                name = p.name
+            else:
+                placed[name] = p.name
+
+            target = folder / name
             if MARKER.search(Path(p.name).stem):
                 scan_abutment = True
             if target.exists():
