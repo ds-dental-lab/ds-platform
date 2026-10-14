@@ -627,11 +627,23 @@ export async function matchWaitingJob(
 
   if (error) return { ok: false, error: error.message };
 
+  type Job = { step: string };
   type Row = {
     id: string;
     order_items: { tooth_number: number; type_code: string }[] | null;
-    auto_jobs: { step: string }[] | null;
+    /**
+     * ★★★ **배열이 아니라 객체로 옵니다.** auto_jobs 는 order_id 가 unique 라
+     *   PostgREST 가 '하나짜리 관계' 로 보고 `{step:'done'}` 을 줍니다 —
+     *   `[{step:'done'}]` 이 아닙니다. 전에는 `(r.auto_jobs ?? [])[0]` 로
+     *   꺼냈는데 그러면 **언제나 undefined** 라, **이미 뽑은 주문까지**
+     *   '기다리는 중' 으로 잡혔습니다. 같은 치식 크라운이 떨어지면 끝난
+     *   주문에 다시 걸려 두 번 뽑힙니다. 둘 다 받아 둡니다.
+     */
+    auto_jobs: Job | Job[] | null;
   };
+
+  const stepOf = (j: Row['auto_jobs']): string | undefined =>
+    Array.isArray(j) ? j[0]?.step : (j?.step ?? undefined);
 
   /**
    * 아직 **뽑히지 않은** 것으로 보는 단계.
@@ -648,7 +660,7 @@ export async function matchWaitingJob(
   const jobs = ((data ?? []) as unknown as Row[])
     .filter((r) => (r.order_items ?? []).some((i) => i.type_code === 'auto_temp'))
     .filter((r) => {
-      const step = (r.auto_jobs ?? [])[0]?.step;
+      const step = stepOf(r.auto_jobs);
       return !step || WAITING.includes(step);
     })
     .map((r) => ({
