@@ -612,8 +612,17 @@ export async function matchWaitingJob(
     auto_jobs: { step: string }[] | null;
   };
 
-  /** 아직 설계를 기다리는 것으로 보는 단계 */
-  const WAITING = ['waiting_design', 'failed'];
+  /**
+   * 아직 **뽑히지 않은** 것으로 보는 단계.
+   *
+   * ★★ `queued` 도 넣습니다 (2026-10-14). 잘라서 올려 뒀지만 아직 프린터로
+   *   안 간 상태입니다. 같은 주문에 **고쳐 자른 파일**이 떨어지면 그것으로
+   *   바꿔 줘야 합니다 — 실제로 각도를 잘못 넣어 자른 판을 되돌릴 길이
+   *   없었습니다. 덮어써도 잃는 것이 없습니다(아직 안 뽑았으니까요).
+   * ★ `sending`·`printing` 은 **안 넣습니다.** 이미 프린터가 쥐고 있어서,
+   *   그때 바꾸면 도는 것과 적힌 것이 달라집니다.
+   */
+  const WAITING = ['waiting_design', 'queued', 'failed'];
 
   const jobs = ((data ?? []) as unknown as Row[])
     .filter((r) => (r.order_items ?? []).some((i) => i.type_code === 'auto_temp'))

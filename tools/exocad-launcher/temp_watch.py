@@ -136,6 +136,7 @@ def settled(path: Path) -> bool:
 def handle(stl: Path, base: str, token: str) -> None:
     from dentbird_case import check as check_case  # noqa: PLC0415
     from deliver import deliver  # noqa: PLC0415
+    from orient import DEFAULT_RX, DEFAULT_RY  # noqa: PLC0415
 
     looked = check_case(stl)
     if not looked.ok:
@@ -154,7 +155,15 @@ def handle(stl: Path, base: str, token: str) -> None:
 
     say(f"  주문 {got['orderId'][:8]} 로 보냅니다")
     WORK.mkdir(parents=True, exist_ok=True)
-    ok = deliver(stl, got["orderId"], got["token"], WORK, 150.0, 140.0, say=lambda m: say("  " + m))
+    # ★★ 각도를 **여기 적지 않습니다** (2026-10-14 에 고침). orient.py 가
+    #   한 곳에서 정합니다 — 실제 크라운으로 재서 x135 로 정해 둔 값입니다.
+    #   제가 옛 글에 남아 있던 x150/y140 을 손으로 적어 넣었다가, 그 각도로
+    #   한 판을 뽑았습니다. 그 각도는 **크라운 안쪽에 서포트가 붙습니다**
+    #   (내면 처짐 35.9 대 0.0). 떼기 어렵고 맞춤에 그대로 영향이 갑니다.
+    ok = deliver(
+        stl, got["orderId"], got["token"], WORK,
+        DEFAULT_RX, DEFAULT_RY, say=lambda m: say("  " + m),
+    )
     say("  보냈습니다" if ok else "  보내지 못했습니다")
 
 
