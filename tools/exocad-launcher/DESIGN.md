@@ -455,3 +455,46 @@ AntagonistScan.stl 은 대합치가 되는 것".
 ★ 남은 막힘은 **덴트버드**입니다. 설계와 내보내기는 그쪽 화면에서 나고,
   무료 등급은 월 3건입니다. 10월 접수가 41건이라 건수를 들고 요금제를
   이야기하는 것이 정공법입니다 — 계정 자동 로그인은 하지 않습니다.
+
+## 15. 덴트버드 웹 — 매크로를 걸 자리 (2026-10-14 실측)
+
+API 는 못 받습니다. 그런데 덴트버드가 **웹**이고, 단추마다 `data-testid` 를
+붙여 놨습니다. 좌표나 한글 글자가 아니라 그 이름으로 누르면 화면이 바뀌어도
+웬만하면 안 깨집니다. DS Core 를 셀레니움으로 돌리는 것과 같은 방식입니다.
+
+★★ **비밀번호를 안 적습니다.** 전용 크롬 프로필(`chrome-dentbird`)에 사람이
+  **한 번만 손으로** 로그인하면 세션이 그 폴더에 남습니다. `dscore.py` 는
+  settings.json 에 평문으로 적어 두는데, 지금이라면 안 할 방식입니다 —
+  그쪽도 이 방식으로 옮기는 것이 좋습니다.
+
+★ 디버그 포트(9333)를 열어 둡니다. 띄워 둔 **그 창에 붙어서** 읽습니다 —
+  새로 띄우면 로그인이 또 필요합니다. `dentbird_web.py read | click | shot`.
+
+### 읽은 자리 (로그인 뒤)
+
+    목록   https://ai.dentbird.com/cloud/design   "Case List | Dentbird Cloud"
+    케이스 머리줄
+      viewer-dialog-export-button      내보내기
+      viewer-dialog-design-button      디자인
+      viewer-dialog-files-toggle       파일 목록
+      viewer-dialog-delete-button      삭제
+    내보내기 창
+      export-dialog-select-all-checkbox
+      export-dialog-export-for-exocad-toggle        (꺼짐)
+      export-dialog-coordinates-to-cam-sw-toggle    (★ 켜짐)
+      export-dialog-compress-to-zip-checkbox        (꺼짐)
+      "내보내기" 단추 — 화면에 둘이라 **나중 것**을 눌러야 합니다
+
+★★ `coordinates-to-cam-sw-toggle` 이 **그 CAM 축 정렬**입니다. 켜져 있어야
+  크라운이 삽입축 +Z 자세로 나오고, 그래서 고정 각도(x150/y140)가 통합니다.
+  `dentbird_case.check` 가 이걸 못 지키면 멈춥니다 — 매크로는 **누르기 전에
+  이 값을 확인**해야 합니다.
+
+★ zip 토글이 켜져 있으면 묶여 떨어집니다. 지켜보기는 낱개를 봅니다.
+
+★ **재내보내기는 건수를 안 깎습니다** (Free 플랜 명시: "내보내기한 보철물은
+  무제한 재내보내기"). 매크로를 만들고 고치고 시험하는 동안 월 3건이 안
+  줄어듭니다 — **과금은 실제로 돌릴 때** 하면 됩니다.
+
+★ 아직 안 본 자리: 새 케이스 만들기 · 스캔 올리기 · 설계 돌리기.
+  그건 건수를 하나 쓰므로 한 번만 따라가며 적습니다.
