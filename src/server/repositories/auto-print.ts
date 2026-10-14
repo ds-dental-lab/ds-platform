@@ -127,7 +127,28 @@ export async function moveStep(
   const row = data as JobRow | null;
   if (!row) return { ok: false, error: '작업을 찾지 못했습니다' };
 
-  if (row.step === to) return { ok: true }; // 같은 말을 두 번 해도 탈이 없게
+  /*
+    ★★ **같은 단계라도 파일은 바꿔 줍니다** (2026-10-14 에 고침).
+      전에는 여기서 그냥 돌아갔습니다 — '같은 말을 두 번 해도 탈이 없게'.
+      그런데 이미 'queued' 인 주문에 **고쳐 자른 파일**을 올리면, 그 이른
+      돌아감 때문에 print_file_path 가 **안 바뀌었습니다.** 새 파일을
+      저장소에 올려 놓고 프린터에는 옛 파일을 보냈습니다 — 각도를 고쳐
+      놓고도 틀린 각도로 뽑힐 뻔했고, 실제로 한 번 그랬습니다.
+    ★ 되돌리는 것이 아닙니다. 같은 자리에서 **가리키는 것만** 바꿉니다.
+  */
+  if (row.step === to) {
+    if (to !== 'queued' || (!extra.printFilePath && !extra.rotate)) return { ok: true };
+
+    const same: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (extra.printFilePath) same.print_file_path = extra.printFilePath;
+    if (extra.rotate) {
+      same.rotate_x = extra.rotate.x;
+      same.rotate_y = extra.rotate.y;
+      same.rotate_z = extra.rotate.z;
+    }
+    const { error: e2 } = await admin.from('auto_jobs').update(same).eq('id', jobId);
+    return e2 ? { ok: false, error: e2.message } : { ok: true };
+  }
   if (!canMove(row.step, to)) {
     return { ok: false, error: `${row.step} 에서 ${to} 로는 갈 수 없습니다` };
   }
