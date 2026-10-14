@@ -67,6 +67,15 @@ def wait_gone(d, word: str, why: str) -> None:
     raise Stop(f"{why} — '{word}' 가 {WAIT_SECONDS}초 넘게 그대로입니다")
 
 
+def dismiss(d) -> None:
+    """떠 있는 알림창의 '확인' 을 닫습니다. 없으면 아무 일도 안 합니다"""
+    d.execute_script(
+        "const b=[...document.querySelectorAll('button')]"
+        ".filter(e=>(e.innerText||'').trim()==='확인');"
+        "if(b.length) b[b.length-1].click();"
+    )
+
+
 def click(d, testid: str) -> None:
     els = d.find_elements("css selector", f"[data-testid={testid}]")
     if not els:
@@ -119,6 +128,8 @@ def run(scans: list[Path], want: list[int], say=print) -> bool:
     if sorted(got) != sorted(want):
         raise Stop(f"치식이 주문서와 다릅니다 — 주문서 {want} · 덴트버드 {got}")
 
+    retried = False
+
     say("설계 화면으로 넘어갑니다")
     click(d, "workspace-preparation-design-btn")
     time.sleep(6)
@@ -128,18 +139,43 @@ def run(scans: list[Path], want: list[int], say=print) -> bool:
     if again and sorted(again) != sorted(want):
         raise Stop(f"설계 화면의 치식이 다릅니다 — 주문서 {want} · 덴트버드 {again}")
 
-    say("생성을 누릅니다 (크라운 셋에 3분 걸렸습니다)")
-    click(d, "generate-crown-btn")
+    # ★★ **화면이 다 뜨기 전에는 눌러도 안 먹습니다** (2026-10-14 에 겪음).
+    #   단추는 멀쩡한데(`disabled` 아님) 위에 뭐가 덮여 있어 클릭이 가로막힙니다.
+    #   한 번 실패했다고 포기하면 "눌렀는데 아무 일도 안 일어난다" 가 됩니다 —
+    #   그 자리를 오늘 4분 헤맸습니다. 먹을 때까지 몇 번 더 눌러 봅니다.
+    say("생성을 누릅니다")
+    for attempt in range(6):
+        try:
+            click(d, "generate-crown-btn")
+            time.sleep(6)
+            if "준비 중" in text(d) or "생성됨" in text(d):
+                break
+        except Exception:  # noqa: BLE001 — 가로막힌 것뿐입니다
+            pass
+        time.sleep(10)
+    else:
+        raise Stop("생성 단추가 안 먹습니다 — 화면을 봐 주세요")
 
-    # ★ 끝났다는 말은 'AI 디자인 생성 완료' 입니다. 도는 동안은
-    #   '디자인 준비 중 … %' 가 떠 있습니다 (실측 2026-10-14).
+    # ★ 끝났다는 말은 '생성됨'(한 개) 또는 'AI 디자인 생성 완료' 입니다.
+    #   도는 동안은 '디자인 준비 중 … %' 가 떠 있습니다 (실측 2026-10-14).
+    #   싱글 크라운 하나에 **2분 40초**, 셋에 3분이었습니다.
     for _ in range(WAIT_SECONDS // STEP):
         body = text(d)
-        if "생성 완료" in body:
-            say("AI 디자인 생성 완료")
+        if "생성 완료" in body or "생성됨" in body:
+            say("생성 끝났습니다")
             return True
-        if "실패" in body:
-            raise Stop("덴트버드가 실패라고 합니다 — 화면을 봐 주세요")
+        # ★★ 덴트버드가 **그냥 실패하는 날이 있습니다.** "알 수 없는 오류" 라고만
+        #   합니다 (2026-10-14, 크라운 16). 한 번 더 하면 되는 일이 많아서
+        #   조용히 포기하지 않고 창을 닫고 한 번 다시 겁니다. 그래도 안 되면
+        #   사람을 부릅니다 — 두 번 틀리면 스캔 쪽 문제일 수 있습니다.
+        if "생성 실패" in body:
+            if retried:
+                raise Stop("덴트버드가 두 번 실패했습니다 — 스캔을 봐 주세요")
+            say("덴트버드가 실패했습니다 — 한 번 더 겁니다")
+            dismiss(d)
+            retried = True
+            time.sleep(4)
+            click(d, "generate-crown-btn")
         time.sleep(STEP)
 
     raise Stop(f"{WAIT_SECONDS}초가 지나도 생성이 안 끝납니다")
