@@ -9,6 +9,32 @@
 // ★ 기기 열쇠는 길고, **해시로만** 저장합니다 (repositories/device-link).
 // =========================================================
 
+import type { Sector } from '@/server/domain/order-status';
+
+/**
+ * PC 를 묶을 수 있는 자리.
+ *
+ * ★★ **디자인센터도 묶습니다** (2026-10-14). 전에는 치과만이었습니다 —
+ *   스캔을 올리는 것이 치과 일이니까요. 그런데 **exocad 를 여는 일**이
+ *   디자인센터 PC 에서 나야 하고, 지금은 그걸 브라우저가 `denflow://` 로
+ *   시킵니다. 브라우저가 안 쏘면 조용히 멈추고 우리가 할 수 있는 것이
+ *   없습니다 (2026-10-13~14 에 이틀). 에이전트가 물어보고 가져가면
+ *   브라우저가 그 고리에서 빠집니다 — 그러려면 그 PC 도 **기기**여야 합니다.
+ *
+ * ★ 기공소는 안 묶습니다. 올릴 스캔도, 열 exocad 도 없습니다.
+ */
+export const DEVICE_SECTORS: Sector[] = ['clinic', 'design_center'];
+
+export function canLinkDevice(sector: Sector | null | undefined): boolean {
+  return !!sector && DEVICE_SECTORS.includes(sector);
+}
+
+/** 그 자리의 PC 를 뭐라고 부르는가 — 하는 일이 다릅니다 */
+export const DEVICE_LABEL: Record<string, { title: string; what: string }> = {
+  clinic: { title: '스캐너 PC 연결', what: '구강스캐너에서 내보낸 스캔을 올립니다' },
+  design_center: { title: '설계 PC 연결', what: 'exocad 를 열고 자동 출력을 보냅니다' },
+};
+
 export const LINK_CODE_LENGTH = 6;
 export const LINK_CODE_TTL_MINUTES = 10;
 

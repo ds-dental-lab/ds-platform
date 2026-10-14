@@ -184,3 +184,48 @@ export type ExocadResultStatus = 'done' | 'failed';
 export function isExocadResultStatus(v: unknown): v is ExocadResultStatus {
   return v === 'done' || v === 'failed';
 }
+
+// ---------- 에이전트가 집어 가는 일감 ----------
+//
+// ★★ **왜 — 브라우저가 고리에서 빠집니다** (2026-10-14). 지금까지는 단추를
+//   누르면 브라우저가 `denflow://` 를 쏘아 런처를 띄웠습니다. 그런데
+//   브라우저가 안 쏘면 **창도 오류도 없이** 멈춥니다. 레지스트리도 런처도
+//   멀쩡한데 화면엔 '여는 중' 만 남습니다 — 이틀을 거기서 썼습니다.
+//   그쪽은 우리가 고칠 수 있는 자리가 아닙니다.
+//
+// ★ 그래서 단추는 **줄 하나 남기는** 일만 하고, 설계 PC 의 에이전트가
+//   물어보고 가져갑니다. 자동 출력이 이미 이 길로 돕니다.
+
+/**
+ * 눌러 둔 줄을 에이전트가 집어 갈 수 있는 시간 (분).
+ *
+ * ★★ **지난 것을 집으면 안 됩니다.** 에이전트가 꺼져 있던 동안 쌓인 줄을
+ *   켜자마자 다 열면, 사람이 안 시킨 케이스가 줄줄이 exocad 에 올라갑니다.
+ *   "아까 눌렀는데 이제 열렸네" 까지가 사람이 납득하는 범위입니다.
+ * ★ 넉넉히 둡니다 — 에이전트가 잠깐 멈췄다 떠도 방금 누른 것은 살려야
+ *   합니다. 토큰이 10분이라 그보다 길게 둘 이유도 없습니다.
+ */
+export const EXOCAD_CLAIM_MINUTES = 10;
+
+export interface PendingExport {
+  orderId: string;
+  requestedAt: string;
+  fetchedAt: string | null;
+}
+
+/**
+ * 지금 집어 갈 줄. 없으면 null.
+ *
+ * ★ **이미 가져간 것은 다시 안 줍니다**(fetchedAt). 런처가 주문 정보를
+ *   받아 갈 때 서버가 그 자리를 찍습니다 — 그게 '가져갔다' 는 뜻입니다.
+ * ★ 오래된 것부터 줍니다. 두 건을 눌러 뒀으면 누른 차례대로 열립니다.
+ */
+export function nextExport(rows: PendingExport[], now: Date = new Date()): PendingExport | null {
+  const floor = now.getTime() - EXOCAD_CLAIM_MINUTES * 60_000;
+
+  const waiting = rows
+    .filter((r) => !r.fetchedAt && Date.parse(r.requestedAt) >= floor)
+    .sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
+
+  return waiting[0] ?? null;
+}

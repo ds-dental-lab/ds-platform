@@ -14,21 +14,38 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/server/policies/session';
 import { canManageMembers, type MemberRole } from '@/server/domain/member';
-import { linkCodeExpiry, makeLinkCode } from '@/server/domain/device-link';
+import { canLinkDevice, linkCodeExpiry, makeLinkCode } from '@/server/domain/device-link';
+import type { Sector } from '@/server/domain/order-status';
 
 export type LinkCodeResult = { ok: true; code: string; minutes: number } | { ok: false; error: string };
 
-async function requireClinicManager() {
+/**
+ * PC 를 묶고 푸는 사람.
+ *
+ * ★★ **디자인센터도 묶습니다** (2026-10-14). 누가 묶을 수 있는지는
+ *   domain/device-link 의 canLinkDevice 가 정합니다 — 여기서 자리 이름을
+ *   직접 따지면 시험이 못 닿습니다.
+ * ★ 관리자만인 것은 그대로입니다. 기기 하나가 그 조직의 권한을 쥡니다.
+ */
+async function requireDeviceManager() {
   const session = await getSession();
-  if (session?.orgType !== 'clinic' || !canManageMembers(session.role as MemberRole | null)) {
+  if (
+    !canLinkDevice(session?.orgType as Sector | null) ||
+    !canManageMembers(session?.role as MemberRole | null)
+  ) {
     return null;
   }
   return session;
 }
 
+/** 묶은 뒤 다시 그려야 하는 화면 — 자리마다 다릅니다 */
+function accountPath(sector: string | null | undefined): string {
+  return sector === 'design_center' ? '/design/account' : '/clinic/account';
+}
+
 export async function submitDeviceCode(): Promise<LinkCodeResult> {
-  const session = await requireClinicManager();
-  if (!session?.orgId) return { ok: false, error: '치과 관리자만 연결할 수 있습니다' };
+  const session = await requireDeviceManager();
+  if (!session?.orgId) return { ok: false, error: '관리자만 연결할 수 있습니다' };
 
   const admin = createAdminClient();
 
@@ -43,7 +60,7 @@ export async function submitDeviceCode(): Promise<LinkCodeResult> {
     });
 
     if (!error) {
-      revalidatePath('/clinic/account');
+      revalidatePath(accountPath(session.orgType));
       return { ok: true, code, minutes: 10 };
     }
   }
@@ -52,8 +69,8 @@ export async function submitDeviceCode(): Promise<LinkCodeResult> {
 }
 
 export async function submitRevokeDevice(deviceId: string): Promise<{ ok: boolean; error?: string }> {
-  const session = await requireClinicManager();
-  if (!session?.orgId) return { ok: false, error: '치과 관리자만 해제할 수 있습니다' };
+  const session = await requireDeviceManager();
+  if (!session?.orgId) return { ok: false, error: '관리자만 해제할 수 있습니다' };
 
   const supabase = await createClient();
   // ★ 자기 치과의 기기만 — RLS 가 한 번 더 봅니다
@@ -68,6 +85,6 @@ export async function submitRevokeDevice(deviceId: string): Promise<{ ok: boolea
 
   if (error) return { ok: false, error: `해제하지 못했습니다: ${error.message}` };
 
-  revalidatePath('/clinic/account');
+  revalidatePath(accountPath(session.orgType));
   return { ok: true };
 }

@@ -13,6 +13,8 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitDeviceCode, submitRevokeDevice } from '@/server/actions/device-link';
+import { DEVICE_LABEL } from '@/server/domain/device-link';
+import type { Sector } from '@/server/domain/order-status';
 
 export interface ScannerDevice {
   id: string;
@@ -25,6 +27,14 @@ export interface ScannerDeviceCardProps {
   devices: ScannerDevice[];
   /** 관리자만 연결·해제합니다 */
   canManage: boolean;
+  /**
+   * 어느 자리의 PC 인가 (2026-10-14).
+   *
+   * ★ 치과는 **스캔을 올리는** PC, 디자인센터는 **exocad 를 여는** PC 입니다.
+   *   같은 연결이지만 하는 일이 달라서 제목과 설명이 다릅니다. 무엇에
+   *   쓰는 것인지 안 적으면 "이건 왜 연결하나요" 가 됩니다.
+   */
+  sector?: Sector;
 }
 
 function when(value: string | null): string {
@@ -32,7 +42,12 @@ function when(value: string | null): string {
   return new Date(value).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-export default function ScannerDeviceCard({ devices, canManage }: ScannerDeviceCardProps) {
+export default function ScannerDeviceCard({
+  devices,
+  canManage,
+  sector = 'clinic',
+}: ScannerDeviceCardProps) {
+  const label = DEVICE_LABEL[sector] ?? DEVICE_LABEL.clinic;
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
@@ -68,10 +83,8 @@ export default function ScannerDeviceCard({ devices, canManage }: ScannerDeviceC
   return (
     <section className="mx-auto mt-4 max-w-[720px] rounded-lg border border-[#E8EBF0] bg-white">
       <div className="flex flex-wrap items-center gap-2 border-b border-[#E8EBF0] px-6 py-4">
-        <h2 className="text-[15px] font-bold tracking-tight text-[#1A2130]">스캐너 PC 연결</h2>
-        <p className="text-[13px] text-[#7C8595]">
-          구강스캐너에서 내보내면 스캔이 저절로 올라옵니다.
-        </p>
+        <h2 className="text-[15px] font-bold tracking-tight text-[#1A2130]">{label.title}</h2>
+        <p className="text-[13px] text-[#7C8595]">{label.what}.</p>
 
         {canManage && (
           <button

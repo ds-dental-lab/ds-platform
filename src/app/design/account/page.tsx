@@ -13,13 +13,20 @@ import { getMyOrg, getMyAlimtalk } from '@/server/repositories/account';
 import AccountForm from '@/components/account/AccountForm';
 import MyAccountCard from '@/components/account/MyAccountCard';
 import AlimtalkCard from '@/components/account/AlimtalkCard';
+import ScannerDeviceCard from '@/components/account/ScannerDeviceCard';
+import { listScannerDevices } from '@/server/repositories/device-link';
+import { canManageMembers, type MemberRole } from '@/server/domain/member';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AccountPage() {
   const session = await requireSession();
 
-  const [org, alimtalk] = await Promise.all([getMyOrg(), getMyAlimtalk()]);
+  const [org, alimtalk, devices] = await Promise.all([
+    getMyOrg(),
+    getMyAlimtalk(),
+    listScannerDevices(),
+  ]);
   if (!org) notFound();
 
   return (
@@ -42,6 +49,18 @@ export default async function AccountPage() {
           recent={alimtalk.recent}
         />
       )}
+
+      {/*
+        ★★ **설계 PC 연결** (2026-10-14). exocad 를 여는 일을 브라우저가
+          `denflow://` 로 시키고 있었는데, 브라우저가 안 쏘면 **조용히**
+          멈춥니다 — 창도 오류도 없이요. 이틀을 거기서 썼습니다.
+          이 PC 를 기기로 묶어 두면 에이전트가 물어보고 가져갑니다.
+      */}
+      <ScannerDeviceCard
+        devices={devices}
+        canManage={canManageMembers(session.role as MemberRole | null)}
+        sector="design_center"
+      />
     </>
   );
 }
