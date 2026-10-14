@@ -34,7 +34,15 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 STATE = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow"
-SETTINGS = STATE / "scan_agent.json"
+
+#: ★★ **설계 PC 열쇠는 따로 둡니다** (2026-10-14). 같은 PC 가 치과 기기로도
+#:   묶여 있을 수 있습니다 — 지금 사장님 PC 가 그렇습니다(프린터를 돌리려고
+#:   치ㅣ 치과 기기로 묶여 있음). 한 파일을 같이 쓰면 설계 PC 로 묶는 순간
+#:   **치과 열쇠가 덮여 사라지고** 프린터 쪽을 다시 묶어야 합니다.
+#: ★ 없으면 scan_agent.json 을 봅니다 — 치과 PC 에서는 그 하나뿐이고,
+#:   거기서는 이 지켜보기가 돌 일도 없습니다.
+DESIGN_SETTINGS = STATE / "design_agent.json"
+SCAN_SETTINGS = STATE / "scan_agent.json"
 LOG = STATE / "launcher" / "exocad-지켜보기.txt"
 
 #: 몇 초마다 물어보나. 사람이 단추를 누르고 기다리는 시간입니다 — 짧게.
@@ -54,8 +62,15 @@ def say(line: str) -> None:
         pass
 
 
-def settings() -> dict:
-    return json.loads(SETTINGS.read_text(encoding="utf-8"))
+def settings_path() -> Path | None:
+    for p in (DESIGN_SETTINGS, SCAN_SETTINGS):
+        if p.is_file():
+            return p
+    return None
+
+
+def settings(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def ask(base: str, token: str) -> dict:
@@ -89,12 +104,14 @@ def open_exocad(order_id: str, token: str) -> None:
 
 
 def main() -> int:
-    if not SETTINGS.is_file():
-        say(f"기기 열쇠가 없습니다 — {SETTINGS}")
-        say("덴플로우 계정정보에서 '설계 PC 연결' 코드를 받아 에이전트로 묶어 주세요")
+    path = settings_path()
+    if not path:
+        say(f"기기 열쇠가 없습니다 — {DESIGN_SETTINGS}")
+        say("덴플로우 계정정보에서 '설계 PC 연결' 코드를 받아 link_design.py 로 묶어 주세요")
         return 1
 
-    cfg = settings()
+    cfg = settings(path)
+    say(f"열쇠: {path.name}")
     base = cfg.get("base_url", "https://denflow.kr").rstrip("/")
     token = cfg.get("token")
     if not token:
