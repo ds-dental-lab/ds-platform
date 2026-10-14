@@ -23,9 +23,11 @@ r"""덴트버드를 대신 눌러 줍니다 (2026-10-14).
     #file-input                  스캔을 그대로 밀어 넣음
     import-next-btn              AI 분류 끝난 뒤
     (AI 케이스 분석)              /crown/preparation 으로 넘어감
-    tooth-info-setter            "크라운 27" ← **여기서 치식 확인**
+    상태 목록                     "크라운 24 / 감지됨" ← **치식을 여기서 다 셉니다**
     preset-select                "Preset - 3D Printing"
-    workspace-preparation-design-btn   설계 시작
+    workspace-preparation-design-btn   설계 화면으로
+    generate-crown-btn           생성 (도는 동안 '디자인 준비 중 …%')
+    "AI 디자인 생성 완료"           끝났다는 말 · 크라운 셋에 3분
     viewer-dialog-export-button  내보내기 (케이스 목록에서)
 """
 from __future__ import annotations
@@ -73,12 +75,17 @@ def click(d, testid: str) -> None:
 
 
 def detected_teeth(d) -> list[int]:
-    """화면이 말하는 치식. 못 읽으면 빈 목록"""
-    els = d.find_elements("css selector", "[data-testid=workspace-preparation-tooth-info-setter]")
-    if not els:
-        return []
-    # "디자인 파라미터 / 크라운 24 / Preset -" 에서 숫자만
-    return [int(n) for n in re.findall(r"\b([1-4][1-8])\b", els[0].text)]
+    """화면이 말하는 치식 **전부**. 못 읽으면 빈 목록
+
+    ★★★ **하나만 읽으면 안 됩니다** (2026-10-14 에 겪음).
+      `…tooth-info-setter` 칸에는 **맨 앞 하나**만 적힙니다. 실제로는
+      24·25·26 세 개짜리 케이스였는데 그 칸은 "크라운 24" 만 보여 줬습니다.
+      그걸 믿었으면 **세 개짜리를 한 개짜리 주문으로 통과**시켰을 겁니다 —
+      나머지 둘은 영영 안 나오고, 치과는 하나만 받습니다.
+    ★ 상태 목록에 "크라운 24 / 감지됨" 처럼 하나씩 적힙니다. 화면 글
+      전체에서 그 꼴을 다 긁습니다.
+    """
+    return sorted({int(n) for n in re.findall(r"크라운\s*([1-4][1-8])\b", text(d))})
 
 
 def run(scans: list[Path], want: list[int], say=print) -> bool:
@@ -112,9 +119,30 @@ def run(scans: list[Path], want: list[int], say=print) -> bool:
     if sorted(got) != sorted(want):
         raise Stop(f"치식이 주문서와 다릅니다 — 주문서 {want} · 덴트버드 {got}")
 
-    say("설계를 시작합니다")
+    say("설계 화면으로 넘어갑니다")
     click(d, "workspace-preparation-design-btn")
-    return True
+    time.sleep(6)
+
+    # ★ 넘어간 화면에서 **다시** 셉니다. 여기 상태 목록이 치아를 다 보여 줍니다
+    again = detected_teeth(d)
+    if again and sorted(again) != sorted(want):
+        raise Stop(f"설계 화면의 치식이 다릅니다 — 주문서 {want} · 덴트버드 {again}")
+
+    say("생성을 누릅니다 (크라운 셋에 3분 걸렸습니다)")
+    click(d, "generate-crown-btn")
+
+    # ★ 끝났다는 말은 'AI 디자인 생성 완료' 입니다. 도는 동안은
+    #   '디자인 준비 중 … %' 가 떠 있습니다 (실측 2026-10-14).
+    for _ in range(WAIT_SECONDS // STEP):
+        body = text(d)
+        if "생성 완료" in body:
+            say("AI 디자인 생성 완료")
+            return True
+        if "실패" in body:
+            raise Stop("덴트버드가 실패라고 합니다 — 화면을 봐 주세요")
+        time.sleep(STEP)
+
+    raise Stop(f"{WAIT_SECONDS}초가 지나도 생성이 안 끝납니다")
 
 
 def main() -> int:
