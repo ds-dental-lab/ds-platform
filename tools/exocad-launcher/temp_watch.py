@@ -52,6 +52,34 @@ SETTLE_SECONDS = 6
 #:   — 뜬 뒤에 **새로 생긴 것**만 봅니다.
 BACKOFF_SECONDS = 60
 
+#: ★★★ **크라운인 것만 집습니다.** 덴트버드는 한 벌을 통째로 내놓습니다 —
+#:   크라운 옆에 **상악·하악 스캔**이 같이 나옵니다:
+#:
+#:       2026-08-21_차정순-upperjaw.stl              ← 통짜 상악 스캔
+#:       2026-08-21_차정순-upperjaw_27-27-crown.stl  ← 크라운
+#:       2026-08-21_차정순-upperjaw_27.constructionInfo
+#:
+#:   그런데 `dentbird_case.beside()` 는 같은 폴더에서 **머리글자가 겹치는**
+#:   정보 파일을 고릅니다. 그래서 통짜 상악 스캔한테도 치식 27 이 붙습니다.
+#:   그대로 두면 **악궁 전체를 잘라 치과에서 출력합니다.**
+#: ★ 그래서 이름에 이 낱말이 있는 것만 봅니다. 모르는 이름이면 **안 집고
+#:   적어 둡니다** — 덴트버드가 이름을 바꾸면 아무 일도 안 일어나는 쪽이
+#:   악궁을 뽑는 쪽보다 낫습니다. 적어 둔 것을 보고 낱말을 늘리면 됩니다.
+DESIGN_WORDS = ("crown",)
+#: 이 낱말이 있으면 스캔입니다 — 낱말이 겹쳐도 이쪽이 이깁니다
+SCAN_WORDS = ("upperjaw", "lowerjaw", "antagonist", "preparation", "scan", "margin")
+
+
+def is_design(stl: Path, words: tuple[str, ...]) -> bool:
+    low = stl.stem.lower()
+    if not any(w in low for w in words):
+        return False
+    # ★ `…-upperjaw_27-27-crown.stl` 처럼 둘 다 든 이름이 있습니다.
+    #   **크라운 낱말이 뒤에** 오면 크라운입니다.
+    last_design = max(low.rfind(w) for w in words if w in low)
+    last_scan = max((low.rfind(w) for w in SCAN_WORDS if w in low), default=-1)
+    return last_design > last_scan
+
 seen: set[str] = set()
 
 
@@ -139,6 +167,7 @@ def main() -> int:
     base = cfg.get("base_url", "https://denflow.kr").rstrip("/")
     token = cfg.get("token")
     watch = Path(cfg.get("watch") or (Path.home() / "Downloads"))
+    words = tuple(cfg.get("design_names") or DESIGN_WORDS)
 
     if not token:
         say("설정에 기기 열쇠가 없습니다")
@@ -153,6 +182,7 @@ def main() -> int:
         pass
 
     say(f"지켜봅니다 — {watch} · 이미 있던 {len(seen)}개는 건너뜁니다")
+    say(f"크라운으로 보는 이름: {'·'.join(words)}")
 
     while True:
         try:
@@ -164,6 +194,9 @@ def main() -> int:
 
         for stl in sorted(fresh, key=lambda p: p.stat().st_mtime):
             seen.add(stl.name)
+            if not is_design(stl, words):
+                say(f"건너뜀 (크라운 이름이 아닙니다): {stl.name}")
+                continue
             if not settled(stl):
                 seen.discard(stl.name)  # 아직 오는 중 — 다음 바퀴에 다시
                 continue
