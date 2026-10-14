@@ -24,7 +24,11 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-NAME = "덴플로우 exocad 지켜보기.vbs"
+#: 지켜볼 것 둘 — exocad 열기와 임시치아 파일. 같은 모양이라 같이 넣습니다.
+WATCHERS = {
+    "덴플로우 exocad 지켜보기.vbs": "exocad_watch.py",
+    "덴플로우 임시치아 지켜보기.vbs": "temp_watch.py",
+}
 STARTUP = (
     Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
 )
@@ -65,33 +69,38 @@ def vbs_for(python, script, crash) -> str:
 
 
 def main() -> int:
-    target = STARTUP / NAME
-    crash = Path(os.environ["APPDATA"]) / "DenFlow" / "launcher" / "exocad-crash.txt"
-
-    if "--off" in sys.argv:
-        if target.exists():
-            target.unlink()
-            print(f"뺐습니다: {target}")
-        else:
-            print("들어 있지 않습니다")
-        print("★ 이미 돌고 있는 것은 작업 관리자에서 python.exe 를 끝내 주세요")
-        return 0
+    off = "--off" in sys.argv
 
     python = Path(sys.executable)
     if python.name.lower() == "pythonw.exe":
         python = python.with_name("python.exe")
 
-    crash.parent.mkdir(parents=True, exist_ok=True)
     STARTUP.mkdir(parents=True, exist_ok=True)
-    target.write_text(
-        vbs_for(python, HERE / "exocad_watch.py", crash),
-        encoding="utf-16",
-        newline="\r\n",
-    )
 
-    print(f"넣었습니다: {target}")
-    print("지금 바로 띄우려면:")
-    print(f'  wscript \"{target}\"')
+    for name, script in WATCHERS.items():
+        target = STARTUP / name
+
+        if off:
+            if target.exists():
+                target.unlink()
+                print(f"뺐습니다: {target}")
+            continue
+
+        crash = (
+            Path(os.environ["APPDATA"]) / "DenFlow" / "launcher"
+            / f"{Path(script).stem}-crash.txt"
+        )
+        crash.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            vbs_for(python, HERE / script, crash), encoding="utf-16", newline="\r\n"
+        )
+        print(f"넣었습니다: {target}")
+
+    if off:
+        print("★ 이미 돌고 있는 것은 작업 관리자에서 python.exe 를 끝내 주세요")
+        return 0
+
+    print("지금 바로 띄우려면 그 vbs 들을 두 번 누르세요")
     return 0
 
 
