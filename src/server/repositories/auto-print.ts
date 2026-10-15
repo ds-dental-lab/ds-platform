@@ -139,6 +139,21 @@ export async function syncAutoJob(orderId: string, clinicOrgId: string, autoTeet
     if (autoTeeth.length > 0) {
       const opened = await openAutoJob(orderId, clinicOrgId);
       if (!opened.ok) console.error('[auto-print] 작업 줄을 못 열었습니다', opened.error);
+
+      /*
+        ★★ 주문을 고쳤으면 멈춰 있던 디자인을 **저절로 다시 겁니다** (사용자 2026-10-15
+          — "센터가 왜 관여를 하는가"). 치식이 달라 멈춘 건을 치과가 고쳤는데,
+          센터가 단추를 눌러야 다시 돌았습니다. 고친 사람이 곧 푼 사람입니다.
+        ★ 덴트버드 건수는 내보낼 때만 씁니다. 멈춘 건은 내보내기 전이라 다시 돌려도
+          손해가 없습니다.
+      */
+      const admin = createAdminClient();
+      await admin
+        .from('auto_jobs')
+        .update({ design_stage: null, design_note: null, updated_at: new Date().toISOString() })
+        .eq('order_id', orderId)
+        .eq('step', 'waiting_design')
+        .eq('design_stage', 'stalled');
       return;
     }
     const admin = createAdminClient();
