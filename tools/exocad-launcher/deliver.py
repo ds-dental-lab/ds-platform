@@ -88,6 +88,7 @@ def deliver(
     ry: float,
     rz: float = 0.0,
     say=print,
+    layer: float | None = None,
 ) -> bool:
     if not ready():
         say("오르카를 한 번 켜 주세요 (첫 실행에서 설정이 만들어집니다)")
@@ -134,12 +135,14 @@ def deliver(
     # --- 돌리고 자르기 ---
     say(f"자르는 중… (x {rx}° / y {ry}°)")
     try:
-        made = build(stl, out_dir, *prof.as_tuple(), rx=rx, ry=ry, rz=rz, stem=order_id)
+        # ★ --layer 는 이번 한 건만 (기본 0.16 은 orca_profile.DENTAL)
+        extra = {"layer_height": f"{layer:g}"} if layer else None
+        made = build(stl, out_dir, *prof.as_tuple(), rx=rx, ry=ry, rz=rz, stem=order_id, process_extra=extra)
     except (SliceError, ValueError) as e:
         say(f"실패: {e}")
         return False
 
-    say(f"잘랐습니다 — {made['layers']}층 · {made['print_time']}")
+    say(f"잘랐습니다 — {made['layers']}층 · {made['print_time']} · 층 높이 {made.get('layer_height')}")
 
     local = {
         "print": Path(made["print_file"]),
@@ -193,9 +196,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--rx", type=float, default=DEFAULT_RX)
     ap.add_argument("--ry", type=float, default=DEFAULT_RY)
     ap.add_argument("--rz", type=float, default=DEFAULT_RZ)
+    ap.add_argument("--layer", type=float, help="이번 한 건만 층 높이 (예: 0.12). 안 주면 기본 0.16")
     args = ap.parse_args(argv)
 
-    ok = deliver(args.stl, args.order, args.token, args.out, args.rx, args.ry, args.rz)
+    ok = deliver(args.stl, args.order, args.token, args.out, args.rx, args.ry, args.rz, layer=args.layer)
     return 0 if ok else 1
 
 

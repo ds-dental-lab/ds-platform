@@ -271,6 +271,7 @@ def spread(
     profiles: "ProfileSet",
     vendor: str = "BBL",
     dental: bool = True,
+    process_extra: dict[str, object] | None = None,
 ) -> "ProfileSet":
     """
     셋을 펼쳐 파일로 쓰고, **그 경로들**을 돌려줍니다.
@@ -300,6 +301,13 @@ def spread(
             missed = apply(data, over)
             if missed:
                 # 조용히 넘기지 않습니다 — 오타면 그 설정이 없는 것이 됩니다
+                raise KeyError(f"오르카가 모르는 칸: {', '.join(missed)}")
+
+        # ★ 이번 한 건만 바꾸는 값 (사용자 2026-10-15 — "이번 것만 0.12 레이어로").
+        #   기본값(DENTAL)은 그대로 둡니다. 모르는 칸이면 역시 멈춥니다.
+        if kind == "process" and process_extra:
+            missed = apply(data, process_extra)
+            if missed:
                 raise KeyError(f"오르카가 모르는 칸: {', '.join(missed)}")
 
         data["name"] = path.stem
