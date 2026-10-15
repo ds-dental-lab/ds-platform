@@ -26,6 +26,36 @@ import { boardTone, type BoardTone } from '@/server/domain/auto-print';
 const BUSY_MS = 6_000;
 const IDLE_MS = 30_000;
 const OPEN_KEY = 'denflow.flowtempDock.open';
+const TOP_KEY = 'denflow.flowtempDock.top';
+
+/**
+ * 탭의 높이 — 화면 높이의 % (사용자 요청 2026-10-15 — "위치를 위아래로 지정할 수는 없나").
+ * ★ 위아래 끝에 너무 붙으면 상단바·브라우저 아래 막대에 가립니다. 그 사이로만.
+ */
+const TOP_DEFAULT = 38;
+const TOP_MIN = 10;
+const TOP_MAX = 85;
+/** 이보다 덜 움직였으면 끈 게 아니라 누른 것입니다 */
+const DRAG_PX = 5;
+
+const clampTop = (v: number) => Math.max(TOP_MIN, Math.min(TOP_MAX, v));
+
+function readTop(): number {
+  try {
+    const v = Number(window.localStorage.getItem(TOP_KEY));
+    return Number.isFinite(v) && v > 0 ? clampTop(v) : TOP_DEFAULT;
+  } catch {
+    return TOP_DEFAULT;
+  }
+}
+
+function writeTop(top: number) {
+  try {
+    window.localStorage.setItem(TOP_KEY, String(Math.round(top * 10) / 10));
+  } catch {
+    // 저장이 막혀도 이번 화면에서는 옮긴 자리 그대로입니다
+  }
+}
 
 const TONE: Record<BoardTone, { main: string; soft: string; ink: string; label: string }> = {
   error: { main: '#D64545', soft: '#FDECEA', ink: '#A32F2F', label: '오류' },
@@ -66,7 +96,13 @@ export default function FlowTempDock({
   // ★ 접힘은 이 브라우저만의 편의라 localStorage 에 둡니다. 목록이 오기 전엔
   //   아무것도 안 그리므로(서버도 null) 처음부터 읽어도 화면이 어긋나지 않습니다.
   const [open, setOpen] = useState(() => typeof window !== 'undefined' && readOpen());
+  const [top, setTop] = useState(() => (typeof window !== 'undefined' ? readTop() : TOP_DEFAULT));
   const busy = useRef(false);
+  /*
+    ★ 끌기와 누르기를 가릅니다. 눌렀다 떼면 펼치고, 끌었으면 펼치지 않습니다 —
+      자리를 옮기려다 칸이 열려 버리면 짜증납니다.
+  */
+  const drag = useRef<{ startY: number; startTop: number; moved: boolean } | null>(null);
 
   const load = useCallback(async () => {
     if (busy.current) return;
@@ -112,17 +148,52 @@ export default function FlowTempDock({
     writeOpen(next);
   };
 
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    drag.current = { startY: e.clientY, startTop: top, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    const dy = e.clientY - d.startY;
+    if (!d.moved && Math.abs(dy) < DRAG_PX) return;
+    d.moved = true;
+    setTop(clampTop(d.startTop + (dy / window.innerHeight) * 100));
+  };
+  const onPointerUp = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    if (d.moved) writeTop(top);
+    else toggle(true);
+  };
+
   return (
     <>
       {/* ---------- 접힌 탭 ---------- */}
       {!open ? (
         <button
           type="button"
-          onClick={() => toggle(true)}
-          aria-label={`${board.productName} 진행 ${board.items.length}건 펼치기`}
-          className="fixed right-0 top-[38%] z-40 flex flex-col items-center gap-2 rounded-l-xl py-3 pl-2 pr-1.5 text-white shadow-[0_6px_20px_rgba(26,33,48,0.18)] transition-[padding] hover:pl-3"
-          style={{ background: color.main }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => (drag.current = null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggle(true);
+            }
+          }}
+          aria-label={`${board.productName} 진행 ${board.items.length}건 펼치기 (위아래로 끌어 옮길 수 있습니다)`}
+          title="누르면 펼칩니다 · 위아래로 끌면 자리를 옮깁니다"
+          className="fixed right-0 z-40 flex cursor-grab touch-none select-none flex-col items-center gap-2 rounded-l-xl py-3 pl-2 pr-1.5 text-white shadow-[0_6px_20px_rgba(26,33,48,0.18)] transition-[padding] hover:pl-3 active:cursor-grabbing"
+          style={{ background: color.main, top: `${top}%` }}
         >
+          {/* 잡는 자리 표시 — 끌 수 있다는 것을 보입니다 */}
+          <span aria-hidden="true" className="flex flex-col gap-[2px] opacity-70">
+            <span className="h-[2px] w-3 rounded bg-white" />
+            <span className="h-[2px] w-3 rounded bg-white" />
+          </span>
           {urgent ? (
             <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-70" />
