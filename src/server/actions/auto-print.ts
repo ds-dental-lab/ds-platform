@@ -92,6 +92,8 @@ export interface AutoView {
   notice: string;
   /** 치과가 지금 눌러야 하는가 */
   needsBed: boolean;
+  /** 책갈피와 같은 한 줄 — 출력 중 칸이 남은 시간·층을 여기서 읽습니다 */
+  board: BoardRow;
   /**
    * 디자인이 멈춘 까닭 — **센터에만** 채웁니다 (2026-10-15).
    * 설계 프로그램 이름이 들어 있을 수 있어 치과 화면에는 null 입니다.
@@ -112,6 +114,7 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
     steps: autoProgress(rest),
     notice: autoNotice(rest),
     needsBed: job.step === 'queued' && job.bedClearedAt === null,
+    board: boardRow(rest),
     designNote:
       session?.orgType === 'design_center' && job.designStage === 'stalled' ? designNote : null,
   };
@@ -189,6 +192,7 @@ export async function getFlowTempBoard(): Promise<Board> {
     .from('auto_jobs')
     .select(
       'order_id, step, bed_cleared_at, percent, failed_at, failed_reason, design_stage, finished_at, updated_at, ' +
+        'started_at, remaining_min, layer_now, layer_total, ' +
         'orders!inner(order_no, patient_label, deleted_at, order_items(tooth_number, type_code))',
     )
     .is('orders.deleted_at', null)
@@ -209,6 +213,10 @@ export async function getFlowTempBoard(): Promise<Board> {
     failed_reason: string | null;
     design_stage: string | null;
     finished_at: string | null;
+    started_at: string | null;
+    remaining_min: number | null;
+    layer_now: number | null;
+    layer_total: number | null;
     orders: {
       order_no: string;
       patient_label: string;
@@ -237,6 +245,10 @@ export async function getFlowTempBoard(): Promise<Board> {
         failedReason: r.failed_reason,
         designStage: isDesignStage(r.design_stage) ? r.design_stage : null,
         finishedAt: r.finished_at,
+        startedAt: r.started_at,
+        remainingMin: r.remaining_min,
+        layerNow: r.layer_now,
+        layerTotal: r.layer_total,
       };
       return {
         orderId: r.order_id,

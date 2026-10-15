@@ -51,6 +51,10 @@ interface JobRow {
   design_stage: string | null;
   design_note: string | null;
   finished_at: string | null;
+  started_at: string | null;
+  remaining_min: number | null;
+  layer_now: number | null;
+  layer_total: number | null;
 }
 
 const asJob = (row: JobRow): AutoJob => ({
@@ -61,11 +65,16 @@ const asJob = (row: JobRow): AutoJob => ({
   failedReason: row.failed_reason,
   designStage: isDesignStage(row.design_stage) ? row.design_stage : null,
   finishedAt: row.finished_at,
+  startedAt: row.started_at,
+  remainingMin: row.remaining_min,
+  layerNow: row.layer_now,
+  layerTotal: row.layer_total,
 });
 
 const COLUMNS =
   'id, order_id, clinic_org_id, printer_id, step, bed_cleared_at, ' +
-  'percent, tries, failed_at, failed_reason, print_file_path, design_stage, design_note, finished_at';
+  'percent, tries, failed_at, failed_reason, print_file_path, design_stage, design_note, finished_at, ' +
+  'started_at, remaining_min, layer_now, layer_total';
 
 /** 주문 하나의 작업. 없으면 null */
 export async function jobOfOrder(
@@ -220,10 +229,12 @@ export async function moveStep(
   if (to === 'printing') {
     patch.started_at = now;
     patch.percent = extra.percent ?? 0;
+    patch.remaining_min = null;
   }
   if (to === 'done') {
     patch.finished_at = now;
     patch.percent = 100;
+    patch.remaining_min = 0;
   }
 
   const { error } = await admin.from('auto_jobs').update(patch).eq('id', jobId);
@@ -313,6 +324,9 @@ export async function reprintJob(
       failed_reason: null,
       dismissed_at: null,
       dismissed_by: null,
+      remaining_min: null,
+      layer_now: null,
+      layer_total: null,
       updated_at: new Date().toISOString(),
     })
     .eq('order_id', orderId)
@@ -504,7 +518,14 @@ export async function claimPrintJob(
 export async function reportPrintJob(
   device: LinkedDevice,
   jobId: string,
-  body: { step?: unknown; percent?: unknown; reason?: unknown },
+  body: {
+    step?: unknown;
+    percent?: unknown;
+    reason?: unknown;
+    remaining?: unknown;
+    layer?: unknown;
+    layers?: unknown;
+  },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = createAdminClient();
 
@@ -521,9 +542,29 @@ export async function reportPrintJob(
 
   const percent = typeof body.percent === 'number' ? body.percent : null;
 
+  /*
+    ★ 남은 시간·층 (2026-10-15). **따로** 적고 실패는 삼킵니다 — 이 덤이
+      안 써져도 퍼센트·단계 보고는 멀쩡해야 합니다.
+  */
+  const whole = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : null);
+  const extras: Record<string, number> = {};
+  const rem = whole(body.remaining);
+  const layer = whole(body.layer);
+  const layers = whole(body.layers);
+  if (rem !== null) extras.remaining_min = rem;
+  if (layer !== null) extras.layer_now = layer;
+  if (layers !== null && layers > 0) extras.layer_total = layers;
+
+  const writeExtras = async () => {
+    if (Object.keys(extras).length === 0) return;
+    const { error } = await admin.from('auto_jobs').update(extras).eq('id', jobId).eq('step', 'printing');
+    if (error) console.error('[auto-print] 남은 시간을 못 적었습니다', error.message);
+  };
+
   // 숫자만 올리는 것은 단계를 안 건드립니다
   if (!body.step && percent !== null) {
     await reportPercent(jobId, percent);
+    await writeExtras();
     return { ok: true };
   }
 
@@ -534,10 +575,12 @@ export async function reportPrintJob(
   const allowed: AutoStep[] = ['printing', 'done', 'failed'];
   if (!allowed.includes(body.step)) return { ok: false, error: '그 단계는 보낼 수 없습니다' };
 
-  return moveStep(jobId, body.step, {
+  const moved = await moveStep(jobId, body.step, {
     percent,
     reason: typeof body.reason === 'string' ? body.reason : null,
   });
+  if (moved.ok && body.step === 'printing') await writeExtras();
+  return moved;
 }
 
 // ---------------------------------------------------------------- 결과 붙이기

@@ -77,6 +77,11 @@ class Progress:
     #: 프린터가 **우리 파일을** 돌리기 시작한 것을 확인한 순간 (2026-10-08).
     #: 여기서부터만 '출력 중' 입니다 — 보낸 것과 도는 것은 다릅니다.
     started: bool = False
+    #: 프린터가 말한 남은 분·지금 층·전체 층 (2026-10-15 — "남은 시간은 안 보여주네").
+    #: 모르면 None. 화면은 없으면 퍼센트로 어림합니다.
+    remaining: int | None = None
+    layer: int | None = None
+    layers: int | None = None
 
 
 class Printer(Protocol):
@@ -675,7 +680,12 @@ class BambuPrinter:
                         layers = state.get("total_layer_num")
                         tail = f" · {layers}층" if layers else ""
                         yield Progress(
-                            state.get("mc_percent") or 0, f"출력 시작{tail}", started=True
+                            state.get("mc_percent") or 0,
+                            f"출력 시작{tail}",
+                            started=True,
+                            remaining=state.get("mc_remaining_time"),
+                            layer=state.get("layer_num"),
+                            layers=layers,
                         )
                     elif now - began > CONFIRM_SECONDS:
                         # ★ 보냈는데 안 뽑히는 자리. 전에는 여기서 남의 작업을
@@ -736,7 +746,13 @@ class BambuPrinter:
                     layer = state.get("layer_num")
                     total = state.get("total_layer_num")
                     note = f"출력 중 {layer}/{total}층" if layer and total else "출력 중"
-                    yield Progress(state.get("mc_percent"), note)
+                    yield Progress(
+                        state.get("mc_percent"),
+                        note,
+                        remaining=state.get("mc_remaining_time"),
+                        layer=layer,
+                        layers=total,
+                    )
         finally:
             client.loop_stop()
             try:

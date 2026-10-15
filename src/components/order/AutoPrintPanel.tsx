@@ -17,10 +17,10 @@
 
 'use client';
 
-import { useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitClearBed, submitReprint, submitRetryAutoPrint } from '@/server/actions/auto-print';
-import type { AutoProgressStep } from '@/server/domain/auto-print';
+import { remainingLabel, type AutoProgressStep, type BoardRow } from '@/server/domain/auto-print';
 
 const COLOR = {
   done: { dot: '#12855B', text: '#4A5567' },
@@ -39,6 +39,7 @@ export default function AutoPrintPanel({
   manualSlot = null,
   finishedAt = null,
   canReprint = false,
+  printing = null,
 }: {
   orderId: string;
   steps: AutoProgressStep[];
@@ -54,6 +55,8 @@ export default function AutoPrintPanel({
   finishedAt?: string | null;
   /** 다 나왔다 — 「다시 뽑기」 를 보입니다 */
   canReprint?: boolean;
+  /** 출력 중이면 그 줄 (퍼센트·남은 시간·층) */
+  printing?: BoardRow | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -165,6 +168,8 @@ export default function AutoPrintPanel({
         })}
       </ol>
 
+      {printing ? <PrintingCard row={printing} /> : null}
+
       {/*
         ★ 다 나왔으면 크게 (2026-10-15 — "출력 완료도 가시성이 떨어져").
           칸이 다 초록이 되는 것만으로는 끝났는지 눈에 안 들어왔습니다.
@@ -260,4 +265,64 @@ function whenKst(iso: string): string {
     new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(x);
   const time = fmt({ hour: '2-digit', minute: '2-digit', hour12: false });
   return day(d) === day(new Date()) ? time : `${fmt({ month: 'numeric', day: 'numeric' })} ${time}`;
+}
+
+/**
+ * 출력 중 칸 (사용자 2026-10-15 — "남은 시간은 안 보여주네, 출력중 UI 가 조금 아쉽네").
+ *
+ * ★ 치과가 궁금한 것은 '언제 끝나나' 입니다. 퍼센트를 크게, 그 옆에 남은 시간과
+ *   끝날 시각을 둡니다. 층은 덤으로 작게.
+ * ★ 남은 시간은 끝날 시각(etaAt)에서 **이 화면이 스스로** 셉니다 — 서버를
+ *   다시 안 물어도 30초마다 줄어듭니다.
+ */
+function PrintingCard({ row }: { row: BoardRow }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const left = row.etaAt ? Math.max(0, Math.round((new Date(row.etaAt).getTime() - now) / 60000)) : null;
+  const pct = row.percent ?? 0;
+
+  return (
+    <div className="mt-3 rounded-lg border border-[#D6E2EF] bg-[#F5F8FC] p-3.5">
+      <div className="flex items-end justify-between gap-3">
+        <div className="flex items-baseline gap-2">
+          <b className="text-[28px] font-bold leading-none tracking-[-0.03em] text-[#1A2130] tabular-nums">
+            {row.percent !== null ? `${pct}%` : '—'}
+          </b>
+          <span className="text-[12.5px] font-semibold text-[#4F6B8A]">출력 중</span>
+        </div>
+        <div className="text-right">
+          <p className="text-[14px] font-bold tracking-[-0.02em] text-[#1A2130]">
+            {left !== null ? remainingLabel(left) : '남은 시간 계산 중'}
+          </p>
+          {row.etaAt ? (
+            <p className="mt-0.5 text-[11.5px] text-[#7C8595]">{clock(row.etaAt)} 완료 예정</p>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-[#E3EAF2]">
+        <div
+          className="h-full rounded-full bg-[#1279E8] transition-[width] duration-700"
+          style={{ width: `${Math.max(2, pct)}%` }}
+        />
+      </div>
+      {row.layerNow && row.layerTotal ? (
+        <p className="mt-1.5 text-[11.5px] text-[#7C8595] tabular-nums">
+          {row.layerNow} / {row.layerTotal}층
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function clock(iso: string): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(iso));
 }

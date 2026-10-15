@@ -144,6 +144,13 @@ export interface AutoJob {
   designStage?: DesignStage | null;
   /** 다 나온 때. 아직이면 null */
   finishedAt?: string | null;
+  /** 프린터가 우리 파일을 돌리기 시작한 때 */
+  startedAt?: string | null;
+  /** 프린터가 말한 남은 분. 모르면 null — 그때는 어림합니다 */
+  remainingMin?: number | null;
+  /** 지금 층 / 전체 층 */
+  layerNow?: number | null;
+  layerTotal?: number | null;
   /** 치과가 '베드 비움' 을 누른 때. 안 눌렀으면 null */
   bedClearedAt: string | null;
   /** 출력 중일 때 0~100. 모르면 null */
@@ -486,6 +493,41 @@ export interface BoardRow {
   canReprint: boolean;
   /** 다 나온 때 (ISO). 완료가 아니면 null */
   finishedAt: string | null;
+  /** 출력 중 — 남은 분 (프린터 값, 없으면 어림). 모르면 null */
+  remainingMin: number | null;
+  /** 출력 중 — 끝날 때 (ISO). 모르면 null */
+  etaAt: string | null;
+  /** 출력 중 — 층 */
+  layerNow: number | null;
+  layerTotal: number | null;
+}
+
+/**
+ * 남은 분 (사용자 요청 2026-10-15 — "남은 시간은 안 보여주네").
+ *
+ * ★ 프린터가 말한 값이 먼저입니다 — 예열·마지막
+ *   층까지 셈한 값이라 가장 맞습니다.
+ * ★ 없으면 **지난 시간과 퍼센트로 어림합니다.** 옛 치과 PC 는 그 값을 안
+ *   올리고, 프린터가 잠깐 말을 안 할 때도 있습니다. 3% 전에는 어림이 크게
+ *   흔들려서 안 합니다.
+ */
+export function remainingOf(job: AutoJob, now: number): number | null {
+  if (job.step !== 'printing') return null;
+  if (typeof job.remainingMin === 'number' && job.remainingMin >= 0) return Math.round(job.remainingMin);
+  const p = job.percent;
+  if (!job.startedAt || p === null || p < 3 || p >= 100) return null;
+  const elapsedMin = (now - new Date(job.startedAt).getTime()) / 60000;
+  if (!(elapsedMin > 0)) return null;
+  return Math.max(1, Math.round((elapsedMin * (100 - p)) / p));
+}
+
+/** '약 7분 남음' · 1분 아래는 '곧 끝납니다' */
+export function remainingLabel(min: number): string {
+  if (min <= 1) return '곧 끝납니다';
+  if (min < 60) return `약 ${min}분 남음`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `약 ${h}시간 ${m}분 남음` : `약 ${h}시간 남음`;
 }
 
 /**
@@ -519,14 +561,20 @@ function overallOf(job: AutoJob): number {
   return OVERALL[job.step];
 }
 
-export function boardRow(job: AutoJob): BoardRow {
+export function boardRow(job: AutoJob, now: number = Date.now()): BoardRow {
   const overall = overallOf(job);
+  const remaining = remainingOf(job, now);
+  const printing = job.step === 'printing';
   const base = {
     overall,
     percent: null as number | null,
     canClearBed: false,
     canReprint: canReprint(job),
     finishedAt: job.step === 'done' ? (job.finishedAt ?? null) : null,
+    remainingMin: remaining,
+    etaAt: remaining === null ? null : new Date(now + remaining * 60000).toISOString(),
+    layerNow: printing ? (job.layerNow ?? null) : null,
+    layerTotal: printing ? (job.layerTotal ?? null) : null,
   };
 
   if (job.step === 'failed') {
@@ -556,7 +604,18 @@ export function boardRow(job: AutoJob): BoardRow {
   }
   if (job.step === 'printing') {
     const p = job.percent === null ? null : Math.max(0, Math.min(100, Math.round(job.percent)));
-    return { ...base, tone: 'progress', status: '출력 중', detail: '프린터가 뽑고 있습니다', percent: p };
+    // ★ 남은 시간이 첫째, 층은 둘째 — 치과가 궁금한 것은 '언제 끝나나' 입니다
+    const bits = [
+      remaining !== null ? remainingLabel(remaining) : null,
+      base.layerNow && base.layerTotal ? `${base.layerNow}/${base.layerTotal}층` : null,
+    ].filter(Boolean);
+    return {
+      ...base,
+      tone: 'progress',
+      status: '출력 중',
+      detail: bits.length ? bits.join(' · ') : '프린터가 뽑고 있습니다',
+      percent: p,
+    };
   }
   // slicing · queued(비움 확인됨) · sending
   const detail: Record<string, string> = {

@@ -360,7 +360,11 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
 
         {/* 진행 막대 — 오류면 멈춘 자리까지 빨갛게 */}
         <div className="mt-2.5 flex items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#EEF1F5]">
+          <div
+            className={
+              'flex-1 overflow-hidden rounded-full bg-[#EEF1F5] ' + (item.percent !== null ? 'h-2' : 'h-1.5')
+            }
+          >
             <div
               className="h-full rounded-full transition-[width] duration-700"
               style={{ width: `${Math.max(4, item.overall)}%`, background: color.main }}
@@ -381,7 +385,11 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
               ? `${hhmm(item.finishedAt)} 완료 — 꺼내 주세요`
               : item.detail}
         </p>
-        <p className="mt-0.5 text-[11px] text-[#B6BECC]">{item.orderNo}</p>
+        <p className="mt-0.5 text-[11px] text-[#B6BECC]">
+          {item.orderNo}
+          {/* ★ 출력 중이면 끝날 시각 (2026-10-15 — "남은 시간은 안 보여주네") */}
+          {item.etaAt ? <span className="ml-1.5 text-[#7C8595]">· {hhmm(item.etaAt)} 완료 예정</span> : null}
+        </p>
       </Link>
 
       {error && !item.canClearBed ? (

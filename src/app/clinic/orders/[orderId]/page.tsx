@@ -145,6 +145,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             needsBed={auto.needsBed}
             finishedAt={auto.job.finishedAt ?? null}
             canReprint={auto.job.step === 'done'}
+            printing={auto.job.step === 'printing' ? auto.board : null}
             canClear={true}
           />
         ) : null

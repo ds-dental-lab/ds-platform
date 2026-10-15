@@ -42,6 +42,16 @@ POLL_SECONDS = 10
 DOWNLOAD_TIMEOUT = 300
 
 
+def _extras(p) -> dict:
+    """남은 분·층 — 아는 것만 보냅니다 (2026-10-15). 서버는 없으면 어림합니다"""
+    out = {}
+    for key in ("remaining", "layer", "layers"):
+        v = getattr(p, key, None)
+        if isinstance(v, (int, float)) and v >= 0:
+            out[key] = int(v)
+    return out
+
+
 def _post(url: str, body: dict, token: str) -> dict:
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
@@ -149,13 +159,13 @@ class PrintWorker:
                     #   전에는 '보냈습니다' 에서 옮겼습니다 — 보낸 것과 도는
                     #   것은 다릅니다. 프린터가 딴 것을 뽑고 있으면 우리 명령은
                     #   무시되는데 화면은 출력 중이라고 적혀 있었습니다.
-                    self.report(job_id, step="printing", percent=p.percent or 0)
+                    self.report(job_id, step="printing", percent=p.percent or 0, **_extras(p))
                     started = True
                 elif p.done:
                     self.report(job_id, step="done")
                     self.say("출력 완료")
                 elif started and p.percent is not None:
-                    self.report(job_id, percent=p.percent)
+                    self.report(job_id, percent=p.percent, **_extras(p))
         except Exception as e:  # noqa: BLE001 — 까닭을 삼키면 아무도 모릅니다
             self.report(job_id, step="failed", reason=f"보내다 멈췄습니다 — {e}")
             self.say(f"멈춤: {e}")

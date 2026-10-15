@@ -21,7 +21,15 @@ export async function POST(request: Request) {
   const device = await deviceFromToken(token);
   if (!device) return Response.json({ ok: false, error: '연결되지 않은 기기입니다' }, { status: 401 });
 
-  let body: { jobId?: unknown; step?: unknown; percent?: unknown; reason?: unknown };
+  let body: {
+    jobId?: unknown;
+    step?: unknown;
+    percent?: unknown;
+    reason?: unknown;
+    remaining?: unknown;
+    layer?: unknown;
+    layers?: unknown;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {

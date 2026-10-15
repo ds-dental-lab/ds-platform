@@ -24,6 +24,8 @@ import {
   boardRow,
   boardTone,
   canReprint,
+  remainingLabel,
+  remainingOf,
   autoProgress,
   canClearBed,
   canMove,
@@ -445,5 +447,35 @@ describe('다시 뽑기 (2026-10-15)', () => {
     expect(steps.at(-1)?.key).toBe('done');
     expect(steps.every((s) => s.state === 'done')).toBe(true);
     expect(autoProgress(job({ step: 'printing' })).at(-1)?.state).toBe('todo');
+  });
+});
+
+describe('남은 시간 (2026-10-15 — "남은 시간은 안 보여주네")', () => {
+  const now = Date.parse('2026-10-15T07:00:00Z');
+
+  it('프린터가 말한 값이 먼저', () => {
+    expect(remainingOf(job({ step: 'printing', percent: 50, remainingMin: 7, startedAt: '2026-10-15T06:00:00Z' }), now)).toBe(7);
+  });
+
+  it('없으면 지난 시간과 퍼센트로 어림 — 10분에 50% 면 10분 남음', () => {
+    expect(remainingOf(job({ step: 'printing', percent: 50, startedAt: '2026-10-15T06:50:00Z' }), now)).toBe(10);
+  });
+
+  it('3% 전·출력 중이 아닐 때는 모른다', () => {
+    expect(remainingOf(job({ step: 'printing', percent: 2, startedAt: '2026-10-15T06:59:00Z' }), now)).toBeNull();
+    expect(remainingOf(job({ step: 'queued', remainingMin: 5 }), now)).toBeNull();
+  });
+
+  it('말로는 — 약 N분 / 시간 / 곧', () => {
+    expect(remainingLabel(7)).toBe('약 7분 남음');
+    expect(remainingLabel(75)).toBe('약 1시간 15분 남음');
+    expect(remainingLabel(120)).toBe('약 2시간 남음');
+    expect(remainingLabel(1)).toBe('곧 끝납니다');
+  });
+
+  it('책갈피 줄 — 남은 시간이 먼저, 층이 뒤, 끝날 시각이 붙는다', () => {
+    const r = boardRow(job({ step: 'printing', percent: 62, remainingMin: 7, layerNow: 59, layerTotal: 95 }), now);
+    expect(r.detail).toBe('약 7분 남음 · 59/95층');
+    expect(r.etaAt).toBe('2026-10-15T07:07:00.000Z');
   });
 });
