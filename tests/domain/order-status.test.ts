@@ -10,6 +10,7 @@ import {
   canCancel,
   canTransition,
   requiresDesignFile,
+  canUploadDesignFile,
   canEditOrder,
   canEditSpec,
   editScopeOf,
@@ -568,5 +569,27 @@ describe('업로드중', () => {
   it('재스캔·디자인수정 대상이 아닙니다', () => {
     expect(canRequestRescan('uploading', 'design_center')).toBe(false);
     expect(canReturnToDesign('uploading', 'design_center')).toBe(false);
+  });
+});
+
+describe('디자인 파일은 디자인 상태에서만 (2026-10-15)', () => {
+  it('디자인센터가 디자인 중이면 올릴 수 있습니다', () => {
+    expect(canUploadDesignFile('designing', 'design_center')).toBe(true);
+  });
+
+  // ★ 접수는 아직 아무도 잡지 않은 주문입니다 — 파일부터 얹히면 안 됩니다
+  it('★ 접수에서는 못 올립니다', () => {
+    expect(canUploadDesignFile('received', 'design_center')).toBe(false);
+  });
+
+  it('넘긴 뒤에는 못 올립니다', () => {
+    for (const s of ['production_wait', 'production', 'shipping', 'completed'] as const) {
+      expect(canUploadDesignFile(s, 'design_center')).toBe(false);
+    }
+  });
+
+  it('치과·기공소는 어느 상태에서도 못 올립니다', () => {
+    expect(canUploadDesignFile('designing', 'clinic')).toBe(false);
+    expect(canUploadDesignFile('designing', 'lab')).toBe(false);
   });
 });

@@ -51,6 +51,7 @@ import {
   buildAbbr,
 } from '@/server/domain/prosthesis';
 import { addPlacement, type Placement } from '@/server/domain/duplicate';
+import { lockedOrderType } from '@/server/domain/order-type';
 import {
   EMPTY_SHADE,
   formatShade,
@@ -337,6 +338,34 @@ function OrderFormBody({
 
   const materials = getMaterials(prosthesisCatalog, typeCode);
   const isImplant = typeCode === 'implant';
+
+  /*
+    ★ 재료가 **하나뿐이면** 고르는 줄을 안 보여 줍니다 (2026-10-15, FlowTemp).
+      종류를 고르면 첫 재료가 저절로 잡히므로(changeType) 고를 것이 없습니다.
+      보이면 치과는 '이것도 골라야 하나' 하고, 재료 이름(내부용)이 그대로
+      드러납니다. 재료는 안에 남습니다 — 가격·쉐이드 여부가 재료에 붙어 있고,
+      지난 주문들이 그 재료를 가리킵니다.
+  */
+  const showMaterials = materials.length > 1;
+
+  /*
+    ★ 색을 안 내는 제품이면 쉐이드 단추도 안 보여 줍니다 (2026-10-15).
+      전에는 묻지만 않고 단추는 떠 있어서, 눌러도 되는지 헷갈렸습니다.
+      FlowTemp 는 한 가지 색 PLA 로 뽑는 임시치아라 고를 색이 없습니다.
+  */
+  const showShade = !typeCode || requiresShade(prosthesisCatalog, typeCode, materialCode);
+
+  /*
+    ★★ FlowTemp(자동 출력 제품)가 하나라도 들면 주문유형은 모델리스로
+      묶입니다 (2026-10-15). 스캔으로 설계해 치과에서 뽑는 제품이라 인상체가
+      오가는 아날로그는 성립하지 않습니다. 지금 고른 종류도 셉니다 — 치아를
+      찍기 전부터 막아야 '아날로그로 골라 놓고 FlowTemp 를 찍는' 순서가 안 생깁니다.
+  */
+  const autoOf = (code: string) => Boolean(prosthesisCatalog.find((t) => t.code === code)?.autoPipeline);
+  const lockedType = lockedOrderType([
+    ...entries.map((e) => autoOf(e.typeCode)),
+    autoOf(typeCode),
+  ]);
 
   /** 지금 찍는 조건 — 'Zir-Cr · Vita classic A3 · 폰틱' */
   const brushLabel = [
@@ -634,7 +663,8 @@ function OrderFormBody({
       clinicOrgId: clinicOrgId ?? null,
       patientId: patient?.id ?? null,
       patientLabel: patientText.trim(),
-      orderType: orderType as 'modelless' | 'analog',
+      // ★ 묶인 종류가 이깁니다 — 아날로그로 골라 둔 뒤 FlowTemp 를 찍어도 모델리스로 갑니다
+      orderType: (lockedType ?? orderType) as 'modelless' | 'analog',
       dueDate,
       notes,
       severedKeys,
@@ -966,9 +996,11 @@ function OrderFormBody({
 
           <Field label="주문유형">
             <select
-              value={orderType}
+              value={lockedType ?? orderType}
+              disabled={Boolean(lockedType)}
+              title={lockedType ? '스캔으로 만드는 제품이라 모델리스로만 주문할 수 있습니다' : undefined}
               onChange={(e) => setOrderType(e.target.value)}
-              className="h-11 w-full rounded border border-[#DDE2EA] px-3 text-[14px] outline-none focus:border-[#1279E8]"
+              className="h-11 w-full rounded border border-[#DDE2EA] px-3 text-[14px] outline-none focus:border-[#1279E8] disabled:bg-[#F8F9FB] disabled:text-[#4A5567]"
             >
               {ORDER_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -1026,6 +1058,7 @@ function OrderFormBody({
               ))}
             </div>
 
+            {showMaterials && (
             <div className="mt-2.5 flex flex-wrap gap-2.5">
               {materials.map((m) => (
                 <Chip
@@ -1041,8 +1074,10 @@ function OrderFormBody({
                 </Chip>
               ))}
             </div>
+            )}
           </div>
 
+          {showShade && (
           <ShadeButton
             system={shadeSystem}
             shade={shade}
@@ -1054,6 +1089,7 @@ function OrderFormBody({
             }}
             onChange={handleShadeApply}
           />
+          )}
         </div>
 
         {/* 임플란트 모델 — 임플란트일 때만 */}

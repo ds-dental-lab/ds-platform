@@ -74,3 +74,20 @@ export function setupForOrderType(orderType: OrderType | null | undefined): Orde
 export function needsTeardown(before: OrderType, after: OrderType): boolean {
   return setupForOrderType(before).pickup !== null && setupForOrderType(after).pickup === null;
 }
+
+// ---------- 고를 수 없는 주문 종류 ----------
+
+/**
+ * 이 주문이 **반드시** 따라야 하는 주문 종류. 고를 수 있으면 null.
+ *
+ * ★★ **FlowTemp(자동 출력 제품)가 하나라도 들면 모델리스뿐입니다**
+ *   (사용자 요청 2026-10-15 — "아날로그 고를 수 없게"). 이 제품은 치과가
+ *   올린 **스캔 파일**을 덴트버드에 넣어 설계하고 치과 프린터로 뽑습니다.
+ *   인상체가 오가는 아날로그로 넣으면 설계할 스캔이 없고, 아날로그가
+ *   여는 수거요청은 갈 물건이 없는 헛걸음이 됩니다.
+ * ★ 제품에 물어봅니다(autoPipeline). 'auto_temp 면' 이라고 코드에 적지
+ *   않습니다 — 자동 제품이 늘어도 이 규칙이 그대로 따라갑니다.
+ */
+export function lockedOrderType(autoPipelineFlags: boolean[]): OrderType | null {
+  return autoPipelineFlags.some(Boolean) ? 'modelless' : null;
+}

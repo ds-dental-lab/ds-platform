@@ -28,6 +28,7 @@ import { canEditSpec, type OrderStatus } from '@/server/domain/order-status';
 import {
   setupForOrderType,
   needsTeardown,
+  lockedOrderType,
   type OrderType,
 } from '@/server/domain/order-type';
 import { todayInKst } from '@/server/domain/week';
@@ -127,6 +128,23 @@ export function validateOrder(
     if (!verdict.selectable) return verdict.reason ?? '고를 수 없는 요청시한입니다';
   }
   if (input.items.length === 0) return '보철물을 하나 이상 선택해 주세요';
+
+  /*
+    ★★ FlowTemp(자동 출력 제품)가 들면 모델리스뿐입니다 (2026-10-15).
+      스캔으로 설계해 치과 프린터로 뽑는 제품이라, 아날로그로 들어오면
+      설계할 스캔이 없고 수거요청은 헛걸음이 됩니다. 화면이 막지만
+      저장할 때도 봅니다 — 화면만 믿으면 막힌 게 아닙니다.
+  */
+  const locked = lockedOrderType(
+    input.items.map((i) => Boolean(catalog.find((t) => t.code === i.typeCode)?.autoPipeline)),
+  );
+  if (locked && (input.orderType ?? 'modelless') !== locked) {
+    // ★ 제품 이름은 표에서 읽습니다 — 이름을 바꿔도 이 말이 따라갑니다
+    const name =
+      catalog.find((t) => t.autoPipeline && input.items.some((i) => i.typeCode === t.code))?.name ??
+      '자동 출력 제품';
+    return `${name} 는 모델리스 주문으로만 넣을 수 있습니다`;
+  }
 
   const seen = new Map<number, Placement[]>();
 

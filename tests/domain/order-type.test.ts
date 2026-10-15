@@ -6,7 +6,7 @@
 // =========================================================
 
 import { describe, it, expect } from 'vitest';
-import { setupForOrderType, needsTeardown } from '@/server/domain/order-type';
+import { setupForOrderType, needsTeardown, lockedOrderType } from '@/server/domain/order-type';
 
 describe('아날로그는 인상체를 가지러 가야 한다', () => {
   it('★ 수거요청이 함께 섭니다 — 실물이 움직이는 주문입니다', () => {
@@ -56,5 +56,18 @@ describe('종류를 바꾸면 앞서 만든 것을 거둔다', () => {
   it('그대로면 아무것도 안 한다', () => {
     expect(needsTeardown('analog', 'analog')).toBe(false);
     expect(needsTeardown('modelless', 'modelless')).toBe(false);
+  });
+});
+
+describe('FlowTemp 가 들면 모델리스뿐 (2026-10-15)', () => {
+  // ★ 스캔 파일로 설계해 치과 프린터로 뽑는 제품입니다 — 인상체가 오가면 설계할 게 없습니다
+  it('자동 제품이 하나라도 들면 모델리스로 묶입니다', () => {
+    expect(lockedOrderType([true])).toBe('modelless');
+    expect(lockedOrderType([false, true, false])).toBe('modelless');
+  });
+
+  it('자동 제품이 없으면 고를 수 있습니다 — 다른 제품은 그대로', () => {
+    expect(lockedOrderType([false, false])).toBeNull();
+    expect(lockedOrderType([])).toBeNull();
   });
 });

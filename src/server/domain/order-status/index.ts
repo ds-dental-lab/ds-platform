@@ -209,7 +209,16 @@ export function requiresLabAssignment(from: OrderStatus, to: OrderStatus): boole
   return to === 'production_wait' && from === 'designing';
 }
 
-const DESIGN_UPLOAD_FROM: OrderStatus[] = ['received', 'designing'];
+/**
+ * ★★ **디자인 상태에서만** 입니다 (사용자 요청 2026-10-15). 전에는 접수도
+ *   됐는데, 접수는 아직 아무도 잡지 않은 주문입니다 — 디자인을 잡아야
+ *   (상태가 '디자인' 으로 넘어가야) 그 주문이 누구 일인지 정해지고, 그때
+ *   올리는 파일이 그 사람의 작업입니다. 잡기 전에 파일부터 얹히면 주문은
+ *   '접수' 인데 디자인이 붙어 있는 이상한 모양이 됩니다.
+ * ★ DB 도 같은 규칙으로 막습니다 (order_file_insert, 20261015100000).
+ *   업로드는 브라우저에서 곧장 들어오므로 화면만 막으면 막힌 게 아닙니다.
+ */
+const DESIGN_UPLOAD_FROM: OrderStatus[] = ['designing'];
 
 /**
  * 디자인 파일을 올릴 수 있는가. (설계서 §8.3)
