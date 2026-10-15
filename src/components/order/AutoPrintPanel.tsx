@@ -35,6 +35,7 @@ export default function AutoPrintPanel({
   notice,
   needsBed,
   canClear,
+  designNote = null,
 }: {
   orderId: string;
   steps: AutoProgressStep[];
@@ -42,6 +43,8 @@ export default function AutoPrintPanel({
   needsBed: boolean;
   /** 치과인가. 치과만 누를 수 있습니다 */
   canClear: boolean;
+  /** 디자인이 멈춘 까닭 — 센터 화면에만 넘어옵니다 */
+  designNote?: string | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -110,6 +113,10 @@ export default function AutoPrintPanel({
                   {step.percent !== undefined ? (
                     <b className="block font-bold">{step.percent}%</b>
                   ) : null}
+                  {/* ★ 디자인 칸 안에서 지금 하는 일 — '치아 분석' 처럼 (2026-10-15) */}
+                  {step.detail ? (
+                    <span className="mt-0.5 block text-[11px] font-semibold">{step.detail}</span>
+                  ) : null}
                 </span>
               </div>
               {last ? null : (
@@ -123,6 +130,13 @@ export default function AutoPrintPanel({
           );
         })}
       </ol>
+
+      {designNote ? (
+        <div className="mt-3 rounded-lg border border-[#F6DDB0] bg-[#FFF8EC] p-3">
+          <p className="text-[12px] font-bold text-[#8A5A12]">디자인이 멈췄습니다 (센터에만 보입니다)</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-[#6B4A16]">{designNote}</p>
+        </div>
+      ) : null}
 
       {needsBed && canClear ? (
         <div className="mt-3 rounded-lg border border-[#CFE3FB] bg-[#F2F7FE] p-3">

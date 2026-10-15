@@ -17,14 +17,18 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
+  alertOnMove,
   canMove,
   claimable,
   isAutoStep,
+  isDesignStage,
   retryTo,
   teethMismatch,
   type AutoJob,
   type AutoStep,
+  type DesignStage,
 } from '@/server/domain/auto-print';
+import { publishAutoAlert } from '@/server/events/auto-print';
 import type { LinkedDevice } from '@/server/repositories/device-link';
 
 const BUCKET = 'order-files';
@@ -44,6 +48,8 @@ interface JobRow {
   failed_at: AutoStep | null;
   failed_reason: string | null;
   print_file_path: string;
+  design_stage: string | null;
+  design_note: string | null;
 }
 
 const asJob = (row: JobRow): AutoJob => ({
@@ -52,18 +58,21 @@ const asJob = (row: JobRow): AutoJob => ({
   percent: row.percent,
   failedAt: row.failed_at,
   failedReason: row.failed_reason,
+  designStage: isDesignStage(row.design_stage) ? row.design_stage : null,
 });
 
 const COLUMNS =
   'id, order_id, clinic_org_id, printer_id, step, bed_cleared_at, ' +
-  'percent, tries, failed_at, failed_reason, print_file_path';
+  'percent, tries, failed_at, failed_reason, print_file_path, design_stage, design_note';
 
 /** 주문 하나의 작업. 없으면 null */
-export async function jobOfOrder(orderId: string): Promise<(AutoJob & { id: string }) | null> {
+export async function jobOfOrder(
+  orderId: string,
+): Promise<(AutoJob & { id: string; designNote: string | null }) | null> {
   const admin = createAdminClient();
   const { data } = await admin.from('auto_jobs').select(COLUMNS).eq('order_id', orderId).maybeSingle();
   const row = data as JobRow | null;
-  return row ? { id: row.id, ...asJob(row) } : null;
+  return row ? { id: row.id, designNote: row.design_note, ...asJob(row) } : null;
 }
 
 /**
@@ -102,6 +111,29 @@ export async function openAutoJob(
 
   if (error || !data) return { ok: false, error: error?.message ?? '작업을 열지 못했습니다' };
   return { ok: true, id: (data as { id: string }).id };
+}
+
+/**
+ * 주문서에 맞춰 작업 줄을 열거나 닫습니다 — 주문을 넣거나 고칠 때 (2026-10-15).
+ *
+ * ★ FlowTemp 가 있으면 엽니다 (이미 있으면 그대로).
+ * ★ 없어졌으면 **아직 디자인 차례일 때만** 닫습니다. 이미 잘랐거나 뽑는
+ *   중인 것을 주문 고치기 하나로 지우면 프린터가 쥔 일이 허공에 뜹니다.
+ * ★ 실패해도 주문은 이미 저장됐습니다 — 되돌리지 않고 로그만 남깁니다.
+ *   STL 이 올라올 때 openAutoJob 이 한 번 더 엽니다.
+ */
+export async function syncAutoJob(orderId: string, clinicOrgId: string, autoTeeth: number[]): Promise<void> {
+  try {
+    if (autoTeeth.length > 0) {
+      const opened = await openAutoJob(orderId, clinicOrgId);
+      if (!opened.ok) console.error('[auto-print] 작업 줄을 못 열었습니다', opened.error);
+      return;
+    }
+    const admin = createAdminClient();
+    await admin.from('auto_jobs').delete().eq('order_id', orderId).eq('step', 'waiting_design');
+  } catch (error) {
+    console.error('[auto-print] 작업 줄 맞추기 실패', error);
+  }
 }
 
 /**
@@ -156,6 +188,12 @@ export async function moveStep(
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { step: to, updated_at: now };
 
+  // ★ 디자인 칸을 떠나면 잔걸음도 지웁니다 — 다음 칸에서 '설계 중' 이 남지 않게
+  if (row.step === 'waiting_design' && to !== 'failed') {
+    patch.design_stage = null;
+    patch.design_note = null;
+  }
+
   if (to === 'failed') {
     patch.failed_at = row.step;
     patch.failed_reason = (extra.reason ?? '').slice(0, 500) || null;
@@ -187,7 +225,56 @@ export async function moveStep(
   }
 
   const { error } = await admin.from('auto_jobs').update(patch).eq('id', jobId);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  if (error) return { ok: false, error: error.message };
+
+  /*
+    ★ 치과가 손댈 일이 생겼으면 알립니다 (2026-10-15) — 출력판 비우기·꺼내기 둘뿐.
+      **넘어간 뒤에** 부릅니다. 알림이 실패해도 단계는 그대로입니다.
+  */
+  const alert = alertOnMove(row.step, to);
+  if (alert) await publishAutoAlert(row.order_id, alert);
+
+  return { ok: true };
+}
+
+/**
+ * 디자인 칸 안의 잔걸음을 적습니다 — 설계 PC 의 매크로가 부릅니다 (2026-10-15).
+ *
+ * ★ **디자인 칸에 있을 때만** 받습니다. 이미 잘라서 넘어간 주문에 늦게 온
+ *   '설계 중' 이 덮이면 치과 화면이 뒤로 갑니다.
+ * ★ 까닭(note)은 센터만 봅니다. 치과 화면에는 잔걸음 이름만 그립니다.
+ */
+export async function setDesignStage(
+  orgId: string,
+  orderId: string,
+  stage: DesignStage,
+  note: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+
+  const { data: org } = await admin
+    .from('organizations')
+    .select('org_type')
+    .eq('id', orgId)
+    .maybeSingle();
+  if ((org as { org_type?: string } | null)?.org_type !== 'design_center') {
+    return { ok: false, error: '설계 PC 만 적을 수 있습니다' };
+  }
+
+  const { data, error } = await admin
+    .from('auto_jobs')
+    .update({
+      design_stage: stage,
+      design_note: stage === 'stalled' ? (note ?? '').slice(0, 500) || null : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('order_id', orderId)
+    .eq('step', 'waiting_design')
+    .select('id');
+
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: '디자인 차례인 주문이 아닙니다' };
+  return { ok: true };
 }
 
 /** 출력 중 숫자만 올립니다. 단계는 그대로 */
@@ -582,6 +669,8 @@ export async function retryJob(
       claimed_at: null,
       claimed_device_id: null,
       percent: null,
+      design_stage: null,
+      design_note: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', row.id)
@@ -677,7 +766,12 @@ export async function matchWaitingJob(
     })
     .map((r) => ({
       orderId: r.id,
-      teeth: (r.order_items ?? []).map((i) => i.tooth_number),
+      /*
+        ★★ **FlowTemp 품목의 치식만** 셉니다 (2026-10-15). 이제 FlowTemp 는
+          크라운과 같은 주문에 들어옵니다. 15 크라운 + 16 크라운·FlowTemp 면
+          주문 치식은 15·16 인데 설계는 16 뿐이라, 전체를 견주면 짝을 못 찾습니다.
+      */
+      teeth: (r.order_items ?? []).filter((i) => i.type_code === 'auto_temp').map((i) => i.tooth_number),
     }));
 
   const picked = matchWaiting(jobs, designTeeth);

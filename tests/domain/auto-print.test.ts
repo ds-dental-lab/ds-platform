@@ -18,6 +18,8 @@ import {
   AUTO_STEPS,
   SHOWN_STEPS,
   MAX_TRIES,
+  alertOnMove,
+  autoAlert,
   autoNotice,
   autoProgress,
   canClearBed,
@@ -302,5 +304,62 @@ describe('치식 대조 — 엉뚱한 이가 출력되지 않게', () => {
 
   it('같은 이가 여러 번 적혀 와도 흔들리지 않습니다', () => {
     expect(teethMismatch([27], [27, 27])).toBeNull();
+  });
+});
+
+describe('디자인 잔걸음 (2026-10-15 — 치과가 설계 중인지 몰랐습니다)', () => {
+  it('디자인 칸 아래에 지금 하는 일이 붙는다', () => {
+    const steps = autoProgress(job({ designStage: 'analyzing' }));
+    expect(steps[0].state).toBe('current');
+    expect(steps[0].detail).toBe('치아 분석');
+  });
+
+  it('디자인 칸을 지나면 잔걸음이 안 붙는다', () => {
+    const steps = autoProgress(job({ step: 'queued', designStage: 'generating' }));
+    expect(steps[0].detail).toBeUndefined();
+  });
+
+  it('한 줄 안내 — 아직 / 하는 중 / 멈춤', () => {
+    expect(autoNotice(job())).toBe('디자인 차례를 기다립니다');
+    expect(autoNotice(job({ designStage: 'generating' }))).toBe('디자인 중 — 설계');
+    expect(autoNotice(job({ designStage: 'stalled' }))).toContain('늦어지고');
+  });
+
+  it('멈춰도 치과에는 실패라고 하지 않고, 프로그램 이름도 없다', () => {
+    for (const designStage of ['uploading', 'analyzing', 'generating', 'exporting', 'stalled'] as const) {
+      const text = autoNotice(job({ designStage })) + autoProgress(job({ designStage }))[0].detail;
+      expect(text).not.toMatch(/덴트버드|dentbird|실패|기공소/i);
+    }
+  });
+});
+
+describe('치과에 알리는 때는 둘뿐 (2026-10-15)', () => {
+  it('출력 파일이 막 준비됐을 때 — 출력판을 비워 달라', () => {
+    expect(alertOnMove('slicing', 'queued')).toBe('bed');
+  });
+
+  it('다 나왔을 때 — 꺼내 달라', () => {
+    expect(alertOnMove('printing', 'done')).toBe('done');
+  });
+
+  it('그 밖의 걸음에는 안 울린다', () => {
+    expect(alertOnMove('waiting_design', 'slicing')).toBeNull();
+    expect(alertOnMove('queued', 'sending')).toBeNull();
+    expect(alertOnMove('sending', 'printing')).toBeNull();
+    expect(alertOnMove('queued', 'queued')).toBeNull();
+    expect(alertOnMove('printing', 'failed')).toBeNull();
+  });
+
+  it('알림 글에 주문번호·환자·제품 이름이 들고, 설계 프로그램 이름은 없다', () => {
+    for (const kind of ['bed', 'done'] as const) {
+      const a = autoAlert(kind, { orderNo: 'ORD-261015-011', patientLabel: '한복계1', productName: 'FlowTemp' });
+      const all = a.title + a.body;
+      expect(all).toContain('ORD-261015-011');
+      expect(all).toContain('한복계1');
+      expect(all).toContain('FlowTemp');
+      expect(all).not.toMatch(/덴트버드|dentbird|기공소/i);
+    }
+    expect(autoAlert('bed', { orderNo: 'A', patientLabel: 'B', productName: 'C' }).title).toContain('비워');
+    expect(autoAlert('done', { orderNo: 'A', patientLabel: 'B', productName: 'C' }).title).toContain('꺼내');
   });
 });

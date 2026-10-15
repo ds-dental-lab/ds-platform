@@ -45,7 +45,7 @@ export async function sectorPulse(): Promise<string> {
 
   const supabase = await createClient();
 
-  const [latest, counted, unread] = await Promise.all([
+  const [latest, counted, unread, auto] = await Promise.all([
     supabase
       .from('orders')
       .select('updated_at')
@@ -61,9 +61,21 @@ export async function sectorPulse(): Promise<string> {
       .from('notifications')
       .select('id', { count: 'exact', head: true })
       .is('read_at', null),
+    /*
+      ★ 자동 출력 진행도 봅니다 (2026-10-15 — "디자인중인지 아닌지 새로고침을
+        해야 보이고"). 출력 단계는 auto_jobs 만 바꾸고 orders 는 안 건드려서,
+        주문만 보면 출력이 끝나도 화면이 그대로였습니다. 기공소는 RLS 로
+        한 줄도 안 보입니다 — 그쪽 화면은 안 깜빡입니다.
+    */
+    supabase
+      .from('auto_jobs')
+      .select('updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(1),
   ]);
 
   const at = (latest.data as { updated_at: string }[] | null)?.[0]?.updated_at ?? '';
+  const autoAt = (auto.data as { updated_at: string }[] | null)?.[0]?.updated_at ?? '';
 
-  return `${at}|${counted.count ?? 0}|${unread.count ?? 0}`;
+  return `${at}|${counted.count ?? 0}|${unread.count ?? 0}|${autoAt}`;
 }

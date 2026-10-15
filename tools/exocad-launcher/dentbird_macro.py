@@ -33,9 +33,13 @@ r"""덴트버드를 대신 눌러 줍니다 (2026-10-14).
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import re
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -52,6 +56,59 @@ STEP = 5
 
 class Stop(Exception):
     """사람이 봐야 하는 자리. 조용히 넘어가지 않습니다"""
+
+
+DESIGN_SETTINGS = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow" / "design_agent.json"
+
+
+class Reporter:
+    """주문 화면에 '설계 어디까지 왔는지' 를 적습니다 (2026-10-15)
+
+    ★★ 치과가 설계 중인지 몰랐습니다 ("새로고침을 해야 보이고"). STL 이
+      올라오기 전까지 서버에 아무 기록이 없었기 때문입니다. 단계를 넘을
+      때마다 한 줄씩 적고, 서버의 표가 바뀌면 주문 화면이 저절로 넘어갑니다.
+    ★ **못 적어도 설계는 계속합니다.** 화면 표시는 덤이고, 설계가 본업입니다.
+      서버가 잠깐 안 닿는다고 크라운을 멈추면 거꾸로입니다.
+    ★ 주문 id 가 없으면(손으로 돌릴 때) 아무것도 안 합니다.
+    """
+
+    def __init__(self, order_id: str | None, say=print):
+        self.order_id = order_id
+        self.say = say
+        self.base = ""
+        self.token = ""
+        if not order_id:
+            return
+        try:
+            cfg = json.loads(DESIGN_SETTINGS.read_text(encoding="utf-8"))
+            self.base = cfg.get("base_url", "https://denflow.kr").rstrip("/")
+            self.token = cfg.get("token") or ""
+        except (OSError, ValueError):
+            pass
+        if not self.token:
+            say(f"(설계 PC 열쇠가 없어 진행을 못 적습니다 — {DESIGN_SETTINGS})")
+
+    def __call__(self, stage: str, note: str | None = None) -> None:
+        if not (self.order_id and self.token):
+            return
+        req = urllib.request.Request(
+            f"{self.base}/api/device/auto-print/stage",
+            data=json.dumps({"orderId": self.order_id, "stage": stage, "note": note}).encode("utf-8"),
+            headers={"content-type": "application/json", "authorization": f"Bearer {self.token}"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r:
+                got = json.loads(r.read().decode("utf-8", "replace"))
+        except urllib.error.HTTPError as e:
+            try:
+                got = json.loads(e.read().decode("utf-8", "replace"))
+            except (ValueError, OSError):
+                got = {"ok": False, "error": f"서버가 {e.code} 로 답했습니다"}
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
+            got = {"ok": False, "error": f"서버에 닿지 못했습니다 — {e}"}
+        if not got.get("ok"):
+            self.say(f"(진행을 못 적었습니다: {got.get('error')})")
 
 
 def text(d) -> str:
@@ -137,7 +194,7 @@ def detected_teeth(d) -> list[int]:
     return sorted({int(n) for n in re.findall(r"크라운\s*([1-4][1-8])\b", text(d))})
 
 
-def run(scans: list[Path], want: list[int], say=print) -> bool:
+def run(scans: list[Path], want: list[int], say=print, mark=lambda stage, note=None: None) -> bool:
     if not alive():
         raise Stop("덴트버드 창이 안 떠 있습니다 — dentbird_web.py 로 띄우고 로그인해 주세요")
 
@@ -150,9 +207,11 @@ def run(scans: list[Path], want: list[int], say=print) -> bool:
         raise Stop("로그인이 풀렸습니다 — 그 창에서 한 번 로그인해 주세요")
 
     say(f"스캔 {len(scans)}개를 올립니다")
+    mark("uploading")
     upload_and_classify(d, scans, say)
 
     say("다음 — AI 분석을 기다립니다 (몇 분 걸립니다)")
+    mark("analyzing")
     click(d, "import-next-btn")
     wait_gone(d, "분석하고 있습니다", "AI 분석이 안 끝납니다")
 
@@ -181,6 +240,7 @@ def run(scans: list[Path], want: list[int], say=print) -> bool:
     #   한 번 실패했다고 포기하면 "눌렀는데 아무 일도 안 일어난다" 가 됩니다 —
     #   그 자리를 오늘 4분 헤맸습니다. 먹을 때까지 몇 번 더 눌러 봅니다.
     say("생성을 누릅니다")
+    mark("generating")
     for attempt in range(6):
         try:
             click(d, "generate-crown-btn")
@@ -330,6 +390,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="덴트버드에 스캔을 올리고 설계·내보내기까지 합니다")
     ap.add_argument("scans", nargs="+", type=Path)
     ap.add_argument("--teeth", required=True, help="주문서 치식 (예: 27 또는 24,25)")
+    ap.add_argument("--order", help="주문 id — 주면 진행을 주문 화면에 적습니다")
     ap.add_argument("--export", action="store_true",
                     help="내보내기를 실제로 누릅니다 — 덴트버드 건수를 하나 씁니다")
     args = ap.parse_args()
@@ -340,12 +401,17 @@ def main() -> int:
         print("없는 파일:", ", ".join(str(p) for p in missing))
         return 1
 
+    mark = Reporter(args.order)
     t0 = time.time()
     try:
-        run(args.scans, want)
+        run(args.scans, want, mark=mark)
+        # ★ 내보내기를 실제로 누를 때만 '마무리' — 설정만 보고 멈추는 시험은 아직 설계 중입니다
+        if args.export:
+            mark("exporting")
         export(attach(), want, args.export)
     except Stop as e:
         print(f"멈춤: {e}  (+{int(time.time() - t0)}초)")
+        mark("stalled", str(e))
         return 1
     print(f"끝 (+{int(time.time() - t0)}초)")
     return 0

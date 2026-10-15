@@ -297,6 +297,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
             notice={auto.notice}
             needsBed={auto.needsBed}
             canClear={false}
+            designNote={auto.designNote}
           />
         ) : null
       }

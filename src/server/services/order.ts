@@ -36,6 +36,7 @@ import { todayInKst } from '@/server/domain/week';
 import { publishOrderCreated } from '@/server/events';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { getHolidayMap } from '@/server/repositories/holiday';
+import { syncAutoJob } from '@/server/repositories/auto-print';
 
 // ---------- 입력 모양 ----------
 
@@ -411,6 +412,13 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     actorOrgId: membership.org_id,
     actorUserId: user.id,
   });
+
+  /*
+    ★ FlowTemp 가 들었으면 **지금** 출력 작업 줄을 엽니다 (2026-10-15).
+      전에는 STL 이 올라올 때 열려서, 설계하는 7분 동안 치과 화면에
+      보여 줄 것이 없었습니다. 이제 넣자마자 '디자인' 칸에 섭니다.
+  */
+  await syncAutoJob(order.id, owners.clinicOrgId, autoTeeth(input, catalog));
 
   // 디자인센터에 접수 알림 (설계서 Q-7 ①)
   await publishOrderCreated({
@@ -812,5 +820,15 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
     await supabase.from('order_options').insert(optionRows);
   }
 
+  // ★ 고치다 FlowTemp 를 넣었으면 줄을 열고, 뺐으면 (아직 디자인 차례일 때만) 닫습니다
+  await syncAutoJob(input.orderId, current.clinic_org_id as string, autoTeeth(input, catalog));
+
   return { ok: true };
+}
+
+/** 주문서에서 자동 출력 제품(FlowTemp)이 놓인 치식들 */
+function autoTeeth(input: CreateOrderInput, catalog: ProsthesisCatalog): number[] {
+  return input.items
+    .filter((i) => catalog.find((t) => t.code === i.typeCode)?.autoPipeline)
+    .map((i) => i.tooth);
 }

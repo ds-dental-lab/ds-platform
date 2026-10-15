@@ -83,6 +83,11 @@ export interface AutoView {
   notice: string;
   /** 치과가 지금 눌러야 하는가 */
   needsBed: boolean;
+  /**
+   * 디자인이 멈춘 까닭 — **센터에만** 채웁니다 (2026-10-15).
+   * 설계 프로그램 이름이 들어 있을 수 있어 치과 화면에는 null 입니다.
+   */
+  designNote: string | null;
 }
 
 /** 주문 화면이 쓸 모양. 자동 진행 중이 아니면 null */
@@ -90,11 +95,16 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
   const job = await jobOfOrder(orderId);
   if (!job) return null;
 
+  const session = await getSession();
+  const { designNote, ...rest } = job;
+
   return {
-    job,
-    steps: autoProgress(job),
-    notice: autoNotice(job),
+    job: rest,
+    steps: autoProgress(rest),
+    notice: autoNotice(rest),
     needsBed: job.step === 'queued' && job.bedClearedAt === null,
+    designNote:
+      session?.orgType === 'design_center' && job.designStage === 'stalled' ? designNote : null,
   };
 }
 

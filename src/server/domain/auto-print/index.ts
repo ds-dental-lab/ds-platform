@@ -69,7 +69,9 @@ const RANK: Record<AutoStep, number> = {
  *   속사정도 쓰지 않습니다 — 치과는 어디까지 왔는지만 알면 됩니다.
  */
 const LABEL: Record<AutoStep, string> = {
-  waiting_design: '디자인 준비',
+  // ★ '디자인 준비' 였습니다. 이제 주문을 넣자마자 이 칸에 서고 실제로 설계가
+  //   돕니다(2026-10-15) — '준비' 라고 하면 아무 일도 안 일어나는 줄 압니다.
+  waiting_design: '디자인',
   slicing: '출력 준비',
   queued: '출력 대기',
   sending: '프린터로 보내는 중',
@@ -91,8 +93,50 @@ export const SHOWN_STEPS: readonly AutoStep[] = [
   'printing',
 ] as const;
 
+/**
+ * 디자인 칸 안의 잔걸음 (2026-10-15).
+ *
+ * ★ 단계(AutoStep)를 늘리지 않습니다. 'waiting_design' 안에서만 움직이는
+ *   글자라, 되돌리기·다시 걸기 규칙을 건드릴 일이 없습니다.
+ * ★ 설계 PC 의 매크로가 넘을 때마다 적습니다. 비어 있으면 아직 손 안 댄 것.
+ */
+export type DesignStage = 'uploading' | 'analyzing' | 'generating' | 'exporting' | 'stalled';
+
+export const DESIGN_STAGES: readonly DesignStage[] = [
+  'uploading',
+  'analyzing',
+  'generating',
+  'exporting',
+  'stalled',
+] as const;
+
+export function isDesignStage(v: unknown): v is DesignStage {
+  return typeof v === 'string' && (DESIGN_STAGES as readonly string[]).includes(v);
+}
+
+/**
+ * 치과가 보는 잔걸음 말.
+ *
+ * ★ **설계 프로그램 이름을 안 씁니다.** 치과는 어디까지 왔는지만 알면 됩니다.
+ * ★ 멈춰도 '실패' 라고 안 합니다 — 센터가 붙잡고 있는 중입니다. 까닭은
+ *   센터 화면(design_note)에만 뜹니다.
+ */
+const DESIGN_STAGE_LABEL: Record<DesignStage, string> = {
+  uploading: '스캔 확인',
+  analyzing: '치아 분석',
+  generating: '설계',
+  exporting: '마무리',
+  stalled: '확인 중',
+};
+
+export function designStageLabel(stage: DesignStage): string {
+  return DESIGN_STAGE_LABEL[stage];
+}
+
 export interface AutoJob {
   step: AutoStep;
+  /** 디자인 칸 안의 잔걸음. 디자인 칸이 아니거나 아직이면 null */
+  designStage?: DesignStage | null;
   /** 치과가 '베드 비움' 을 누른 때. 안 눌렀으면 null */
   bedClearedAt: string | null;
   /** 출력 중일 때 0~100. 모르면 null */
@@ -177,6 +221,8 @@ export interface AutoProgressStep {
   state: StepState;
   /** 출력 중일 때만 숫자가 붙습니다 */
   percent?: number;
+  /** 디자인 칸에서 지금 하는 잔걸음 — '치아 분석' 처럼 */
+  detail?: string;
 }
 
 /**
@@ -205,6 +251,9 @@ export function autoProgress(job: AutoJob): AutoProgressStep[] {
     if (key === 'printing' && state === 'current' && job.percent !== null) {
       step.percent = Math.max(0, Math.min(100, Math.round(job.percent)));
     }
+    if (key === 'waiting_design' && state === 'current' && job.designStage) {
+      step.detail = DESIGN_STAGE_LABEL[job.designStage];
+    }
     return step;
   });
 }
@@ -226,6 +275,11 @@ export function autoNotice(job: AutoJob): string {
   }
   if (job.step === 'printing' && job.percent !== null) {
     return `출력 중 ${Math.round(job.percent)}%`;
+  }
+  if (job.step === 'waiting_design') {
+    if (job.designStage === 'stalled') return '디자인이 늦어지고 있습니다 — 확인하고 있습니다';
+    if (job.designStage) return `디자인 중 — ${DESIGN_STAGE_LABEL[job.designStage]}`;
+    return '디자인 차례를 기다립니다';
   }
   return LABEL[job.step];
 }
@@ -336,4 +390,43 @@ export function matchWaiting(jobs: WaitingJob[], designTeeth: number[]): Matched
     ok: false,
     why: `치식 ${want.join('·')} 로 기다리는 주문이 ${hit.length}건입니다 — 사람이 골라 주세요`,
   };
+}
+
+// ---------- 치과에 알릴 때 (2026-10-15) ----------
+//
+// ★ **치과가 손댈 일이 생길 때만** 알립니다 (사용자 결정 2026-10-15 — 아이디어 4번).
+//   단계마다 울리면 시끄러워서 결국 꺼 둡니다. 둘뿐입니다.
+//     bed  — 출력 파일이 준비됐는데 출력판 확인을 기다립니다
+//     done — 다 나왔습니다. 꺼내야 다음 것을 뽑습니다
+// ★ 설계 프로그램·기공소 이야기를 안 합니다. 제품 이름은 표에서 읽어 넘깁니다.
+
+export type AutoAlertKind = 'bed' | 'done';
+
+export interface AutoAlert {
+  title: string;
+  body: string;
+}
+
+export function autoAlert(
+  kind: AutoAlertKind,
+  input: { orderNo: string; patientLabel: string; productName: string },
+): AutoAlert {
+  const who = `${input.orderNo} · ${input.patientLabel}`;
+  if (kind === 'bed') {
+    return {
+      title: `${input.productName} 출력 준비 — 출력판을 비워 주세요`,
+      body: `${who} — 비우고 「비웠습니다」를 누르면 시작합니다`,
+    };
+  }
+  return {
+    title: `${input.productName} 다 나왔습니다 — 꺼내 주세요`,
+    body: `${who} — 꺼내야 다음 출력을 걸 수 있습니다`,
+  };
+}
+
+/** 단계가 이렇게 넘어가면 알릴 것. 없으면 null */
+export function alertOnMove(from: AutoStep, to: AutoStep): AutoAlertKind | null {
+  if (to === 'queued' && from !== 'queued') return 'bed';
+  if (to === 'done' && from !== 'done') return 'done';
+  return null;
 }
