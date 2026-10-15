@@ -16,7 +16,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
-import { clearBed, jobOfOrder, retryJob } from '@/server/repositories/auto-print';
+import { clearBed, dismissJob, jobOfOrder, retryJob } from '@/server/repositories/auto-print';
 import {
   autoProgress,
   autoNotice,
@@ -192,6 +192,8 @@ export async function getFlowTempBoard(): Promise<Board> {
         'orders!inner(order_no, patient_label, deleted_at, order_items(tooth_number, type_code))',
     )
     .is('orders.deleted_at', null)
+    // ★ 치과가 ✕ 로 치운 것은 빼고 (2026-10-15)
+    .is('dismissed_at', null)
     .or(`step.neq.done,finished_at.gte.${since}`)
     .order('updated_at', { ascending: false })
     .limit(20);
@@ -256,4 +258,20 @@ export async function getFlowTempBoard(): Promise<Board> {
   items.sort((a, b) => order[a.tone] - order[b.tone]);
 
   return { productName: autoTypes[0]?.name ?? '임시치아', items };
+}
+
+/**
+ * 다 나온 건을 책갈피에서 치웁니다 — 치과만 (사용자 요청 2026-10-15).
+ * 자기 주문인지는 RLS 로 먼저 봅니다. 치우는 것은 관리자 열쇠(dismissJob).
+ */
+export async function submitDismissAutoJob(orderId: string): Promise<ClearBedResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: '로그인이 필요합니다' };
+  if (session.orgType !== 'clinic') return { ok: false, error: '치과에서만 치울 수 있습니다' };
+
+  const supabase = await createClient();
+  const { data } = await supabase.from('orders').select('id').eq('id', orderId).maybeSingle();
+  if (!data) return { ok: false, error: '주문을 찾을 수 없습니다' };
+
+  return dismissJob(orderId, session.user.id);
 }

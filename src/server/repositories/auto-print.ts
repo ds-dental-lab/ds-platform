@@ -277,6 +277,29 @@ export async function setDesignStage(
   return { ok: true };
 }
 
+/**
+ * 다 나온 건을 책갈피에서 치웁니다 (사용자 요청 2026-10-15).
+ *
+ * ★ **출력 완료만.** 오류·진행 중을 치우면 치과가 놓친 일을 아무도 모릅니다.
+ * ★ 작업 기록은 그대로 — dismissed_at 도장만 찍습니다.
+ */
+export async function dismissJob(
+  orderId: string,
+  userId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('auto_jobs')
+    .update({ dismissed_at: new Date().toISOString(), dismissed_by: userId })
+    .eq('order_id', orderId)
+    .eq('step', 'done')
+    .is('dismissed_at', null)
+    .select('id');
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: '다 나온 건만 치울 수 있습니다' };
+  return { ok: true };
+}
+
 /** 출력 중 숫자만 올립니다. 단계는 그대로 */
 export async function reportPercent(jobId: string, percent: number): Promise<void> {
   const admin = createAdminClient();

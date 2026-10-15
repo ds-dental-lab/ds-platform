@@ -20,7 +20,13 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, useTransition } from 'react';
-import { getFlowTempBoard, submitClearBed, type Board, type BoardItem } from '@/server/actions/auto-print';
+import {
+  getFlowTempBoard,
+  submitClearBed,
+  submitDismissAutoJob,
+  type Board,
+  type BoardItem,
+} from '@/server/actions/auto-print';
 import { boardTone, type BoardTone } from '@/server/domain/auto-print';
 
 const BUSY_MS = 6_000;
@@ -276,11 +282,40 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
     });
   };
 
+  // ★ 다 나온 건만 치웁니다 (2026-10-15). 치과 전체에서 사라집니다(표에 남김)
+  const [gone, setGone] = useState(false);
+  const dismiss = () => {
+    setError(null);
+    setGone(true);
+    start(async () => {
+      const got = await submitDismissAutoJob(item.orderId);
+      if (got.ok) await onChanged();
+      else {
+        setGone(false);
+        setError(got.error);
+      }
+    });
+  };
+
+  if (gone && !error) return null;
+
   return (
     <li
-      className="overflow-hidden rounded-xl border bg-white"
+      className="relative overflow-hidden rounded-xl border bg-white"
       style={{ borderColor: item.tone === 'progress' || item.tone === 'done' ? '#E8EBF0' : color.main }}
     >
+      {item.tone === 'done' ? (
+        <button
+          type="button"
+          onClick={dismiss}
+          disabled={pending}
+          aria-label={`${item.patientLabel} 치우기`}
+          title="꺼냈으면 치웁니다 — 이 치과의 모든 화면에서 사라집니다"
+          className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full text-[12px] text-[#B6BECC] hover:bg-[#F2F4F7] hover:text-[#4A5567]"
+        >
+          ✕
+        </button>
+      ) : null}
       <Link href={`/clinic/orders/${item.orderId}`} className="block px-3.5 pb-3 pt-3 hover:bg-[#FBFCFD]">
         <div className="flex items-center gap-2">
           <b className="min-w-0 truncate text-[14px] font-bold tracking-[-0.02em] text-[#1A2130]">
@@ -292,7 +327,10 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
             </span>
           ) : null}
           <span
-            className="ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-bold"
+            className={
+              'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-bold' +
+              (item.tone === 'done' ? ' mr-6' : '')
+            }
             style={{ background: color.soft, color: color.ink }}
           >
             {item.tone === 'error' ? '⚠ ' : item.tone === 'done' ? '✓ ' : ''}
@@ -321,6 +359,10 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
         </p>
         <p className="mt-0.5 text-[11px] text-[#B6BECC]">{item.orderNo}</p>
       </Link>
+
+      {error && !item.canClearBed ? (
+        <p className="border-t border-[#F0F2F5] px-3.5 py-2 text-[11.5px] text-[#D64545]">{error}</p>
+      ) : null}
 
       {item.canClearBed ? (
         <div className="border-t border-[#EAF3FE] bg-[#F5F9FF] px-3.5 py-2.5">
