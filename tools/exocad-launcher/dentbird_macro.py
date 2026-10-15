@@ -46,11 +46,14 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from dentbird_web import attach, alive  # noqa: E402
+from dentbird_params import ParamError, apply_all  # noqa: E402
 
 CROWN_URL = "https://ai.dentbird.com/crown/new-crown"
 
 #: 화면이 바뀌기를 기다리는 한도. AI 분석이 제일 깁니다
 WAIT_SECONDS = 300
+#: 설계값을 고친 뒤 내보내기 단추가 풀리기를 기다리는 한도
+EXPORT_UNLOCK_SECONDS = 120
 STEP = 5
 
 
@@ -336,6 +339,18 @@ def export(d, want: list[int], spend: bool, say=print) -> bool:
         raise Stop("전용 크롬에서 ai.dentbird.com 의 '여러 파일 다운로드' 를 허용해 주세요 "
                    "— 안 하면 크라운만 오고 정보 파일이 막힙니다")
 
+    # ★★ 설계값을 고친 뒤에는 덴트버드가 **뒤에서 계산을 마무리하는 동안**
+    #   내보내기 단추를 잠가 둡니다 (2026-10-15 실측 — 18초). 진행 표시도 안
+    #   뜹니다. 풀릴 때까지 기다립니다.
+    for _ in range(EXPORT_UNLOCK_SECONDS):
+        if not d.execute_script(
+            "return !!document.querySelector('[data-testid=appbar-export-btn]')?.disabled"
+        ):
+            break
+        time.sleep(1)
+    else:
+        raise Stop(f"내보내기 단추가 {EXPORT_UNLOCK_SECONDS}초 동안 잠겨 있습니다 — 덴트버드 화면을 봐 주세요")
+
     for _ in range(5):
         try:
             click(d, "appbar-export-btn")
@@ -405,6 +420,13 @@ def main() -> int:
     t0 = time.time()
     try:
         run(args.scans, want, mark=mark)
+        # ★ 설계값 고정 — 내면 · 교합/인접(모양 유지) · 최소 두께 (사용자 결정 2026-10-15).
+        #   못 넣으면 **내보내지 않습니다.** 값이 빠진 크라운이 치과에서 뽑히면 안 됩니다.
+        print("설계값을 맞춥니다 — 내면 · 교합/인접 · 최소 두께")
+        try:
+            apply_all(attach())
+        except ParamError as e:
+            raise Stop(f"설계값을 못 맞췄습니다 — {e}") from e
         # ★ 내보내기를 실제로 누를 때만 '마무리' — 설정만 보고 멈추는 시험은 아직 설계 중입니다
         if args.export:
             mark("exporting")
