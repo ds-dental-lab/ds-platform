@@ -18,6 +18,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   alertOnMove,
+  canHandDesign,
   canMove,
   claimable,
   isAutoStep,
@@ -784,6 +785,19 @@ export async function retryJob(
   const row = data as JobRow | null;
   if (!row) return { ok: false, error: '자동 진행 중인 주문이 아닙니다' };
 
+  /*
+    ★ 디자인이 멈춘 것(확인 중)도 다시 겁니다 (2026-10-15). 단계는 그대로
+      '디자인' 이라 잔걸음만 지우면 설계 일꾼이 다시 가져갑니다.
+  */
+  if (row.step === 'waiting_design' && row.design_stage === 'stalled') {
+    const { error } = await admin
+      .from('auto_jobs')
+      .update({ design_stage: null, design_note: null, updated_at: new Date().toISOString() })
+      .eq('id', row.id)
+      .eq('design_stage', 'stalled');
+    return error ? { ok: false, error: error.message } : { ok: true, step: 'waiting_design' };
+  }
+
   const back = retryTo(asJob(row));
   if (!back) return { ok: false, error: '다시 걸 수 있는 상태가 아닙니다' };
 
@@ -911,4 +925,114 @@ export async function matchWaitingJob(
   if (!token) return { ok: false, error: '서버에 열쇠가 없어 토큰을 못 만듭니다' };
 
   return { ok: true, orderId: picked.orderId, token };
+}
+
+// ---------------------------------------------------------------- 설계 PC 일꾼
+
+export interface DesignJob {
+  orderId: string;
+  orderNo: string;
+  /** FlowTemp 가 놓인 치식 — 덴트버드가 잡은 치식과 견줄 것 */
+  teeth: number[];
+  /** 스캔 파일 — 바로 받는 주소 (우리 서버를 안 지나갑니다) */
+  files: { name: string; url: string; size: number | null }[];
+}
+
+/**
+ * 설계 PC 가 다음 FlowTemp 일감을 잡아 갑니다 (2026-10-15).
+ *
+ * ★ **잡는 순간 표시합니다**(design_stage='uploading'). 일꾼이 둘이어도
+ *   같은 주문을 둘이 잡지 않게, 읽은 때의 updated_at 이 그대로일 때만 씁니다.
+ * ★ 한 번에 하나. 덴트버드 창은 하나뿐입니다.
+ * ★ 디자인센터 기기만.
+ */
+export async function claimNextDesign(
+  orgId: string,
+): Promise<{ ok: true; job: DesignJob | null } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+
+  const { data: org } = await admin.from('organizations').select('org_type').eq('id', orgId).maybeSingle();
+  if ((org as { org_type?: string } | null)?.org_type !== 'design_center') {
+    return { ok: false, error: '설계 PC 만 일감을 받을 수 있습니다' };
+  }
+
+  const { data, error } = await admin
+    .from('auto_jobs')
+    .select(
+      'id, order_id, step, design_stage, updated_at, created_at, ' +
+        'orders!inner(order_no, status, deleted_at, order_items(tooth_number, type_code), ' +
+        'order_files(kind, upload_status, deleted_at, file_name, storage_path, file_size))',
+    )
+    .eq('step', 'waiting_design')
+    .is('orders.deleted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(20);
+  if (error) return { ok: false, error: error.message };
+
+  type File = { kind: string; upload_status: string; deleted_at: string | null; file_name: string; storage_path: string; file_size: number | null };
+  type Row = {
+    id: string;
+    order_id: string;
+    step: AutoStep;
+    design_stage: string | null;
+    updated_at: string;
+    orders: { order_no: string; status: string; order_items: { tooth_number: number; type_code: string }[] | null; order_files: File[] | null };
+  };
+
+  const now = Date.now();
+  const scansOf = (r: Row) =>
+    (r.orders.order_files ?? []).filter((f) => f.kind === 'scan' && f.upload_status === 'uploaded' && !f.deleted_at);
+
+  const rows = (data ?? []) as unknown as Row[];
+  for (const r of rows) {
+    const ok = canHandDesign(
+      {
+        orderStatus: r.orders.status,
+        step: r.step,
+        designStage: isDesignStage(r.design_stage) ? r.design_stage : null,
+        updatedAt: r.updated_at,
+        scanCount: scansOf(r).length,
+      },
+      now,
+    );
+    if (!ok) continue;
+
+    // ★ 읽은 그대로일 때만 잡습니다 — 그사이 다른 일꾼이 잡았으면 0줄
+    const { data: took } = await admin
+      .from('auto_jobs')
+      .update({ design_stage: 'uploading', design_note: null, updated_at: new Date().toISOString() })
+      .eq('id', r.id)
+      .eq('updated_at', r.updated_at)
+      .eq('step', 'waiting_design')
+      .select('id');
+    if (!took || took.length === 0) continue;
+
+    const files: DesignJob['files'] = [];
+    for (const f of scansOf(r)) {
+      const signed = await admin.storage.from(BUCKET).createSignedUrl(f.storage_path, DOWNLOAD_TTL);
+      if (signed.data) files.push({ name: f.file_name, url: signed.data.signedUrl, size: f.file_size });
+    }
+
+    const autoCodes = await autoTypeCodes();
+    return {
+      ok: true,
+      job: {
+        orderId: r.order_id,
+        orderNo: r.orders.order_no,
+        teeth: [
+          ...new Set(
+            (r.orders.order_items ?? []).filter((i) => autoCodes.has(i.type_code)).map((i) => i.tooth_number),
+          ),
+        ].sort((a, b) => a - b),
+        files,
+      },
+    };
+  }
+  return { ok: true, job: null };
+}
+
+async function autoTypeCodes(): Promise<Set<string>> {
+  const admin = createAdminClient();
+  const { data } = await admin.from('prosthesis_types').select('code').eq('auto_pipeline', true);
+  return new Set(((data ?? []) as { code: string }[]).map((t) => t.code));
 }

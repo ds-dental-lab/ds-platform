@@ -639,3 +639,47 @@ export function boardTone(rows: BoardTone[]): BoardTone | null {
  * 남아 있으면 책갈피가 지난 일로 찹니다.
  */
 export const BOARD_DONE_HOURS = 6;
+
+// ---------- 설계 PC 일꾼 — 다음 일감 (2026-10-15) ----------
+//
+// ★ 사용자 중간점검 — "에이전트 하나로 디자인부터 출력까지 원격으로 되는 거 맞지?"
+//   아니었습니다. 새 FlowTemp 주문을 알아채 매크로를 거는 손이 없었습니다.
+//   설계 PC 가 서버에 일감을 묻고, 하나씩 잡아 갑니다.
+
+/** 일꾼이 손을 놓고 사라졌다고 보는 시간. 이보다 오래 소식이 없으면 다시 줍니다 */
+export const DESIGN_CLAIM_STALE_MINUTES = 30;
+
+export interface DesignCandidate {
+  orderStatus: string;
+  step: AutoStep;
+  designStage: DesignStage | null;
+  /** 작업 줄이 마지막으로 바뀐 때 (ISO) */
+  updatedAt: string;
+  /** 다 올라온 스캔 파일 수 */
+  scanCount: number;
+}
+
+/**
+ * 이 주문을 일꾼에게 줄 수 있는가.
+ *
+ * ★ 디자인 차례이고, 스캔이 **다 올라왔고**(주문이 '업로드중' 이 아님),
+ *   아무도 안 잡았거나 잡은 지 오래 소식이 없을 때만.
+ * ★ '확인 중'(stalled) 은 **안 줍니다.** 사람이 볼 차례입니다 — 다시 주면
+ *   같은 데서 또 멈추고 덴트버드 건수만 씁니다.
+ * ★ 취소·완료된 주문은 안 줍니다.
+ */
+export function canHandDesign(c: DesignCandidate, now: number): boolean {
+  if (c.step !== 'waiting_design') return false;
+  if (['uploading', 'cancelled', 'completed'].includes(c.orderStatus)) return false;
+  if (c.scanCount === 0) return false;
+  if (c.designStage === 'stalled') return false;
+  if (c.designStage === null) return true;
+  const age = (now - new Date(c.updatedAt).getTime()) / 60000;
+  return age >= DESIGN_CLAIM_STALE_MINUTES;
+}
+
+/** 치식이 위턱인가 (1x·2x 위, 3x·4x 아래) */
+export function isUpperTooth(tooth: number): boolean {
+  const q = Math.floor(tooth / 10);
+  return q === 1 || q === 2 || q === 5 || q === 6;
+}

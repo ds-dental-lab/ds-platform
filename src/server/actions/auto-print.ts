@@ -77,6 +77,17 @@ export async function submitRetryAutoPrint(orderId: string): Promise<RetryResult
   const { data } = await supabase.from('orders').select('id').eq('id', orderId).maybeSingle();
   if (!data) return { ok: false, error: '주문을 찾을 수 없습니다' };
 
+  /*
+    ★ 디자인이 멈춘 것을 다시 거는 것은 **센터만** (2026-10-15). 다시 설계하면
+      덴트버드 건수를 씁니다 — 치과가 누를 일이 아닙니다.
+  */
+  if (session.orgType === 'clinic') {
+    const job = await jobOfOrder(orderId);
+    if (job?.step === 'waiting_design' && job.designStage === 'stalled') {
+      return { ok: false, error: '디자인은 센터에서 확인 후 다시 겁니다' };
+    }
+  }
+
   const result = await retryJob(orderId);
   if (result.ok) {
     revalidatePath(`/clinic/orders/${orderId}`);

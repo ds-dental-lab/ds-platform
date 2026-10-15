@@ -63,6 +63,8 @@ export default function AutoPrintPanel({
   const [error, setError] = useState<string | null>(null);
 
   const stopped = steps.some((s) => s.state === 'stopped');
+  // ★ 디자인이 멈춘 것(확인 중)도 다시 겁니다 (2026-10-15)
+  const designStalled = steps.some((s) => s.key === 'waiting_design' && s.detail === '확인 중');
 
   const press = () => {
     setError(null);
@@ -225,6 +227,24 @@ export default function AutoPrintPanel({
             {pending ? '확인하는 중…' : '비웠습니다'}
           </button>
           {error ? <p className="mt-2 text-[12px] text-[#D64545]">{error}</p> : null}
+        </div>
+      ) : null}
+
+      {/* ★ 센터만 — 다시 설계하면 덴트버드 건수를 씁니다 */}
+      {designStalled && !stopped && !canClear ? (
+        <div className="mt-3 rounded-lg border border-[#F6DDB0] bg-[#FFF8EC] p-3">
+          <p className="text-[12.5px] leading-relaxed text-[#6B4A16]">
+            디자인이 멈춰 있습니다. 까닭을 확인하고 다시 걸면 처음부터 다시 설계합니다.
+          </p>
+          <button
+            type="button"
+            onClick={retry}
+            disabled={pending}
+            className="mt-2.5 rounded-lg bg-[#E09A1B] px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-50"
+          >
+            {pending ? '다시 거는 중…' : '디자인 다시 걸기'}
+          </button>
+          {error ? <p className="mt-1.5 text-[12px] text-[#D64545]">{error}</p> : null}
         </div>
       ) : null}
 

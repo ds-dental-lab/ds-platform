@@ -26,6 +26,8 @@ import {
   canReprint,
   remainingLabel,
   remainingOf,
+  canHandDesign,
+  isUpperTooth,
   autoProgress,
   canClearBed,
   canMove,
@@ -477,5 +479,44 @@ describe('남은 시간 (2026-10-15 — "남은 시간은 안 보여주네")', (
     const r = boardRow(job({ step: 'printing', percent: 62, remainingMin: 7, layerNow: 59, layerTotal: 95 }), now);
     expect(r.detail).toBe('약 7분 남음 · 59/95층');
     expect(r.etaAt).toBe('2026-10-15T07:07:00.000Z');
+  });
+});
+
+describe('설계 일꾼에게 줄 일감 (2026-10-15)', () => {
+  const now = Date.parse('2026-10-15T08:00:00Z');
+  const base = {
+    orderStatus: 'received',
+    step: 'waiting_design' as const,
+    designStage: null,
+    updatedAt: '2026-10-15T07:59:00Z',
+    scanCount: 1,
+  };
+
+  it('디자인 차례·스캔 있음·아무도 안 잡음이면 준다', () => {
+    expect(canHandDesign(base, now)).toBe(true);
+  });
+
+  it('스캔이 아직 올라오는 중이거나 없으면 안 준다', () => {
+    expect(canHandDesign({ ...base, orderStatus: 'uploading' }, now)).toBe(false);
+    expect(canHandDesign({ ...base, scanCount: 0 }, now)).toBe(false);
+  });
+
+  it('누가 잡고 있으면 안 주고, 30분 소식이 없으면 다시 준다', () => {
+    expect(canHandDesign({ ...base, designStage: 'analyzing', updatedAt: '2026-10-15T07:50:00Z' }, now)).toBe(false);
+    expect(canHandDesign({ ...base, designStage: 'analyzing', updatedAt: '2026-10-15T07:20:00Z' }, now)).toBe(true);
+  });
+
+  it('멈춘 것(확인 중)은 다시 안 준다 — 사람이 볼 차례', () => {
+    expect(canHandDesign({ ...base, designStage: 'stalled', updatedAt: '2026-10-15T01:00:00Z' }, now)).toBe(false);
+  });
+
+  it('디자인 차례가 아니거나 취소된 주문은 안 준다', () => {
+    expect(canHandDesign({ ...base, step: 'queued' }, now)).toBe(false);
+    expect(canHandDesign({ ...base, orderStatus: 'cancelled' }, now)).toBe(false);
+  });
+
+  it('위턱 치식', () => {
+    expect([17, 26, 55].every(isUpperTooth)).toBe(true);
+    expect([36, 41, 75].some(isUpperTooth)).toBe(false);
   });
 });

@@ -1,0 +1,201 @@
+# -*- coding: utf-8 -*-
+"""
+설계 PC 일꾼 — 새 FlowTemp 주문을 알아채 덴트버드 매크로를 겁니다 (2026-10-15).
+
+    서버에 묻기 → 잡기 → 스캔 받기·풀기 → 턱 고르기
+    → 덴트버드(올리기·분석·치식 대조·생성) → 설계값 고정 → 내보내기
+    → (여기서부터는 지켜보기가) 집기 → 자르기 → 주문에 올리기
+
+★★ 사용자 중간점검 — "에이전트 하나로 디자인부터 출력까지 원격으로 되는 거 맞지?"
+  아니었습니다. 새 주문을 알아채 매크로를 거는 손이 없어 제가 명령을 쳤습니다.
+  이 일꾼이 그 손입니다.
+
+★ 한 번에 하나. 덴트버드 창은 하나뿐입니다.
+★ **어디서 멈추든 주문 화면에 적습니다**(design_stage='stalled' + 까닭).
+  치과에는 '디자인 지연', 센터에는 까닭이 뜹니다. 멈춘 건은 서버가 다시 안
+  줍니다 — 사람이 보고 「다시 걸기」 해야 합니다. 같은 데서 또 멈추며 덴트버드
+  건수만 쓰는 일을 막습니다.
+★ 내보낸 뒤 **올라올 때까지 지켜봅니다.** 지켜보기가 죽어 있으면 주문이
+  '디자인' 칸에 영영 서 있다가, 30분 뒤 서버가 다시 내주어 건수를 또 씁니다.
+  그래서 10분 안에 안 올라오면 '확인 중' 으로 세워 둡니다.
+
+혼자 돌려 보기:
+    python design_worker.py --once            # 일감 하나만
+    python design_worker.py --once --no-export  # 내보내기 창 확인까지만 (건수 안 씀)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import threading
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+from dentbird_macro import Reporter, Stop, export, run
+from dentbird_params import ParamError, apply_all
+from dentbird_web import alive, attach
+from design_scans import PickError, candidates, pick, unzip_all
+from watch_common import beat, single_instance
+
+STATE = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow"
+DESIGN_SETTINGS = STATE / "design_agent.json"
+WORK = STATE / "설계일감"
+LOG = STATE / "launcher" / "설계-일꾼.txt"
+
+#: 얼마에 한 번 일감을 묻나
+POLL_SECONDS = 30
+#: 내보낸 STL 이 주문에 올라오기를 기다리는 한도
+DELIVER_WAIT_SECONDS = 600
+NAME = "design_worker"
+
+
+def say(line: str) -> None:
+    stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    text = f"[{stamp}] {line}"
+    print(text, flush=True)
+    try:
+        LOG.parent.mkdir(parents=True, exist_ok=True)
+        with LOG.open("a", encoding="utf-8") as f:
+            f.write(text + "\n")
+    except OSError:
+        pass
+
+
+def post(url: str, body: dict, token: str) -> dict:
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode("utf-8"),
+        headers={"content-type": "application/json", "authorization": f"Bearer {token}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read().decode("utf-8", "replace"))
+        except (ValueError, OSError):
+            return {"ok": False, "error": f"서버가 {e.code} 로 답했습니다"}
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
+        return {"ok": False, "error": f"서버에 닿지 못했습니다 — {e}"}
+
+
+def download(files: list[dict], folder: Path) -> None:
+    if folder.exists():
+        shutil.rmtree(folder, ignore_errors=True)
+    folder.mkdir(parents=True, exist_ok=True)
+    for f in files:
+        # ★ 이름에서 경로 조각을 떼어 냅니다 — 받은 이름으로 바깥에 쓰지 않게
+        name = Path(f["name"]).name or "scan"
+        with urllib.request.urlopen(f["url"], timeout=600) as r:
+            (folder / name).write_bytes(r.read())
+
+
+def handle(job: dict, spend: bool) -> None:
+    order_id, teeth = job["orderId"], job["teeth"]
+    mark = Reporter(order_id, say=say)
+    say(f"일감 {job['orderNo']} — 치식 {teeth}, 스캔 {len(job['files'])}개")
+
+    try:
+        # ★ 지금은 싱글 크라운만 (사용자 목표 — 싱글 하나 완벽하게, 그다음 브릿지)
+        if len(teeth) != 1:
+            raise Stop(f"치식이 {len(teeth)}개입니다 — 지금은 싱글 크라운만 자동으로 합니다")
+
+        folder = WORK / order_id
+        download(job["files"], folder)
+        unzip_all(folder)
+        prep, anta = pick(candidates(folder), teeth[0])
+        say(f"작업치 {prep.name} · 대합치 {anta.name}")
+
+        run([prep, anta], teeth, say=say, mark=mark)
+        say("설계값을 맞춥니다 — 내면 · 교합/인접 · 최소 두께")
+        try:
+            apply_all(attach(), say=say)
+        except ParamError as e:
+            raise Stop(f"설계값을 못 맞췄습니다 — {e}") from e
+
+        if spend:
+            mark("exporting")
+        clicked = export(attach(), teeth, spend, say=say)
+        if not clicked:
+            mark("stalled", "시험으로 돌렸습니다 — 내보내기 직전에서 멈췄습니다 (--no-export)")
+            return
+
+        # ★ 지켜보기가 집어 올릴 때까지. 올라가면 서버가 '디자인 차례가 아니다' 라고
+        #   답합니다 — 그게 다 됐다는 뜻입니다. 묻는 김에 잡은 표시도 새로 둡니다.
+        until = time.time() + DELIVER_WAIT_SECONDS
+        while time.time() < until:
+            time.sleep(15)
+            if not mark.still_designing():
+                say("주문에 올라갔습니다 — 출력 대기로 넘어갑니다")
+                return
+        mark("stalled", f"내보냈는데 {DELIVER_WAIT_SECONDS // 60}분 안에 주문에 안 올라왔습니다 — 임시치아 지켜보기를 봐 주세요")
+        say("내보냈는데 안 올라왔습니다 — 확인 중으로 세웁니다")
+    except (Stop, PickError) as e:
+        mark("stalled", str(e))
+        say(f"멈춤: {e}")
+    except Exception as e:  # noqa: BLE001 — 까닭을 삼키면 아무도 모릅니다
+        mark("stalled", f"알 수 없는 문제 — {e}")
+        say(f"멈춤(알 수 없음): {e}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="설계 PC 일꾼 — FlowTemp 자동 설계")
+    ap.add_argument("--once", action="store_true", help="일감 하나만 하고 끝냅니다")
+    ap.add_argument("--no-export", action="store_true", help="내보내기 창 확인까지만 (덴트버드 건수를 안 씁니다)")
+    args = ap.parse_args(argv)
+
+    if not single_instance(NAME):
+        say("이미 떠 있습니다 — 물러납니다")
+        return 0
+
+    if not DESIGN_SETTINGS.is_file():
+        say(f"설계 PC 열쇠가 없습니다 — {DESIGN_SETTINGS}")
+        return 1
+    cfg = json.loads(DESIGN_SETTINGS.read_text(encoding="utf-8"))
+    base = cfg.get("base_url", "https://denflow.kr").rstrip("/")
+    token = cfg.get("token")
+    if not token:
+        say("설정에 기기 열쇠가 없습니다")
+        return 1
+
+    # ★ 매크로가 7분씩 도는 동안에도 살아 있다는 표시를 남깁니다
+    stop = threading.Event()
+
+    def heart():
+        while not stop.is_set():
+            beat(NAME)
+            stop.wait(30)
+
+    threading.Thread(target=heart, daemon=True).start()
+    say("설계 일꾼을 켰습니다" + (" (시험 — 내보내기 안 함)" if args.no_export else ""))
+
+    try:
+        while True:
+            if not alive():
+                say("덴트버드 전용 창이 꺼져 있습니다 — dentbird_web.py 로 띄우고 로그인해 주세요")
+            else:
+                got = post(f"{base}/api/device/auto-print/next-design", {}, token)
+                if not got.get("ok"):
+                    say(f"일감 묻기 실패: {got.get('error')}")
+                elif got.get("job"):
+                    handle(got["job"], spend=not args.no_export)
+                    if args.once:
+                        return 0
+                elif args.once:
+                    say("일감 없음")
+                    return 0
+            time.sleep(POLL_SECONDS)
+    except KeyboardInterrupt:
+        return 0
+    finally:
+        stop.set()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

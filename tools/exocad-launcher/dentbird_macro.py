@@ -92,8 +92,28 @@ class Reporter:
             say(f"(설계 PC 열쇠가 없어 진행을 못 적습니다 — {DESIGN_SETTINGS})")
 
     def __call__(self, stage: str, note: str | None = None) -> None:
+        got = self._send(stage, note)
+        if got is not None and not got.get("ok"):
+            self.say(f"(진행을 못 적었습니다: {got.get('error')})")
+
+    def still_designing(self) -> bool:
+        """아직 디자인 차례인가 — 지켜보기가 STL 을 올리면 서버가 아니라고 답합니다
+
+        ★ '마무리' 를 다시 적어 보는 것으로 묻습니다. 적히면 아직 디자인 차례이고,
+          묻는 김에 잡은 표시(updated_at)도 새로 둡니다 — 서버가 30분 묵은 일감으로
+          보고 다른 일꾼에게 또 내주지 않게.
+        ★ 서버에 못 닿으면 '아직' 으로 봅니다. 섣불리 '끝났다' 고 하지 않습니다.
+        """
+        got = self._send("exporting", None)
+        if got is None:
+            return False
+        if got.get("ok"):
+            return True
+        return "디자인 차례" not in str(got.get("error", ""))
+
+    def _send(self, stage: str, note: str | None) -> dict | None:
         if not (self.order_id and self.token):
-            return
+            return None
         req = urllib.request.Request(
             f"{self.base}/api/device/auto-print/stage",
             data=json.dumps({"orderId": self.order_id, "stage": stage, "note": note}).encode("utf-8"),
@@ -110,8 +130,7 @@ class Reporter:
                 got = {"ok": False, "error": f"서버가 {e.code} 로 답했습니다"}
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
             got = {"ok": False, "error": f"서버에 닿지 못했습니다 — {e}"}
-        if not got.get("ok"):
-            self.say(f"(진행을 못 적었습니다: {got.get('error')})")
+        return got
 
 
 def text(d) -> str:
@@ -321,8 +340,9 @@ const btn = [...document.querySelectorAll('button')]
   .filter(b => t(b.innerText).includes('내보내기') && !t(b.innerText).includes('소프트웨어'))
   .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0];
 const left = (t(document.body.innerText).match(/(\\d)\\s*\\/\\s*3/) || [])[1];
-if (arguments[0] && cam === true && zip === false && btn) btn.click();
-return { cam, zip, crowns: [...new Set(crowns)], left: left ? +left : null, clicked: !!(arguments[0] && cam === true && zip === false && btn) };
+const room = left === null || left === undefined || +left > 0;
+if (arguments[0] && cam === true && zip === false && btn && room) btn.click();
+return { cam, zip, crowns: [...new Set(crowns)], left: left ? +left : null, clicked: !!(arguments[0] && cam === true && zip === false && btn && room) };
 """
 
 
@@ -382,6 +402,10 @@ def export(d, want: list[int], spend: bool, say=print) -> bool:
     if not spend:
         say("설정은 맞습니다. 건수를 쓰는 자리라 여기서 멈춥니다 (--export 로 누름)")
         return False
+    # ★ 남은 건수가 0 이면 누르지 않습니다 (2026-10-15). 눌러 봐야 요금제 창이
+    #   뜨거나 아무 일도 없고, 일꾼은 STL 을 하염없이 기다립니다.
+    if got["left"] is not None and str(got["left"]).strip() in ("0", "0.0"):
+        raise Stop("이번 달 덴트버드 내보내기 건수가 없습니다 (0/3) — 요금제를 봐 주세요")
     if not got["clicked"]:
         raise Stop("내보내기 단추를 못 눌렀습니다")
     say("내보내기를 눌렀습니다 — 내려받기 폴더로 떨어집니다")
