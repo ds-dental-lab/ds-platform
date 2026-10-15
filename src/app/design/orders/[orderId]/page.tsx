@@ -195,16 +195,6 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
   // 자동 템포러리로 들어온 건이면 진행 줄이 붙습니다 (아니면 null)
   const auto = await getAutoView(order.id);
 
-  /*
-    ★ '자동 출력 보내기' 는 **자동으로 가는 제품**에만 보입니다
-      (사용자 2026-10-06). 모든 주문에 달아 두면 센터 화면이 버튼으로
-      지저분해지고, 아무 데나 눌러 볼 수 있게 됩니다.
-    ★ 이미 보낸 건이면 계속 보입니다 — 다시 보낼 일이 있습니다.
-  */
-  const autoProduct = order.items.some(
-    (it) => prosthesisCatalog.find((t) => t.code === it.type_code)?.autoPipeline,
-  );
-
   return (
     <OrderDetailScreen
       order={order}
@@ -276,11 +266,6 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
               관리자·사용자를 안 가립니다. exocad 앞에 앉는 사람이 누릅니다.
           */}
           <ExocadSendButton orderId={order.id} last={exocadLast} />
-          {/*
-            ★ 자동 출력 보내기 (2026-10-06). 덴트버드에서 내려받은 크라운
-              STL 을 고르면 기공소 PC 가 돌려서 자르고 주문에 올립니다.
-          */}
-          {autoProduct || auto ? <AutoPrintSendButton orderId={order.id} /> : null}
         </>
       }
       /*
@@ -298,6 +283,11 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
             needsBed={auto.needsBed}
             canClear={false}
             designNote={auto.designNote}
+            /*
+              ★ 머리줄의 '자동 출력 보내기' 를 여기 작은 링크로 내렸습니다
+                (사용자 2026-10-15). 평소엔 지켜보기가 알아서 올립니다.
+            */
+            manualSlot={<AutoPrintSendButton orderId={order.id} />}
           />
         ) : null
       }

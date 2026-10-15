@@ -16,6 +16,12 @@
 //   그래서 버튼 아래에 "안 뜨면" 한 줄을 같이 둡니다.
 //
 // ★ 창을 새로 열지 않습니다 — 보던 주문 화면이 그대로입니다.
+//
+// ★★ 머리줄에서 내렸습니다 (사용자 2026-10-15 — "이제 자동출력 보내기 이건
+//   없어도 되지 않나"). 지켜보기가 내려받기 폴더의 STL 을 치식으로 짝지어
+//   알아서 올리므로 평소에는 누를 일이 없습니다. 짝을 못 지을 때(같은 치식
+//   주문이 둘)·지켜보기가 꺼졌을 때·각도를 바꿔 다시 자를 때만 씁니다 —
+//   그래서 자동 출력 칸 아래 **작은 글자 링크**로만 둡니다.
 // =========================================================
 
 'use client';
@@ -56,27 +62,20 @@ export default function AutoPrintSendButton({ orderId }: { orderId: string }) {
   };
 
   return (
-    <div>
+    <div className="text-[11.5px] text-[#98A2B3]">
       <button
         type="button"
         onClick={press}
         disabled={!url}
-        className="rounded-lg border border-[#CFE3FB] bg-[#F2F7FE] px-3 py-1.5 text-[12.5px] font-bold text-[#1279E8] disabled:opacity-50"
+        title="평소에는 저절로 올라갑니다. 짝을 못 지었거나 각도를 바꿔 다시 자를 때만 씁니다"
+        className="font-semibold text-[#7C8595] underline underline-offset-2 hover:text-[#1279E8] disabled:opacity-50"
       >
-        자동 출력 보내기
+        STL 직접 고르기
       </button>
-
       {launched ? (
-        <p className="mt-1.5 text-[11.5px] text-[#7C8595]">
-          기공소 PC 에서 STL 을 고르면 이어집니다.
-        </p>
-      ) : (
-        <p className="mt-1.5 text-[11.5px] text-[#98A2B3]">
-          안 뜨면 이 PC 에 런처가 깔려 있는지 봐 주세요.
-        </p>
-      )}
-
-      {error ? <p className="mt-1 text-[11.5px] text-[#D64545]">{error}</p> : null}
+        <span className="ml-1.5">— 설계 PC 에서 STL 을 고르면 이어집니다.</span>
+      ) : null}
+      {error ? <span className="ml-1.5 text-[#D64545]">{error}</span> : null}
     </div>
   );
 }

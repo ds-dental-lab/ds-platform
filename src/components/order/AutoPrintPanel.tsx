@@ -17,7 +17,7 @@
 
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitClearBed, submitRetryAutoPrint } from '@/server/actions/auto-print';
 import type { AutoProgressStep } from '@/server/domain/auto-print';
@@ -36,6 +36,7 @@ export default function AutoPrintPanel({
   needsBed,
   canClear,
   designNote = null,
+  manualSlot = null,
 }: {
   orderId: string;
   steps: AutoProgressStep[];
@@ -45,6 +46,8 @@ export default function AutoPrintPanel({
   canClear: boolean;
   /** 디자인이 멈춘 까닭 — 센터 화면에만 넘어옵니다 */
   designNote?: string | null;
+  /** 센터만 — STL 을 손으로 고르는 작은 링크 (AutoPrintSendButton) */
+  manualSlot?: ReactNode;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -178,6 +181,8 @@ export default function AutoPrintPanel({
           치과에서 출력판을 비우고 확인하면 시작됩니다.
         </p>
       ) : null}
+
+      {manualSlot ? <div className="mt-3 border-t border-[#F0F2F5] pt-2.5">{manualSlot}</div> : null}
     </section>
   );
 }
