@@ -83,6 +83,46 @@ def click(d, testid: str) -> None:
     els[0].click()
 
 
+#: 분류를 기다리는 한도. 17MB 스캔이 4분 걸린 날이 있어 넉넉히 둡니다
+CLASSIFY_SECONDS = 480
+
+
+def upload_and_classify(d, scans: list[Path], say=print) -> None:
+    """스캔을 올리고 덴트버드가 상·하악을 가를 때까지. 두 번까지 해 봅니다
+
+    ★★★ **덴트버드가 아무 말 없이 파일을 내려놓는 날이 있습니다**
+      (2026-10-15, 윤기두 17MB). '분류하고 있습니다' 를 13분 붙잡고 있다가
+      화면이 처음('파일을 끌어다 놓으세요')으로 돌아갔습니다. 오류 창도 없었습니다.
+      같은 스캔이 한 시간 전에는 4분 만에 됐습니다. 시간만 재면 '안 끝난다'
+      로만 보여서, 무엇이 일어났는지 모릅니다 — 처음 화면으로 **돌아왔는지**를
+      따로 봅니다.
+    ★ 올린 직후에는 아직 '분류' 말이 안 떠서 처음 화면처럼 보입니다. 한 번이라도
+      '분류하고 있습니다' 를 본 뒤에 처음 화면으로 돌아와야 내려놓은 것입니다.
+    """
+    for attempt in (1, 2):
+        d.find_element("css selector", "input[type=file]").send_keys(
+            "\n".join(str(p) for p in scans)
+        )
+        busy_seen = False
+        for _ in range(CLASSIFY_SECONDS // STEP):
+            t = text(d)
+            if "상악" in t or "하악" in t:
+                return  # 갈랐습니다
+            if "분류하고 있습니다" in t:
+                busy_seen = True
+            elif busy_seen and "끌어다 놓으세요" in t:
+                break  # 내려놓았습니다
+            time.sleep(STEP)
+        else:
+            raise Stop(f"스캔 분류가 {CLASSIFY_SECONDS}초 넘게 안 끝납니다")
+
+        if attempt == 1:
+            say("덴트버드가 분류하다 파일을 내려놓았습니다 — 한 번 더 올립니다")
+            time.sleep(5)
+
+    raise Stop("덴트버드가 두 번 다 분류하다 파일을 내려놓았습니다 — 스캔을 봐 주세요")
+
+
 def detected_teeth(d) -> list[int]:
     """화면이 말하는 치식 **전부**. 못 읽으면 빈 목록
 
@@ -110,10 +150,7 @@ def run(scans: list[Path], want: list[int], say=print) -> bool:
         raise Stop("로그인이 풀렸습니다 — 그 창에서 한 번 로그인해 주세요")
 
     say(f"스캔 {len(scans)}개를 올립니다")
-    d.find_element("css selector", "input[type=file]").send_keys(
-        "\n".join(str(p) for p in scans)
-    )
-    wait_gone(d, "분류하고 있습니다", "스캔 분류가 안 끝납니다")
+    upload_and_classify(d, scans, say)
 
     say("다음 — AI 분석을 기다립니다 (몇 분 걸립니다)")
     click(d, "import-next-btn")
@@ -181,10 +218,120 @@ def run(scans: list[Path], want: list[int], say=print) -> bool:
     raise Stop(f"{WAIT_SECONDS}초가 지나도 생성이 안 끝납니다")
 
 
+def downloads_allowed() -> bool:
+    """전용 프로필이 ai.dentbird.com 의 '여러 파일 다운로드' 를 허락했나
+
+    ★★ 안 했으면 크롬이 **첫 파일(크라운)만** 받고 나머지(정보 파일)를 막습니다
+      (2026-10-15 에 겪음). 정보 파일이 없으면 CAM 축 정렬을 대조하지 못합니다.
+      조용히 크라운만 떨어지게 두지 않고, 내보내기 전에 봅니다.
+    """
+    import json  # noqa: PLC0415
+    import os  # noqa: PLC0415
+
+    pref = (Path(os.environ.get("APPDATA", "")) / "DenFlow" / "launcher"
+            / "chrome-dentbird" / "Default" / "Preferences")
+    try:
+        d = json.loads(pref.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    ex = (d.get("profile", {}).get("content_settings", {})
+          .get("exceptions", {}).get("automatic_downloads", {}))
+    return any("ai.dentbird.com" in k and v.get("setting") == 1 for k, v in ex.items())
+
+
+#: 내보내기 창 안에서 설정을 읽고, 맞으면 '내보내기' 를 누릅니다
+EXPORT_JS = """
+const t = s => (s || '').replace(/\\s+/g, ' ').trim();
+// 스위치는 글자 옆에 있습니다 — 그 줄을 찾아 안의 checkbox 를 봅니다
+const near = label => {
+  const row = [...document.querySelectorAll('div,label')]
+    .filter(e => t(e.innerText).startsWith(label) && t(e.innerText).length < 80)
+    .sort((a, b) => t(a.innerText).length - t(b.innerText).length)[0];
+  const box = row && (row.querySelector('input[type=checkbox]')
+              || row.parentElement && row.parentElement.querySelector('input[type=checkbox]'));
+  return box ? box.checked : null;
+};
+const cam = near('CAM 축에 좌표 정렬');
+const zip = near('ZIP으로 압축');
+const crowns = (t(document.body.innerText).match(/크라운 ([1-4][1-8])/g) || []).map(s => +s.slice(-2));
+const btn = [...document.querySelectorAll('button')]
+  .filter(b => t(b.innerText).includes('내보내기') && !t(b.innerText).includes('소프트웨어'))
+  .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0];
+const left = (t(document.body.innerText).match(/(\\d)\\s*\\/\\s*3/) || [])[1];
+if (arguments[0] && cam === true && zip === false && btn) btn.click();
+return { cam, zip, crowns: [...new Set(crowns)], left: left ? +left : null, clicked: !!(arguments[0] && cam === true && zip === false && btn) };
+"""
+
+
+def export(d, want: list[int], spend: bool, say=print) -> bool:
+    """내보내기 창을 열고, 설정을 확인하고, spend 면 누릅니다
+
+    ★★ **이 한 번이 돈입니다** (Free 월 3건). 그래서 `spend` 를 따로 받습니다 —
+      주지 않으면 창을 열어 설정만 확인하고 **누르지 않습니다.**
+    ★★ 창이 **iframe 안**에 있습니다. 바깥 문서에서는 '데이터 선택' 이 안
+      보이고, 위쪽 '내보내기' 단추가 iframe 에 가려 눌리지도 않습니다
+      (2026-10-15, 이걸 모르고 위쪽 단추를 눌러 창을 닫아 버렸습니다).
+    """
+    if spend and not downloads_allowed():
+        raise Stop("전용 크롬에서 ai.dentbird.com 의 '여러 파일 다운로드' 를 허용해 주세요 "
+                   "— 안 하면 크라운만 오고 정보 파일이 막힙니다")
+
+    for _ in range(5):
+        try:
+            click(d, "appbar-export-btn")
+        except Exception:  # noqa: BLE001 — 가려져 있으면 다시
+            pass
+        time.sleep(4)
+        frame = _export_frame(d)
+        if frame is not None:
+            break
+    else:
+        raise Stop("내보내기 창이 안 열립니다")
+
+    d.switch_to.frame(frame)
+    try:
+        got = d.execute_script(EXPORT_JS, spend)
+    finally:
+        d.switch_to.default_content()
+
+    say(f"내보내기 창 — CAM 정렬 {got['cam']} · ZIP {got['zip']} · "
+        f"치식 {got['crowns']} · 남은 횟수 {got['left']}/3")
+
+    if got["cam"] is not True:
+        raise Stop("「CAM 축에 좌표 정렬」 이 꺼져 있거나 못 읽었습니다 — 켜야 고정 각도가 통합니다")
+    if got["zip"] is not False:
+        raise Stop("「ZIP으로 압축」 이 켜져 있거나 못 읽었습니다 — 지켜보기는 낱개 파일을 봅니다")
+    if got["crowns"] and sorted(got["crowns"]) != sorted(want):
+        raise Stop(f"내보낼 크라운이 주문서와 다릅니다 — 주문서 {want} · 창 {got['crowns']}")
+
+    if not spend:
+        say("설정은 맞습니다. 건수를 쓰는 자리라 여기서 멈춥니다 (--export 로 누름)")
+        return False
+    if not got["clicked"]:
+        raise Stop("내보내기 단추를 못 눌렀습니다")
+    say("내보내기를 눌렀습니다 — 내려받기 폴더로 떨어집니다")
+    return True
+
+
+def _export_frame(d):
+    for f in d.find_elements("css selector", "iframe"):
+        try:
+            d.switch_to.frame(f)
+            if "데이터 선택" in (d.execute_script("return document.body && document.body.innerText") or ""):
+                return f
+        except Exception:  # noqa: BLE001
+            pass
+        finally:
+            d.switch_to.default_content()
+    return None
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description="덴트버드에 스캔을 올리고 설계를 돌립니다")
+    ap = argparse.ArgumentParser(description="덴트버드에 스캔을 올리고 설계·내보내기까지 합니다")
     ap.add_argument("scans", nargs="+", type=Path)
     ap.add_argument("--teeth", required=True, help="주문서 치식 (예: 27 또는 24,25)")
+    ap.add_argument("--export", action="store_true",
+                    help="내보내기를 실제로 누릅니다 — 덴트버드 건수를 하나 씁니다")
     args = ap.parse_args()
 
     want = [int(x) for x in re.findall(r"\d+", args.teeth)]
@@ -193,12 +340,14 @@ def main() -> int:
         print("없는 파일:", ", ".join(str(p) for p in missing))
         return 1
 
+    t0 = time.time()
     try:
         run(args.scans, want)
+        export(attach(), want, args.export)
     except Stop as e:
-        print(f"멈춤: {e}")
+        print(f"멈춤: {e}  (+{int(time.time() - t0)}초)")
         return 1
-    print("설계를 걸었습니다. 끝나면 케이스 목록에서 내보내기 하세요")
+    print(f"끝 (+{int(time.time() - t0)}초)")
     return 0
 
 
