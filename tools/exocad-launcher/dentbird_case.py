@@ -113,33 +113,60 @@ def read(path: Path) -> DentbirdCase:
     return case
 
 
+#: 브라우저가 같은 이름을 또 받으면 붙이는 꼬리 — "… (2)"
+_COPY = re.compile(r"\s*\(\d+\)$")
+
+
+def _bare(stem: str) -> str:
+    return _COPY.sub("", stem)
+
+
 def beside(stl: Path) -> Path | None:
     """
-    크라운 STL 옆의 `.constructionInfo` 를 찾습니다.
+    크라운 STL 의 **짝인** `.constructionInfo`. 짝이 없으면 None.
 
     ★ 이름이 딱 맞지는 않습니다 —
         크라운  …-upperjaw_27-27-crown.stl
         정보    …-upperjaw_27.constructionInfo
-      그래서 같은 폴더에서 **머리글자가 겹치는 것**을 고릅니다.
-    """
-    folder = stl.parent
-    found = sorted(folder.glob("*.constructionInfo"))
-    if not found:
-        return None
-    if len(found) == 1:
-        return found[0]
+      **정보 파일 이름이 크라운 이름의 앞머리**여야 짝입니다.
 
-    stem = stl.stem
-    best, score = None, 0
-    for f in found:
-        n = 0
-        for a, b in zip(stem, f.stem):
-            if a != b:
-                break
-            n += 1
-        if n > score:
-            best, score = f, n
-    return best or found[0]
+    ★★★ **짝이 없으면 아무것도 안 줍니다** (2026-10-15 에 고침). 전에는
+      맞는 게 없으면 `found[0]` — 폴더에 있던 **아무 정보 파일**이나 줬고,
+      하나뿐이면 이름도 안 보고 줬습니다. 실제로 윤기두 16번 크라운이
+      크라운만 따로 내보내져 짝이 없었는데, 내려받기 폴더에 있던 **다른
+      환자의** 정보 파일을 집어 **치식 37** 로 읽었습니다. 37번 주문이
+      기다리고 있었다면 **16번 크라운이 다른 환자 37번 자리로 출력**됐습니다.
+      머리글자가 조금 겹치는 것('2026-' 따위)도 짝이 아닙니다.
+    """
+    want = _bare(stl.stem)
+    best: Path | None = None
+    for f in stl.parent.glob("*.constructionInfo"):
+        head = _bare(f.stem)
+        # ★ 앞머리가 맞고, 바로 다음 글자가 이어지는 자리여야 합니다
+        #   ('…_2' 가 '…_27-27-crown' 의 짝인 척하지 않게)
+        if want.startswith(head) and want[len(head):len(head) + 1] in ("-", "_", ""):
+            if best is None or len(_bare(best.stem)) < len(head):
+                best = f
+    return best
+
+
+#: 덴트버드 크라운 이름 — `…_16-16-crown`. 앞뒤 번호가 같으면 싱글입니다
+_NAME_TEETH = re.compile(r"_([1-4][1-8])-([1-4][1-8])-crown$", re.IGNORECASE)
+
+
+def teeth_from_name(stl: Path) -> list[int]:
+    """
+    파일 이름에 적힌 치식. 못 읽거나 **싱글이 아니면** 빈 목록.
+
+    ★ 덴트버드가 크라운 이름에 치식을 적어 줍니다 (`…_16-16-crown.stl`).
+      정보 파일이 같이 안 오는 날(크라운만 골라 내보낼 때)에도 이것은 남습니다.
+    ★ 앞뒤 번호가 다르면(브릿지 같은 것) **짐작하지 않습니다.** 지금은 싱글
+      크라운부터 완벽하게 — 여러 개짜리는 그때 이름 규칙을 보고 정합니다.
+    """
+    m = _NAME_TEETH.search(_bare(stl.stem))
+    if not m or m.group(1) != m.group(2):
+        return []
+    return [int(m.group(1))]
 
 
 @dataclass
@@ -157,13 +184,31 @@ def check(stl: Path, want: list[int] | None = None) -> Check:
       놓았을 수 있습니다 — 그때는 대조를 못 할 뿐입니다. 다만 그 사실을
       말해 줍니다. 조용히 넘어가면 대조가 되는 줄로 알게 됩니다.
     """
+    named = teeth_from_name(stl)
     info = beside(stl)
+
     if not info:
+        # ★ 정보 파일이 없으면 **이름에서** 읽습니다. 자세(CAM 축)는 대조를
+        #   못 합니다 — 그 사실을 말해 둡니다. 조용히 넘어가면 대조가 된
+        #   줄로 압니다.
+        if named:
+            return Check(True, f"치식 {named} (파일 이름에서 · 자세 대조는 못 함)", named)
         return Check(True, "치식 정보 파일이 없어 대조하지 못했습니다", [])
 
     case = read(info)
     if not case.teeth:
+        if named:
+            return Check(True, f"치식 {named} (파일 이름에서 · 정보 파일을 못 읽음)", named)
         return Check(True, "치식 정보를 읽지 못했습니다", [])
+
+    # ★★ 근거가 둘이면 **둘이 맞아야** 합니다. 다르면 어느 한쪽이 틀린 것이고,
+    #   어느 쪽인지 기계가 정할 수 없습니다 — 사람이 봅니다.
+    if named and sorted(named) != case.numbers:
+        return Check(
+            False,
+            f"치식이 서로 다릅니다 — 파일 이름 {named} · 정보 파일 {case.numbers}",
+            case.numbers,
+        )
 
     if not case.cam_aligned():
         return Check(
