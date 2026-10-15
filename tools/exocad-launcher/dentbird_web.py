@@ -67,6 +67,11 @@ def open_browser(url: str) -> None:
             "--no-first-run",
             "--no-default-browser-check",
             "--window-size=1500,1000",
+            # ★ 가려지거나 내려놓은 창도 쉬지 않게 (2026-10-15 실측 — attach() 설명)
+            "--disable-backgrounding-occluded-windows",
+            "--disable-renderer-backgrounding",
+            "--disable-background-timer-throttling",
+            "--disable-features=CalculateNativeWinOcclusion",
             url,
         ],
         close_fds=True,
@@ -87,7 +92,24 @@ def attach():
 
     opts = Options()
     opts.add_experimental_option("debuggerAddress", f"127.0.0.1:{PORT}")
-    return webdriver.Chrome(options=opts)
+    d = webdriver.Chrome(options=opts)
+    keep_awake(d)
+    return d
+
+
+def keep_awake(d) -> None:
+    """창이 가려져도, 작업표시줄로 내려놔도 덴트버드가 일하게 합니다
+
+    ★★★ **창을 클릭해야 움직였습니다** (사용자 2026-10-15). 재 보니 덴트버드
+      창이 **다른 창 뒤에 있기만 해도** 크롬이 그 쪽을 '숨김' 으로 보고
+      화면 그리기를 0 번(2초), 타이머를 1초에 한 번으로 줄였습니다.
+      덴트버드는 3D(WebGL) 라 그리기가 멈추면 분류·분석도 멈춥니다 —
+      '분류하고 있습니다' 가 몇 분씩 서 있던 것도 아마 이것입니다.
+    ★ 이 두 명령을 걸자 **최소화한 채로** 그리기 241 번·타이머 정상이
+      됐습니다. 붙는 세션에만 걸리므로 붙을 때마다 다시 겁니다.
+    """
+    d.execute_cdp_cmd("Emulation.setFocusEmulationEnabled", {"enabled": True})
+    d.execute_cdp_cmd("Page.setWebLifecycleState", {"state": "active"})
 
 
 #: 화면에서 사람이 누르는 것들만 추립니다 — 전부 뜨면 글이 묻힙니다
