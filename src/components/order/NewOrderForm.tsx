@@ -1316,9 +1316,11 @@ function OrderFormBody({
               shades={shades}
               implants={implants}
               implantCatalog={implantCatalog}
+              /*
+                ★ 줄마다 ✕ 로 지웁니다 (사용자 요청 2026-10-15).
+                  초기화는 치식도 위 단추가 맡아 여기엔 안 넘깁니다 — 둘이면 헷갈립니다.
+              */
               onRemoveLine={handleRemoveLine}
-              onReset={handleReset}
-              readOnly
             />
           </div>
         </div>

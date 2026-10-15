@@ -54,7 +54,12 @@ export default function ProsthesisSummary({
 }: ProsthesisSummaryProps) {
   const [confirming, setConfirming] = useState(false);
 
-  const lines = buildSummaryLines({ placements, shades, implants, implantCatalog });
+  /*
+    ★ 제품 표를 꼭 넘깁니다 (2026-10-15 발견). 빠뜨리면 기본 목록으로 이름을
+      찾다가 못 찾아, 표에만 있는 제품(FlowTemp)이 'auto_temp/pmma' 처럼
+      **코드로** 찍혔습니다.
+  */
+  const lines = buildSummaryLines({ placements, shades, implants, implantCatalog, catalog });
   const highlight = shouldHighlightReset(placements);
   const hasPontic = placements.some((p) => p.isPontic);
 
@@ -99,7 +104,8 @@ export default function ProsthesisSummary({
           </span>
         )}
 
-        {!readOnly && (
+        {/* ★ 초기화는 받을 곳이 있을 때만 — 주문서는 치식도 위에 자기 초기화가 있습니다 */}
+        {!readOnly && onReset && (
           <button
             onClick={() => setConfirming(true)}
             disabled={!highlight}
@@ -166,9 +172,11 @@ export default function ProsthesisSummary({
 
                 {!readOnly && onRemoveLine && (
                   <button
+                    type="button"
                     onClick={() => onRemoveLine(line)}
                     aria-label={`${line.abbr} 삭제`}
-                    className="shrink-0 text-[15px] leading-none text-[#C4CBD6] hover:text-[#D8453F]"
+                    title="이 줄 삭제"
+                    className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] leading-none text-[#B6BECC] hover:bg-[#FDE7E7] hover:text-[#D8453F]"
                   >
                     ✕
                   </button>
