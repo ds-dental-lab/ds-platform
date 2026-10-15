@@ -9,6 +9,57 @@
 export interface Placement {
   typeCode: string;      // crown / inlay / implant
   materialCode: string;  // zirconia / pmma / abut_pmma ...
+  /**
+   * 자동 출력 제품(FlowTemp)인가 — 제품 표의 auto_pipeline.
+   * ★ 코드('auto_temp')로 알아보지 않습니다. 제품이 자기 성질을 들고 옵니다.
+   */
+  autoPipeline?: boolean;
+}
+
+/**
+ * FlowTemp 가 짝으로 붙을 수 있는 최종 보철 종류.
+ *
+ * ★★ **FlowTemp 는 최종 보철물과 같이 주문할 때만** 넣습니다 (사용자 결정
+ *   2026-10-15, 과금 1안). 같은 스캔으로 크라운을 만들고, 그 사이에 쓸
+ *   임시치아를 치과 프린터가 뽑습니다. 돈은 크라운으로 받습니다.
+ * ★ 지금은 **크라운만**입니다 — 목표가 '싱글 크라운 하나 완벽하게, 그다음
+ *   브릿지·임플란트' 이고, 덴트버드 매크로도 크라운만 봅니다. 임플란트를
+ *   열 때 여기에 'implant' 를 넣습니다.
+ * ★ 아직 시험 중인 제품입니다 (2026-10-15 — 디자인 오류·교합/컨택 값·재출력이
+ *   안 정해짐). 그래서 치과 목록에서는 감춰 두고(is_internal) 시험 치과만 봅니다.
+ */
+export const AUTO_PARTNER_TYPES: readonly string[] = ['crown'];
+
+function isAutoPair(a: Placement, b: Placement): boolean {
+  const [auto, other] = a.autoPipeline ? [a, b] : [b, a];
+  return Boolean(auto.autoPipeline) && !other.autoPipeline && AUTO_PARTNER_TYPES.includes(other.typeCode);
+}
+
+export interface PairingItem {
+  tooth: number;
+  typeCode: string;
+  isPontic: boolean;
+  autoPipeline: boolean;
+}
+
+/**
+ * 짝(같은 치아의 최종 크라운)이 없는 FlowTemp 의 치식. 다 짝이 있으면 null.
+ *
+ * ★ 폰틱 크라운은 짝이 아닙니다 — 깎은 지대치가 있어야 임시치아를 씌웁니다.
+ */
+export function unpairedAutoTooth(items: PairingItem[]): number | null {
+  for (const it of items) {
+    if (!it.autoPipeline) continue;
+    const paired = items.some(
+      (o) =>
+        o.tooth === it.tooth &&
+        !o.autoPipeline &&
+        !o.isPontic &&
+        AUTO_PARTNER_TYPES.includes(o.typeCode),
+    );
+    if (!paired) return it.tooth;
+  }
+  return null;
 }
 
 /**
@@ -45,6 +96,8 @@ function isSame(a: Placement, b: Placement): boolean {
  * ★ 순서는 상관없습니다. PMMA 를 먼저 놓고 지르코니아를 올려도 같은 조합입니다.
  */
 export function isAllowedPair(a: Placement, b: Placement): boolean {
+  // ★ 최종 크라운 + FlowTemp (2026-10-15) — 제품 성질로 봅니다
+  if (isAutoPair(a, b)) return true;
   return ALLOWED_PAIRS.some(
     ([x, y]) => (isSame(a, x) && isSame(b, y)) || (isSame(a, y) && isSame(b, x)),
   );

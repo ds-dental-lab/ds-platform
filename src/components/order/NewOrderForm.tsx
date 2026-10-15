@@ -50,7 +50,7 @@ import {
   isBridgeable,
   buildAbbr,
 } from '@/server/domain/prosthesis';
-import { addPlacement, type Placement } from '@/server/domain/duplicate';
+import { addPlacement, unpairedAutoTooth, type Placement } from '@/server/domain/duplicate';
 import { lockedOrderType, ORDERABLE_TYPES } from '@/server/domain/order-type';
 import {
   EMPTY_SHADE,
@@ -442,9 +442,9 @@ function OrderFormBody({
   function placedOn(list: Entry[], tooth: number, useSystem: string, useShade: ToothShade): Entry[] {
     const current: Placement[] = list
       .filter((e) => e.tooth === tooth)
-      .map(({ typeCode: t, materialCode: m }) => ({ typeCode: t, materialCode: m }));
+      .map(({ typeCode: t, materialCode: m }) => ({ typeCode: t, materialCode: m, autoPipeline: autoOf(t) }));
 
-    const result = addPlacement(current, { typeCode, materialCode });
+    const result = addPlacement(current, { typeCode, materialCode, autoPipeline: autoOf(typeCode) });
     const kept = list.filter((e) => e.tooth !== tooth);
 
     const rebuilt: Entry[] = result.placements.map((p) => {
@@ -470,7 +470,26 @@ function OrderFormBody({
 
   /** 치아 하나에 지금 조건대로 보철을 얹습니다 */
   function placeTooth(tooth: number, useSystem: string, useShade: ToothShade) {
-    setEntries(placedOn(entries, tooth, useSystem, useShade));
+    const next = placedOn(entries, tooth, useSystem, useShade);
+    setEntries(next);
+
+    /*
+      ★ FlowTemp 만 찍힌 치아가 있으면 바로 알려 줍니다 (2026-10-15, 과금 1안).
+        막지는 않습니다 — 크라운을 먼저 찍든 FlowTemp 를 먼저 찍든 되게 둡니다.
+        저장할 때는 서버(validateOrder)가 막습니다.
+    */
+    const unpaired = unpairedAutoTooth(
+      next.map((e) => ({
+        tooth: e.tooth,
+        typeCode: e.typeCode,
+        isPontic: Boolean(e.isPontic),
+        autoPipeline: autoOf(e.typeCode),
+      })),
+    );
+    if (unpaired !== null) {
+      const name = prosthesisCatalog.find((t) => t.autoPipeline)?.name ?? '자동 출력 제품';
+      setHint(`${unpaired}번 — ${name} 는 같은 치아의 크라운과 함께 주문합니다. 크라운도 찍어 주세요`);
+    }
   }
 
   /**
@@ -674,7 +693,7 @@ function OrderFormBody({
         tooth: e.tooth,
         typeCode: e.typeCode,
         materialCode: e.materialCode,
-        isPontic: e.isPontic,
+        isPontic: Boolean(e.isPontic),
         shadeSystem: e.shadeSystem,
         shadeCervical: e.shade.cervical,
         shadeIncisal: e.shade.incisal,

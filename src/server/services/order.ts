@@ -19,7 +19,7 @@ import {
   allowsGingival,
   type ProsthesisCatalog,
 } from '@/server/domain/prosthesis';
-import { isAllowedPair, MAX_PER_TOOTH, type Placement } from '@/server/domain/duplicate';
+import { isAllowedPair, MAX_PER_TOOTH, unpairedAutoTooth, type Placement } from '@/server/domain/duplicate';
 import { computeBridges, type ToothPlacement } from '@/server/domain/bridge';
 import { isValidShade } from '@/server/domain/shade';
 import { checkDueDate, type DueDatePolicy } from '@/server/domain/due-date';
@@ -214,6 +214,7 @@ export function validateOrder(
     const placement: Placement = {
       typeCode: item.typeCode,
       materialCode: item.materialCode,
+      autoPipeline: Boolean(catalog.find((t) => t.code === item.typeCode)?.autoPipeline),
     };
     const existing = seen.get(item.tooth) ?? [];
 
@@ -230,6 +231,23 @@ export function validateOrder(
     }
 
     seen.set(item.tooth, [...existing, placement]);
+  }
+
+  /*
+    ★★ FlowTemp 는 같은 치아의 최종 크라운과 함께만 (사용자 결정 2026-10-15, 과금 1안).
+      화면도 알려 주지만 저장할 때 막습니다.
+  */
+  const unpaired = unpairedAutoTooth(
+    input.items.map((i) => ({
+      tooth: i.tooth,
+      typeCode: i.typeCode,
+      isPontic: Boolean(i.isPontic),
+      autoPipeline: Boolean(catalog.find((t) => t.code === i.typeCode)?.autoPipeline),
+    })),
+  );
+  if (unpaired !== null) {
+    const name = catalog.find((t) => t.autoPipeline)?.name ?? '자동 출력 제품';
+    return `${unpaired}번 — ${name} 는 같은 치아의 크라운과 함께 주문해 주세요`;
   }
 
   return null;

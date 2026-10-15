@@ -10,6 +10,7 @@ import {
   hasDuplicateBadge,
   getAllowedPairs,
   MAX_PER_TOOTH,
+  unpairedAutoTooth,
   type Placement,
 } from '@/server/domain/duplicate';
 
@@ -105,5 +106,36 @@ describe('2 배지', () => {
     expect(hasDuplicateBadge([])).toBe(false);
     expect(hasDuplicateBadge([zirCr])).toBe(false);
     expect(hasDuplicateBadge([zirCr, pmmaCr])).toBe(true);
+  });
+});
+
+describe('FlowTemp 는 같은 치아의 크라운과 짝 (2026-10-15, 과금 1안)', () => {
+  const flow: Placement = { typeCode: 'auto_temp', materialCode: 'pmma', autoPipeline: true };
+
+  it('크라운 지르코니아 + FlowTemp 는 같이 놓인다 (순서 무관)', () => {
+    expect(isAllowedPair(zirCr, flow)).toBe(true);
+    expect(isAllowedPair(flow, pmmaCr)).toBe(true);
+    expect(addPlacement([zirCr], flow).action).toBe('add');
+  });
+
+  it('인레이·임플란트와는 아직 짝이 아니다', () => {
+    expect(isAllowedPair(hyIn, flow)).toBe(false);
+    expect(isAllowedPair(scrp, flow)).toBe(false);
+  });
+
+  it('코드가 아니라 제품 성질로 본다 — 성질이 없으면 짝이 아니다', () => {
+    expect(isAllowedPair(zirCr, { typeCode: 'auto_temp', materialCode: 'pmma' })).toBe(false);
+  });
+
+  it('짝 없는 FlowTemp 의 치식을 돌려준다', () => {
+    const item = (tooth: number, typeCode: string, autoPipeline = false, isPontic = false) => ({
+      tooth, typeCode, autoPipeline, isPontic,
+    });
+    expect(unpairedAutoTooth([item(16, 'auto_temp', true)])).toBe(16);
+    expect(unpairedAutoTooth([item(16, 'auto_temp', true), item(16, 'crown')])).toBeNull();
+    expect(unpairedAutoTooth([item(16, 'auto_temp', true), item(17, 'crown')])).toBe(16);
+    // 폰틱 크라운은 짝이 아닙니다 — 씌울 지대치가 없습니다
+    expect(unpairedAutoTooth([item(16, 'auto_temp', true), item(16, 'crown', false, true)])).toBe(16);
+    expect(unpairedAutoTooth([item(16, 'crown')])).toBeNull();
   });
 });

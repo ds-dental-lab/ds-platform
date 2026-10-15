@@ -79,12 +79,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ orde
     }),
   );
 
+  /*
+    ★ FlowTemp(자동 출력 제품)는 exocad 주문서에 안 넣습니다 (2026-10-15).
+      덴트버드가 설계합니다. 크라운과 같은 주문에 들어오므로, 넣으면 런처가
+      'exocad 로 못 옮긴 종류 — 손으로 추가하세요' 라고 엉뚱하게 시킵니다.
+  */
+  const { data: autoTypes } = await admin
+    .from('prosthesis_types')
+    .select('code')
+    .eq('auto_pipeline', true);
+  const autoCodes = new Set(((autoTypes ?? []) as { code: string }[]).map((t) => t.code));
+
   const { payload, unknownTypes } = buildExocadPayload({
     orderId: order.id,
     orderNo: order.order_no,
     patientName: order.patient?.name ?? order.patient_label,
     orderDate: order.created_at.slice(0, 10),
-    items: order.order_items.map((it) => ({
+    items: order.order_items.filter((it) => !autoCodes.has(it.type_code)).map((it) => ({
       id: it.id,
       toothNumber: it.tooth_number,
       typeCode: it.type_code,

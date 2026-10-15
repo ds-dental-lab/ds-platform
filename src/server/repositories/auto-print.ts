@@ -490,9 +490,21 @@ export async function finishDeliver(
   const job = await jobOfOrder(orderId);
   if (!job) return { ok: false, error: '자동 진행 중인 주문이 아닙니다' };
 
-  // 기록으로 남길 것 — 디자인 STL 과 놓인 모습
+  /*
+    기록으로 남길 것 — 디자인 STL 과 놓인 모습.
+
+    ★★ FlowTemp STL 은 **'design' 이 아니라 'etc'** 로 남깁니다 (2026-10-15).
+      FlowTemp 는 이제 최종 크라운과 **같은 주문**에 들어옵니다(과금 1안).
+      'design' 으로 두면 두 가지가 틀어집니다.
+        ① 크라운 디자인을 안 올렸는데도 '디자인 파일 있음' 으로 세어
+           제작대기로 넘어갑니다 (requiresDesignFile).
+        ② 기공소가 디자인 파일을 받을 때 **임시치아 STL 이 같이 가서**
+           그걸로 최종 크라운을 깎을 수 있습니다.
+      'etc' 의 stl 은 기공소가 못 엽니다(file-access) — 임시치아는 치과
+      프린터가 뽑으니 기공소엔 필요 없습니다.
+  */
   const keep: Array<{ role: string; kind: string }> = [
-    { role: 'design', kind: 'design' },
+    { role: 'design', kind: 'etc' },
     { role: 'preview', kind: 'photo' },
   ];
   const rows = keep
