@@ -430,3 +430,122 @@ export function alertOnMove(from: AutoStep, to: AutoStep): AutoAlertKind | null 
   if (to === 'done' && from !== 'done') return 'done';
   return null;
 }
+
+// ---------- 치과 책갈피 (2026-10-15) ----------
+//
+// ★ 사용자 요청 — "DenFlow 모든 화면에서 오른쪽 책갈피처럼 접어두고, 펼치면
+//   환자 이름 / 상태값 / 진행률. 오류면 오류라고". 주문 상세에 들어가야만
+//   보이던 진행을, 어느 화면에서든 한눈에.
+// ★ 한 줄이 무엇을 말할지는 여기서 정합니다. 화면은 늘어놓기만.
+
+/**
+ * 줄의 성격 — 색이 됩니다.
+ *   error    빨강. 멈췄습니다
+ *   action   파랑. **치과가 손댈 차례** (출력판 비우기 · 꺼내기)
+ *   delay    주황. 늦어지는 중 (디자인 확인 중) — 치과가 할 일은 없습니다
+ *   progress 회청. 기다리면 됩니다
+ *   done     초록. 다 나왔습니다 — 꺼냈는지는 모르니 '할 일' 로 붙잡지 않습니다
+ *            (6시간 내내 탭이 파랗게 서 있으면 이미 꺼낸 사람에게 거짓말이 됩니다)
+ */
+export type BoardTone = 'error' | 'action' | 'delay' | 'progress' | 'done';
+
+export interface BoardRow {
+  tone: BoardTone;
+  /** 짧은 상태 — '출력 중' · '오류' 처럼 */
+  status: string;
+  /** 한 줄 설명 — 무엇을 하면 되는지, 무엇이 일어나는지 */
+  detail: string;
+  /** 전체 길에서 어디쯤인가 0~100 — 막대 길이 */
+  overall: number;
+  /** 출력 중일 때의 실제 퍼센트. 아니면 null */
+  percent: number | null;
+  /** 여기서 바로 「비웠습니다」 를 누를 수 있는가 */
+  canClearBed: boolean;
+}
+
+/**
+ * 전체 길에서의 자리. 디자인 7분 · 출력 10분쯤이라 출력에 가장 많이 줍니다.
+ * ★ 디자인 잔걸음도 칸을 나눠 줍니다 — 7분 동안 막대가 안 움직이면 멈춘 줄 압니다.
+ */
+const OVERALL: Record<AutoStep, number> = {
+  waiting_design: 2,
+  slicing: 32,
+  queued: 38,
+  sending: 42,
+  printing: 45,
+  done: 100,
+  failed: 0,
+};
+const DESIGN_OVERALL: Record<DesignStage, number> = {
+  uploading: 6,
+  analyzing: 12,
+  generating: 20,
+  exporting: 28,
+  stalled: 12,
+};
+
+function overallOf(job: AutoJob): number {
+  if (job.step === 'printing' && job.percent !== null) {
+    // 출력 45 → 99 사이를 실제 퍼센트로 채웁니다
+    return Math.min(99, 45 + Math.round((Math.max(0, Math.min(100, job.percent)) * 54) / 100));
+  }
+  if (job.step === 'waiting_design' && job.designStage) return DESIGN_OVERALL[job.designStage];
+  if (job.step === 'failed') return job.failedAt ? OVERALL[job.failedAt] : 0;
+  return OVERALL[job.step];
+}
+
+export function boardRow(job: AutoJob): BoardRow {
+  const overall = overallOf(job);
+  const base = { overall, percent: null as number | null, canClearBed: false };
+
+  if (job.step === 'failed') {
+    return {
+      ...base,
+      tone: 'error',
+      status: '오류',
+      detail: job.failedReason?.trim() || `${LABEL[job.failedAt ?? 'waiting_design']} 단계에서 멈췄습니다`,
+    };
+  }
+  if (job.step === 'waiting_design') {
+    if (job.designStage === 'stalled') {
+      return { ...base, tone: 'delay', status: '디자인 지연', detail: '확인하고 있습니다 — 조금 늦어질 수 있습니다' };
+    }
+    return {
+      ...base,
+      tone: 'progress',
+      status: '디자인 중',
+      detail: job.designStage ? DESIGN_STAGE_LABEL[job.designStage] : '차례를 기다립니다',
+    };
+  }
+  if (job.step === 'queued' && job.bedClearedAt === null) {
+    return { ...base, tone: 'action', status: '출력 준비됨', detail: '출력판을 비우고 「비웠습니다」를 눌러 주세요', canClearBed: true };
+  }
+  if (job.step === 'done') {
+    return { ...base, tone: 'done', status: '출력 완료', detail: '다 나왔습니다 — 꺼내 주세요' };
+  }
+  if (job.step === 'printing') {
+    const p = job.percent === null ? null : Math.max(0, Math.min(100, Math.round(job.percent)));
+    return { ...base, tone: 'progress', status: '출력 중', detail: '프린터가 뽑고 있습니다', percent: p };
+  }
+  // slicing · queued(비움 확인됨) · sending
+  const detail: Record<string, string> = {
+    slicing: '출력 파일을 만들고 있습니다',
+    queued: '곧 프린터로 보냅니다',
+    sending: '프린터로 보내고 있습니다',
+  };
+  return { ...base, tone: 'progress', status: '출력 준비', detail: detail[job.step] ?? LABEL[job.step] };
+}
+
+/** 접힌 탭의 색 — 가장 급한 줄을 따릅니다 (오류 > 할 일 > 지연 > 진행 > 완료) */
+export function boardTone(rows: BoardTone[]): BoardTone | null {
+  for (const t of ['error', 'action', 'delay', 'progress', 'done'] as const) {
+    if (rows.includes(t)) return t;
+  }
+  return null;
+}
+
+/**
+ * 끝난 것을 얼마나 남겨 둘까. 꺼내 달라는 말이 보여야 하지만, 하루 종일
+ * 남아 있으면 책갈피가 지난 일로 찹니다.
+ */
+export const BOARD_DONE_HOURS = 6;

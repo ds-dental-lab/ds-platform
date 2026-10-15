@@ -7,6 +7,7 @@ import {
   countUnreadNotifications,
 } from "@/server/repositories/notification";
 import { scannerNavState } from "@/server/repositories/device-link";
+import FlowTempDock from "@/components/layout/FlowTempDock";
 
 export default async function ClinicLayout({ children }: { children: React.ReactNode }) {
   const s = await requireSector("clinic");
@@ -23,6 +24,8 @@ export default async function ClinicLayout({ children }: { children: React.React
       bell={<NotificationBell notifications={notifications} unreadCount={unreadCount} pushKey={process.env.VAPID_PUBLIC_KEY ?? null} />}
     >
       {children}
+      {/* ★ 오른쪽 책갈피 — FlowTemp 진행 (2026-10-15). 진행 중인 게 없으면 안 보입니다 */}
+      <FlowTempDock />
     </SectorShell>
   );
 }

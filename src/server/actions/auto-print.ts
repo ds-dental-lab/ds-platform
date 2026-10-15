@@ -17,7 +17,16 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { clearBed, jobOfOrder, retryJob } from '@/server/repositories/auto-print';
-import { autoProgress, autoNotice, type AutoJob } from '@/server/domain/auto-print';
+import {
+  autoProgress,
+  autoNotice,
+  boardRow,
+  BOARD_DONE_HOURS,
+  isAutoStep,
+  isDesignStage,
+  type AutoJob,
+  type BoardRow,
+} from '@/server/domain/auto-print';
 import { autoPrintLaunchUrl } from '@/server/domain/exocad';
 import { issueExocadToken } from '@/server/exocad/token';
 
@@ -140,4 +149,111 @@ export async function issueAutoPrintLaunch(orderId: string): Promise<LaunchResul
   if (!token) return { ok: false, error: '서버에 열쇠가 없어 토큰을 못 만듭니다' };
 
   return { ok: true, url: autoPrintLaunchUrl(orderId, token) };
+}
+
+// ---------------------------------------------------------------- 치과 책갈피
+
+export interface BoardItem extends BoardRow {
+  orderId: string;
+  orderNo: string;
+  patientLabel: string;
+  /** FlowTemp 가 놓인 치식 */
+  teeth: number[];
+}
+
+export interface Board {
+  /** 제품 이름 — 표에서 읽습니다 (FlowTemp) */
+  productName: string;
+  items: BoardItem[];
+}
+
+/**
+ * 치과 화면 오른쪽 책갈피에 그릴 것 (사용자 요청 2026-10-15).
+ *
+ * ★ **치과만.** 다른 섹터는 빈 목록입니다.
+ * ★ 누구 것인지는 RLS 가 정합니다(auto_jobs_select — 자기 치과 것만).
+ *   관리자 열쇠를 쓰지 않습니다.
+ * ★ 끝난 것은 BOARD_DONE_HOURS 동안만 남깁니다 — '꺼내 주세요' 가 보일 만큼.
+ * ★ 가볍게 — 열어 둔 모든 화면이 몇 초마다 부릅니다. 줄 수를 묶어 둡니다.
+ */
+export async function getFlowTempBoard(): Promise<Board> {
+  const empty: Board = { productName: '', items: [] };
+
+  const session = await getSession();
+  if (!session || session.orgType !== 'clinic') return empty;
+
+  const supabase = await createClient();
+  const since = new Date(Date.now() - BOARD_DONE_HOURS * 3600 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from('auto_jobs')
+    .select(
+      'order_id, step, bed_cleared_at, percent, failed_at, failed_reason, design_stage, finished_at, updated_at, ' +
+        'orders!inner(order_no, patient_label, deleted_at, order_items(tooth_number, type_code))',
+    )
+    .is('orders.deleted_at', null)
+    .or(`step.neq.done,finished_at.gte.${since}`)
+    .order('updated_at', { ascending: false })
+    .limit(20);
+
+  if (error || !data) return empty;
+
+  type Row = {
+    order_id: string;
+    step: string;
+    bed_cleared_at: string | null;
+    percent: number | null;
+    failed_at: string | null;
+    failed_reason: string | null;
+    design_stage: string | null;
+    orders: {
+      order_no: string;
+      patient_label: string;
+      order_items: { tooth_number: number; type_code: string }[] | null;
+    };
+  };
+
+  const rows = data as unknown as Row[];
+  if (rows.length === 0) return empty;
+
+  const { data: types } = await supabase
+    .from('prosthesis_types')
+    .select('code, name')
+    .eq('auto_pipeline', true);
+  const autoTypes = (types ?? []) as { code: string; name: string }[];
+  const autoCodes = new Set(autoTypes.map((t) => t.code));
+
+  const items: BoardItem[] = rows
+    .filter((r) => isAutoStep(r.step))
+    .map((r) => {
+      const job: AutoJob = {
+        step: r.step as AutoJob['step'],
+        bedClearedAt: r.bed_cleared_at,
+        percent: r.percent,
+        failedAt: isAutoStep(r.failed_at) ? r.failed_at : null,
+        failedReason: r.failed_reason,
+        designStage: isDesignStage(r.design_stage) ? r.design_stage : null,
+      };
+      return {
+        orderId: r.order_id,
+        orderNo: r.orders.order_no,
+        patientLabel: r.orders.patient_label,
+        teeth: [
+          ...new Set(
+            (r.orders.order_items ?? [])
+              .filter((i) => autoCodes.has(i.type_code))
+              .map((i) => i.tooth_number),
+          ),
+        ].sort((a, b) => a - b),
+        ...boardRow(job),
+      };
+    });
+
+  /*
+    ★ 급한 것이 위로 — 오류, 치과 할 일, 지연, 진행 순. 같으면 최근 것이 위.
+  */
+  const order = { error: 0, action: 1, delay: 2, progress: 3, done: 4 } as const;
+  items.sort((a, b) => order[a.tone] - order[b.tone]);
+
+  return { productName: autoTypes[0]?.name ?? '임시치아', items };
 }

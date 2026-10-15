@@ -21,6 +21,8 @@ import {
   alertOnMove,
   autoAlert,
   autoNotice,
+  boardRow,
+  boardTone,
   autoProgress,
   canClearBed,
   canMove,
@@ -361,5 +363,63 @@ describe('치과에 알리는 때는 둘뿐 (2026-10-15)', () => {
     }
     expect(autoAlert('bed', { orderNo: 'A', patientLabel: 'B', productName: 'C' }).title).toContain('비워');
     expect(autoAlert('done', { orderNo: 'A', patientLabel: 'B', productName: 'C' }).title).toContain('꺼내');
+  });
+});
+
+describe('치과 책갈피 한 줄 (2026-10-15)', () => {
+  it('오류는 빨강 — 까닭을 그대로', () => {
+    const r = boardRow(job({ step: 'failed', failedAt: 'sending', failedReason: '프린터를 찾지 못했습니다' }));
+    expect(r.tone).toBe('error');
+    expect(r.status).toBe('오류');
+    expect(r.detail).toBe('프린터를 찾지 못했습니다');
+  });
+
+  it('출력판 확인을 기다리면 파랑 — 여기서 바로 누를 수 있다', () => {
+    const r = boardRow(job({ step: 'queued' }));
+    expect(r.tone).toBe('action');
+    expect(r.canClearBed).toBe(true);
+    expect(boardRow(job({ step: 'queued', bedClearedAt: '2026-10-15T00:00:00Z' })).canClearBed).toBe(false);
+  });
+
+  it('출력 중이면 실제 퍼센트와 막대', () => {
+    const r = boardRow(job({ step: 'printing', percent: 62 }));
+    expect(r.percent).toBe(62);
+    expect(r.overall).toBeGreaterThan(boardRow(job({ step: 'sending' })).overall);
+    expect(r.overall).toBeLessThan(100);
+  });
+
+  it('막대는 뒤로 가지 않는다 — 디자인 잔걸음부터 완료까지', () => {
+    const path = [
+      job(),
+      job({ designStage: 'uploading' }),
+      job({ designStage: 'analyzing' }),
+      job({ designStage: 'generating' }),
+      job({ designStage: 'exporting' }),
+      job({ step: 'slicing' }),
+      job({ step: 'queued' }),
+      job({ step: 'sending' }),
+      job({ step: 'printing', percent: 0 }),
+      job({ step: 'printing', percent: 100 }),
+      job({ step: 'done' }),
+    ].map((j) => boardRow(j).overall);
+    for (let i = 1; i < path.length; i++) expect(path[i]).toBeGreaterThanOrEqual(path[i - 1]);
+    expect(path.at(-1)).toBe(100);
+  });
+
+  it('디자인 지연은 주황, 실패라고 하지 않는다', () => {
+    const r = boardRow(job({ designStage: 'stalled' }));
+    expect(r.tone).toBe('delay');
+    expect(r.status + r.detail).not.toMatch(/실패|오류|덴트버드/);
+  });
+
+  it('다 나온 것은 초록 — 할 일로 붙잡지 않는다', () => {
+    expect(boardRow(job({ step: 'done' })).tone).toBe('done');
+  });
+
+  it('접힌 탭은 가장 급한 색을 따른다', () => {
+    expect(boardTone(['progress', 'error', 'action'])).toBe('error');
+    expect(boardTone(['done', 'action'])).toBe('action');
+    expect(boardTone(['done', 'progress'])).toBe('progress');
+    expect(boardTone([])).toBeNull();
   });
 });
