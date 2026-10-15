@@ -19,7 +19,7 @@
 
 import { useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitClearBed, submitRetryAutoPrint } from '@/server/actions/auto-print';
+import { submitClearBed, submitReprint, submitRetryAutoPrint } from '@/server/actions/auto-print';
 import type { AutoProgressStep } from '@/server/domain/auto-print';
 
 const COLOR = {
@@ -37,6 +37,8 @@ export default function AutoPrintPanel({
   canClear,
   designNote = null,
   manualSlot = null,
+  finishedAt = null,
+  canReprint = false,
 }: {
   orderId: string;
   steps: AutoProgressStep[];
@@ -48,6 +50,10 @@ export default function AutoPrintPanel({
   designNote?: string | null;
   /** 센터만 — STL 을 손으로 고르는 작은 링크 (AutoPrintSendButton) */
   manualSlot?: ReactNode;
+  /** 다 나온 때 (ISO) */
+  finishedAt?: string | null;
+  /** 다 나왔다 — 「다시 뽑기」 를 보입니다 */
+  canReprint?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -78,15 +84,40 @@ export default function AutoPrintPanel({
     });
   };
 
+  /*
+    ★ 같은 디자인을 다시 뽑습니다 (사용자 요청 2026-10-15 — 깨짐·분실·하나 더).
+      출력판 확인부터 다시 돕니다.
+  */
+  const reprint = () => {
+    setError(null);
+    start(async () => {
+      const got = await submitReprint(orderId);
+      if (got.ok) router.refresh();
+      else setError(got.error);
+    });
+  };
+
+  const done = canReprint;
+
   return (
-    <section className="rounded-xl border border-[#E8EBF0] bg-white p-4">
+    <section
+      className={
+        'rounded-xl border bg-white p-4 ' + (done ? 'border-[#BFE3CF]' : 'border-[#E8EBF0]')
+      }
+    >
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-[13.5px] font-bold tracking-[-0.02em] text-[#1A2130]">자동 출력</h3>
         <span
           className={
-            'text-[12.5px] ' + (stopped ? 'font-bold text-[#D64545]' : 'text-[#4A5567]')
+            'text-[12.5px] ' +
+            (stopped
+              ? 'font-bold text-[#D64545]'
+              : done
+                ? 'font-bold text-[#12855B]'
+                : 'text-[#4A5567]')
           }
         >
+          {done ? '✓ ' : ''}
           {notice}
         </span>
       </div>
@@ -98,7 +129,7 @@ export default function AutoPrintPanel({
 
           return (
             <li key={step.key} className="flex items-start">
-              <div className="flex w-[72px] flex-col items-center gap-1.5">
+              <div className="flex w-[64px] flex-col items-center gap-1.5">
                 <span
                   aria-hidden="true"
                   className="grid h-[18px] w-[18px] place-items-center rounded-full"
@@ -125,7 +156,7 @@ export default function AutoPrintPanel({
               {last ? null : (
                 <span
                   aria-hidden="true"
-                  className="mt-[8px] h-[2px] w-[18px] shrink-0 rounded"
+                  className="mt-[8px] h-[2px] w-[14px] shrink-0 rounded"
                   style={{ background: step.state === 'done' ? '#12855B' : '#DDE2EA' }}
                 />
               )}
@@ -133,6 +164,39 @@ export default function AutoPrintPanel({
           );
         })}
       </ol>
+
+      {/*
+        ★ 다 나왔으면 크게 (2026-10-15 — "출력 완료도 가시성이 떨어져").
+          칸이 다 초록이 되는 것만으로는 끝났는지 눈에 안 들어왔습니다.
+      */}
+      {done ? (
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-[#BFE3CF] bg-[#EEF8F2] p-3">
+          <span
+            aria-hidden="true"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#12855B] text-[17px] font-bold text-white"
+          >
+            ✓
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-bold tracking-[-0.02em] text-[#0E6B49]">
+              출력 완료{finishedAt ? <span className="ml-1.5 font-semibold">· {whenKst(finishedAt)}</span> : null}
+            </p>
+            <p className="mt-0.5 text-[12px] text-[#3E7A5E]">다 나왔습니다 — 출력판에서 꺼내 주세요.</p>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <button
+              type="button"
+              onClick={reprint}
+              disabled={pending}
+              className="rounded-lg border border-[#12855B] bg-white px-3.5 py-2 text-[12.5px] font-bold text-[#12855B] hover:bg-[#F3FBF7] disabled:opacity-50"
+            >
+              {pending ? '거는 중…' : '↻ 다시 뽑기'}
+            </button>
+            <span className="text-[11px] text-[#7C8595]">같은 디자인 · 출력판 확인부터</span>
+          </div>
+          {error ? <p className="w-full text-[12px] text-[#D64545]">{error}</p> : null}
+        </div>
+      ) : null}
 
       {designNote ? (
         <div className="mt-3 rounded-lg border border-[#F6DDB0] bg-[#FFF8EC] p-3">
@@ -185,4 +249,15 @@ export default function AutoPrintPanel({
       {manualSlot ? <div className="mt-3 border-t border-[#F0F2F5] pt-2.5">{manualSlot}</div> : null}
     </section>
   );
+}
+
+/** '15:32' — 오늘이 아니면 '10/14 15:32'. 한국 시간으로 */
+function whenKst(iso: string): string {
+  const d = new Date(iso);
+  const fmt = (o: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', ...o }).format(d);
+  const day = (x: Date) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(x);
+  const time = fmt({ hour: '2-digit', minute: '2-digit', hour12: false });
+  return day(d) === day(new Date()) ? time : `${fmt({ month: 'numeric', day: 'numeric' })} ${time}`;
 }

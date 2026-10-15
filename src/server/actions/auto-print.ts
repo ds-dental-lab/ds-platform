@@ -16,7 +16,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
-import { clearBed, dismissJob, jobOfOrder, retryJob } from '@/server/repositories/auto-print';
+import { clearBed, dismissJob, jobOfOrder, reprintJob, retryJob } from '@/server/repositories/auto-print';
 import {
   autoProgress,
   autoNotice,
@@ -208,6 +208,7 @@ export async function getFlowTempBoard(): Promise<Board> {
     failed_at: string | null;
     failed_reason: string | null;
     design_stage: string | null;
+    finished_at: string | null;
     orders: {
       order_no: string;
       patient_label: string;
@@ -235,6 +236,7 @@ export async function getFlowTempBoard(): Promise<Board> {
         failedAt: isAutoStep(r.failed_at) ? r.failed_at : null,
         failedReason: r.failed_reason,
         designStage: isDesignStage(r.design_stage) ? r.design_stage : null,
+        finishedAt: r.finished_at,
       };
       return {
         orderId: r.order_id,
@@ -274,4 +276,28 @@ export async function submitDismissAutoJob(orderId: string): Promise<ClearBedRes
   if (!data) return { ok: false, error: '주문을 찾을 수 없습니다' };
 
   return dismissJob(orderId, session.user.id);
+}
+
+/**
+ * 같은 디자인을 다시 뽑습니다 (사용자 요청 2026-10-15).
+ *
+ * ★ 치과·센터 둘 다 누릅니다 — 치과가 센터에 전화로 부탁하는 일이 있습니다.
+ *   어느 쪽이 눌러도 출력은 치과가 「비웠습니다」를 눌러야 시작합니다.
+ * ★ 기공소는 못 누릅니다 (다시 걸기와 같은 규칙).
+ */
+export async function submitReprint(orderId: string): Promise<ClearBedResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: '로그인이 필요합니다' };
+  if (session.orgType === 'lab') return { ok: false, error: '자동 출력은 기공소가 다루지 않습니다' };
+
+  const supabase = await createClient();
+  const { data } = await supabase.from('orders').select('id').eq('id', orderId).maybeSingle();
+  if (!data) return { ok: false, error: '주문을 찾을 수 없습니다' };
+
+  const result = await reprintJob(orderId, { orgId: session.orgId ?? null, userId: session.user.id });
+  if (!result.ok) return result;
+
+  revalidatePath(`/clinic/orders/${orderId}`);
+  revalidatePath(`/design/orders/${orderId}`);
+  return { ok: true };
 }

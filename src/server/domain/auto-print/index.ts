@@ -84,13 +84,18 @@ export function stepLabel(step: AutoStep): string {
   return LABEL[step];
 }
 
-/** 치과 화면에 보여 줄 다섯 칸 (`failed` 는 칸이 아니라 멈춘 표시입니다) */
+/**
+ * 치과 화면에 보여 줄 여섯 칸 (`failed` 는 칸이 아니라 멈춘 표시입니다).
+ * ★ '완료' 칸을 더했습니다 (2026-10-15 — "출력 완료도 가시성이 떨어져").
+ *   다섯 칸이 다 초록이 돼도 '끝났다' 는 칸이 없어서 눈에 안 들어왔습니다.
+ */
 export const SHOWN_STEPS: readonly AutoStep[] = [
   'waiting_design',
   'slicing',
   'queued',
   'sending',
   'printing',
+  'done',
 ] as const;
 
 /**
@@ -137,6 +142,8 @@ export interface AutoJob {
   step: AutoStep;
   /** 디자인 칸 안의 잔걸음. 디자인 칸이 아니거나 아직이면 null */
   designStage?: DesignStage | null;
+  /** 다 나온 때. 아직이면 null */
+  finishedAt?: string | null;
   /** 치과가 '베드 비움' 을 누른 때. 안 눌렀으면 null */
   bedClearedAt: string | null;
   /** 출력 중일 때 0~100. 모르면 null */
@@ -213,6 +220,19 @@ export function canClearBed(job: AutoJob): boolean {
   return job.step === 'queued' && job.bedClearedAt === null;
 }
 
+/**
+ * 같은 디자인을 다시 뽑을 수 있는가 (사용자 요청 2026-10-15 — 깨짐·분실·하나 더).
+ *
+ * ★ **다 나온 것만.** 출력 파일이 이미 있으니 자르기도 설계도 다시 안 합니다 —
+ *   '출력 대기' 로 돌아가 출력판 확인부터 다시 돕니다.
+ * ★ 멈춘 것은 「다시 걸기」 (retryTo) 가 맡습니다. 길이 다릅니다.
+ * ★ 횟수를 막지 않습니다. PLA 몇 그램과 10분이라. 대신 몇 번인지 남깁니다 —
+ *   같은 건을 자꾸 다시 뽑으면 디자인을 고쳐야 한다는 신호입니다.
+ */
+export function canReprint(job: AutoJob): boolean {
+  return job.step === 'done';
+}
+
 export type StepState = 'done' | 'current' | 'todo' | 'stopped';
 
 export interface AutoProgressStep {
@@ -240,7 +260,8 @@ export function autoProgress(job: AutoJob): AutoProgressStep[] {
     const rank = RANK[key];
 
     let state: StepState;
-    if (stopped === key) state = 'stopped';
+    if (job.step === 'done') state = 'done';
+    else if (stopped === key) state = 'stopped';
     else if (job.step === 'failed') state = rank < RANK[stopped ?? 'waiting_design'] ? 'done' : 'todo';
     else if (rank < here) state = 'done';
     else if (rank === here) state = 'current';
@@ -461,6 +482,10 @@ export interface BoardRow {
   percent: number | null;
   /** 여기서 바로 「비웠습니다」 를 누를 수 있는가 */
   canClearBed: boolean;
+  /** 여기서 바로 「다시 뽑기」 를 누를 수 있는가 */
+  canReprint: boolean;
+  /** 다 나온 때 (ISO). 완료가 아니면 null */
+  finishedAt: string | null;
 }
 
 /**
@@ -496,7 +521,13 @@ function overallOf(job: AutoJob): number {
 
 export function boardRow(job: AutoJob): BoardRow {
   const overall = overallOf(job);
-  const base = { overall, percent: null as number | null, canClearBed: false };
+  const base = {
+    overall,
+    percent: null as number | null,
+    canClearBed: false,
+    canReprint: canReprint(job),
+    finishedAt: job.step === 'done' ? (job.finishedAt ?? null) : null,
+  };
 
   if (job.step === 'failed') {
     return {

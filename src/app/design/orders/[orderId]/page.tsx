@@ -281,6 +281,8 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
             steps={auto.steps}
             notice={auto.notice}
             needsBed={auto.needsBed}
+            finishedAt={auto.job.finishedAt ?? null}
+            canReprint={auto.job.step === 'done'}
             canClear={false}
             designNote={auto.designNote}
             /*

@@ -50,6 +50,7 @@ interface JobRow {
   print_file_path: string;
   design_stage: string | null;
   design_note: string | null;
+  finished_at: string | null;
 }
 
 const asJob = (row: JobRow): AutoJob => ({
@@ -59,11 +60,12 @@ const asJob = (row: JobRow): AutoJob => ({
   failedAt: row.failed_at,
   failedReason: row.failed_reason,
   designStage: isDesignStage(row.design_stage) ? row.design_stage : null,
+  finishedAt: row.finished_at,
 });
 
 const COLUMNS =
   'id, order_id, clinic_org_id, printer_id, step, bed_cleared_at, ' +
-  'percent, tries, failed_at, failed_reason, print_file_path, design_stage, design_note';
+  'percent, tries, failed_at, failed_reason, print_file_path, design_stage, design_note, finished_at';
 
 /** 주문 하나의 작업. 없으면 null */
 export async function jobOfOrder(
@@ -275,6 +277,68 @@ export async function setDesignStage(
   if (error) return { ok: false, error: error.message };
   if (!data || data.length === 0) return { ok: false, error: '디자인 차례인 주문이 아닙니다' };
   return { ok: true };
+}
+
+/**
+ * 같은 디자인을 다시 뽑습니다 — '다 나옴' → '출력 대기' (사용자 요청 2026-10-15).
+ *
+ * ★ 출력 파일을 그대로 씁니다. 자르기·설계를 다시 안 하므로 덴트버드 건수도
+ *   안 씁니다. 출력판 확인 도장을 지워서 **비웠는지부터 다시 묻습니다** —
+ *   방금 나온 것이 판 위에 있을 수 있습니다.
+ * ★ moveStep 을 안 거칩니다. done 에서 나가는 길은 이것 하나뿐이고, 치과가
+ *   방금 스스로 누른 것이라 '출력판을 비워 주세요' 알림을 또 보낼 까닭이
+ *   없습니다. (화면 신호는 표 트리거가 쏩니다)
+ * ★ 몇 번째인지 domain_events 에 남깁니다 — 자꾸 다시 뽑으면 디자인 문제입니다.
+ * ★ 책갈피에서 치웠던 것이면 다시 보이게 합니다.
+ */
+export async function reprintJob(
+  orderId: string,
+  actor: { orgId: string | null; userId: string },
+): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from('auto_jobs')
+    .update({
+      step: 'queued',
+      bed_cleared_at: null,
+      bed_cleared_by: null,
+      claimed_at: null,
+      claimed_device_id: null,
+      started_at: null,
+      finished_at: null,
+      percent: null,
+      tries: 0,
+      failed_at: null,
+      failed_reason: null,
+      dismissed_at: null,
+      dismissed_by: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('order_id', orderId)
+    .eq('step', 'done')
+    .not('print_file_path', 'is', null)
+    .select('id');
+
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: '다 나온 것만 다시 뽑을 수 있습니다' };
+
+  await admin.from('domain_events').insert({
+    event_type: 'order.auto_print.reprint',
+    aggregate_type: 'order',
+    aggregate_id: orderId,
+    actor_org_id: actor.orgId,
+    actor_user_id: actor.userId,
+    payload: {},
+  });
+
+  const { count } = await admin
+    .from('domain_events')
+    .select('id', { count: 'exact', head: true })
+    .eq('aggregate_id', orderId)
+    .eq('event_type', 'order.auto_print.reprint');
+
+  return { ok: true, count: count ?? 1 };
 }
 
 /**

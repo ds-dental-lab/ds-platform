@@ -24,6 +24,7 @@ import {
   getFlowTempBoard,
   submitClearBed,
   submitDismissAutoJob,
+  submitReprint,
   type Board,
   type BoardItem,
 } from '@/server/actions/auto-print';
@@ -297,12 +298,28 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
     });
   };
 
+  // ★ 같은 디자인을 다시 뽑습니다 (2026-10-15). 출력판 확인부터 다시 돕니다
+  const reprint = () => {
+    setError(null);
+    start(async () => {
+      const got = await submitReprint(item.orderId);
+      if (got.ok) await onChanged();
+      else setError(got.error);
+    });
+  };
+
   if (gone && !error) return null;
+
+  const done = item.tone === 'done';
 
   return (
     <li
-      className="relative overflow-hidden rounded-xl border bg-white"
-      style={{ borderColor: item.tone === 'progress' || item.tone === 'done' ? '#E8EBF0' : color.main }}
+      className="relative overflow-hidden rounded-xl border"
+      style={{
+        borderColor: item.tone === 'progress' ? '#E8EBF0' : color.main,
+        // ★ 다 나온 줄은 바탕까지 초록 — "출력 완료도 가시성이 떨어져" (2026-10-15)
+        background: done ? '#F3FBF7' : '#FFFFFF',
+      }}
     >
       {item.tone === 'done' ? (
         <button
@@ -316,7 +333,10 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
           ✕
         </button>
       ) : null}
-      <Link href={`/clinic/orders/${item.orderId}`} className="block px-3.5 pb-3 pt-3 hover:bg-[#FBFCFD]">
+      <Link
+        href={`/clinic/orders/${item.orderId}`}
+        className={'block px-3.5 pb-3 pt-3 ' + (done ? 'hover:bg-[#EAF7F0]' : 'hover:bg-[#FBFCFD]')}
+      >
         <div className="flex items-center gap-2">
           <b className="min-w-0 truncate text-[14px] font-bold tracking-[-0.02em] text-[#1A2130]">
             {item.patientLabel}
@@ -328,10 +348,10 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
           ) : null}
           <span
             className={
-              'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-bold' +
-              (item.tone === 'done' ? ' mr-6' : '')
+              'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-bold' + (done ? ' mr-6' : '')
             }
-            style={{ background: color.soft, color: color.ink }}
+            // 완료 칩은 진한 초록에 흰 글씨 — 멀리서도 '끝' 이 보이게
+            style={done ? { background: color.main, color: '#FFFFFF' } : { background: color.soft, color: color.ink }}
           >
             {item.tone === 'error' ? '⚠ ' : item.tone === 'done' ? '✓ ' : ''}
             {item.status}
@@ -355,13 +375,31 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
           className="mt-1.5 text-[12px] leading-snug"
           style={{ color: item.tone === 'progress' ? '#7C8595' : color.ink }}
         >
-          {item.tone === 'error' ? `오류 — ${item.detail}` : item.detail}
+          {item.tone === 'error'
+            ? `오류 — ${item.detail}`
+            : done && item.finishedAt
+              ? `${hhmm(item.finishedAt)} 완료 — 꺼내 주세요`
+              : item.detail}
         </p>
         <p className="mt-0.5 text-[11px] text-[#B6BECC]">{item.orderNo}</p>
       </Link>
 
       {error && !item.canClearBed ? (
         <p className="border-t border-[#F0F2F5] px-3.5 py-2 text-[11.5px] text-[#D64545]">{error}</p>
+      ) : null}
+
+      {item.canReprint ? (
+        <div className="flex items-center gap-2 border-t border-[#D5EEDF] px-3.5 py-2">
+          <span className="text-[11.5px] text-[#3E7A5E]">깨졌거나 하나 더 필요하면</span>
+          <button
+            type="button"
+            onClick={reprint}
+            disabled={pending}
+            className="ml-auto rounded-lg border border-[#12855B] bg-white px-3 py-1.5 text-[12px] font-bold text-[#12855B] hover:bg-[#EAF7F0] disabled:opacity-50"
+          >
+            {pending ? '거는 중…' : '↻ 다시 뽑기'}
+          </button>
+        </div>
       ) : null}
 
       {item.canClearBed ? (
@@ -379,4 +417,14 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
       ) : null}
     </li>
   );
+}
+
+/** 한국 시간 '15:32' */
+function hhmm(iso: string): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(iso));
 }

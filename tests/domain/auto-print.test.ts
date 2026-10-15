@@ -23,6 +23,7 @@ import {
   autoNotice,
   boardRow,
   boardTone,
+  canReprint,
   autoProgress,
   canClearBed,
   canMove,
@@ -154,7 +155,7 @@ describe('진행 줄 — 멈추면 멈춘 자리가 보입니다', () => {
 
   it('지난 칸·지금 칸·올 칸이 나뉩니다', () => {
     const steps = autoProgress(job({ step: 'sending' }));
-    expect(steps.map((s) => s.state)).toEqual(['done', 'done', 'done', 'current', 'todo']);
+    expect(steps.map((s) => s.state)).toEqual(['done', 'done', 'done', 'current', 'todo', 'todo']);
   });
 
   it('멈춘 칸에 표시가 남습니다', () => {
@@ -421,5 +422,28 @@ describe('치과 책갈피 한 줄 (2026-10-15)', () => {
     expect(boardTone(['done', 'action'])).toBe('action');
     expect(boardTone(['done', 'progress'])).toBe('progress');
     expect(boardTone([])).toBeNull();
+  });
+});
+
+describe('다시 뽑기 (2026-10-15)', () => {
+  it('다 나온 것만 다시 뽑는다 — 멈춘 것은 다시 걸기가 맡는다', () => {
+    expect(canReprint(job({ step: 'done' }))).toBe(true);
+    for (const step of ['waiting_design', 'slicing', 'queued', 'sending', 'printing', 'failed'] as const) {
+      expect(canReprint(job({ step }))).toBe(false);
+    }
+  });
+
+  it('책갈피의 완료 줄에 다시 뽑기와 끝난 시각이 붙는다', () => {
+    const r = boardRow(job({ step: 'done', finishedAt: '2026-10-15T06:32:47Z' }));
+    expect(r.canReprint).toBe(true);
+    expect(r.finishedAt).toBe('2026-10-15T06:32:47Z');
+    expect(boardRow(job({ step: 'printing', percent: 10 })).canReprint).toBe(false);
+  });
+
+  it('진행 줄에 완료 칸이 있고, 끝나면 그 칸까지 초록이다', () => {
+    const steps = autoProgress(job({ step: 'done' }));
+    expect(steps.at(-1)?.key).toBe('done');
+    expect(steps.every((s) => s.state === 'done')).toBe(true);
+    expect(autoProgress(job({ step: 'printing' })).at(-1)?.state).toBe('todo');
   });
 });
