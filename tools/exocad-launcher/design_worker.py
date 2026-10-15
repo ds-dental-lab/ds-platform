@@ -38,9 +38,9 @@ from pathlib import Path
 
 from dentbird_macro import Reporter, Stop, export, run
 from dentbird_params import ParamError, apply_all
-from dentbird_web import alive, attach
+from dentbird_web import alive, attach, open_browser
 from design_scans import PickError, candidates, pick, unzip_all
-from watch_common import beat, single_instance
+from watch_common import beat, revive, single_instance
 
 STATE = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow"
 DESIGN_SETTINGS = STATE / "design_agent.json"
@@ -49,6 +49,8 @@ LOG = STATE / "launcher" / "설계-일꾼.txt"
 
 #: 얼마에 한 번 일감을 묻나
 POLL_SECONDS = 30
+#: 덴트버드 창이 없을 때 다시 띄워 보는 간격
+REOPEN_SECONDS = 300
 #: 내보낸 STL 이 주문에 올라오기를 기다리는 한도
 DELIVER_WAIT_SECONDS = 600
 NAME = "design_worker"
@@ -175,10 +177,21 @@ def main(argv: list[str] | None = None) -> int:
     threading.Thread(target=heart, daemon=True).start()
     say("설계 일꾼을 켰습니다" + (" (시험 — 내보내기 안 함)" if args.no_export else ""))
 
+    reopened = 0.0
     try:
         while True:
+            # ★ 지켜보기 둘이 죽었으면 살립니다 (그쪽도 이 일꾼을 살핍니다)
+            revive(NAME, say=say)
             if not alive():
-                say("덴트버드 전용 창이 꺼져 있습니다 — dentbird_web.py 로 띄우고 로그인해 주세요")
+                # ★ PC 를 켠 뒤 창이 없으면 직접 띄웁니다. 로그인은 전용 프로필에
+                #   남아 있습니다 — 풀렸으면 사람이 한 번 해야 합니다
+                if time.time() - reopened > REOPEN_SECONDS:
+                    reopened = time.time()
+                    say("덴트버드 전용 창이 없어 띄웁니다")
+                    try:
+                        open_browser("https://ai.dentbird.com/cloud/design")
+                    except Exception as e:  # noqa: BLE001
+                        say(f"덴트버드 창을 못 띄웠습니다 — {e}")
             else:
                 got = post(f"{base}/api/device/auto-print/next-design", {}, token)
                 if not got.get("ok"):

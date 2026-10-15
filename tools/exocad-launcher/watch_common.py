@@ -33,6 +33,8 @@ STARTUP = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start
 VBS = {
     "exocad_watch": STARTUP / "덴플로우 exocad 지켜보기.vbs",
     "temp_watch": STARTUP / "덴플로우 임시치아 지켜보기.vbs",
+    # ★ 설계 일꾼 (2026-10-15) — 셋이 서로를 살립니다
+    "design_worker": STARTUP / "덴플로우 설계 일꾼.vbs",
 }
 
 #: 상대 소식이 이만큼 없으면 죽은 것으로 봅니다. 돌기 한 바퀴보다 넉넉히 —

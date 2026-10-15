@@ -28,6 +28,7 @@ HERE = Path(__file__).resolve().parent
 WATCHERS = {
     "덴플로우 exocad 지켜보기.vbs": "exocad_watch.py",
     "덴플로우 임시치아 지켜보기.vbs": "temp_watch.py",
+    "덴플로우 설계 일꾼.vbs": "design_worker.py",
 }
 STARTUP = (
     Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
