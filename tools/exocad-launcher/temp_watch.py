@@ -168,6 +168,13 @@ def handle(stl: Path, base: str, token: str) -> None:
 
 
 def main() -> int:
+    from watch_common import beat, revive, single_instance  # noqa: PLC0415
+
+    # ★★ 둘이 돌면 같은 크라운을 두 번 올립니다 — 이미 누가 돌고 있으면 물러납니다
+    if not single_instance("temp_watch"):
+        return 0
+    beat("temp_watch")
+
     if not DESIGN_SETTINGS.is_file():
         say(f"설계 PC 열쇠가 없습니다 — {DESIGN_SETTINGS}")
         return 1
@@ -214,6 +221,9 @@ def main() -> int:
             except Exception as e:  # noqa: BLE001 — 지켜보기는 안 죽습니다
                 say(f"{stl.name} — 알 수 없는 문제: {e!r}")
 
+        # ★ 살아 있다는 표시를 남기고, 짝(exocad 지켜보기)이 죽었으면 살립니다
+        beat("temp_watch")
+        revive("temp_watch", say=say)
         time.sleep(POLL_SECONDS)
 
 

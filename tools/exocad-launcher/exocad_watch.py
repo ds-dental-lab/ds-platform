@@ -119,6 +119,13 @@ def open_exocad(order_id: str, token: str) -> None:
 
 
 def main() -> int:
+    from watch_common import beat, revive, single_instance  # noqa: PLC0415
+
+    # ★★ 둘이 돌면 같은 케이스를 두 번 엽니다 — 이미 누가 돌고 있으면 물러납니다
+    if not single_instance("exocad_watch"):
+        return 0
+    beat("exocad_watch")
+
     path = settings_path()
     if not path:
         say(f"기기 열쇠가 없습니다 — {DESIGN_SETTINGS}")
@@ -176,6 +183,9 @@ def main() -> int:
             _beat = time.time()
             say("살아 있습니다")
 
+        # ★ 살아 있다는 표시를 남기고, 짝(임시치아 지켜보기)이 죽었으면 살립니다
+        beat("exocad_watch")
+        revive("exocad_watch", say=say)
         time.sleep(POLL_SECONDS)
 
 
