@@ -40,6 +40,16 @@ const DRAG_PX = 5;
 
 const clampTop = (v: number) => Math.max(TOP_MIN, Math.min(TOP_MAX, v));
 
+/**
+ * 탭에 가로로 두 줄 — 'FlowTemp' → ['Flow', 'Temp'] (사용자 2026-10-15 — "세로 글씨가
+ * 잘 안 읽힌다"). 대문자 앞에서 끊고, 끊을 데가 없으면 한 줄 그대로.
+ * ★ 이름은 표에서 오므로 바뀌어도 따라갑니다.
+ */
+function tabLines(name: string): string[] {
+  const parts = name.split(/(?<=[a-z])(?=[A-Z])/);
+  return parts.length === 2 ? parts : [name];
+}
+
 function readTop(): number {
   try {
     const v = Number(window.localStorage.getItem(TOP_KEY));
@@ -186,7 +196,7 @@ export default function FlowTempDock({
           }}
           aria-label={`${board.productName} 진행 ${board.items.length}건 펼치기 (위아래로 끌어 옮길 수 있습니다)`}
           title="누르면 펼칩니다 · 위아래로 끌면 자리를 옮깁니다"
-          className="fixed right-0 z-40 flex cursor-grab touch-none select-none flex-col items-center gap-2 rounded-l-xl py-3 pl-2 pr-1.5 text-white shadow-[0_6px_20px_rgba(26,33,48,0.18)] transition-[padding] hover:pl-3 active:cursor-grabbing"
+          className="fixed right-0 z-40 flex cursor-grab touch-none select-none flex-col items-center gap-2 rounded-l-xl py-2.5 pl-2 pr-1.5 text-white shadow-[0_6px_20px_rgba(26,33,48,0.18)] transition-[padding] hover:pl-3 active:cursor-grabbing"
           style={{ background: color.main, top: `${top}%` }}
         >
           {/* 잡는 자리 표시 — 끌 수 있다는 것을 보입니다 */}
@@ -200,11 +210,10 @@ export default function FlowTempDock({
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
             </span>
           ) : null}
-          <span
-            className="text-[12.5px] font-bold tracking-[0.02em]"
-            style={{ writingMode: 'vertical-rl' }}
-          >
-            {board.productName}
+          <span className="flex flex-col items-center text-[11.5px] font-bold leading-[1.15] tracking-[-0.01em]">
+            {tabLines(board.productName).map((line) => (
+              <span key={line}>{line}</span>
+            ))}
           </span>
           <span
             className="grid h-[20px] min-w-[20px] place-items-center rounded-full bg-white px-1 text-[11.5px] font-bold"
