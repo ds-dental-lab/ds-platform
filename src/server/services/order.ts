@@ -29,6 +29,7 @@ import {
   setupForOrderType,
   needsTeardown,
   lockedOrderType,
+  isOrderable,
   type OrderType,
 } from '@/server/domain/order-type';
 import { todayInKst } from '@/server/domain/week';
@@ -128,6 +129,9 @@ export function validateOrder(
     if (!verdict.selectable) return verdict.reason ?? '고를 수 없는 요청시한입니다';
   }
   if (input.items.length === 0) return '보철물을 하나 이상 선택해 주세요';
+
+  // ★ 아날로그는 아직 준비 중입니다 (2026-10-15). 화면에서 뺐지만 저장할 때도 봅니다
+  if (!isOrderable(input.orderType)) return '아날로그 주문은 아직 준비 중입니다 — 모델리스로 넣어 주세요';
 
   /*
     ★★ FlowTemp(자동 출력 제품)가 들면 모델리스뿐입니다 (2026-10-15).

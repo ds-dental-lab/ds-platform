@@ -6,7 +6,13 @@
 // =========================================================
 
 import { describe, it, expect } from 'vitest';
-import { setupForOrderType, needsTeardown, lockedOrderType } from '@/server/domain/order-type';
+import {
+  setupForOrderType,
+  needsTeardown,
+  lockedOrderType,
+  isOrderable,
+  ORDERABLE_TYPES,
+} from '@/server/domain/order-type';
 
 describe('아날로그는 인상체를 가지러 가야 한다', () => {
   it('★ 수거요청이 함께 섭니다 — 실물이 움직이는 주문입니다', () => {
@@ -69,5 +75,18 @@ describe('FlowTemp 가 들면 모델리스뿐 (2026-10-15)', () => {
   it('자동 제품이 없으면 고를 수 있습니다 — 다른 제품은 그대로', () => {
     expect(lockedOrderType([false, false])).toBeNull();
     expect(lockedOrderType([])).toBeNull();
+  });
+});
+
+describe('지금 주문할 수 있는 종류 (2026-10-15)', () => {
+  it('모델리스는 됩니다 — 비워 보내도 모델리스입니다', () => {
+    expect(isOrderable('modelless')).toBe(true);
+    expect(isOrderable(undefined)).toBe(true);
+  });
+
+  // ★ 아날로그 길이 아직 안 갖춰졌습니다. 열 때는 ORDERABLE_TYPES 한 줄입니다
+  it('★ 아날로그는 아직 안 됩니다', () => {
+    expect(isOrderable('analog')).toBe(false);
+    expect(ORDERABLE_TYPES).not.toContain('analog');
   });
 });

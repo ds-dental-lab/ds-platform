@@ -51,7 +51,7 @@ import {
   buildAbbr,
 } from '@/server/domain/prosthesis';
 import { addPlacement, type Placement } from '@/server/domain/duplicate';
-import { lockedOrderType } from '@/server/domain/order-type';
+import { lockedOrderType, ORDERABLE_TYPES } from '@/server/domain/order-type';
 import {
   EMPTY_SHADE,
   formatShade,
@@ -86,11 +86,12 @@ interface Entry extends ToothPlacement {
 }
 
 /**
- * 화면에서 고를 수 있는 주문유형.
+ * 화면에서 고를 수 있는 주문유형 — domain/order-type 의 ORDERABLE_TYPES.
  * 리페어는 주문상세의 별도 신청 경로로 들어옵니다.
  * with_model · model_only 는 옛 주문에만 남아 있어 목록에서 뺍니다.
+ * ★ 아날로그는 아직 준비 중이라 빠져 있습니다 (2026-10-15). 여는 곳은 그 한 줄입니다.
  */
-const ORDER_TYPES = ['modelless', 'analog'] as const;
+const ORDER_TYPES = ORDERABLE_TYPES;
 
 export interface NewOrderFormProps {
   clinicName: string;
@@ -995,6 +996,16 @@ function OrderFormBody({
           </Field>
 
           <Field label="주문유형">
+            {/*
+              ★ 고를 것이 하나뿐이면 고르는 칸을 안 둡니다 (2026-10-15 — 아날로그
+                준비 전). 펼쳐도 하나뿐인 select 는 '다른 게 있나' 하고 누르게 만듭니다.
+                치과명 칸처럼 읽기 전용으로 보여 줍니다.
+            */}
+            {ORDER_TYPES.length === 1 ? (
+              <div className="flex h-11 items-center rounded border border-[#E8EBF0] bg-[#F8F9FB] px-3 text-[14px] text-[#4A5567]">
+                {ORDER_TYPE_LABEL[ORDER_TYPES[0]]}
+              </div>
+            ) : (
             <select
               value={lockedType ?? orderType}
               disabled={Boolean(lockedType)}
@@ -1008,6 +1019,7 @@ function OrderFormBody({
                 </option>
               ))}
             </select>
+            )}
           </Field>
 
           <Field label="치과" problem={showProblems && Boolean(clinics) && !clinicOrgId}>

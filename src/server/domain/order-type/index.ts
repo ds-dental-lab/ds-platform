@@ -91,3 +91,21 @@ export function needsTeardown(before: OrderType, after: OrderType): boolean {
 export function lockedOrderType(autoPipelineFlags: boolean[]): OrderType | null {
   return autoPipelineFlags.some(Boolean) ? 'modelless' : null;
 }
+
+/**
+ * 주문등록에서 **지금 고를 수 있는** 주문 종류.
+ *
+ * ★★ **아날로그는 아직 뺍니다** (사용자 결정 2026-10-15 — "아직 전 보철물이
+ *   아날로그가 준비 안 되었어"). 인상체를 받아 작업하는 길이 갖춰지지 않았는데
+ *   고를 수 있게 두면, 치과는 아날로그로 넣고 기공소는 받을 물건을 모르는
+ *   채로 수거요청만 섭니다.
+ * ★ 아날로그를 열 때는 **여기 한 줄**입니다 (`'analog'` 를 다시 넣기).
+ *   화면(주문등록)과 서버(validateOrder)가 둘 다 이 목록을 봅니다.
+ * ★ 아날로그 규칙들(수거요청·딱지, setupForOrderType)은 그대로 둡니다 —
+ *   다시 열면 바로 돕니다.
+ */
+export const ORDERABLE_TYPES: OrderType[] = ['modelless'];
+
+export function isOrderable(orderType: OrderType | null | undefined): boolean {
+  return ORDERABLE_TYPES.includes(orderType ?? 'modelless');
+}
