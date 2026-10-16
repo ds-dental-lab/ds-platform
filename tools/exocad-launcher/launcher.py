@@ -43,6 +43,12 @@ def _called(note: str) -> None:
 
         d = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow" / "launcher"
         d.mkdir(parents=True, exist_ok=True)
+        # ★ 저장소에도 (2026-10-16) — 작업 도구 쪽에서는 실제 AppData 가 안 보여서
+        try:
+            with (Path(__file__).resolve().parent / "_real_state.txt").open("a", encoding="utf-8") as g:
+                g.write(f"런처 {datetime.datetime.now():%Y-%m-%d %H:%M:%S} 불림 {note[:60]}" + chr(10))
+        except Exception:  # noqa: BLE001
+            pass
         with (d / "불렸습니다.txt").open("a", encoding="utf-8") as f:
             f.write(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S} {note}\n")
     except Exception:  # noqa: BLE001 — 기록 때문에 런처가 죽으면 안 됩니다
@@ -766,6 +772,8 @@ def main() -> None:
     handlers = [
         logging.FileHandler(LOG_DIR / f"{dt.date.today().isoformat()}.log", encoding="utf-8"),
         logging.FileHandler(LOG_DIR / "runs" / f"{dt.datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}.log", encoding="utf-8"),
+        # ★ 저장소에도 한 벌 (2026-10-16) — 실제 쪽에서 무슨 일이 있었는지 볼 길
+        logging.FileHandler(Path(__file__).resolve().parent / "_real_launcher.log", encoding="utf-8"),
     ]
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", handlers=handlers)
     args = sys.argv[1:]
