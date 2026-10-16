@@ -13,7 +13,7 @@
 // =========================================================
 
 import { deviceFromToken } from '@/server/repositories/device-link';
-import { setDesignStage } from '@/server/repositories/auto-print';
+import { releaseDesign, setDesignStage } from '@/server/repositories/auto-print';
 import { isDesignStage } from '@/server/domain/auto-print';
 
 export const dynamic = 'force-dynamic';
@@ -29,10 +29,17 @@ export async function POST(request: Request) {
     orderId?: unknown;
     stage?: unknown;
     note?: unknown;
+    release?: unknown;
   };
 
   if (typeof body.orderId !== 'string' || !UUID_RE.test(body.orderId)) {
     return Response.json({ ok: false, error: '주문 id 가 없습니다' }, { status: 400 });
+  }
+
+  // ★ 잠깐 끊긴 일감을 내려놓습니다 — 다음 바퀴에 다시 잡습니다 (2026-10-16)
+  if (body.release === true) {
+    const released = await releaseDesign(device.clinicOrgId, body.orderId);
+    return Response.json(released, { status: released.ok ? 200 : 400, headers: { 'cache-control': 'no-store' } });
   }
   if (!isDesignStage(body.stage)) {
     return Response.json({ ok: false, error: '모르는 단계입니다' }, { status: 400 });

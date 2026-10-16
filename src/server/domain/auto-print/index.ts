@@ -428,7 +428,9 @@ export function matchWaiting(jobs: WaitingJob[], designTeeth: number[]): Matched
 //     done — 다 나왔습니다. 꺼내야 다음 것을 뽑습니다
 // ★ 설계 프로그램·기공소 이야기를 안 합니다. 제품 이름은 표에서 읽어 넘깁니다.
 
-export type AutoAlertKind = 'bed' | 'done';
+// ★ 'failed' 를 더했습니다 (2026-10-16 점검) — 출력이 멈추면 치과가 손댈 일입니다.
+//   책갈피가 빨개지는 것만으로는 화면을 안 보고 있는 치과가 모릅니다.
+export type AutoAlertKind = 'bed' | 'done' | 'failed';
 
 export interface AutoAlert {
   title: string;
@@ -437,9 +439,15 @@ export interface AutoAlert {
 
 export function autoAlert(
   kind: AutoAlertKind,
-  input: { orderNo: string; patientLabel: string; productName: string },
+  input: { orderNo: string; patientLabel: string; productName: string; reason?: string | null },
 ): AutoAlert {
   const who = `${input.orderNo} · ${input.patientLabel}`;
+  if (kind === 'failed') {
+    return {
+      title: `${input.productName} 출력이 멈췄습니다 — 확인해 주세요`,
+      body: `${who} — ${input.reason?.trim() || '프린터를 확인하고 「다시 걸기」를 눌러 주세요'}`,
+    };
+  }
   if (kind === 'bed') {
     return {
       title: `${input.productName} 출력 준비 — 출력판을 비워 주세요`,
@@ -456,6 +464,8 @@ export function autoAlert(
 export function alertOnMove(from: AutoStep, to: AutoStep): AutoAlertKind | null {
   if (to === 'queued' && from !== 'queued') return 'bed';
   if (to === 'done' && from !== 'done') return 'done';
+  // ★ 치과 쪽(보내기·출력)에서 멈춘 것만 치과에 — 자르기 실패는 센터 일입니다
+  if (to === 'failed' && (from === 'sending' || from === 'printing' || from === 'queued')) return 'failed';
   return null;
 }
 
@@ -673,6 +683,13 @@ export function canHandDesign(c: DesignCandidate, now: number): boolean {
   if (['uploading', 'cancelled', 'completed'].includes(c.orderStatus)) return false;
   if (c.scanCount === 0) return false;
   if (c.designStage === 'stalled') return false;
+  /*
+    ★★ '마무리'(내보냄) 는 **묵어도 다시 안 줍니다** (2026-10-16 점검). 내보낸 뒤
+      네트워크가 끊겨 소식이 없을 때 다시 주면, 처음부터 설계해 **덴트버드 건수를
+      또 씁니다.** 30분 넘게 안 올라오면 감시(auto_jobs_watchdog)가 '확인 중'
+      으로 세워 사람이 봅니다.
+  */
+  if (c.designStage === 'exporting') return false;
   if (c.designStage === null) return true;
   const age = (now - new Date(c.updatedAt).getTime()) / 60000;
   return age >= DESIGN_CLAIM_STALE_MINUTES;
@@ -682,4 +699,42 @@ export function canHandDesign(c: DesignCandidate, now: number): boolean {
 export function isUpperTooth(tooth: number): boolean {
   const q = Math.floor(tooth / 10);
   return q === 1 || q === 2 || q === 5 || q === 6;
+}
+
+// ---------- 기기가 켜져 있나 (2026-10-16 점검) ----------
+//
+// ★ 사용자 — "어느 쪽에서 오류가 날 것 같은지, 네트워크 연결 쪽은".
+//   치과 PC 가 꺼져 있으면 책갈피가 '곧 프린터로 보냅니다' 만 하염없이 보였습니다.
+//   기기는 몇 초마다 서버에 묻고(last_seen_at), 그게 끊기면 꺼진 것입니다.
+
+/** 이만큼 소식이 없으면 꺼진 것으로 봅니다. 치과 PC 는 10초, 설계 PC 는 3~30초마다 묻습니다 */
+export const DEVICE_OFFLINE_SECONDS = 180;
+
+export function deviceOnline(lastSeenAt: string | null | undefined, now: number): boolean {
+  if (!lastSeenAt) return false;
+  return now - new Date(lastSeenAt).getTime() < DEVICE_OFFLINE_SECONDS * 1000;
+}
+
+/**
+ * 치과 PC 가 꺼져 있을 때 책갈피 줄을 고쳐 씁니다.
+ *
+ * ★ 치과 PC 가 일해야 하는 자리만 — 비움 확인 뒤 대기·보내는 중·출력 중.
+ *   출력판을 비워 달라는 것(치과가 할 일)과 끝난 것은 그대로 둡니다.
+ * ★ 출력 중에 끊겼으면 **프린터는 계속 뽑고 있을 수 있다** 고 말합니다.
+ *   실패라고 단정하지 않습니다 — 와이파이가 잠깐 끊긴 것일 수 있습니다.
+ */
+export function withClinicPc(row: BoardRow, job: AutoJob, online: boolean): BoardRow {
+  if (online) return row;
+  const waitsPc =
+    (job.step === 'queued' && job.bedClearedAt !== null) || job.step === 'sending' || job.step === 'printing';
+  if (!waitsPc) return row;
+  return {
+    ...row,
+    tone: 'delay',
+    status: '치과 PC 꺼짐',
+    detail:
+      job.step === 'printing'
+        ? '덴플로우 에이전트 소식이 없습니다 — 프린터는 계속 뽑고 있을 수 있습니다'
+        : '덴플로우 에이전트가 꺼져 있어 출력을 못 보냅니다 — PC 와 에이전트를 켜 주세요',
+  };
 }

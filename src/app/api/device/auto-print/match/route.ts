@@ -21,12 +21,14 @@ export async function POST(request: Request) {
   const device = await deviceFromToken(token);
   if (!device) return Response.json({ ok: false, error: '연결되지 않은 기기입니다' }, { status: 401 });
 
-  const body = (await request.json().catch(() => ({}))) as { teeth?: unknown };
+  const body = (await request.json().catch(() => ({}))) as { teeth?: unknown; orderId?: unknown };
   const teeth = Array.isArray(body.teeth)
     ? body.teeth.filter((t): t is number => Number.isInteger(t))
     : [];
 
-  const result = await matchWaitingJob(device.clinicOrgId, teeth);
+  // ★ 설계 일꾼이 붙인 이름표가 있으면 그 주문만 봅니다 (2026-10-16)
+  const orderId = typeof body.orderId === 'string' ? body.orderId : null;
+  const result = await matchWaitingJob(device.clinicOrgId, teeth, orderId);
 
   return Response.json(result, {
     status: result.ok ? 200 : 400,

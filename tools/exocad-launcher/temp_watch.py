@@ -133,6 +133,25 @@ def settled(path: Path) -> bool:
         return False
 
 
+def key_of(p: Path) -> str:
+    """본 파일의 표 — 이름만이 아니라 **수정 시각·크기까지** (2026-10-16 점검)
+
+    ★★ 덴트버드는 같은 스캔이면 같은 이름으로 내보냅니다(Maxilla_Base_17-17-crown.stl).
+      이름만 기억하면 폴더를 비운 뒤 같은 이름으로 온 새 크라운을 '본 것' 으로
+      건너뛰었습니다.
+    """
+    try:
+        st = p.stat()
+        return f"{p.name}|{st.st_mtime_ns}|{st.st_size}"
+    except OSError:
+        return p.name
+
+
+#: 올리기를 몇 번 해 볼까 — 잠깐의 끊김은 다시 하면 됩니다
+DELIVER_TRIES = 3
+DELIVER_RETRY_SECONDS = 20
+
+
 def handle(stl: Path, base: str, token: str) -> None:
     from dentbird_case import check as check_case  # noqa: PLC0415
     from deliver import deliver  # noqa: PLC0415
@@ -148,10 +167,42 @@ def handle(stl: Path, base: str, token: str) -> None:
 
     say(f"{stl.name} — 치식 {'·'.join(str(t) for t in looked.teeth)}")
 
-    got = post(f"{base}/api/device/auto-print/match", {"teeth": looked.teeth}, token)
-    if not got.get("ok"):
-        say(f"  주문을 못 찾았습니다: {got.get('error')}")
-        return
+    # ★ 설계 일꾼의 이름표가 맞으면 그 주문으로 (2026-10-16 점검)
+    import export_tag  # noqa: PLC0415
+    tag = export_tag.read()
+    expected = tag["orderId"] if export_tag.fits(tag, looked.teeth) else None
+    body = {"teeth": looked.teeth, **({"orderId": expected} if expected else {})}
+
+    last = ""
+    for attempt in range(1, DELIVER_TRIES + 1):
+        # ★ 매번 다시 짝을 찾습니다 — 올리기 열쇠(token)가 10분짜리라 새로 받습니다
+        got = post(f"{base}/api/device/auto-print/match", body, token)
+        if not got.get("ok"):
+            last = f"주문을 못 찾았습니다: {got.get('error')}"
+            say(f"  {last}")
+            # ★ 서버에 못 닿은 것이면 다시, 짝이 없다는 답이면 그만
+            if "닿지 못했습니다" not in str(got.get("error")):
+                break
+        else:
+            if _deliver_once(stl, got):
+                export_tag.clear(got["orderId"])
+                return
+            last = "자르기·올리기를 못 했습니다"
+        if attempt < DELIVER_TRIES:
+            say(f"  {DELIVER_RETRY_SECONDS}초 뒤 다시 해 봅니다 ({attempt}/{DELIVER_TRIES})")
+            time.sleep(DELIVER_RETRY_SECONDS)
+
+    # ★★ 끝내 못 올렸으면 **그 주문에 까닭을 남깁니다.** 전에는 여기서 조용히
+    #   끝나, 일꾼이 10분 기다린 뒤 '안 올라왔다' 고만 했습니다.
+    if expected:
+        from dentbird_macro import Reporter  # noqa: PLC0415
+        Reporter(expected, say=say)("stalled", f"내보낸 크라운을 주문에 못 올렸습니다 — {last}")
+        export_tag.clear(expected)
+
+
+def _deliver_once(stl: Path, got: dict) -> bool:
+    from deliver import deliver  # noqa: PLC0415
+    from orient import DEFAULT_RX, DEFAULT_RY  # noqa: PLC0415
 
     say(f"  주문 {got['orderId'][:8]} 로 보냅니다")
     WORK.mkdir(parents=True, exist_ok=True)
@@ -165,6 +216,7 @@ def handle(stl: Path, base: str, token: str) -> None:
         DEFAULT_RX, DEFAULT_RY, say=lambda m: say("  " + m),
     )
     say("  보냈습니다" if ok else "  보내지 못했습니다")
+    return ok
 
 
 def main() -> int:
@@ -191,13 +243,21 @@ def main() -> int:
 
     # ★★ 뜨기 전에 있던 것은 **이미 본 것**으로 둡니다. 안 그러면 내려받기
     #   폴더에 쌓인 지난 크라운이 켜자마자 줄줄이 출력됩니다.
+    # ★★ 다만 **설계 일꾼의 이름표 뒤에 생긴 것은 집습니다** (2026-10-16 점검).
+    #   지켜보기가 재시작하는 사이 크라운이 떨어지면 영영 안 올렸습니다.
+    import export_tag  # noqa: PLC0415
+    tag = export_tag.read()
+    since = float(tag["at"]) - 5 if tag else None
     try:
         for p in watch.glob("*.stl"):
-            seen.add(p.name)
+            if since is not None and p.stat().st_mtime >= since:
+                continue
+            seen.add(key_of(p))
     except OSError:
         pass
 
-    say(f"지켜봅니다 — {watch} · 이미 있던 {len(seen)}개는 건너뜁니다")
+    say(f"지켜봅니다 — {watch} · 이미 있던 {len(seen)}개는 건너뜁니다"
+        + (f" (이름표 {tag['orderId'][:8]} 뒤의 것은 집습니다)" if tag else ""))
     say(f"크라운으로 보는 이름: {'·'.join(words)}")
 
     while True:
@@ -206,19 +266,19 @@ def main() -> int:
         beat("temp_watch")
         revive("temp_watch", say=say)
         try:
-            fresh = [p for p in watch.glob("*.stl") if p.name not in seen]
+            fresh = [p for p in watch.glob("*.stl") if key_of(p) not in seen]
         except OSError as e:
             say(f"폴더를 못 봤습니다 — {e}")
             time.sleep(BACKOFF_SECONDS)
             continue
 
         for stl in sorted(fresh, key=lambda p: p.stat().st_mtime):
-            seen.add(stl.name)
+            seen.add(key_of(stl))
             if not is_design(stl, words):
                 say(f"건너뜀 (크라운 이름이 아닙니다): {stl.name}")
                 continue
             if not settled(stl):
-                seen.discard(stl.name)  # 아직 오는 중 — 다음 바퀴에 다시
+                seen.discard(key_of(stl))  # 아직 오는 중 — 다음 바퀴에 다시
                 continue
             try:
                 handle(stl, base, token)

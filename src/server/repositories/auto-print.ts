@@ -29,7 +29,7 @@ import {
   type AutoStep,
   type DesignStage,
 } from '@/server/domain/auto-print';
-import { publishAutoAlert } from '@/server/events/auto-print';
+import { publishAutoAlert, publishDesignStall } from '@/server/events/auto-print';
 import type { LinkedDevice } from '@/server/repositories/device-link';
 
 const BUCKET = 'order-files';
@@ -261,7 +261,7 @@ export async function moveStep(
       **넘어간 뒤에** 부릅니다. 알림이 실패해도 단계는 그대로입니다.
   */
   const alert = alertOnMove(row.step, to);
-  if (alert) await publishAutoAlert(row.order_id, alert);
+  if (alert) await publishAutoAlert(row.order_id, alert, extra.reason ?? null);
 
   return { ok: true };
 }
@@ -303,6 +303,8 @@ export async function setDesignStage(
 
   if (error) return { ok: false, error: error.message };
   if (!data || data.length === 0) return { ok: false, error: '디자인 차례인 주문이 아닙니다' };
+  // ★ 멈췄으면 센터에 알립니다 (2026-10-16 점검)
+  if (stage === 'stalled') await publishDesignStall(orderId, note);
   return { ok: true };
 }
 
@@ -392,6 +394,32 @@ export async function dismissJob(
   if (error) return { ok: false, error: error.message };
   if (!data || data.length === 0) return { ok: false, error: '다 나온 건만 치울 수 있습니다' };
   return { ok: true };
+}
+
+/**
+ * 일꾼이 잡은 일감을 **내려놓습니다** — 잠깐의 네트워크 끊김 따위로 (2026-10-16 점검).
+ *
+ * ★ 전에는 스캔을 받다 끊기기만 해도 '확인 중' 으로 세워, 사람이 다시 걸 때까지
+ *   멈춰 있었습니다. 다시 하면 되는 일입니다. 내려놓으면 다음 바퀴에 다시 잡습니다.
+ * ★ '마무리'(내보냄)·'확인 중' 은 못 내려놓습니다 — 앞엣것은 건수를 또 쓰고,
+ *   뒤엣것은 사람이 볼 차례입니다.
+ */
+export async function releaseDesign(
+  orgId: string,
+  orderId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+  const { data: org } = await admin.from('organizations').select('org_type').eq('id', orgId).maybeSingle();
+  if ((org as { org_type?: string } | null)?.org_type !== 'design_center') {
+    return { ok: false, error: '설계 PC 만 내려놓을 수 있습니다' };
+  }
+  const { error } = await admin
+    .from('auto_jobs')
+    .update({ design_stage: null, design_note: null, updated_at: new Date().toISOString() })
+    .eq('order_id', orderId)
+    .eq('step', 'waiting_design')
+    .in('design_stage', ['uploading', 'analyzing', 'generating']);
+  return error ? { ok: false, error: error.message } : { ok: true };
 }
 
 /** 출력 중 숫자만 올립니다. 단계는 그대로 */
@@ -853,6 +881,11 @@ export async function retryJob(
 export async function matchWaitingJob(
   orgId: string,
   designTeeth: number[],
+  /**
+   * 설계 일꾼이 붙여 준 이름표 (2026-10-16 점검). 있으면 **그 주문만** 봅니다 —
+   * 같은 치식으로 기다리는 주문이 둘이어도 헷갈리지 않습니다. 치식은 그래도 견줍니다.
+   */
+  expectedOrderId?: string | null,
 ): Promise<{ ok: true; orderId: string; token: string } | { ok: false; error: string }> {
   const { matchWaiting } = await import('@/server/domain/auto-print');
   const { issueExocadToken } = await import('@/server/exocad/token');
@@ -933,7 +966,11 @@ export async function matchWaitingJob(
       teeth: (r.order_items ?? []).filter((i) => i.type_code === 'auto_temp').map((i) => i.tooth_number),
     }));
 
-  const picked = matchWaiting(jobs, designTeeth);
+  const pool = expectedOrderId ? jobs.filter((j) => j.orderId === expectedOrderId) : jobs;
+  if (expectedOrderId && pool.length === 0) {
+    return { ok: false, error: '이름표의 주문이 FlowTemp 를 기다리는 중이 아닙니다' };
+  }
+  const picked = matchWaiting(pool, designTeeth);
   if (!picked.ok) return { ok: false, error: picked.why };
 
   const token = issueExocadToken(picked.orderId);

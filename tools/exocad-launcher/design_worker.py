@@ -36,7 +36,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from dentbird_macro import Reporter, Stop, export, run
+import export_tag
+from dentbird_macro import Reporter, SessionLost, Stop, export, run, session_problem
 from dentbird_params import ParamError, apply_all
 from dentbird_web import alive, attach, open_browser
 from design_scans import PickError, candidates, pick, unzip_all
@@ -49,6 +50,8 @@ LOG = STATE / "launcher" / "설계-일꾼.txt"
 
 #: 얼마에 한 번 일감을 묻나
 POLL_SECONDS = 30
+#: 덴트버드 창이 못 쓰는 상태(로그인 풀림 등)일 때 쉬는 시간
+SESSION_PAUSE_SECONDS = 300
 #: 덴트버드 창이 없을 때 다시 띄워 보는 간격
 REOPEN_SECONDS = 300
 #: 내보낸 STL 이 주문에 올라오기를 기다리는 한도
@@ -87,6 +90,10 @@ def post(url: str, body: dict, token: str) -> dict:
         return {"ok": False, "error": f"서버에 닿지 못했습니다 — {e}"}
 
 
+class Transient(Exception):
+    """잠깐의 끊김 — 일감을 내려놓고 다음 바퀴에 다시 합니다 (2026-10-16 점검)"""
+
+
 def download(files: list[dict], folder: Path) -> None:
     if folder.exists():
         shutil.rmtree(folder, ignore_errors=True)
@@ -94,8 +101,19 @@ def download(files: list[dict], folder: Path) -> None:
     for f in files:
         # ★ 이름에서 경로 조각을 떼어 냅니다 — 받은 이름으로 바깥에 쓰지 않게
         name = Path(f["name"]).name or "scan"
-        with urllib.request.urlopen(f["url"], timeout=600) as r:
-            (folder / name).write_bytes(r.read())
+        try:
+            with urllib.request.urlopen(f["url"], timeout=600) as r:
+                (folder / name).write_bytes(r.read())
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            # ★ 스캔을 받다 끊긴 것은 주문 탓이 아닙니다 — 멈춤으로 세우지 않습니다
+            raise Transient(f"스캔을 받다 끊겼습니다 — {e}") from e
+
+
+#: 덴트버드 창이 못 쓰는 상태를 본 때 — 그 뒤 잠시 일감을 안 잡습니다
+_session_bad_at = 0.0
+#: 창이 쓸 만한지 마지막으로 본 때
+_window_checked_at = 0.0
+WINDOW_CHECK_SECONDS = 300
 
 
 def handle(job: dict, spend: bool) -> None:
@@ -123,6 +141,8 @@ def handle(job: dict, spend: bool) -> None:
 
         if spend:
             mark("exporting")
+            # ★ 이름표 — 지켜보기가 이 크라운을 이 주문에 붙입니다 (2026-10-16 점검)
+            export_tag.write(order_id, teeth)
         clicked = export(attach(), teeth, spend, say=say)
         if not clicked:
             mark("stalled", "시험으로 돌렸습니다 — 내보내기 직전에서 멈췄습니다 (--no-export)")
@@ -135,15 +155,46 @@ def handle(job: dict, spend: bool) -> None:
             time.sleep(15)
             if not mark.still_designing():
                 say("주문에 올라갔습니다 — 출력 대기로 넘어갑니다")
+                export_tag.clear(order_id)
                 return
         mark("stalled", f"내보냈는데 {DELIVER_WAIT_SECONDS // 60}분 안에 주문에 안 올라왔습니다 — 임시치아 지켜보기를 봐 주세요")
         say("내보냈는데 안 올라왔습니다 — 확인 중으로 세웁니다")
+    except SessionLost as e:
+        # ★ 창 탓이지 주문 탓이 아닙니다 — 내려놓고 쉽니다 (2026-10-16 점검)
+        global _session_bad_at
+        _session_bad_at = time.time()
+        mark.release()
+        say(f"덴트버드 창이 못 쓰는 상태라 일감을 내려놓습니다 — {e}")
+    except Transient as e:
+        mark.release()
+        say(f"잠깐 끊겨 일감을 내려놓습니다 — 다음 바퀴에 다시 합니다 ({e})")
     except (Stop, PickError) as e:
         mark("stalled", str(e))
         say(f"멈춤: {e}")
     except Exception as e:  # noqa: BLE001 — 까닭을 삼키면 아무도 모릅니다
         mark("stalled", f"알 수 없는 문제 — {e}")
         say(f"멈춤(알 수 없음): {e}")
+
+
+def _window_bad() -> bool:
+    """일감을 잡기 **전에** 덴트버드 창이 쓸 만한지 봅니다 (2026-10-16 점검)
+
+    ★ 잡은 뒤에 알면 그 주문이 하나씩 멈춥니다. 잡기 전에 보고, 못 쓰면 안 잡습니다.
+    ★ 5분에 한 번만 붙어 봅니다 — 30초마다 붙으면 크롬 드라이버가 쌓입니다.
+    """
+    global _session_bad_at, _window_checked_at
+    if time.time() - _window_checked_at < WINDOW_CHECK_SECONDS:
+        return False
+    _window_checked_at = time.time()
+    try:
+        why = session_problem(attach())
+    except Exception as e:  # noqa: BLE001
+        why = f"덴트버드 창에 붙지 못했습니다 — {e}"
+    if why:
+        _session_bad_at = time.time()
+        say(f"일감을 잠시 안 받습니다 — {why}")
+        return True
+    return False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -192,6 +243,10 @@ def main(argv: list[str] | None = None) -> int:
                         open_browser("https://ai.dentbird.com/cloud/design")
                     except Exception as e:  # noqa: BLE001
                         say(f"덴트버드 창을 못 띄웠습니다 — {e}")
+            elif time.time() - _session_bad_at < SESSION_PAUSE_SECONDS:
+                pass  # 덴트버드 창이 돌아올 때까지 일감을 안 잡습니다
+            elif _window_bad():
+                pass
             else:
                 got = post(f"{base}/api/device/auto-print/next-design", {}, token)
                 if not got.get("ok"):

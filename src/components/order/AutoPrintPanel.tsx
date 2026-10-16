@@ -207,7 +207,7 @@ export default function AutoPrintPanel({
 
       {designNote ? (
         <div className="mt-3 rounded-lg border border-[#F6DDB0] bg-[#FFF8EC] p-3">
-          <p className="text-[12px] font-bold text-[#8A5A12]">디자인이 멈췄습니다 (센터에만 보입니다)</p>
+          <p className="text-[12px] font-bold text-[#8A5A12]">디자인 확인 필요 (센터에만 보입니다)</p>
           <p className="mt-1 text-[12px] leading-relaxed text-[#6B4A16]">{designNote}</p>
         </div>
       ) : null}

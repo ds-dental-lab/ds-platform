@@ -61,6 +61,37 @@ class Stop(Exception):
     """사람이 봐야 하는 자리. 조용히 넘어가지 않습니다"""
 
 
+class SessionLost(Stop):
+    """덴트버드 창 자체가 못 쓰는 상태 — 로그인 풀림·다른 곳 로그인·오류 화면
+
+    ★ 이 주문 탓이 아닙니다 (2026-10-16 점검). 주문을 '확인 중' 으로 세우면 들어오는
+      FlowTemp 가 전부 하나씩 멈춥니다. 일꾼은 일감을 **내려놓고** 창이 돌아올
+      때까지 쉽니다.
+    """
+
+
+#: 덴트버드 창이 못 쓰는 상태라는 표시들 (실제로 본 것, 2026-10-15)
+SESSION_SIGNS = (
+    ("Multiple login detected", "다른 곳에서 같은 계정으로 로그인해 이 창이 끊겼습니다"),
+    ("An unknown error has occurred", "덴트버드가 오류 화면을 띄웠습니다"),
+)
+
+
+def session_problem(d) -> str | None:
+    """창이 못 쓰는 상태면 그 까닭, 멀쩡하면 None"""
+    try:
+        body = text(d)
+        url = d.current_url.lower()
+    except Exception as e:  # noqa: BLE001 — 창에 못 붙는 것도 같은 문제입니다
+        return f"덴트버드 창에 붙지 못했습니다 — {e}"
+    for sign, why in SESSION_SIGNS:
+        if sign in body:
+            return why
+    if "accounts-highdental" in url or "login" in url or "로그인" in body:
+        return "덴트버드 로그인이 풀렸습니다 — 전용 창에서 한 번 로그인해 주세요"
+    return None
+
+
 DESIGN_SETTINGS = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow" / "design_agent.json"
 
 
@@ -111,12 +142,19 @@ class Reporter:
             return True
         return "디자인 차례" not in str(got.get("error", ""))
 
-    def _send(self, stage: str, note: str | None) -> dict | None:
+    def release(self) -> bool:
+        """잡은 일감을 내려놓습니다 — 다음 바퀴에 다시 잡게 (2026-10-16 점검)"""
+        got = self._send("", None, release=True)
+        return bool(got and got.get("ok"))
+
+    def _send(self, stage: str, note: str | None, release: bool = False) -> dict | None:
         if not (self.order_id and self.token):
             return None
+        body = {"orderId": self.order_id, "release": True} if release else {
+            "orderId": self.order_id, "stage": stage, "note": note}
         req = urllib.request.Request(
             f"{self.base}/api/device/auto-print/stage",
-            data=json.dumps({"orderId": self.order_id, "stage": stage, "note": note}).encode("utf-8"),
+            data=json.dumps(body).encode("utf-8"),
             headers={"content-type": "application/json", "authorization": f"Bearer {self.token}"},
             method="POST",
         )
@@ -225,8 +263,9 @@ def run(scans: list[Path], want: list[int], say=print, mark=lambda stage, note=N
     d.get(CROWN_URL)
     time.sleep(5)
 
-    if "로그인" in text(d) or "login" in d.current_url.lower():
-        raise Stop("로그인이 풀렸습니다 — 그 창에서 한 번 로그인해 주세요")
+    why = session_problem(d)
+    if why:
+        raise SessionLost(why)
 
     say(f"스캔 {len(scans)}개를 올립니다")
     mark("uploading")

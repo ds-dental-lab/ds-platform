@@ -668,7 +668,7 @@ class BambuPrinter:
                     out = Progress(
                         state.get("mc_percent"),
                         "",
-                        failed="프린터 소식이 끊겼습니다 — 전원과 와이파이를 봐 주세요",
+                        failed="프린터 소식이 끊겼습니다 — 프린터는 계속 뽑고 있을 수 있습니다. 화면을 보고, 다 나왔으면 꺼낸 뒤 다시 걸어 주세요 (전원·와이파이도 확인)",
                     )
                     break
 

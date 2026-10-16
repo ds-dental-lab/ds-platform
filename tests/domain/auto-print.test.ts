@@ -28,6 +28,8 @@ import {
   remainingOf,
   canHandDesign,
   isUpperTooth,
+  deviceOnline,
+  withClinicPc,
   autoProgress,
   canClearBed,
   canMove,
@@ -354,7 +356,7 @@ describe('치과에 알리는 때는 둘뿐 (2026-10-15)', () => {
     expect(alertOnMove('queued', 'sending')).toBeNull();
     expect(alertOnMove('sending', 'printing')).toBeNull();
     expect(alertOnMove('queued', 'queued')).toBeNull();
-    expect(alertOnMove('printing', 'failed')).toBeNull();
+    expect(alertOnMove('slicing', 'failed')).toBeNull(); // 자르기 실패는 센터 일
   });
 
   it('알림 글에 주문번호·환자·제품 이름이 들고, 설계 프로그램 이름은 없다', () => {
@@ -518,5 +520,55 @@ describe('설계 일꾼에게 줄 일감 (2026-10-15)', () => {
   it('위턱 치식', () => {
     expect([17, 26, 55].every(isUpperTooth)).toBe(true);
     expect([36, 41, 75].some(isUpperTooth)).toBe(false);
+  });
+});
+
+describe('2026-10-16 점검 — 끊겼을 때', () => {
+  const now = Date.parse('2026-10-16T02:00:00Z');
+
+  it('내보낸 일감은 묵어도 다시 안 준다 — 덴트버드 건수를 또 쓰지 않게', () => {
+    expect(
+      canHandDesign(
+        { orderStatus: 'received', step: 'waiting_design', designStage: 'exporting', updatedAt: '2026-10-15T00:00:00Z', scanCount: 1 },
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it('기기는 3분 소식이 없으면 꺼진 것', () => {
+    expect(deviceOnline('2026-10-16T01:58:30Z', now)).toBe(true);
+    expect(deviceOnline('2026-10-16T01:56:00Z', now)).toBe(false);
+    expect(deviceOnline(null, now)).toBe(false);
+  });
+
+  it('치과 PC 가 꺼지면 치과 PC 가 할 차례인 줄만 바뀐다', () => {
+    const waiting = job({ step: 'queued', bedClearedAt: '2026-10-16T01:00:00Z' });
+    const r = withClinicPc(boardRow(waiting, now), waiting, false);
+    expect(r.tone).toBe('delay');
+    expect(r.status).toBe('치과 PC 꺼짐');
+
+    const printing = job({ step: 'printing', percent: 40 });
+    expect(withClinicPc(boardRow(printing, now), printing, false).detail).toContain('계속 뽑고 있을 수');
+
+    // 출력판을 비워 달라는 것(치과가 할 일)과 끝난 것은 그대로
+    const bed = job({ step: 'queued' });
+    expect(withClinicPc(boardRow(bed, now), bed, false).tone).toBe('action');
+    const done = job({ step: 'done' });
+    expect(withClinicPc(boardRow(done, now), done, false).tone).toBe('done');
+    // 켜져 있으면 그대로
+    expect(withClinicPc(boardRow(waiting, now), waiting, true).status).toBe('출력 준비');
+  });
+});
+
+describe('멈추면 알린다 (2026-10-16 점검)', () => {
+  it('치과 쪽에서 멈추면 치과에', () => {
+    expect(alertOnMove('printing', 'failed')).toBe('failed');
+    expect(alertOnMove('sending', 'failed')).toBe('failed');
+  });
+
+  it('까닭을 실어 보낸다', () => {
+    const a = autoAlert('failed', { orderNo: 'ORD-1', patientLabel: '홍', productName: 'FlowTemp', reason: '필라멘트가 떨어졌습니다' });
+    expect(a.title).toContain('멈췄습니다');
+    expect(a.body).toContain('필라멘트');
   });
 });

@@ -52,6 +52,16 @@ def _extras(p) -> dict:
     return out
 
 
+#: 서버가 **확실히 거절한** 말 — 다시 보내도 같습니다. 그 밖은 다시 보냅니다.
+#: ★ 거꾸로 두지 않습니다(2026-10-16 점검). DB 가 잠깐 아픈 것도 400 + 문구로
+#:   오는데, '닿지 못함' 만 다시 보내면 그런 것을 버렸습니다.
+REJECTED = ("갈 수 없습니다", "찾지 못했습니다", "보낼 수 없습니다", "올바르지 않습니다", "연결되지 않은 기기")
+
+
+def _rejected(err: str) -> bool:
+    return any(w in err for w in REJECTED)
+
+
 def _post(url: str, body: dict, token: str) -> dict:
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
@@ -88,6 +98,8 @@ class PrintWorker:
         #: 설정을 적어 두는 쪽. 프린터 주소가 바뀌면 기억해 둡니다
         self.save = save
         self.printer = build_printer(settings, work_dir / "보낸것")
+        #: 못 보낸 단계 보고 — 연결이 돌아오면 다시 보냅니다 (2026-10-16 점검)
+        self.pending: list[tuple[str, dict]] = []
 
     def remember_host(self) -> None:
         """
@@ -118,9 +130,42 @@ class PrintWorker:
         return got.get("job")
 
     def report(self, job_id: str, **body) -> None:
-        got = _post(f"{BASE}/api/device/print/report", {"jobId": job_id, **body}, self.token)
-        if not got.get("ok"):
-            self.say(f"알리기 실패: {got.get('error', '')}")
+        """
+        서버에 알립니다.
+
+        ★★ **단계 보고(출력 시작·다 나옴·실패)는 잃으면 안 됩니다** (2026-10-16 점검).
+          전에는 한 번 보내고 끝이라, '다 나왔다' 를 보내는 순간 와이파이가 끊기면
+          서버에는 영원히 '출력 중' 이 남고 '꺼내 주세요' 알림도 안 갔습니다.
+          몇 번 다시 해 보고, 그래도 안 되면 **보관했다가** 다음 바퀴에 또 보냅니다.
+        ★ 퍼센트는 한 번만 — 20초 뒤 새 숫자가 옵니다.
+        """
+        tries = 3 if "step" in body else 1
+        for i in range(tries):
+            got = _post(f"{BASE}/api/device/print/report", {"jobId": job_id, **body}, self.token)
+            if got.get("ok"):
+                return
+            err = str(got.get("error", ""))
+            # ★ 서버가 '그 단계로는 못 간다' 고 답한 것은 다시 보내도 같습니다
+            if _rejected(err):
+                self.say(f"알리기 거절: {err}")
+                return
+            if i < tries - 1:
+                time.sleep(5 * (i + 1))
+        self.say(f"알리기 실패: {err}")
+        if "step" in body:
+            self.pending.append((job_id, body))
+            self.say("  나중에 다시 보냅니다")
+
+    def flush(self) -> None:
+        """보관해 둔 단계 보고를 다시 보냅니다 — 차례대로, 막히면 거기서 멈춤"""
+        while self.pending:
+            job_id, body = self.pending[0]
+            got = _post(f"{BASE}/api/device/print/report", {"jobId": job_id, **body}, self.token)
+            err = str(got.get("error", ""))
+            if not got.get("ok") and not _rejected(err):
+                return  # 아직 끊겨 있습니다
+            self.pending.pop(0)
+            self.say(f"보관했던 보고를 보냈습니다 ({body.get('step')})" if got.get("ok") else f"보관했던 보고가 거절됐습니다: {err}")
 
     # --- 한 건 ---
 
@@ -174,6 +219,7 @@ class PrintWorker:
 
     def tick(self) -> bool:
         """할 일이 있었으면 True"""
+        self.flush()
         job = self.claim()
         if not job:
             return False

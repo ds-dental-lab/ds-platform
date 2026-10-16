@@ -15,6 +15,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/server/policies/session';
 import { clearBed, dismissJob, jobOfOrder, reprintJob, retryJob } from '@/server/repositories/auto-print';
 import {
@@ -22,6 +23,8 @@ import {
   autoNotice,
   boardRow,
   BOARD_DONE_HOURS,
+  deviceOnline,
+  withClinicPc,
   isAutoStep,
   isDesignStage,
   type AutoJob,
@@ -119,15 +122,45 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
 
   const session = await getSession();
   const { designNote, ...rest } = job;
+  const isCenter = session?.orgType === 'design_center';
+
+  /*
+    ★ 기기가 켜져 있나 (2026-10-16 점검). 치과 PC 가 꺼져 있으면 출력이 안 가고,
+      설계 PC 가 꺼져 있으면 디자인이 안 됩니다 — 화면이 그 말을 해야 합니다.
+      관리자 열쇠로 읽되 **이 주문의 치과·센터 기기만** 봅니다.
+  */
+  const admin = createAdminClient();
+  const now = Date.now();
+  const { data: ord } = await admin.from('orders').select('clinic_org_id, design_org_id').eq('id', orderId).maybeSingle();
+  const o = ord as { clinic_org_id: string; design_org_id: string | null } | null;
+  const lastSeen = async (orgId: string | null | undefined) => {
+    if (!orgId) return null;
+    const { data } = await admin
+      .from('clinic_devices')
+      .select('last_seen_at')
+      .eq('clinic_org_id', orgId)
+      .is('revoked_at', null)
+      .order('last_seen_at', { ascending: false, nullsFirst: false })
+      .limit(1);
+    return ((data ?? []) as { last_seen_at: string | null }[])[0]?.last_seen_at ?? null;
+  };
+  const clinicOnline = deviceOnline(await lastSeen(o?.clinic_org_id), now);
+  const board = withClinicPc(boardRow(rest, now), rest, clinicOnline);
+
+  let note = isCenter && job.designStage === 'stalled' ? designNote : null;
+  if (isCenter && job.step === 'waiting_design' && job.designStage !== 'stalled') {
+    const designOnline = deviceOnline(await lastSeen(o?.design_org_id), now);
+    if (!designOnline) note = '설계 PC 소식이 없습니다 — 설계 일꾼이 일감을 못 받습니다. PC 와 덴트버드 창을 확인하세요';
+  }
 
   return {
     job: rest,
     steps: autoProgress(rest),
-    notice: autoNotice(rest),
+    // ★ 치과 PC 가 꺼져서 막힌 것이면 그 말이 먼저입니다
+    notice: board.status === '치과 PC 꺼짐' ? board.detail : autoNotice(rest),
     needsBed: job.step === 'queued' && job.bedClearedAt === null,
-    board: boardRow(rest),
-    designNote:
-      session?.orgType === 'design_center' && job.designStage === 'stalled' ? designNote : null,
+    board,
+    designNote: note,
   };
 }
 
@@ -280,6 +313,29 @@ export async function getFlowTempBoard(): Promise<Board> {
     ★ 급한 것이 위로 — 오류, 치과 할 일, 지연, 진행 순. 같으면 최근 것이 위.
   */
   const order = { error: 0, action: 1, delay: 2, progress: 3, done: 4 } as const;
+  /*
+    ★ 치과 PC 가 꺼져 있으면 그 말로 바꿉니다 (2026-10-16 점검). 자기 치과
+      기기는 RLS 로 읽힙니다.
+  */
+  const { data: devs } = await supabase
+    .from('clinic_devices')
+    .select('last_seen_at')
+    .is('revoked_at', null)
+    .order('last_seen_at', { ascending: false, nullsFirst: false })
+    .limit(1);
+  const online = deviceOnline(((devs ?? []) as { last_seen_at: string | null }[])[0]?.last_seen_at, Date.now());
+  for (let i = 0; i < items.length; i++) {
+    const r = rows.find((x) => x.order_id === items[i].orderId);
+    if (!r || !isAutoStep(r.step)) continue;
+    const fixed = withClinicPc(items[i], {
+      step: r.step,
+      bedClearedAt: r.bed_cleared_at,
+      percent: r.percent,
+      failedAt: null,
+      failedReason: null,
+    }, online);
+    items[i] = { ...items[i], ...fixed };
+  }
   items.sort((a, b) => order[a.tone] - order[b.tone]);
 
   return { productName: autoTypes[0]?.name ?? '임시치아', items };

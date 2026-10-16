@@ -16,7 +16,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { autoAlert, type AutoAlertKind } from '@/server/domain/auto-print';
 import { sendPushToOrgs } from '@/server/events/push';
 
-export async function publishAutoAlert(orderId: string, kind: AutoAlertKind): Promise<void> {
+export async function publishAutoAlert(
+  orderId: string,
+  kind: AutoAlertKind,
+  reason?: string | null,
+): Promise<void> {
   try {
     const admin = createAdminClient();
 
@@ -42,9 +46,10 @@ export async function publishAutoAlert(orderId: string, kind: AutoAlertKind): Pr
       orderNo: order.order_no,
       patientLabel: order.patient_label,
       productName,
+      reason,
     });
     const link = `/clinic/orders/${orderId}`;
-    const eventType = kind === 'bed' ? 'order.auto_print.bed' : 'order.auto_print.done';
+    const eventType = `order.auto_print.${kind}`;
 
     await admin.from('notifications').insert({
       org_id: order.clinic_org_id,
@@ -68,5 +73,43 @@ export async function publishAutoAlert(orderId: string, kind: AutoAlertKind): Pr
     );
   } catch (error) {
     console.error('[events] 자동 출력 알림 실패', error);
+  }
+}
+
+/**
+ * 디자인이 멈췄다고 **센터에** 알립니다 (2026-10-16 점검).
+ *
+ * ★ 전에는 센터가 주문 상세를 열어야만 알았습니다. 멈춘 디자인은 센터가 손댈
+ *   일입니다(치과는 '디자인 지연' 만 봅니다). 까닭을 그대로 실어 보냅니다 —
+ *   센터 화면이라 덴트버드 이야기가 들어가도 됩니다.
+ */
+export async function publishDesignStall(orderId: string, note: string | null): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('orders')
+      .select('order_no, patient_label, design_org_id')
+      .eq('id', orderId)
+      .maybeSingle();
+    const order = data as { order_no: string; patient_label: string; design_org_id: string | null } | null;
+    if (!order?.design_org_id) return;
+
+    const title = `FlowTemp 디자인이 멈췄습니다 — ${order.order_no}`;
+    const body = `${order.patient_label} — ${note?.trim() || '주문 화면에서 까닭을 확인하세요'}`;
+    const link = `/design/orders/${orderId}`;
+
+    await admin.from('notifications').insert({
+      org_id: order.design_org_id,
+      channel: 'in_app',
+      status: 'sent',
+      event_type: 'order.auto_print.design_stalled',
+      title,
+      body,
+      link,
+      payload: { orderId },
+    });
+    await sendPushToOrgs(new Map([[order.design_org_id, { title, body, link, tag: `auto-design-${orderId}` }]]));
+  } catch (error) {
+    console.error('[events] 디자인 멈춤 알림 실패', error);
   }
 }
