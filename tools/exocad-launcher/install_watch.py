@@ -58,10 +58,24 @@ def vbs_for(python, script, crash) -> str:
     full = f'cmd /c {q}{inner}{q}'
     # VBScript 안에서 따옴표 한 개는 두 번 적습니다
     literal = q + full.replace(q, q * 2) + q
+    # ★★ 켜자마자 띄우지 않습니다 (2026-10-16). PC 를 막 켰을 때 셋 중 하나만
+    #   살고 둘은 파이썬도 안 남긴 채 사라졌고, 산 하나는 설계 열쇠를 못 보고
+    #   치과 열쇠를 잡았습니다. 로그인 뒤 45초 기다립니다.
+    # ★ 띄울 때마다 한 줄 남깁니다 — 또 생기면 '띄우기는 했나' 부터 볼 수 있게.
+    #   (ASCII 만 — VBScript 파일 쓰기는 한글을 깨뜨립니다)
+    stem = Path(str(script)).stem
+    starts = Path(str(crash)).with_name("vbs-starts.txt")
     lines = [
-        chr(39) + ' DenFlow - watch exocad jobs. Hidden, restarts if it dies.',
+        chr(39) + ' DenFlow - ' + stem + '. Hidden, restarts if it dies.',
         'Set sh = CreateObject(' + q + 'WScript.Shell' + q + ')',
+        'Set fs = CreateObject(' + q + 'Scripting.FileSystemObject' + q + ')',
+        'WScript.Sleep 45000',
         'Do',
+        '  On Error Resume Next',
+        '  Set f = fs.OpenTextFile(' + q + str(starts) + q + ', 8, True)',
+        '  f.WriteLine Now & ' + q + ' start ' + stem + q,
+        '  f.Close',
+        '  On Error GoTo 0',
         '  sh.Run ' + literal + ', 0, True',
         '  WScript.Sleep 10000',
         'Loop',

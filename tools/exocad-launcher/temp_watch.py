@@ -201,6 +201,10 @@ def main() -> int:
     say(f"크라운으로 보는 이름: {'·'.join(words)}")
 
     while True:
+        # ★★ 표시와 살리기를 **맨 앞에서** (2026-10-16). 뒤에 두면 폴더를 못 읽는
+        #   바퀴에서 건너뛰어, 다른 둘이 죽어도 아무도 안 살렸습니다.
+        beat("temp_watch")
+        revive("temp_watch", say=say)
         try:
             fresh = [p for p in watch.glob("*.stl") if p.name not in seen]
         except OSError as e:
@@ -221,9 +225,6 @@ def main() -> int:
             except Exception as e:  # noqa: BLE001 — 지켜보기는 안 죽습니다
                 say(f"{stl.name} — 알 수 없는 문제: {e!r}")
 
-        # ★ 살아 있다는 표시를 남기고, 짝(exocad 지켜보기)이 죽었으면 살립니다
-        beat("temp_watch")
-        revive("temp_watch", say=say)
         time.sleep(POLL_SECONDS)
 
 

@@ -144,6 +144,24 @@ def main() -> int:
     quiet = False
 
     while True:
+        # ★★ 표시와 살리기를 **맨 앞에서** (2026-10-16 아침). 뒤에 두었더니
+        #   서버가 거절하는 바퀴마다 건너뛰어, 재부팅 뒤 다른 둘이 죽어 있는데도
+        #   아무도 안 살렸습니다.
+        beat("exocad_watch")
+        revive("exocad_watch", say=say)
+
+        # ★★ 치과 열쇠를 잡았는데 설계 PC 열쇠가 **나중에 보이면** 갈아탑니다.
+        #   PC 를 막 켰을 때 설계 열쇠를 못 보고 치과 열쇠로 시작해 "설계 PC 만
+        #   물어볼 수 있습니다" 만 되풀이했습니다 (2026-10-16 아침).
+        if path == SCAN_SETTINGS and DESIGN_SETTINGS.is_file():
+            try:
+                cfg = settings(DESIGN_SETTINGS)
+                path, token = DESIGN_SETTINGS, cfg.get("token") or token
+                base = cfg.get("base_url", base).rstrip("/")
+                say(f"열쇠를 갈아탑니다: {path.name}")
+            except (OSError, ValueError):
+                pass
+
         try:
             got = ask(base, token)
         except Exception as e:  # noqa: BLE001
@@ -183,9 +201,6 @@ def main() -> int:
             _beat = time.time()
             say("살아 있습니다")
 
-        # ★ 살아 있다는 표시를 남기고, 짝(임시치아 지켜보기)이 죽었으면 살립니다
-        beat("exocad_watch")
-        revive("exocad_watch", say=say)
         time.sleep(POLL_SECONDS)
 
 
