@@ -60,3 +60,7 @@ tools/exocad-launcher/__pycache__/
 tools/exocad-launcher/dist/
 tools/exocad-launcher/build/
 tools/exocad-launcher/dist-embed/
+
+# 설계 PC 열쇠를 실제 사용자 폴더로 옮기는 임시 사본 · 실제 쪽 상태 기록 (2026-10-16)
+tools/exocad-launcher/_seed_design_agent.json
+tools/exocad-launcher/_real_state.txt

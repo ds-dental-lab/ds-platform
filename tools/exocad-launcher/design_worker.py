@@ -30,6 +30,7 @@ import argparse
 import json
 import os
 import shutil
+import sys
 import threading
 import time
 import urllib.error
@@ -67,6 +68,14 @@ def say(line: str) -> None:
         LOG.parent.mkdir(parents=True, exist_ok=True)
         with LOG.open("a", encoding="utf-8") as f:
             f.write(text + "\n")
+    except OSError:
+        pass
+    # ★ 저장소의 _real_state.txt 에도 (2026-10-16) — 작업 도구 쪽에서는 실제 AppData 가
+    #   안 보여서, 실제로 무슨 일이 있었는지 볼 길이 이것뿐입니다
+    try:
+        from watch_common import REAL_STATE  # noqa: PLC0415
+        with REAL_STATE.open("a", encoding="utf-8") as f:
+            f.write("일꾼 " + text + "\n")
     except OSError:
         pass
 
@@ -197,7 +206,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-export", action="store_true", help="내보내기 창 확인까지만 (덴트버드 건수를 안 씁니다)")
     args = ap.parse_args(argv)
 
-    from watch_common import log_to_crash  # noqa: PLC0415
+    from watch_common import ensure_design_key, log_to_crash  # noqa: PLC0415
+    ensure_design_key(NAME)
     log_to_crash(NAME)
     if not single_instance(NAME):
         say("이미 떠 있습니다 — 물러납니다")

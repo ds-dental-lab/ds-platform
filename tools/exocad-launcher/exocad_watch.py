@@ -129,7 +129,8 @@ def main() -> int:
     from watch_common import beat, revive, single_instance  # noqa: PLC0415
 
     # ★★ 둘이 돌면 같은 케이스를 두 번 엽니다 — 이미 누가 돌고 있으면 물러납니다
-    from watch_common import log_to_crash  # noqa: PLC0415
+    from watch_common import ensure_design_key, log_to_crash  # noqa: PLC0415
+    ensure_design_key("exocad_watch")
     log_to_crash("exocad_watch")
     if not single_instance("exocad_watch"):
         from watch_common import ALREADY_RUNNING  # noqa: PLC0415

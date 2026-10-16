@@ -130,3 +130,42 @@ if __name__ == "__main__":
     for n in VBS:
         print(f"{n:14} 마지막 소식 {_age(n):.0f}초 전")
     sys.exit(0)
+
+
+SEED = Path(__file__).resolve().parent / "_seed_design_agent.json"
+REAL_STATE = Path(__file__).resolve().parent / "_real_state.txt"
+
+
+def ensure_design_key(who: str) -> None:
+    """설계 PC 열쇠가 실제 사용자 폴더에 없으면, 저장소에 잠깐 둔 사본을 옮깁니다 (2026-10-16)
+
+    ★★ 왜 — 작업 도구(Claude 쪽)가 AppData 에 쓴 파일은 **실제 Windows 에서 안
+      보였습니다.** 10/14 에 거기서 만든 design_agent.json 이 실제로는 없어서, PC 를
+      켤 때마다 exocad 지켜보기는 치과 열쇠를 잡고 일꾼·임시치아 지켜보기는 바로
+      꺼졌습니다. 저장소 폴더는 양쪽이 같이 봅니다 — 거기 둔 사본을 실제 쪽이
+      한 번 옮기고 **바로 지웁니다** (git 에는 .gitignore 로 안 올라감).
+    ★ 무엇을 봤는지 저장소의 _real_state.txt 에 남깁니다 — 실제 쪽 사정을 알 길이
+      그것뿐입니다.
+    """
+    import json as _json
+    key = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow" / "design_agent.json"
+    note = ""
+    try:
+        ok = key.is_file() and bool(_json.loads(key.read_text(encoding="utf-8")).get("token"))
+    except (OSError, ValueError):
+        ok = False
+    if not ok and SEED.is_file():
+        try:
+            key.parent.mkdir(parents=True, exist_ok=True)
+            key.write_text(SEED.read_text(encoding="utf-8"), encoding="utf-8")
+            SEED.unlink()
+            note = "열쇠를 옮겼습니다"
+            ok = True
+        except OSError as e:
+            note = f"열쇠를 못 옮겼습니다 — {e!r}"
+    try:
+        with REAL_STATE.open("a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {who} pid={os.getpid()} "
+                    f"설계열쇠={'있음' if ok else '없음'} {note}" + chr(10))
+    except OSError:
+        pass
