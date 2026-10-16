@@ -1000,7 +1000,13 @@ export interface DesignJob {
  */
 export async function claimNextDesign(
   orgId: string,
-): Promise<{ ok: true; job: DesignJob | null } | { ok: false; error: string }> {
+  /**
+   * 잡지 않고 **있는지만** 봅니다 (2026-10-16). 일꾼이 할 일이 있을 때만 덴트버드
+   * 창을 확인하게 — 할 일이 없는데 5분마다 창에 붙어 디자이너 화면 앞으로
+   * 덴트버드 창을 끌어왔습니다.
+   */
+  peek = false,
+): Promise<{ ok: true; job: DesignJob | null; available?: boolean } | { ok: false; error: string }> {
   const admin = createAdminClient();
 
   const { data: org } = await admin.from('organizations').select('org_type').eq('id', orgId).maybeSingle();
@@ -1048,6 +1054,7 @@ export async function claimNextDesign(
       now,
     );
     if (!ok) continue;
+    if (peek) return { ok: true, job: null, available: true };
 
     // ★ 읽은 그대로일 때만 잡습니다 — 그사이 다른 일꾼이 잡았으면 0줄
     const { data: took } = await admin
@@ -1080,7 +1087,7 @@ export async function claimNextDesign(
       },
     };
   }
-  return { ok: true, job: null };
+  return { ok: true, job: null, available: false };
 }
 
 async function autoTypeCodes(): Promise<Set<string>> {

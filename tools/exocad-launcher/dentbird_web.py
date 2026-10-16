@@ -106,8 +106,15 @@ def attach():
     #   나면 크롬 안에 주소 없는 대상(type=other)이 하나 생기고, 셀레니움이 그쪽을
     #   잡으면 첫 명령에서 2분 걸린 뒤 연결째 끊겼습니다(어제·오늘 두 번). 크롬이
     #   직접 알려 주는 page 목록에서 덴트버드 것을 골라 그 창으로 갑니다.
+    # ★★ 단, **이미 그 창이면 옮기지 않습니다** (2026-10-16). 옮기기(switch)는 크롬
+    #   창을 맨 앞으로 끌어와서, 일꾼이 붙을 때마다 디자이너 화면 위로 덴트버드가
+    #   튀어나왔습니다.
     target = dentbird_page_id()
-    if target and target in d.window_handles:
+    try:
+        here = d.current_window_handle
+    except Exception:  # noqa: BLE001
+        here = None
+    if target and here != target and target in d.window_handles:
         d.switch_to.window(target)
     keep_awake(d)
     return d

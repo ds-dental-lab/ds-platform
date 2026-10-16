@@ -111,9 +111,6 @@ def download(files: list[dict], folder: Path) -> None:
 
 #: 덴트버드 창이 못 쓰는 상태를 본 때 — 그 뒤 잠시 일감을 안 잡습니다
 _session_bad_at = 0.0
-#: 창이 쓸 만한지 마지막으로 본 때
-_window_checked_at = 0.0
-WINDOW_CHECK_SECONDS = 300
 
 
 def handle(job: dict, spend: bool) -> None:
@@ -180,12 +177,9 @@ def _window_bad() -> bool:
     """일감을 잡기 **전에** 덴트버드 창이 쓸 만한지 봅니다 (2026-10-16 점검)
 
     ★ 잡은 뒤에 알면 그 주문이 하나씩 멈춥니다. 잡기 전에 보고, 못 쓰면 안 잡습니다.
-    ★ 5분에 한 번만 붙어 봅니다 — 30초마다 붙으면 크롬 드라이버가 쌓입니다.
+    ★ 할 일이 있을 때만 부릅니다 — 평소에 붙으면 창이 앞으로 튀어나옵니다.
     """
-    global _session_bad_at, _window_checked_at
-    if time.time() - _window_checked_at < WINDOW_CHECK_SECONDS:
-        return False
-    _window_checked_at = time.time()
+    global _session_bad_at
     try:
         why = session_problem(attach())
     except Exception as e:  # noqa: BLE001
@@ -252,10 +246,14 @@ def main(argv: list[str] | None = None) -> int:
                         say(f"덴트버드 창을 못 띄웠습니다 — {e}")
             elif time.time() - _session_bad_at < SESSION_PAUSE_SECONDS:
                 pass  # 덴트버드 창이 돌아올 때까지 일감을 안 잡습니다
-            elif _window_bad():
-                pass
             else:
-                got = post(f"{base}/api/device/auto-print/next-design", {}, token)
+                # ★★ 잡지 않고 **묻기만** 합니다 (2026-10-16). 할 일이 있을 때만 덴트버드
+                #   창을 확인합니다 — 전에는 5분마다 창에 붙어 디자이너 화면 앞으로
+                #   덴트버드 창을 끌어왔습니다 ("왜 자꾸 활성화되는 거야").
+                got = post(f"{base}/api/device/auto-print/next-design", {"peek": True}, token)
+                if got.get("ok") and not got.get("job") and got.get("available"):
+                    got = {"ok": True} if _window_bad() else post(
+                        f"{base}/api/device/auto-print/next-design", {}, token)
                 if not got.get("ok"):
                     say(f"일감 묻기 실패: {got.get('error')}")
                 elif got.get("job"):

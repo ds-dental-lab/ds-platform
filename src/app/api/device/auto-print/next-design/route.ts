@@ -19,7 +19,9 @@ export async function POST(request: Request) {
   const device = await deviceFromToken(token);
   if (!device) return Response.json({ ok: false, error: '연결되지 않은 기기입니다' }, { status: 401 });
 
-  const result = await claimNextDesign(device.clinicOrgId);
+  // ★ { peek: true } 면 잡지 않고 있는지만 (2026-10-16)
+  const body = (await request.json().catch(() => ({}))) as { peek?: unknown };
+  const result = await claimNextDesign(device.clinicOrgId, body.peek === true);
   return Response.json(result, {
     status: result.ok ? 200 : 400,
     headers: { 'cache-control': 'no-store' },
