@@ -57,11 +57,14 @@ SERVICES = re.compile(
 )
 
 COMMENT = re.compile(r"(^|\s)#[^\n]*")
+# heredoc 본문(<<'EOF' … EOF) — 글 내용이지 명령이 아닙니다. 쓰는 곳은 첫 줄에 남습니다
+HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1([^\n]*)\n.*?\n\s*\2\s*(?=\n|$)", re.S)
 
 
 def verdict(cmd: str) -> str | None:
     if not cmd:
         return None
+    cmd = HEREDOC.sub(lambda m: "<<" + m.group(2) + m.group(3), cmd)
     cmd = COMMENT.sub(r"\1", cmd)  # 주석에 적힌 이름은 실행이 아닙니다
     if DENFLOW_DIR.search(cmd) and WRITE_WORDS.search(cmd):
         return "실제 쪽 설정 폴더(AppData\\Roaming\\DenFlow)에 쓰려고 합니다. " + REASON

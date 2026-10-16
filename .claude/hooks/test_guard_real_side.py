@@ -45,6 +45,9 @@ more_block = [
  r'"C:\Python315\pythonw.exe" "C:\x\tools\exocad-launcher\temp_watch.py"',
  r'Start-Process pythonw.exe -ArgumentList "exocad_watch.py"',
 ]
+# heredoc — 본문에 이름이 나오는 것은 통과, 대상이 그 폴더면 막힘
+more_allow.append("cat >> notes.md <<'EOF'\n막는 곳: AppData\\Roaming\\DenFlow\npythonw exocad_watch.py\nEOF\ngrep -n x MEMORY.md")
+more_block.append("cat > \"$APPDATA/DenFlow/design_agent.json\" <<'EOF'\n{}\nEOF")
 for c in more_allow:
     if g.verdict(c): print("WRONGLY BLOCKED:", c); bad += 1
 for c in more_block:
