@@ -65,3 +65,4 @@ tools/exocad-launcher/dist-embed/
 tools/exocad-launcher/_seed_design_agent.json
 tools/exocad-launcher/_real_state.txt
 tools/exocad-launcher/_real_launcher.log
+tools/exocad-launcher/_seed_launcher/

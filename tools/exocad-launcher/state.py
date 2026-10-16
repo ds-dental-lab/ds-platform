@@ -88,3 +88,38 @@ def migrate(old: Path) -> list[str]:
             except OSError:
                 pass
     return moved
+
+
+#: ★ 저장소에 잠깐 두는 사본 (2026-10-16) — state.SEED_DIR/<이름> 이 있으면 실제 쪽이 옮깁니다
+SEED_DIR = Path(__file__).resolve().parent / "_seed_launcher"
+
+
+def adopt_seeds() -> list[str]:
+    """저장소의 임시 사본을 실제 사용자 폴더로 옮기고 지웁니다 (2026-10-16)
+
+    ★★ 왜 — 10/13 에 설정을 사용자 폴더로 옮긴 것이 작업 도구(Claude 쪽) 안에서
+      일어나, 실제 Windows 의 AppData 에는 config.json 이 없었습니다. 실제 쪽
+      런처는 설정을 읽다 FileNotFoundError 로 죽었고, exocad 가 안 열렸습니다.
+    ★ 이미 있으면 덮어쓰지 않습니다(그쪽이 임자). 옮긴 사본은 지웁니다.
+    ★ 비밀번호가 든 settings.json 은 여기로 옮기지 않습니다 — 런처 화면에서 넣습니다.
+    """
+    if not SEED_DIR.is_dir():
+        return []
+    here = folder()
+    moved = []
+    for src in SEED_DIR.iterdir():
+        if not src.is_file() or src.name == "settings.json":
+            continue
+        dst = here / src.name
+        try:
+            if not dst.exists():
+                shutil.copyfile(src, dst)
+                moved.append(src.name)
+            src.unlink()
+        except OSError:
+            pass
+    try:
+        SEED_DIR.rmdir()
+    except OSError:
+        pass
+    return moved

@@ -58,6 +58,32 @@ def _called(note: str) -> None:
 import sys as _sys  # noqa: E402 — 기록 한 줄에만 씁니다
 _called(" ".join(_sys.argv[1:]) or "(인자 없음)")
 
+
+def _crash_to_repo(kind, value, tb):  # noqa: ANN001
+    """★ 죽으면 까닭을 저장소에 (2026-10-16) — pythonw 라 어디에도 안 남던 것"""
+    try:
+        import traceback as _tb
+        from pathlib import Path as _P
+        with (_P(__file__).resolve().parent / "_real_state.txt").open("a", encoding="utf-8") as g:
+            g.write("런처 죽음: " + "".join(_tb.format_exception(kind, value, tb))[-1500:] + chr(10))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+_sys.excepthook = _crash_to_repo
+
+
+def _step(name: str) -> None:
+    """실제 쪽 런처의 흔적을 저장소 _real_state.txt 에 (2026-10-16 — AppData 가 안 보여서)"""
+    try:
+        from pathlib import Path as _P
+        with (_P(__file__).resolve().parent / "_real_state.txt").open("a", encoding="utf-8") as g:
+            g.write(f"런처 단계 {name}" + chr(10))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+
 import datetime as dt
 import json
 import logging
@@ -82,12 +108,16 @@ sys.path.insert(0, str(HERE))
 
 
 import make_project  # noqa: E402
-from state import folder as state_folder, migrate  # noqa: E402
+from state import adopt_seeds, folder as state_folder, migrate  # noqa: E402
 
 #: ★★ 적어 두는 것은 **코드 폴더 밖**입니다 (2026-10-13 — state.py 참고).
 #:   등록된 자리를 저장소로 옮기면서, 설정·로그·크롬 로그인은 옛 폴더에서
 #:   한 번 옮겨 옵니다. 다시 로그인하지 않아도 되게요.
 migrate(Path.home() / "Desktop" / "denflow-exocad")
+# ★ 저장소에 잠깐 둔 설정 사본을 실제 사용자 폴더로 (2026-10-16 — state.adopt_seeds)
+_seeded = adopt_seeds()
+if _seeded:
+    _step("설정 옮김 " + ",".join(_seeded))
 
 CONFIG_PATH = state_folder() / "config.json"
 LOG_DIR = state_folder() / "logs"
@@ -763,6 +793,17 @@ def parse_launch(arg: str) -> tuple[str, str, str]:
 
 
 def main() -> None:
+    try:
+        _main()
+    except SystemExit as e:
+        _step(f"main 끝남(SystemExit {e.code!r})")
+        raise
+    except BaseException as e:  # noqa: BLE001
+        _step(f"main 죽음 {e!r}")
+        raise
+
+
+def _main() -> None:
     LOG_DIR.mkdir(exist_ok=True)
     # ★ 무엇보다 먼저 "불렸다" 를 남깁니다 — 브라우저가 부르긴 했는지 가리는 흔적
     with open(LOG_DIR / "chrome-hit.txt", "a", encoding="utf-8") as f:
