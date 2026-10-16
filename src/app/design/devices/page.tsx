@@ -135,6 +135,9 @@ export default async function DesignDevicesPage() {
                       덴트버드 창 <b className="font-semibold text-[#1A2130]">{d.status.dentbird}</b>
                     </span>
                   ) : null}
+                  {d.status.missing?.length ? (
+                    <span className="font-semibold text-[#A32F2F]">빠진 것: {d.status.missing.join(' · ')}</span>
+                  ) : null}
                   {stale.length ? (
                     <span className="font-semibold text-[#A32F2F]">멈춘 프로그램: {stale.join(', ')}</span>
                   ) : null}

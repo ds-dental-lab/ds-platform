@@ -31,11 +31,15 @@ export interface DeviceHealthInput {
   heartbeatAt: string | null;
   lastSeenAt: string | null;
   lastErrorAt: string | null;
+  /** 설계 PC 가 스스로 본 '빠진 것' — 하나라도 있으면 확인 필요 */
+  status?: { missing?: string[] };
 }
 
 export function deviceState(d: DeviceHealthInput, now: number): DeviceState {
   if (!d.heartbeatAt) return 'legacy';
   if (now - new Date(d.heartbeatAt).getTime() > HEARTBEAT_OFFLINE_SECONDS * 1000) return 'offline';
+  // ★ 2026-10-16 빠진 설정 하나가 아무 말 없이 일을 멈췄습니다. 빠지면 바로 노랗게
+  if (d.status?.missing?.length) return 'warn';
   if (d.lastErrorAt && now - new Date(d.lastErrorAt).getTime() < RECENT_ERROR_MINUTES * 60_000) return 'warn';
   return 'ok';
 }
@@ -72,6 +76,8 @@ export interface DeviceStatus {
   dentbird?: string;
   /** 설계 PC — 지켜보기들이 마지막으로 소식을 남긴 지 몇 초 */
   watchers?: Record<string, number>;
+  /** 설계 PC — 일하는 데 꼭 필요한데 **빠진 것** (설계 열쇠·런처 설정·시작프로그램 등) */
+  missing?: string[];
   /** 지금 하는 일 — '대기' · '디자인 중' 등 (주문 번호까지만, 환자 이름 없음) */
   doing?: string;
 }
@@ -102,6 +108,12 @@ export function sanitizeStatus(raw: unknown): DeviceStatus {
       if (/^[a-z_]{1,30}$/.test(k) && typeof v === 'number' && Number.isFinite(v)) w[k] = Math.max(0, Math.round(v));
     }
     out.watchers = w;
+  }
+  if (Array.isArray(r.missing)) {
+    out.missing = r.missing
+      .slice(0, 10)
+      .map((m) => str(m, 120))
+      .filter((m): m is string => !!m);
   }
   const doing = str(r.doing, 80);
   if (doing) out.doing = doing;

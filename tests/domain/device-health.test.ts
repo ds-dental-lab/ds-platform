@@ -21,6 +21,13 @@ describe('기기 상태', () => {
     expect(deviceState({ heartbeatAt: '2026-10-16T04:59:30Z', lastSeenAt: null, lastErrorAt: '2026-10-16T04:30:00Z' }, now)).toBe('warn');
     expect(deviceState({ heartbeatAt: '2026-10-16T04:59:30Z', lastSeenAt: null, lastErrorAt: '2026-10-16T03:00:00Z' }, now)).toBe('ok');
   });
+  it('★ 빠진 것이 있으면 오류가 없어도 확인 필요 (2026-10-16 런처 설정이 조용히 빠짐)', () => {
+    const on = { heartbeatAt: '2026-10-16T04:59:30Z', lastSeenAt: null, lastErrorAt: null };
+    expect(deviceState({ ...on, status: { missing: ['런처 설정(config.json)'] } }, now)).toBe('warn');
+    expect(deviceState({ ...on, status: { missing: [] } }, now)).toBe('ok');
+    // 꺼진 것이 먼저입니다
+    expect(deviceState({ ...on, heartbeatAt: '2026-10-16T04:50:00Z', status: { missing: ['x'] } }, now)).toBe('offline');
+  });
   it('판이 뒤처졌는지', () => {
     expect(versionBehind('1.3.1', '1.3.2')).toBe(true);
     expect(versionBehind('1.3.2', '1.3.2')).toBe(false);
@@ -42,6 +49,12 @@ describe('기기가 보낸 것을 거른다', () => {
     expect(sanitizeEvents(many)).toHaveLength(20);
     expect(sanitizeEvents([{ message: 'x'.repeat(500) }])[0].message).toHaveLength(300);
     expect(sanitizeEvents([{ message: '  ' }, null, 'str'])).toEqual([]);
+  });
+  it('빠진 것 목록은 10개·120자까지, 글자만', () => {
+    const s = sanitizeStatus({ missing: ['설계 열쇠', 3, '', 'y'.repeat(200), ...Array(20).fill('z')] });
+    expect(s.missing).toHaveLength(8); // 앞 10개 중 숫자·빈칸 둘 빼고
+    expect(s.missing![1]).toHaveLength(120);
+    expect(sanitizeStatus({ missing: 'x' }).missing).toBeUndefined();
   });
   it('멈춘 지켜보기', () => {
     expect(staleWatchers({ temp_watch: 20, exocad_watch: 400 })).toEqual(['exocad_watch']);

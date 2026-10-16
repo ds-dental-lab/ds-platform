@@ -139,6 +139,8 @@ REAL_STATE = Path(__file__).resolve().parent / "_real_state.txt"
 def ensure_design_key(who: str) -> None:
     """설계 PC 열쇠가 실제 사용자 폴더에 없으면, 저장소에 잠깐 둔 사본을 옮깁니다 (2026-10-16)
 
+    (preflight() 가 같은 것을 1분마다 다시 봅니다 — 없어지면 상태판에 뜹니다)
+
     ★★ 왜 — 작업 도구(Claude 쪽)가 AppData 에 쓴 파일은 **실제 Windows 에서 안
       보였습니다.** 10/14 에 거기서 만든 design_agent.json 이 실제로는 없어서, PC 를
       켤 때마다 exocad 지켜보기는 치과 열쇠를 잡고 일꾼·임시치아 지켜보기는 바로
@@ -173,3 +175,37 @@ def ensure_design_key(who: str) -> None:
                     f"설계열쇠={'있음' if ok else '없음'} {note}" + chr(10))
     except OSError:
         pass
+
+
+#: 시작프로그램에 있어야 할 것 (install_watch.WATCHERS 와 같게 — 시험이 맞춰 봅니다)
+STARTUP_VBS = ("덴플로우 exocad 지켜보기.vbs", "덴플로우 임시치아 지켜보기.vbs", "덴플로우 설계 일꾼.vbs")
+
+
+def preflight(appdata: Path | None = None, home: Path | None = None) -> list[str]:
+    """설계 PC 가 일하는 데 꼭 필요한 것 중 **빠진 것** 이름들 (2026-10-16)
+
+    ★★ 왜 — 이날 빠진 것 둘(설계 열쇠·런처 설정)이 **아무 말 없이** 일을 멈췄습니다.
+      런처는 창 없이 떴다가 config.json 이 없어 바로 죽었고, 사람은 "exocad 가 안
+      열린다" 로만 알았습니다. 일꾼이 1분마다 이것을 보고 상태판에 올립니다 —
+      실제 쪽에서 돌기 때문에 **실제 쪽에서 보이는 것**을 봅니다.
+    ★ 빠진 것을 고치지는 않습니다(열쇠·비밀번호가 걸린 일). 알리기만 합니다.
+    """
+    import json as _json
+    appdata = appdata or Path(os.environ.get("APPDATA", Path.home()))
+    home = home or Path.home()
+    missing: list[str] = []
+    key = appdata / "DenFlow" / "design_agent.json"
+    try:
+        if not _json.loads(key.read_text(encoding="utf-8")).get("token"):
+            missing.append("설계 열쇠(design_agent.json)")
+    except (OSError, ValueError):
+        missing.append("설계 열쇠(design_agent.json)")
+    if not (appdata / "DenFlow" / "launcher" / "config.json").is_file():
+        missing.append("런처 설정(config.json) — exocad 가 안 열립니다")
+    if not (home / "AppData" / "Roaming" / "OrcaSlicer" / "OrcaSlicer.conf").is_file():
+        missing.append("오르카 설정 — 오르카를 한 번 켜야 합니다")
+    startup = appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+    for name in STARTUP_VBS:
+        if not (startup / name).is_file():
+            missing.append(f"시작프로그램 {name}")
+    return missing

@@ -134,6 +134,7 @@ def handle(job: dict, spend: bool) -> None:
         _handle(job, spend)
     finally:
         _doing = "대기"
+_missing_seen: list[str] = []
 
 
 def _handle(job: dict, spend: bool) -> None:
@@ -219,8 +220,16 @@ def _health() -> dict:
         dentbird = "꺼짐"
     if time.time() - _session_bad_at < SESSION_PAUSE_SECONDS:
         dentbird += " · 못 쓰는 상태(쉬는 중)"
+    # ★ 빠진 것이 **바뀔 때만** 오류로 남깁니다 — 1분마다 같은 말이 쌓이지 않게
+    global _missing_seen
+    from watch_common import preflight  # noqa: PLC0415
+    missing = preflight()
+    if missing and missing != _missing_seen and _heart is not None:
+        _heart.report("설계 PC 에 빠진 것: " + ", ".join(missing))
+    _missing_seen = missing
     return {
         "kind": "design",
+        "missing": missing,
         "dentbird": dentbird,
         "watchers": {n: min(_age(n), 999999) for n in ("exocad_watch", "temp_watch")},
         "doing": _doing,
