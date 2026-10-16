@@ -223,8 +223,11 @@ def main() -> int:
     from watch_common import beat, revive, single_instance  # noqa: PLC0415
 
     # ★★ 둘이 돌면 같은 크라운을 두 번 올립니다 — 이미 누가 돌고 있으면 물러납니다
+    from watch_common import log_to_crash  # noqa: PLC0415
+    log_to_crash("temp_watch")
     if not single_instance("temp_watch"):
-        return 0
+        from watch_common import ALREADY_RUNNING  # noqa: PLC0415
+        return ALREADY_RUNNING
     beat("temp_watch")
 
     if not DESIGN_SETTINGS.is_file():

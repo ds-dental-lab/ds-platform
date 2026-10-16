@@ -83,8 +83,11 @@ def run_orca(
 
     with open(log, "wb") as f:
         try:
-            code = subprocess.call(cmd, stdout=f, stderr=f, cwd=str(out_3mf.parent),
-                                   timeout=SLICE_TIMEOUT)
+            # ★ 창 없이 (2026-10-16) — 지켜보기가 창 없는 pythonw 로 뜨면서, 콘솔
+            #   프로그램을 띄우면 검은 창이 튈 수 있습니다
+            code = subprocess.call(cmd, stdout=f, stderr=f, stdin=subprocess.DEVNULL,
+                                   cwd=str(out_3mf.parent), timeout=SLICE_TIMEOUT,
+                                   creationflags=0x08000000)
         except subprocess.TimeoutExpired:
             raise SliceError("자르기가 너무 오래 걸립니다") from None
 

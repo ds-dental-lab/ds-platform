@@ -44,6 +44,30 @@ STALE_SECONDS = 180
 CHECK_SECONDS = 60
 
 _locks: dict[str, object] = {}
+
+#: ★ '이미 누가 돌고 있어 물러납니다' 의 종료 코드 (2026-10-16). 시작프로그램 vbs 는
+#:   이걸 받으면 **스스로 끝납니다** — 안 그러면 다시 띄울 때마다 반복기가 하나씩
+#:   늘어, 10초마다 띄웠다 물러나기를 끝없이 되풀이했습니다(한때 여섯 개).
+ALREADY_RUNNING = 3
+
+
+def log_to_crash(name: str) -> None:
+    """표준 출력·오류를 `{name}-crash.txt` 에 **나눠 쓸 수 있게** 붙입니다 (2026-10-16)
+
+    ★★ 전에는 시작프로그램이 `cmd /c python … >> crash.txt` 로 이었습니다. cmd 는
+      그 파일을 **혼자 쓰려고** 열어서, 이미 하나가 돌며 쓰고 있으면 두 번째 cmd 는
+      파일을 못 열고 **파이썬을 실행조차 안 했습니다** — 흔적도 없이. 그래서 덧
+      띄운 반복기가 '이미 떠 있음(3)' 을 받을 기회도 없이 영원히 돌았습니다.
+      파이썬의 open 은 남과 나눠 씁니다.
+    ★ pythonw 로 뜨면 표준 출력이 아예 없습니다 — 여기서 붙여야 print 가 남습니다.
+    """
+    try:
+        STATE.mkdir(parents=True, exist_ok=True)
+        f = open(STATE / f"{name}-crash.txt", "a", encoding="utf-8", buffering=1)  # noqa: SIM115
+        sys.stdout = f
+        sys.stderr = f
+    except OSError:
+        pass
 _last_check = 0.0
 
 

@@ -75,6 +75,13 @@ def settings_path() -> Path | None:
     for p in (DESIGN_SETTINGS, SCAN_SETTINGS):
         if p.is_file():
             return p
+        # ★ 있는데 못 보는 것인지 까닭을 남깁니다 (2026-10-16 — 켤 때 설계 열쇠를 못 봄)
+        try:
+            os.stat(p)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            say(f"{p.name} 를 못 읽습니다 — {e!r}")
     return None
 
 
@@ -122,8 +129,11 @@ def main() -> int:
     from watch_common import beat, revive, single_instance  # noqa: PLC0415
 
     # ★★ 둘이 돌면 같은 케이스를 두 번 엽니다 — 이미 누가 돌고 있으면 물러납니다
+    from watch_common import log_to_crash  # noqa: PLC0415
+    log_to_crash("exocad_watch")
     if not single_instance("exocad_watch"):
-        return 0
+        from watch_common import ALREADY_RUNNING  # noqa: PLC0415
+        return ALREADY_RUNNING
     beat("exocad_watch")
 
     path = settings_path()

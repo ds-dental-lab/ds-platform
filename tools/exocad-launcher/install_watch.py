@@ -54,8 +54,12 @@ def vbs_for(python, script, crash) -> str:
     #   `cmd /c "a" "b"` 는 엉뚱하게 잘립니다 — 전체를 한 번 더
     #   감싸야 합니다(`cmd /c ""a" "b""`). 이것 때문에 파이썬이
     #   아예 안 떴고, 터짐 기록조차 안 남았습니다.
-    inner = f'{q}{python}{q} {q}{script}{q} >> {q}{crash}{q} 2>&1'
-    full = f'cmd /c {q}{inner}{q}'
+    # ★★ cmd 를 거치지 않습니다 (2026-10-16). cmd 의 `>> crash.txt` 는 파일을 혼자
+    #   쓰려고 열어, 이미 하나가 쓰고 있으면 두 번째는 파이썬을 아예 못 띄웠습니다.
+    #   창 없는 pythonw 를 바로 띄우고, 기록은 파이썬이 나눠 쓰며 남깁니다
+    #   (watch_common.log_to_crash). 종료 코드는 그대로 vbs 에 옵니다.
+    pythonw = Path(str(python)).with_name("pythonw.exe")
+    full = f'{q}{pythonw}{q} {q}{script}{q}'
     # VBScript 안에서 따옴표 한 개는 두 번 적습니다
     literal = q + full.replace(q, q * 2) + q
     # ★★ 켜자마자 띄우지 않습니다 (2026-10-16). PC 를 막 켰을 때 셋 중 하나만
@@ -76,7 +80,9 @@ def vbs_for(python, script, crash) -> str:
         '  f.WriteLine Now & ' + q + ' start ' + stem + q,
         '  f.Close',
         '  On Error GoTo 0',
-        '  sh.Run ' + literal + ', 0, True',
+        '  rc = sh.Run(' + literal + ', 0, True)',
+        # ★ 3 = 이미 누가 돌고 있음 → 이 반복기는 필요 없습니다 (watch_common.ALREADY_RUNNING)
+        '  If rc = 3 Then WScript.Quit',
         '  WScript.Sleep 10000',
         'Loop',
     ]

@@ -203,9 +203,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-export", action="store_true", help="내보내기 창 확인까지만 (덴트버드 건수를 안 씁니다)")
     args = ap.parse_args(argv)
 
+    from watch_common import log_to_crash  # noqa: PLC0415
+    log_to_crash(NAME)
     if not single_instance(NAME):
         say("이미 떠 있습니다 — 물러납니다")
-        return 0
+        from watch_common import ALREADY_RUNNING  # noqa: PLC0415
+        return ALREADY_RUNNING
 
     if not DESIGN_SETTINGS.is_file():
         say(f"설계 PC 열쇠가 없습니다 — {DESIGN_SETTINGS}")
