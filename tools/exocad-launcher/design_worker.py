@@ -258,6 +258,9 @@ def main(argv: list[str] | None = None) -> int:
                     say(f"일감 묻기 실패: {got.get('error')}")
                 elif got.get("job"):
                     handle(got["job"], spend=not args.no_export)
+                    # ★ 일감 하나에 창에 여러 번 붙으며 크롬드라이버가 남습니다 — 끝나면 치웁니다.
+                    #   일꾼만 쓰는 것이라 쉬는 지금 꺼도 됩니다 (2026-10-16, 한때 5개 쌓임)
+                    reap_drivers()
                     if args.once:
                         return 0
                 elif args.once:
