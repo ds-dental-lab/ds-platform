@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_real_side.py\"",
+            "timeout": 10,
+            "statusMessage": "실제 쪽 보호 확인"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -50,6 +50,8 @@ scripts_*.mjs
 .chat-test.json
 .arr-made.json
 settings.json
+# 작업 도구 문지기 훅 설정은 저장소에 둡니다 (비밀 없음)
+!.claude/settings.json
 tools/exocad-launcher/settings.json
 tools/exocad-launcher/chrome-profile/
 tools/exocad-launcher/logs/
