@@ -92,7 +92,9 @@ def revive(me: str, say=print) -> None:
         if not vbs.is_file():
             continue
         try:
-            subprocess.Popen(["wscript.exe", str(vbs)], close_fds=True)
+            # ★ 떼어서 — 물려받은 손잡이로 상대의 crash.txt 를 잠그지 않게 (spawn.py)
+            from spawn import detached  # noqa: PLC0415
+            detached(["wscript.exe", str(vbs)])
             say(f"{other} 가 {int(min(_age(other), 9999))}초째 소식이 없어 다시 띄웠습니다")
             # ★ 바로 또 띄우지 않게, 상대가 표시를 남길 틈을 줍니다
             (STATE / f"{other}.alive").write_text(str(time.time()), encoding="utf-8")

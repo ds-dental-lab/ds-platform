@@ -59,7 +59,9 @@ def open_browser(url: str) -> None:
         return
 
     PROFILE.mkdir(parents=True, exist_ok=True)
-    subprocess.Popen(
+    # ★ 떼어서 — 크롬이 일꾼의 crash.txt 를 물려받아 잠그던 것 (spawn.py, 2026-10-16)
+    from spawn import detached  # noqa: PLC0415
+    detached(
         [
             str(chrome()),
             f"--user-data-dir={PROFILE}",
@@ -74,7 +76,6 @@ def open_browser(url: str) -> None:
             "--disable-features=CalculateNativeWinOcclusion",
             url,
         ],
-        close_fds=True,
     )
     for _ in range(30):
         if alive():
@@ -90,11 +91,39 @@ def attach():
     from selenium import webdriver  # noqa: PLC0415
     from selenium.webdriver.chrome.options import Options  # noqa: PLC0415
 
+    from selenium.webdriver.chrome.service import Service  # noqa: PLC0415
+
     opts = Options()
     opts.add_experimental_option("debuggerAddress", f"127.0.0.1:{PORT}")
-    d = webdriver.Chrome(options=opts)
+    # ★★ 크롬드라이버의 출력을 버립니다 (2026-10-16). 그냥 띄우면 부른 쪽의 표준
+    #   출력(= 시작프로그램이 연 crash.txt)을 물려받아 쥐고 있습니다. 부른 쪽이
+    #   죽으면 드라이버는 고아로 남아 계속 쥐고, 시작프로그램은 그 파일을 못 열어
+    #   일꾼을 **조용히 못 띄웠습니다** (Restart Manager 로 확인한 범인).
+    import subprocess  # noqa: PLC0415
+    service = Service(log_output=subprocess.DEVNULL, popen_kw={"close_fds": True})
+    d = webdriver.Chrome(options=opts, service=service)
+    # ★★ **진짜 덴트버드 페이지로 먼저 옮겨 갑니다** (2026-10-16). 다시 로그인하고
+    #   나면 크롬 안에 주소 없는 대상(type=other)이 하나 생기고, 셀레니움이 그쪽을
+    #   잡으면 첫 명령에서 2분 걸린 뒤 연결째 끊겼습니다(어제·오늘 두 번). 크롬이
+    #   직접 알려 주는 page 목록에서 덴트버드 것을 골라 그 창으로 갑니다.
+    target = dentbird_page_id()
+    if target and target in d.window_handles:
+        d.switch_to.window(target)
     keep_awake(d)
     return d
+
+
+def dentbird_page_id() -> str | None:
+    """크롬이 아는 탭 중 덴트버드 페이지의 id (= 셀레니움 창 이름)"""
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json/list", timeout=3) as r:
+            tabs = json.loads(r.read().decode("utf-8", "replace"))
+    except Exception:  # noqa: BLE001
+        return None
+    pages = [t for t in tabs if t.get("type") == "page" and "dentbird.com" in t.get("url", "")]
+    # 설계 화면(ai.dentbird.com)을 먼저, 없으면 아무 덴트버드 페이지
+    pages.sort(key=lambda t: "ai.dentbird.com" not in t.get("url", ""))
+    return pages[0]["id"] if pages else None
 
 
 def keep_awake(d) -> None:
@@ -219,3 +248,17 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def reap_drivers() -> int:
+    """고아 크롬드라이버를 끕니다 — 일꾼이 켜질 때 한 번 (2026-10-16)
+
+    ★ 일꾼이 죽으면 그가 붙을 때 띄운 크롬드라이버가 남습니다. 이 PC 에서
+      크롬드라이버를 쓰는 것은 일꾼뿐이라, 켜질 때 남은 것은 다 고아입니다.
+    """
+    r = subprocess.run(
+        ["taskkill", "/F", "/IM", "chromedriver.exe"],
+        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        creationflags=0x08000000,  # 창 없이
+    )
+    return r.stdout.count(b"PID") if r.returncode == 0 else 0

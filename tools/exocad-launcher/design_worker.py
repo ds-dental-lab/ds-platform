@@ -39,7 +39,7 @@ from pathlib import Path
 import export_tag
 from dentbird_macro import Reporter, SessionLost, Stop, export, run, session_problem
 from dentbird_params import ParamError, apply_all
-from dentbird_web import alive, attach, open_browser
+from dentbird_web import alive, attach, open_browser, reap_drivers
 from design_scans import PickError, candidates, pick, unzip_all
 from watch_common import beat, revive, single_instance
 
@@ -226,6 +226,10 @@ def main(argv: list[str] | None = None) -> int:
             stop.wait(30)
 
     threading.Thread(target=heart, daemon=True).start()
+    # ★ 앞선 일꾼이 남긴 고아 크롬드라이버 — 시작프로그램의 crash.txt 를 쥐고 있을 수 있습니다
+    gone = reap_drivers()
+    if gone:
+        say(f"남아 있던 크롬드라이버 {gone}개를 껐습니다")
     say("설계 일꾼을 켰습니다" + (" (시험 — 내보내기 안 함)" if args.no_export else ""))
 
     reopened = 0.0

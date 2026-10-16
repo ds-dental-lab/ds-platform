@@ -112,10 +112,10 @@ def open_exocad(order_id: str, token: str) -> None:
     exe = Path(sys.executable)
     pythonw = exe.with_name("pythonw.exe")
     url = f"denflow://exocad/{order_id}?t={token}"
-    subprocess.Popen(
-        [str(pythonw if pythonw.exists() else exe), str(HERE / "launcher.py"), url],
-        close_fds=True,
-    )
+    # ★ 떼어서 띄웁니다 — 런처·exocad 가 이 지켜보기의 crash.txt 를 물려받으면
+    #   exocad 를 켜 둔 동안 지켜보기가 재시작을 못 합니다 (spawn.py)
+    from spawn import detached  # noqa: PLC0415
+    detached([str(pythonw if pythonw.exists() else exe), str(HERE / "launcher.py"), url])
 
 
 def main() -> int:
