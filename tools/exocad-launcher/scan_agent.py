@@ -764,6 +764,26 @@ class App:
         self.up_url = SITE
         threading.Thread(target=self.check_update, daemon=True).start()
 
+        # ★ 1분마다 상태를 센터에 (2026-10-16) — 꺼진 것을 아무도 모르는 일이 없게.
+        #   못 보내도 본업(스캔 올리기·출력)을 막지 않습니다.
+        self.heart = None
+        try:
+            from heartbeat import Heartbeat  # noqa: PLC0415
+            self.heart = Heartbeat(SITE, lambda: self.agent.cfg.get("token"), AGENT_VERSION, self._health)
+            self.heart.start()
+        except Exception:  # noqa: BLE001
+            self.heart = None
+
+    def _health(self) -> dict:
+        """센터 '기기 상태' 에 보낼 것 — 환자 정보 없음"""
+        cfg = self.agent.cfg
+        folder = cfg.get("folder")
+        out: dict = {"kind": "clinic", "folderOk": bool(folder) and Path(folder).is_dir()}
+        kind = cfg.get("printer_kind")
+        if kind:
+            out["printer"] = {"kind": kind, "ip": cfg.get("printer_last_ip") or ""}
+        return out
+
     def check_update(self) -> None:
         """
         판 번호를 물어봅니다.
@@ -1082,6 +1102,15 @@ class App:
 
     def say(self, msg: str) -> None:
         stamp = time.strftime("%H:%M")
+        # ★ 오류로 보이는 줄은 센터 '기기 상태' 로도 (2026-10-16)
+        heart = getattr(self, "heart", None)
+        if heart is not None:
+            try:
+                from heartbeat import looks_like_error  # noqa: PLC0415
+                if looks_like_error(msg):
+                    heart.report(msg)
+            except Exception:  # noqa: BLE001
+                pass
 
         def _put() -> None:
             self.text.config(state="normal")

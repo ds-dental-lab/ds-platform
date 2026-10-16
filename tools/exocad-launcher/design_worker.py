@@ -78,6 +78,11 @@ def say(line: str) -> None:
             f.write("일꾼 " + text + "\n")
     except OSError:
         pass
+    # ★ 오류로 보이는 줄은 센터 '기기 상태' 로도 (2026-10-16)
+    if _heart is not None:
+        from heartbeat import looks_like_error  # noqa: PLC0415
+        if looks_like_error(line):
+            _heart.report(line)
 
 
 def post(url: str, body: dict, token: str) -> dict:
@@ -123,6 +128,15 @@ _session_bad_at = 0.0
 
 
 def handle(job: dict, spend: bool) -> None:
+    global _doing
+    _doing = f"디자인 중 · {job['orderNo']}"
+    try:
+        _handle(job, spend)
+    finally:
+        _doing = "대기"
+
+
+def _handle(job: dict, spend: bool) -> None:
     order_id, teeth = job["orderId"], job["teeth"]
     mark = Reporter(order_id, say=say)
     say(f"일감 {job['orderNo']} — 치식 {teeth}, 스캔 {len(job['files'])}개")
@@ -182,6 +196,37 @@ def handle(job: dict, spend: bool) -> None:
         say(f"멈춤(알 수 없음): {e}")
 
 
+#: 센터에 상태를 보내는 것 · 지금 하는 일
+_heart = None
+_doing = "대기"
+
+
+def _health() -> dict:
+    """설계 PC 상태 — 덴트버드 창은 **붙지 않고** 크롬 목록만 봅니다(창이 앞으로 안 튀게)"""
+    from watch_common import _age  # noqa: PLC0415
+    from dentbird_web import PORT  # noqa: PLC0415
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json/list", timeout=3) as r:
+            tabs = json.loads(r.read().decode("utf-8", "replace"))
+        urls = [t.get("url", "") for t in tabs if t.get("type") == "page"]
+        if any("accounts-highdental" in u for u in urls):
+            dentbird = "로그인 풀림"
+        elif any("dentbird.com" in u for u in urls):
+            dentbird = "켜짐"
+        else:
+            dentbird = "덴트버드 페이지 없음"
+    except Exception:  # noqa: BLE001
+        dentbird = "꺼짐"
+    if time.time() - _session_bad_at < SESSION_PAUSE_SECONDS:
+        dentbird += " · 못 쓰는 상태(쉬는 중)"
+    return {
+        "kind": "design",
+        "dentbird": dentbird,
+        "watchers": {n: min(_age(n), 999999) for n in ("exocad_watch", "temp_watch")},
+        "doing": _doing,
+    }
+
+
 def _window_bad() -> bool:
     """일감을 잡기 **전에** 덴트버드 창이 쓸 만한지 봅니다 (2026-10-16 점검)
 
@@ -238,6 +283,15 @@ def main(argv: list[str] | None = None) -> int:
     if gone:
         say(f"남아 있던 크롬드라이버 {gone}개를 껐습니다")
     say("설계 일꾼을 켰습니다" + (" (시험 — 내보내기 안 함)" if args.no_export else ""))
+
+    # ★ 1분마다 센터 '기기 상태' 로 (2026-10-16) — 설계 PC 가 꺼진 것을 아무도 몰랐던 일
+    global _heart
+    try:
+        from heartbeat import Heartbeat  # noqa: PLC0415
+        _heart = Heartbeat(base, lambda: token, None, _health)
+        _heart.start()
+    except Exception:  # noqa: BLE001
+        _heart = None
 
     reopened = 0.0
     try:

@@ -102,6 +102,12 @@ export const NAV: Record<Sector, NavItem[]> = {
     */
     { label: '내면값', href: '/design/fit-values', icon: 'fit', staffHidden: true },
     { label: '통계', href: '/design/stats', icon: 'billing', staffHidden: true },
+    /*
+      ★ 기기 상태 (사용자 요청 2026-10-16) — 치과 PC·설계 PC 가 잘 도는지.
+        관리자만 — 사용자(디자이너)에게는 '만드는 일만' 보이게 한 결정을 따릅니다.
+        꺼짐 알림은 센터 전체에 가므로 디자이너도 알림으로는 압니다.
+    */
+    { label: '기기 상태', href: '/design/devices', icon: 'list', staffHidden: true },
     { label: '게시판', href: '/design/notices', icon: 'board' },
   ],
   lab: [
