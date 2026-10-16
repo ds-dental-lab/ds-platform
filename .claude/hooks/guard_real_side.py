@@ -11,7 +11,7 @@
 
 막는 것: AppData\\Roaming\\DenFlow 에 쓰기·복사·이동·삭제 / 상시 프로그램 띄우기.
 두는 것: 읽기(cat·tail·ls·Get-Content), 프로세스 끄기(taskkill·Stop-Process),
-        저장소 안 테스트, design_worker --once 같은 한 번 돌리기.
+        grep·git 처럼 이름만 나오는 것, design_worker --once 같은 한 번 돌리기.
 """
 
 import json
@@ -41,10 +41,14 @@ WRITE_WORDS = re.compile(
     re.I,
 )
 
+# ★ 이름이 나온다고 막지 않습니다 — grep·git 에도 나옵니다. **실행할 때만** 막습니다
+_LAUNCH = r"(?:^|[\s;|&(\"'\\/])(?:pythonw?[0-9.]*(?:\.exe)?|py(?:\.exe)?|start-process\s+\S*pythonw?\S*)\b"
+_SAME_CMD = r"[^\n;|&]*?"  # 같은 명령 안에서
+_SAME_LINE = r"[^\n]*?"  # python -c "a; b" 처럼 따옴표 안에 ; 가 있을 때
 SERVICES = re.compile(
-    r"(exocad_watch|temp_watch|scan_agent|print_loop)\.py"
-    r"|design_worker\.py(?![^\n;|&]*--once)"
-    r"|open_browser"
+    _LAUNCH + _SAME_CMD + r"(exocad_watch|temp_watch|scan_agent|print_loop)\.py"
+    r"|" + _LAUNCH + _SAME_CMD + r"design_worker\.py(?![^\n;|&]*--once)"
+    r"|" + _LAUNCH + _SAME_LINE + r"open_browser"
     r"|wscript(\.exe)?\b[^\n]*\.vbs"
     r"|start-process[^\n]*\.vbs"
     r"|explorer(\.exe)?\b[^\n]*\.vbs"
@@ -52,20 +56,16 @@ SERVICES = re.compile(
     re.I,
 )
 
-# 끄기·읽기·찾기는 그대로 둡니다
-HARMLESS_START = re.compile(
-    r"^\s*(taskkill|stop-process|get-process|tasklist|grep|rg|cat|head|tail|ls|dir|"
-    r"get-content|get-childitem|select-string|git\s|wmic\s+process\s+(where|get)|find\b)",
-    re.I,
-)
+COMMENT = re.compile(r"(^|\s)#[^\n]*")
 
 
 def verdict(cmd: str) -> str | None:
     if not cmd:
         return None
+    cmd = COMMENT.sub(r"\1", cmd)  # 주석에 적힌 이름은 실행이 아닙니다
     if DENFLOW_DIR.search(cmd) and WRITE_WORDS.search(cmd):
         return "실제 쪽 설정 폴더(AppData\\Roaming\\DenFlow)에 쓰려고 합니다. " + REASON
-    if SERVICES.search(cmd) and not HARMLESS_START.match(cmd):
+    if SERVICES.search(cmd):
         return "상시 프로그램을 작업 도구에서 띄우려고 합니다. " + REASON
     return None
 
@@ -76,11 +76,10 @@ def main() -> int:
     except Exception:  # noqa: BLE001 — 입력을 못 읽으면 막지 않습니다
         return 0
     tool_input = data.get("tool_input") or {}
-    cmd = str(tool_input.get("command") or "")
-    why = verdict(cmd)
+    why = verdict(str(tool_input.get("command") or ""))
     # Write·Edit 로 그 폴더에 직접 쓰는 것도 같은 일입니다
     path = str(tool_input.get("file_path") or "")
-    if not why and path and DENFLOW_DIR.search(path.replace("/", "\\")):
+    if not why and path and DENFLOW_DIR.search(path):
         why = "실제 쪽 설정 폴더(AppData\\Roaming\\DenFlow)에 쓰려고 합니다. " + REASON
     if why:
         sys.stdout.reconfigure(encoding="utf-8")
