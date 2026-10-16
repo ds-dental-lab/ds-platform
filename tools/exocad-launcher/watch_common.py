@@ -163,6 +163,10 @@ def ensure_design_key(who: str) -> None:
             ok = True
         except OSError as e:
             note = f"열쇠를 못 옮겼습니다 — {e!r}"
+    # ★ 임시치아 지켜보기는 오르카 준비도 (자를 때 사용자 폴더의 설정을 씁니다)
+    if who == "temp_watch":
+        conf = Path.home() / "AppData" / "Roaming" / "OrcaSlicer" / "OrcaSlicer.conf"
+        note += f" 오르카={'준비됨' if conf.exists() else '안 켜 봄(설정 없음)'}"
     try:
         with REAL_STATE.open("a", encoding="utf-8") as f:
             f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {who} pid={os.getpid()} "
