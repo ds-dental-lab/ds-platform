@@ -381,9 +381,11 @@ const btn = [...document.querySelectorAll('button')]
   .filter(b => t(b.innerText).includes('내보내기') && !t(b.innerText).includes('소프트웨어'))
   .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0];
 const left = (t(document.body.innerText).match(/(\\d)\\s*\\/\\s*3/) || [])[1];
-const room = left === null || left === undefined || +left > 0;
+// ★ '차감 N' — 이번 내보내기에 쓸 건수. 이미 내보낸 크라운을 다시 내보내면 0 입니다 (2026-10-16 실측)
+const cost = (t(document.body.innerText).match(/차감\\s*(\\d+)/) || [])[1];
+const room = (cost !== undefined && +cost === 0) || left === null || left === undefined || +left > 0;
 if (arguments[0] && cam === true && zip === false && btn && room) btn.click();
-return { cam, zip, crowns: [...new Set(crowns)], left: left ? +left : null, clicked: !!(arguments[0] && cam === true && zip === false && btn && room) };
+return { cam, zip, crowns: [...new Set(crowns)], left: left ? +left : null, cost: cost !== undefined ? +cost : null, clicked: !!(arguments[0] && cam === true && zip === false && btn && room) };
 """
 
 
@@ -431,7 +433,7 @@ def export(d, want: list[int], spend: bool, say=print) -> bool:
         d.switch_to.default_content()
 
     say(f"내보내기 창 — CAM 정렬 {got['cam']} · ZIP {got['zip']} · "
-        f"치식 {got['crowns']} · 남은 횟수 {got['left']}/3")
+        f"치식 {got['crowns']} · 남은 횟수 {got['left']}/3 · 이번 차감 {got.get('cost')}")
 
     if got["cam"] is not True:
         raise Stop("「CAM 축에 좌표 정렬」 이 꺼져 있거나 못 읽었습니다 — 켜야 고정 각도가 통합니다")
@@ -445,7 +447,8 @@ def export(d, want: list[int], spend: bool, say=print) -> bool:
         return False
     # ★ 남은 건수가 0 이면 누르지 않습니다 (2026-10-15). 눌러 봐야 요금제 창이
     #   뜨거나 아무 일도 없고, 일꾼은 STL 을 하염없이 기다립니다.
-    if got["left"] is not None and str(got["left"]).strip() in ("0", "0.0"):
+    # ★ 단, 이번 차감이 0 이면(이미 내보낸 크라운 다시 내보내기) 남은 건수와 상관없이 됩니다
+    if got.get("cost") != 0 and got["left"] is not None and str(got["left"]).strip() in ("0", "0.0"):
         raise Stop("이번 달 덴트버드 내보내기 건수가 없습니다 (0/3) — 요금제를 봐 주세요")
     if not got["clicked"]:
         raise Stop("내보내기 단추를 못 눌렀습니다")
