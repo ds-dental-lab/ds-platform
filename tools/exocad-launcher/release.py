@@ -37,8 +37,12 @@ ROOT = HERE.parent.parent
 #:   PyInstaller 로 묶은 dist/ 는 백신에 걸려 버렸습니다 — 서명 없는 새
 #:   실행 파일이라서입니다. dist-embed/ 안에는 우리가 만든 실행 파일이
 #:   하나도 없고, python.exe 는 파이썬 재단이 서명한 것입니다.
-#: build-embed.py 와 같은 변수 — 도는 에이전트 폴더를 못 지울 때 다른 자리에 만든 것을 올립니다
-DIST = Path(os.environ.get("DENFLOW_DIST") or HERE / "dist-embed" / "덴플로우 에이전트")
+#: build-embed.py 와 같은 규칙 — 부모 폴더(DENFLOW_DIST) 아래 "덴플로우 에이전트 {판}" (1.3.8)
+DIST_PARENT = Path(os.environ.get("DENFLOW_DIST") or HERE / "dist-embed")
+
+
+def dist_for(version: str) -> Path:
+    return DIST_PARENT / f"덴플로우 에이전트 {version}"
 BUCKET = "agent-release"
 
 
@@ -65,21 +69,22 @@ def versions() -> tuple[str, str]:
     return a.group(1), b.group(1)
 
 
-def make_zip(out: Path) -> Path:
+def make_zip(out: Path, version: str) -> Path:
     """
     dist 폴더를 통째로 묶습니다.
 
     ★ 폴더 이름까지 넣습니다 — 치과가 풀면 「덴플로우 에이전트」 폴더가
       그대로 나와 쓰던 자리에 덮기만 하면 됩니다.
     """
-    if not DIST.is_dir():
-        raise SystemExit(f"빌드가 없습니다: {DIST}\n  먼저 build-exe.cmd 를 돌려 주세요")
+    dist = dist_for(version)
+    if not dist.is_dir():
+        raise SystemExit(f"빌드가 없습니다: {dist}\n  먼저 python build-embed.py 를 돌려 주세요")
 
     out.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in sorted(DIST.rglob("*")):
+        for f in sorted(dist.rglob("*")):
             if f.is_file():
-                z.write(f, Path(DIST.name) / f.relative_to(DIST))
+                z.write(f, Path(dist.name) / f.relative_to(dist))
     return out
 
 
@@ -118,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     staged = HERE / "dist" / f"덴플로우 에이전트 {agent_v}.zip"
-    make_zip(staged)
+    make_zip(staged, agent_v)
     size = staged.stat().st_size
 
     print(f"판 {agent_v} · {size:,} 바이트")

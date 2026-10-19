@@ -31,10 +31,21 @@ import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-#: ★ 이 PC 에서는 치ㅣ 에이전트가 dist-embed 에서 바로 돕니다 — 도는 동안은 지울 수
-#:   없습니다(PermissionError, 2026-10-19). 그럴 땐 DENFLOW_DIST 로 다른 자리에 만들고
-#:   release.py 도 같은 변수를 봅니다.
-OUT = Path(os.environ.get("DENFLOW_DIST") or HERE / "dist-embed" / "덴플로우 에이전트")
+#: ★★ 폴더 이름에 **판 번호**가 들어갑니다 (1.3.8, 2026-10-19). 돌고 있는 폴더는 덮어쓸 수
+#:   없어서(DLL 잠김) 치과가 새 판을 풀다 막혔습니다. 판마다 새 폴더면 어디에 풀어도 안
+#:   부딪히고, 새 판이 자리를 잡은 뒤 옛 폴더를 스스로 치웁니다(takeover).
+#: ★ DENFLOW_DIST 는 **부모 폴더**입니다 — 이 PC 에서 돌고 있는 dist-embed 를 피할 때 씁니다.
+def _agent_version() -> str:
+    import re as _re
+    text = (HERE / "scan_agent.py").read_text(encoding="utf-8")
+    m = _re.search(r'^AGENT_VERSION\s*=\s*["\']([\d.]+)["\']', text, _re.M)
+    if not m:
+        raise SystemExit("scan_agent.py 에서 판 번호를 못 읽었습니다")
+    return m.group(1)
+
+
+DIST_PARENT = Path(os.environ.get("DENFLOW_DIST") or HERE / "dist-embed")
+OUT = DIST_PARENT / f"덴플로우 에이전트 {_agent_version()}"
 
 #: 끼워 넣은 파이썬이 들어갈 폴더 이름.
 #:

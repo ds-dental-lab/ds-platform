@@ -75,7 +75,7 @@ takeover.configure(SETTINGS_DIR)
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.7"
+AGENT_VERSION = "1.3.8"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -673,7 +673,7 @@ class App:
         self.p_code = tk.StringVar(value=self.agent.cfg.get("printer_code", ""))
         self.p_on = tk.BooleanVar(value=self.agent.cfg.get("printer_kind") == "bambu")
 
-        takeover.write_run(AGENT_VERSION)
+        takeover.write_run(AGENT_VERSION, HERE)
         self._header()
         self._update_bar()
         body = tk.Frame(self.root, bg=BG)
@@ -1329,13 +1329,21 @@ class App:
     def run(self) -> None:
         if takeover.TOOK_OVER:
             self.say(f"옛 판({takeover.TOOK_OVER})을 내리고 이 판({AGENT_VERSION})이 자리를 잡았습니다.")
-            # ★ 다른 폴더에 풀어 켰을 수 있습니다 — 자동 시작·바탕화면 아이콘을 이 자리로
+            # ★ 판마다 새 폴더에 풉니다 (1.3.8) — 자동 시작·바탕화면 아이콘을 이 자리로
             if autostart_on():
                 set_autostart(True)
             desk = desktop_link()
             if desk.exists() and (link_target(desk) or "") != pythonw():
                 desk.unlink(missing_ok=True)
             make_desktop_link()
+            # ★ 옛 폴더는 치웁니다 — 안 치우면 판마다 46MB 씩 쌓입니다. 내 자리가 아닐 때만
+            old = takeover.OLD_HOME
+            if takeover.safe_to_remove(old, HERE):
+                def _sweep() -> None:
+                    ok = takeover.remove_old_home(old)
+                    self.say(f"옛 폴더를 치웠습니다: {old}" if ok
+                             else f"옛 폴더를 못 치웠습니다(쓰는 중): {old} — 나중에 지우셔도 됩니다")
+                threading.Thread(target=_sweep, daemon=True).start()
         self.root.after(1000, self._watch_handoff)
         self.root.mainloop()
         self.agent.stop.set()

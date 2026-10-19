@@ -27,6 +27,8 @@ RUN_FILE: Path | None = None
 TAKEOVER_FILE: Path | None = None
 #: 자리를 넘겨받았으면 옛 판 번호 (App 이 기록에 적습니다)
 TOOK_OVER: str | None = None
+#: 옛 판이 살던 폴더 — 자리를 잡은 뒤 치웁니다 (1.3.8, 판마다 새 폴더에 풀기 때문)
+OLD_HOME: Path | None = None
 
 WINDOW_TITLE = "덴플로우 에이전트"
 
@@ -65,12 +67,13 @@ def decide(mine: str, running: dict | None) -> str:
 
 # ---------- run 파일 ----------
 
-def write_run(version: str) -> None:
+def write_run(version: str, home: Path | None = None) -> None:
     if RUN_FILE is None:
         return
     try:
         RUN_FILE.parent.mkdir(parents=True, exist_ok=True)
-        RUN_FILE.write_text(json.dumps({"pid": os.getpid(), "version": version, "at": time.time()}), encoding="utf-8")
+        RUN_FILE.write_text(json.dumps({"pid": os.getpid(), "version": version, "at": time.time(),
+                                        "home": str(home) if home else None}), encoding="utf-8")
     except OSError:
         pass
 
@@ -137,6 +140,63 @@ def pid_of_window(title: str = WINDOW_TITLE) -> int | None:
     return pid.value or None
 
 
+def exe_of_pid(pid: int) -> Path | None:
+    """그 프로세스의 실행 파일 자리 (…/덴플로우 에이전트 x/runtime/pythonw.exe)"""
+    if os.name != "nt" or not pid:
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.windll.kernel32
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not h:
+        return None
+    try:
+        buf = ctypes.create_unicode_buffer(32768)
+        size = wintypes.DWORD(len(buf))
+        if kernel32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
+            return Path(buf.value)
+    finally:
+        kernel32.CloseHandle(h)
+    return None
+
+
+def agent_home_of(exe: Path | None) -> Path | None:
+    """실행 파일 자리에서 에이전트 폴더로 — runtime/pythonw.exe 두 단계 위. 모양이 다르면 None"""
+    if exe is None:
+        return None
+    if exe.parent.name.lower() == "runtime" and (exe.parent.parent / "scan_agent.py").is_file():
+        return exe.parent.parent
+    return None
+
+
+def safe_to_remove(old: Path | None, mine: Path) -> bool:
+    """옛 폴더를 지워도 되는가 — 내 자리가 아니고, 내 자리를 품지도 않고, 에이전트 폴더 모양일 때만"""
+    if old is None:
+        return False
+    try:
+        old_r, mine_r = old.resolve(), mine.resolve()
+    except OSError:
+        return False
+    if old_r == mine_r or mine_r.is_relative_to(old_r):
+        return False
+    return "덴플로우 에이전트" in old_r.name and (old_r / "scan_agent.py").is_file()
+
+
+def remove_old_home(old: Path, tries: int = 30) -> bool:
+    """옛 폴더를 치웁니다. 방금 끝난 프로세스가 DLL 을 늦게 놓을 수 있어 몇 번 다시 해 봅니다"""
+    import shutil
+
+    for _ in range(tries):
+        try:
+            shutil.rmtree(old)
+            return True
+        except OSError:
+            time.sleep(1)
+    return not old.exists()
+
+
 def terminate(pid: int) -> bool:
     if os.name != "nt" or not pid or pid == os.getpid():
         return False
@@ -158,7 +218,10 @@ def take_over(mine: str, running: dict | None, try_mutex, wait_s: float = 8.0) -
 
     ★ 먼저 곱게(파일) 청하고 3초 기다립니다. 그래도 안 비면 창으로 프로세스를 찾아 끝냅니다.
     """
-    global TOOK_OVER
+    global TOOK_OVER, OLD_HOME
+    pid0 = (running or {}).get("pid") or pid_of_window()
+    home = (running or {}).get("home")
+    OLD_HOME = Path(home) if home else (agent_home_of(exe_of_pid(int(pid0))) if pid0 else None)
     request_handoff()
     deadline = time.time() + 3.0
     while time.time() < deadline:
@@ -166,7 +229,7 @@ def take_over(mine: str, running: dict | None, try_mutex, wait_s: float = 8.0) -
         if try_mutex():
             TOOK_OVER = (running or {}).get("version") or "옛 판"
             return True
-    pid = (running or {}).get("pid") or pid_of_window()
+    pid = pid0 or pid_of_window()
     if pid:
         terminate(int(pid))
     deadline = time.time() + (wait_s - 3.0)
