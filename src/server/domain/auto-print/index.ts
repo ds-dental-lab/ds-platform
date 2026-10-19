@@ -262,6 +262,9 @@ export function stallAdvice(note: string | null | undefined): StallAdvice {
   if (/건수|횟수|차감|credit/i.test(n)) {
     return { what: '이번 달 설계 건수를 다 썼습니다', todo: '센터가 처리합니다' };
   }
+  if (/다운로드|download/i.test(n)) {
+    return { what: '설계 PC 설정이 필요합니다', todo: '센터가 처리합니다' };
+  }
   if (/로그인|session|세션/i.test(n)) {
     return { what: '설계 PC 점검 중입니다', todo: '센터가 처리합니다' };
   }

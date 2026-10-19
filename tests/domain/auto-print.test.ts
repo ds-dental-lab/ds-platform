@@ -472,6 +472,7 @@ describe('멈춘 까닭을 치과 말로 (2026-10-19)', () => {
   it('건수·로그인·배달 — 센터 몫', () => {
     expect(stallAdvice('내보내기 건수가 없습니다 (0/3)').todo).toContain('센터');
     expect(stallAdvice('덴트버드 로그인이 풀렸습니다').what).not.toContain('덴트버드');
+    expect(stallAdvice("전용 크롬에서 ai.dentbird.com 의 '여러 파일 다운로드' 를 허용해 주세요").what).toBe('설계 PC 설정이 필요합니다');
     expect(stallAdvice('내보낸 뒤 30분째 주문에 안 올라왔습니다').what).toContain('안 올라왔습니다');
   });
   it('★ 모르는 까닭은 내부 말을 새지 않고 "센터가 보고 있습니다"', () => {
