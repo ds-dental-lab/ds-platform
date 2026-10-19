@@ -14,6 +14,7 @@ import {
   homeLeftLayout,
   HANDOFF_STATUS,
   countHanded,
+  keepsAfterHandoff,
   type WorklistRow,
 } from '@/server/domain/worklist';
 import type { Sector } from '@/server/domain/order-status';
@@ -235,6 +236,26 @@ describe('오늘 넘긴 건수', () => {
   it('치과·기공소에는 넘김이 없습니다 — 세지 않습니다', () => {
     expect(HANDOFF_STATUS.clinic).toBeUndefined();
     expect(HANDOFF_STATUS.lab).toBeUndefined();
+  });
+
+  /*
+    ★ 2026-10-19 사용자 지적 — 넘긴 뒤도 보이게 했더니 기공소가 며칠째 만드는
+      것까지 다 올라왔습니다. 넘긴 **그날만** 입니다.
+  */
+  it('★ 넘긴 줄은 넘긴 그날만 보입니다', () => {
+    const today = '2026-10-19';
+    const keep = (status: Parameters<typeof keepsAfterHandoff>[0]['status'], handedOn: string | null) =>
+      keepsAfterHandoff({ status, handedOn }, 'production_wait', today);
+    expect(keep('production_wait', '2026-10-19')).toBe(true);
+    expect(keep('production', '2026-10-19')).toBe(true);
+    expect(keep('shipping', '2026-10-19')).toBe(true);
+    expect(keep('production_wait', '2026-10-16')).toBe(false);
+    expect(keep('production', '2026-10-18')).toBe(false);
+    // 넘긴 날을 모르면 오늘 했다는 근거가 없습니다
+    expect(keep('production_wait', null)).toBe(false);
+    // 디자인 중인 것은 며칠째든 내 손에 있는 일입니다
+    expect(keep('designing', null)).toBe(true);
+    expect(keep('designing', '2026-10-01')).toBe(true);
   });
 
   it('건수를 셉니다', () => {

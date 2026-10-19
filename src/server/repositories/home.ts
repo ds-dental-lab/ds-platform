@@ -26,6 +26,7 @@ import {
   WORK_SECTORS,
   HANDOFF_STATUS,
   countHanded,
+  keepsAfterHandoff,
 } from '@/server/domain/worklist';
 import { listNotices, type NoticeRow } from '@/server/repositories/notice';
 import { pickupStillListed, pickupWaiting } from '@/server/domain/pickup';
@@ -234,13 +235,14 @@ export async function getHomeSummary(): Promise<HomeSummary> {
       기준으로 남은 날을 봅니다. 없는 이력을 억지로 읽으면 왕복만 늘고
       모든 줄이 1일째로 나옵니다.
   */
-  if (sector === 'design_center') await fillDesignStart(supabase, worklist, today);
+  let kept = worklist;
+  if (sector === 'design_center') kept = await fillDesignStart(supabase, worklist, today);
   else fillDueGap(worklist, today);
 
   // 누구에게 무엇이 보이고 어떤 차례인지는 domain/worklist 가 정합니다
   const mine = sortWork(
     visibleWork(
-      worklist,
+      kept,
       me?.user.id ?? null,
       canManageMembers(me?.role as MemberRole | null),
       // 기공소는 임자를 안 둡니다 — 사용자도 같은 목록을 봅니다
@@ -318,28 +320,42 @@ async function countHandedToday(
  * ★ 되돌렸다 다시 잡으면 **마지막에 잡은 때**입니다.
  *   기공소가 수정을 요청해 디자인으로 되돌아온 건은, 그 시점부터 다시
  *   세는 것이 맞습니다 — 처음 잡은 날부터 세면 며칠째가 부풀어 오릅니다.
+ *
+ * ★ **넘긴 때**도 같은 조회에서 읽습니다 (2026-10-19). 넘긴 뒤의 줄은 넘긴
+ *   그날만 남깁니다 (domain/worklist 의 keepsAfterHandoff) — 안 그러면 기공소가
+ *   며칠째 만드는 것까지 "오늘 한 일" 자리에 올라옵니다. 남길 줄만 돌려줍니다.
  */
 async function fillDesignStart(
   supabase: Awaited<ReturnType<typeof createClient>>,
   rows: HomeWork[],
   today: string,
-): Promise<void> {
-  if (rows.length === 0) return;
+): Promise<HomeWork[]> {
+  if (rows.length === 0) return rows;
 
+  const handoff = HANDOFF_STATUS.design_center ?? 'production_wait';
   const { data } = await supabase
     .from('order_status_history')
-    .select('order_id, created_at')
-    .eq('to_status', 'designing')
+    .select('order_id, to_status, created_at')
+    .in('to_status', ['designing', handoff])
     .in('order_id', rows.map((r) => r.id))
     .order('created_at', { ascending: false });
 
-  type Raw = { order_id: string; created_at: string };
+  type Raw = { order_id: string; to_status: string; created_at: string };
 
-  // 차례가 최근 먼저라 처음 만나는 줄이 '마지막에 잡은 때' 입니다
+  // 차례가 최근 먼저라 처음 만나는 줄이 '마지막에 잡은(넘긴) 때' 입니다
   const latest = new Map<string, Raw>();
+  const handedOn = new Map<string, string>();
   for (const row of (data ?? []) as Raw[]) {
+    if (row.to_status === handoff) {
+      if (!handedOn.has(row.order_id)) handedOn.set(row.order_id, toKstDate(row.created_at));
+      continue;
+    }
     if (!latest.has(row.order_id)) latest.set(row.order_id, row);
   }
+
+  rows = rows.filter((row) =>
+    keepsAfterHandoff({ status: row.status, handedOn: handedOn.get(row.id) ?? null }, handoff, today),
+  );
 
   const userIds = [...new Set(rows.map((r) => r.ownerId).filter(Boolean))] as string[];
   const names = new Map<string, string>();
@@ -364,6 +380,8 @@ async function fillDesignStart(
     row.startedOn = toKstDate(hit.created_at);
     row.dayCount = daysBetween(row.startedOn, today) + 1;
   }
+
+  return rows;
 }
 
 /** UTC 시각을 한국 날짜로. 자정 경계가 여기서 갈립니다 */

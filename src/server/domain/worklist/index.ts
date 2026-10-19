@@ -204,6 +204,26 @@ export const HANDOFF_STATUS: Partial<Record<Sector, OrderStatus>> = {
 };
 
 /**
+ * 넘긴 뒤의 줄은 **넘긴 그날만** 보입니다 (사용자 지적 2026-10-19 — "오늘 작업한
+ * 것만 보여주기로 했는데 왜 제작 진행 중인 걸 다 보여줘").
+ *
+ * ★★ 2026-10-12 에 넘긴 뒤도 보이게 넓혔는데, 그러자 **기공소가 며칠째 만들고
+ *   있는 것까지 전부** 올라왔습니다. 보려던 것은 "오늘 몇 케이스 했나" 였는데,
+ *   목록은 "여태 넘긴 것 다" 가 됐습니다. 넘긴 날이 오늘이 아니면 뺍니다.
+ * ★ 아직 디자인 중인 줄(넘기기 전)은 날짜와 상관없이 그대로 — 그건 내 손에 있는 일입니다.
+ * ★ 넘긴 날을 못 찾았으면(이력 없음) 뺍니다 — 오늘 했다는 근거가 없습니다.
+ */
+export function keepsAfterHandoff(
+  row: { status: OrderStatus; handedOn: string | null },
+  handoff: OrderStatus,
+  today: string,
+): boolean {
+  if (row.status === 'designing') return true;
+  if (row.status !== handoff && !['production', 'shipping'].includes(row.status)) return true;
+  return row.handedOn === today;
+}
+
+/**
  * 오늘 넘긴 **케이스** 수.
  *
  * ★★ **주문 하나는 한 번만 셉니다.** 기공소가 수정을 요청해 디자인으로
