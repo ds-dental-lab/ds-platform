@@ -73,7 +73,7 @@ SETTINGS = SETTINGS_DIR / "scan_agent.json"
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.4"
+AGENT_VERSION = "1.3.5"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -379,13 +379,20 @@ def settled_all(paths: list[Path]) -> bool:
         return False
 
 
+def ask_before_send(cfg: dict) -> bool:
+    """내보내기가 잡히면 먼저 물어보는가. **기본은 예** — 모르고 올라가는 쪽이 더 나쁩니다"""
+    return bool(cfg.get("ask_before_send", True))
+
+
 class Agent:
     """폴더를 보고 올리는 일. 창(App)이 이 객체를 쥐고 씁니다."""
 
-    def __init__(self, say, on_link=None, notify=None) -> None:
+    def __init__(self, say, on_link=None, notify=None, ask=None) -> None:
         self.say = say
         #: 트레이 풍선 — 창이 숨어 있어도 보입니다 (없으면 조용히 넘어갑니다)
         self.notify = notify or (lambda _m: None)
+        #: 올리기 전에 "덴플로우로 보낼까요?" 를 사람에게 묻는 함수 (없으면 늘 예)
+        self.ask = ask or (lambda _name, _label: True)
         self.cfg = load_settings()
         self.stop = threading.Event()
         #: 연결이 끝나면 창이 자기 모습을 고칠 수 있게
@@ -422,7 +429,17 @@ class Agent:
         # ★ 같은 케이스인지는 **서버가** 압니다 (2026-10-05).
         #   여기서 혼자 막으면, 재스캔해서 다시 내보낸 것까지 막힙니다.
         #   서버는 아직 주문에 안 붙은 줄만 '이미 올라감' 으로 봅니다.
-        self.say(f"{label} — {meta.get('patientName') or '이름 모름'} 올리는 중…")
+        name = meta.get("patientName") or "이름 모름"
+        # ★★ 올리기 **전에** 묻습니다 (사용자 결정 2026-10-19). 내보내기는 다른 기공소로
+        #   보낼 때도 똑같이 생기는데, 전에는 그때도 주문서가 열리고 **스캔이 우리 서버에
+        #   올라갔습니다.** 맡길 생각이 없던 환자 데이터가 쌓이는 것은 설명이 안 됩니다.
+        #   '아니오' 거나 1분 지나면 아무것도 안 올리고 넘어갑니다. 우리에게만 맡기는
+        #   치과는 설정에서 '바로 주문서 열기' 로 바꾸면 전처럼 됩니다.
+        if ask_before_send(self.cfg) and not self.ask(name, label):
+            self.say(f"{label} — {name}: 덴플로우로 보내지 않습니다 (넘어감)")
+            return
+
+        self.say(f"{label} — {name} 올리는 중…")
 
         slot = post_json(
             f"{SITE}/api/device/scan",
@@ -618,7 +635,7 @@ def asset(name: str) -> Path:
 
 class App:
     def __init__(self) -> None:
-        self.agent = Agent(self.say, on_link=self.refresh, notify=self.balloon)
+        self.agent = Agent(self.say, on_link=self.refresh, notify=self.balloon, ask=self.ask_send)
         self.watching = False
 
         self.root = tk.Tk()
@@ -632,6 +649,8 @@ class App:
             pass
 
         self.folder = tk.StringVar(value=self.agent.cfg.get("folder", ""))
+        #: 내보내면 먼저 묻는가 — "ask" / "open" (기본 ask)
+        self.on_export = tk.StringVar(value="ask" if ask_before_send(self.agent.cfg) else "open")
         self.code = tk.StringVar(value="")
         self.auto = tk.BooleanVar(value=autostart_on())
 
@@ -865,6 +884,17 @@ class App:
             font=(F, 9), bg=PAPER, fg=FAINT,
         ).pack(anchor="w", pady=(7, 0))
 
+        # ★ 내보내기가 잡히면 어떻게 할지 (2026-10-19). 여러 기공소에 보내는 치과는 '묻기'
+        row2 = tk.Frame(inner, bg=PAPER)
+        row2.pack(fill="x", pady=(9, 0))
+        tk.Label(row2, text="내보내면", font=(F, 9), bg=PAPER, fg=SUB).pack(side="left")
+        for text, val in (("먼저 물어보기", "ask"), ("바로 주문서 열기", "open")):
+            tk.Radiobutton(
+                row2, text=text, value=val, variable=self.on_export, command=self.save_on_export,
+                font=(F, 9), bg=PAPER, fg=SUB, activebackground=PAPER, activeforeground=SUB,
+                selectcolor=PAPER, cursor="hand2",
+            ).pack(side="left", padx=(10, 0))
+
     def _step_printer(self, body) -> None:
         """
         치과에 프린터가 있을 때만 켭니다 (자동 템포러리, 2026-10-06).
@@ -999,6 +1029,68 @@ class App:
             self.tray.update_menu()
         except Exception:  # noqa: BLE001
             pass
+
+    def save_on_export(self) -> None:
+        self.agent.cfg["ask_before_send"] = self.on_export.get() == "ask"
+        save_settings(self.agent.cfg)
+        self.say("내보내면 먼저 물어봅니다." if self.agent.cfg["ask_before_send"] else "내보내면 바로 주문서를 엽니다.")
+
+    def ask_send(self, name: str, label: str, timeout_s: int = 60) -> bool:
+        """
+        화면 오른쪽 아래에 작은 창 — "덴플로우로 보낼까요?" [보내기] [아니오] (2026-10-19)
+
+        ★ 에이전트 일꾼 스레드에서 부르고, 창은 tk 스레드에서 그립니다. 답이 올 때까지
+          일꾼이 기다립니다(그 사이 폴더 감시는 멈추지만 1분이 한도입니다).
+        ★ 트레이 풍선이 아닙니다 — 윈도우 풍선은 눌러도 우리가 답을 못 받습니다.
+        ★ 1분 안에 안 누르면 **안 보냅니다.** 모르고 올라가는 쪽이 더 나쁩니다.
+        """
+        answer: dict = {}
+        done = threading.Event()
+
+        def _do() -> None:
+            win = tk.Toplevel(self.root)
+            win.title("덴플로우")
+            win.configure(bg=PAPER)
+            win.attributes("-topmost", True)
+            win.resizable(False, False)
+
+            def finish(v: bool) -> None:
+                if not done.is_set():
+                    answer["v"] = v
+                    done.set()
+                try:
+                    win.destroy()
+                except Exception:  # noqa: BLE001
+                    pass
+
+            win.protocol("WM_DELETE_WINDOW", lambda: finish(False))
+            box = tk.Frame(win, bg=PAPER)
+            box.pack(padx=18, pady=(14, 12))
+            tk.Label(box, text=f"{name} 스캔이 나왔습니다", font=(F, 11, "bold"), bg=PAPER, fg=INK).pack(anchor="w")
+            tk.Label(box, text=f"{label} · 덴플로우로 보낼까요?", font=(F, 9), bg=PAPER, fg=SUB).pack(anchor="w", pady=(3, 10))
+            btns = tk.Frame(box, bg=PAPER)
+            btns.pack(anchor="e")
+            self._button(btns, "보내기", lambda: finish(True)).pack(side="left", ipadx=14, ipady=5)
+            tk.Button(
+                btns, text="아니오", command=lambda: finish(False), font=(F, 9), bg=PAPER, fg=SUB,
+                relief="flat", cursor="hand2", activebackground=PAPER,
+            ).pack(side="left", padx=(8, 0), ipadx=8, ipady=5)
+            win.update_idletasks()
+            w, h = win.winfo_width(), win.winfo_height()
+            sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+            win.geometry(f"+{sw - w - 24}+{sh - h - 72}")
+            win.after(timeout_s * 1000, lambda: finish(False))
+            try:
+                win.bell()
+            except Exception:  # noqa: BLE001
+                pass
+
+        try:
+            self.root.after(0, _do)
+        except Exception:  # noqa: BLE001 — 창이 없으면 묻지 못합니다 → 안 보냅니다
+            return False
+        done.wait(timeout_s + 5)
+        return bool(answer.get("v", False))
 
     def balloon(self, msg: str) -> None:
         try:
