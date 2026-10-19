@@ -175,7 +175,9 @@ def add_tkinter(runtime: Path) -> bool:
         target.parent.mkdir(parents=True, exist_ok=True)
         if target.exists():
             shutil.rmtree(target)
-        shutil.copytree(full / src, target)
+        # ★ tcl/nmake 의 nmakehlp.exe 는 서명 없는 빌드 도구 — 우리는 안 쓰는데 백신이
+        #   뜯어볼 거리만 됩니다. 압축에 "서명 없는 exe" 가 하나도 없게 뺍니다 (2026-10-19)
+        shutil.copytree(full / src, target, ignore=shutil.ignore_patterns("nmake", "__pycache__"))
     return True
 
 

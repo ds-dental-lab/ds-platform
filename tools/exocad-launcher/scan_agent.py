@@ -1229,9 +1229,31 @@ class App:
         self.agent.stop.set()
 
 
+def unblock_folder(folder: Path) -> int:
+    """폴더 안 파일들의 '인터넷에서 받음' 표시(Zone.Identifier)를 지웁니다. 지운 개수.
+
+    ★★ 왜 — 치과가 zip 을 브라우저로 받아 탐색기로 풀면 **모든 파일에** 그 표시가
+      붙습니다. 서명 없는 `덴플로우 에이전트.cmd` 를 두 번 누르면 윈도우가 "게시자를
+      확인할 수 없습니다 — 실행/취소" 를 **켤 때마다** 묻습니다 (2026-10-19 재현).
+      처음 한 번은 사람이 「실행」 을 눌러야 하지만, 그 뒤로는 안 묻게 여기서 지웁니다.
+    ★ 우리 폴더 안만 봅니다. 표시가 없는 파일은 그냥 지나갑니다(FileNotFoundError).
+    """
+    n = 0
+    for p in folder.rglob("*"):
+        if not p.is_file():
+            continue
+        try:
+            os.remove(f"{p}:Zone.Identifier")
+            n += 1
+        except OSError:
+            pass
+    return n
+
+
 if __name__ == "__main__":
     # ★ 두 번째로 켜면 떠 있는 창만 앞으로 올리고 조용히 물러납니다.
     #   "이미 켜져 있습니다" 같은 알림창을 띄우지 않습니다 — 치과는
     #   창이 올라오는 것만 보면 됩니다.
     if only_one():
+        unblock_folder(HERE)
         App().run()

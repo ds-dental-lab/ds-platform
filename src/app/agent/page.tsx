@@ -55,7 +55,17 @@ const STEPS = [
     body: '화면 오른쪽 아래(시계 옆) 덴플로우 아이콘을 오른쪽 클릭 → 끝내기. 이걸 안 하면 덮어쓰기가 막힙니다.',
   },
   {
-    title: '받은 압축을 풀어 폴더째 덮어씁니다',
+    /*
+      ★★ 2026-10-19 재현 — 브라우저로 받은 zip 은 "인터넷에서 받음" 표시가 붙고,
+        탐색기로 풀면 안의 모든 파일에 옮겨 붙습니다. 그러면 서명 없는 .cmd 를
+        누를 때 "게시자를 확인할 수 없습니다" 창이 뜹니다. 풀기 **전에** zip 하나만
+        차단 해제하면 안의 파일 전부가 깨끗해져 아무 창도 안 뜹니다.
+    */
+    title: '받은 압축 파일을 오른쪽 클릭 → 속성 → 「차단 해제」 에 체크 → 확인',
+    body: '맨 아래 보안 줄에 있습니다. 안 보이면 이미 괜찮은 것이니 그냥 넘어가세요. 이걸 하면 실행할 때 윈도우가 묻지 않습니다.',
+  },
+  {
+    title: '압축을 풀어 폴더째 덮어씁니다',
     body: '안에 든 「덴플로우 에이전트」 폴더를 지금 쓰던 자리에 그대로 덮으세요. 파일 하나만 바꾸면 안 됩니다.',
   },
   {
@@ -72,16 +82,30 @@ const STEPS = [
 ];
 
 /*
-  ★ Windows 11 기준 경로입니다. 실제 치과에서 막혔습니다 (2026-10-07).
-    치과 직원이 전화 없이 혼자 따라갈 수 있게 **누르는 것만** 적습니다 —
-    왜 그런지는 화면에 한 줄로 끝냈습니다.
+  ★ 윈도우가 띄울 수 있는 창을 **생긴 모양대로** 적습니다 (2026-10-19 이 PC 에서 재현).
+    치과 직원이 전화 없이 혼자 따라갈 수 있게 **누르는 것만** 적습니다.
+  ★ 압축 안에 우리가 만든 실행 파일이 없고(파이썬 재단 서명본 + 글자 파일), Defender
+    검사도 깨끗합니다. 그래서 남는 것은 "처음 보는 파일이라 묻는" 창들뿐입니다.
+    첫째가 거의 전부이고, 둘째·셋째는 드뭅니다. 10/07 제일치과는 그때 쓰던 exe 가
+    셋째 경우였습니다 — exe 를 없애서 지금은 안 납니다.
 */
-const ALLOW = [
-  '화면 오른쪽 아래 방패 모양(Windows 보안)을 두 번 누릅니다.',
-  '「바이러스 및 위협 방지」 → 「보호 기록」 을 누릅니다.',
-  '목록에서 「덴플로우 에이전트」 가 있는 줄을 누릅니다.',
-  '「작업」 을 누르고 「디바이스에서 허용」 을 고릅니다.',
-  '받은 압축을 다시 풀어 폴더를 덮어쓰고 실행합니다.',
+const DIALOGS = [
+  {
+    title: '노란 방패 — "게시자를 확인할 수 없습니다. 실행하시겠습니까?"',
+    body: '「실행」 을 누르면 됩니다. 2번(차단 해제)을 건너뛰었을 때 뜨고, 한 번 켜지면 에이전트가 표시를 지워 다음부터는 안 묻습니다.',
+  },
+  {
+    title: '파란 화면 — "Windows의 PC 보호"',
+    body: '「추가 정보」 를 누르면 아래에 「실행」 단추가 나옵니다. 그걸 누릅니다.',
+  },
+  {
+    title: '"위협이 검출되었습니다" (오른쪽 아래 알림)',
+    body: '방패 모양(Windows 보안) → 「바이러스 및 위협 방지」 → 「보호 기록」 → 덴플로우 줄 → 「작업」 → 「디바이스에서 허용」. 그 다음 압축을 다시 풀어 덮어씁니다.',
+  },
+  {
+    title: '"Windows Defender 방화벽에서 이 앱의 일부 기능을 차단했습니다"',
+    body: '자동 출력을 켠 치과에서만 뜹니다. 「액세스 허용」 을 꼭 누르세요 — 취소하면 프린터를 못 찾습니다. 관리자 암호를 물으면 PC 관리자 계정으로 허용해 주세요.',
+  },
 ];
 
 export default function AgentDownloadPage() {
@@ -142,24 +166,22 @@ export default function AgentDownloadPage() {
           않으면 그 다음 설명을 안 봅니다.
       */}
       <h2 className="mt-9 text-[14px] font-extrabold tracking-[-0.02em] text-[#1A2130]">
-        &ldquo;위협이 검출되었습니다&rdquo; 가 뜨면
+        윈도우가 무언가 물어보면
       </h2>
 
       <p className="mt-2 text-[12.5px] leading-relaxed text-[#4A5567]">
-        바이러스라는 뜻이 아닙니다. <b className="text-[#1A2130]">처음 보는 프로그램</b>이라
-        윈도우가 한 번 물어보는 것입니다. 아래대로 허용해 주시면 다음부터는 묻지 않습니다.
+        바이러스라는 뜻이 아닙니다. <b className="text-[#1A2130]">처음 보는 파일</b>이라
+        윈도우가 한 번 물어보는 것입니다. 뜬 창의 모양을 찾아 그대로 누르시면 됩니다.
       </p>
 
-      <ol className="mt-3 space-y-2">
-        {ALLOW.map((step, i) => (
-          <li key={step} className="flex gap-2.5">
-            <span className="mt-[3px] grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full bg-[#4A5567] text-[11px] font-extrabold text-white">
-              {i + 1}
-            </span>
-            <p className="text-[12.5px] leading-relaxed text-[#4A5567]">{step}</p>
+      <ul className="mt-3 space-y-2.5">
+        {DIALOGS.map((d) => (
+          <li key={d.title} className="rounded-lg border border-[#E8EBF0] p-3">
+            <p className="text-[12.5px] font-bold text-[#1A2130]">{d.title}</p>
+            <p className="mt-0.5 text-[12.5px] leading-relaxed text-[#4A5567]">{d.body}</p>
           </li>
         ))}
-      </ol>
+      </ul>
 
       <div className="mt-5 rounded-xl border border-[#CFE3FB] bg-[#F2F7FE] p-4">
         <p className="text-[12.5px] leading-relaxed text-[#4A5567]">
