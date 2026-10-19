@@ -322,7 +322,7 @@ describe('디자인 잔걸음 (2026-10-15 — 치과가 설계 중인지 몰랐�
   it('디자인 칸 아래에 지금 하는 일이 붙는다', () => {
     const steps = autoProgress(job({ designStage: 'analyzing' }));
     expect(steps[0].state).toBe('current');
-    expect(steps[0].detail).toBe('치아 분석');
+    expect(steps[0].detail).toBe('치아를 분석하고 있습니다');
   });
 
   it('디자인 칸을 지나면 잔걸음이 안 붙는다', () => {
@@ -332,7 +332,7 @@ describe('디자인 잔걸음 (2026-10-15 — 치과가 설계 중인지 몰랐�
 
   it('한 줄 안내 — 아직 / 하는 중 / 멈춤', () => {
     expect(autoNotice(job())).toBe('디자인 차례를 기다립니다');
-    expect(autoNotice(job({ designStage: 'generating' }))).toBe('디자인 중 — 설계');
+    expect(autoNotice(job({ designStage: 'generating' }))).toBe('디자인 중 — 치아를 설계하고 있습니다');
     expect(autoNotice(job({ designStage: 'stalled' }))).toContain('늦어집니다');
   });
 

@@ -122,13 +122,35 @@ def _set_check(d, testid: str, on: bool) -> None:
         raise ParamError(f"'{testid}' 를 {'켜지' if on else '끄지'} 못했습니다")
 
 
-def _crown_toolbar(d) -> None:
-    """크라운 도구 막대(내면·다듬기…)가 없으면 크라운 이름표를 눌러 엽니다"""
-    if d.find_elements("css selector", '[data-testid="toolbar-tool-inner"]'):
+def _crown_toolbar(d, wait_s: float = 20.0) -> None:
+    """크라운 도구 막대(내면·다듬기…)가 없으면 크라운을 골라서 엽니다
+
+    ★★ 생성 직후에는 이름표를 한 번 누르고 2초 기다리는 것으로 모자랐습니다 (2026-10-19
+      tetetet 건 — "'toolbar-tool-inner' 칸을 못 찾았습니다", 생성 끝 3초 뒤). 손으로 해 보니
+      이름표·치식 번호 칸·상태 카드 어느 것을 눌러도 2.5초쯤 뒤에 막대가 떴습니다.
+      셋을 번갈아 누르며 20초까지 기다립니다.
+    """
+    has = lambda: bool(d.find_elements("css selector", '[data-testid="toolbar-tool-inner"]'))  # noqa: E731
+    if has():
         return
-    _click(d, "component-floating-label-button")
-    time.sleep(2)
-    _q(d, "toolbar-tool-inner")
+    picks = ("component-floating-label-button", "component-tooth-number-box-", "design-status-card-")
+    deadline = time.time() + wait_s
+    i = 0
+    while time.time() < deadline:
+        pick = picks[i % len(picks)]
+        i += 1
+        # 치식 번호·상태 카드는 뒤에 번호/이름이 붙습니다 — 앞글자로 찾아 첫 것을 누릅니다
+        els = d.find_elements("css selector", f'[data-testid^="{pick}"]')
+        if els:
+            try:
+                d.execute_script("arguments[0].click()", els[0])
+            except Exception:  # noqa: BLE001 — 다음 후보로
+                pass
+        for _ in range(6):
+            time.sleep(0.5)
+            if has():
+                return
+    raise ParamError("크라운을 골라도 도구 막대가 안 뜹니다 — 덴트버드 화면이 바뀌었는지 보세요")
 
 
 def _inner_values(d) -> dict[str, float]:

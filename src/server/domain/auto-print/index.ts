@@ -126,11 +126,12 @@ export function isDesignStage(v: unknown): v is DesignStage {
  * ★ 멈춰도 '실패' 라고 안 합니다 — 센터가 붙잡고 있는 중입니다. 까닭은
  *   센터 화면(design_note)에만 뜹니다.
  */
+// ★ 치과가 읽는 문장으로 (사용자 2026-10-19 — "진행상황이 보였으면"). 잔걸음 칸·책갈피 둘 다 씁니다
 const DESIGN_STAGE_LABEL: Record<DesignStage, string> = {
-  uploading: '스캔 확인',
-  analyzing: '치아 분석',
-  generating: '설계',
-  exporting: '마무리',
+  uploading: '스캔을 확인하고 있습니다',
+  analyzing: '치아를 분석하고 있습니다',
+  generating: '치아를 설계하고 있습니다',
+  exporting: '설계를 마무리하고 있습니다',
   stalled: '확인 중',
 };
 
