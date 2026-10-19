@@ -53,7 +53,13 @@ def alive() -> bool:
         return False
 
 
-def open_browser(url: str) -> None:
+def open_browser(url: str, background: bool = False) -> None:
+    """전용 크롬을 띄웁니다. background=True 면 뜬 뒤 바로 **최소화** 합니다.
+
+    ★ 왜 — 일꾼이 띄운 창이 디자이너 화면 한가운데 떴습니다 (사용자 2026-10-19
+      "덴트버드 크롬창이 계속 뜨네"). 자동화는 최소화한 채로도 돕니다
+      (keep_awake 실측 2026-10-15) — 사람 눈에 띌 까닭이 없습니다.
+    """
     if alive():
         print(f"이미 떠 있습니다 (포트 {PORT})")
         return
@@ -81,9 +87,21 @@ def open_browser(url: str) -> None:
         if alive():
             print(f"띄웠습니다 — 프로필 {PROFILE}")
             print("그 창에서 한 번 로그인해 주세요. 비밀번호는 아무 데도 안 적힙니다.")
+            if background:
+                minimize()
             return
         time.sleep(1)
     print("띄웠지만 디버그 포트가 안 열렸습니다")
+
+
+def minimize() -> None:
+    """떠 있는 전용 창을 작업표시줄로 내립니다 — 못 하면 그냥 둡니다"""
+    try:
+        d = attach()
+        d.minimize_window()
+        d.quit()  # 붙었던 드라이버만 끝냅니다 — 크롬은 그대로 남습니다
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def attach():

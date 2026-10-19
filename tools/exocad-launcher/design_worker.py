@@ -53,8 +53,6 @@ LOG = STATE / "launcher" / "설계-일꾼.txt"
 POLL_SECONDS = 30
 #: 덴트버드 창이 못 쓰는 상태(로그인 풀림 등)일 때 쉬는 시간
 SESSION_PAUSE_SECONDS = 300
-#: 덴트버드 창이 없을 때 다시 띄워 보는 간격
-REOPEN_SECONDS = 300
 #: 내보낸 STL 이 주문에 올라오기를 기다리는 한도
 DELIVER_WAIT_SECONDS = 600
 NAME = "design_worker"
@@ -302,29 +300,36 @@ def main(argv: list[str] | None = None) -> int:
     except Exception:  # noqa: BLE001
         _heart = None
 
-    reopened = 0.0
+    opened_once = False
+
+    def open_window(why: str) -> None:
+        # ★ 로그인은 전용 프로필에 남아 있습니다 — 풀렸으면 사람이 한 번 해야 합니다
+        say(f"{why} — 덴트버드 전용 창을 띄웁니다(최소화)")
+        try:
+            open_browser("https://ai.dentbird.com/cloud/design", background=True)
+        except Exception as e:  # noqa: BLE001
+            say(f"덴트버드 창을 못 띄웠습니다 — {e}")
+
     try:
         while True:
             # ★ 지켜보기 둘이 죽었으면 살립니다 (그쪽도 이 일꾼을 살핍니다)
             revive(NAME, say=say)
-            if not alive():
-                # ★ PC 를 켠 뒤 창이 없으면 직접 띄웁니다. 로그인은 전용 프로필에
-                #   남아 있습니다 — 풀렸으면 사람이 한 번 해야 합니다
-                if time.time() - reopened > REOPEN_SECONDS:
-                    reopened = time.time()
-                    say("덴트버드 전용 창이 없어 띄웁니다")
-                    try:
-                        open_browser("https://ai.dentbird.com/cloud/design")
-                    except Exception as e:  # noqa: BLE001
-                        say(f"덴트버드 창을 못 띄웠습니다 — {e}")
-            elif time.time() - _session_bad_at < SESSION_PAUSE_SECONDS:
+            if not opened_once and not alive():
+                # ★ PC 를 켠 직후 한 번 — 로그인이 풀렸으면 사람이 아침에 볼 수 있게
+                opened_once = True
+                open_window("PC 를 켠 뒤라")
+            if time.time() - _session_bad_at < SESSION_PAUSE_SECONDS:
                 pass  # 덴트버드 창이 돌아올 때까지 일감을 안 잡습니다
             else:
                 # ★★ 잡지 않고 **묻기만** 합니다 (2026-10-16). 할 일이 있을 때만 덴트버드
                 #   창을 확인합니다 — 전에는 5분마다 창에 붙어 디자이너 화면 앞으로
                 #   덴트버드 창을 끌어왔습니다 ("왜 자꾸 활성화되는 거야").
+                # ★★ 창이 닫혀 있어도 **다시 띄우지 않습니다** — 일감이 올 때만 띄웁니다
+                #   (사용자 2026-10-19 "크롬창이 계속 뜨네": 닫으면 5분 뒤 또 떴습니다).
                 got = post(f"{base}/api/device/auto-print/next-design", {"peek": True}, token)
                 if got.get("ok") and not got.get("job") and got.get("available"):
+                    if not alive():
+                        open_window("일감이 와서")
                     got = {"ok": True} if _window_bad() else post(
                         f"{base}/api/device/auto-print/next-design", {}, token)
                 if not got.get("ok"):
