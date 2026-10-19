@@ -353,7 +353,8 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
           ) : null}
           <span
             className={
-              'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-bold' + (done ? ' mr-6' : '')
+              // ✕ 가 있는 줄(완료·멈춤·오류)은 칩을 왼쪽으로 비켜 둡니다 — 겹치던 것 (2026-10-19)
+              'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-bold' + (item.canDismiss ? ' mr-6' : '')
             }
             // 완료 칩은 진한 초록에 흰 글씨 — 멀리서도 '끝' 이 보이게
             style={done ? { background: color.main, color: '#FFFFFF' } : { background: color.soft, color: color.ink }}
