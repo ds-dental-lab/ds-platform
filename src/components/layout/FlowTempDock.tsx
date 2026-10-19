@@ -321,13 +321,18 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
         background: done ? '#F3FBF7' : '#FFFFFF',
       }}
     >
-      {item.tone === 'done' ? (
+      {/* ★ 다 나온 것뿐 아니라 멈춘 것·실패한 것도 치웁니다 (2026-10-19 "UI 출구가 없네") */}
+      {item.canDismiss ? (
         <button
           type="button"
           onClick={dismiss}
           disabled={pending}
-          aria-label={`${item.patientLabel} 치우기`}
-          title="꺼냈으면 치웁니다 — 이 치과의 모든 화면에서 사라집니다"
+          aria-label={`${item.patientLabel} ${done ? '치우기' : 'FlowTemp 그만두기'}`}
+          title={
+            done
+              ? '꺼냈으면 치웁니다 — 이 치과의 모든 화면에서 사라집니다'
+              : 'FlowTemp 그만두기 — 임시치아만 빼고, 크라운 주문은 그대로 갑니다'
+          }
           className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full text-[12px] text-[#B6BECC] hover:bg-[#F2F4F7] hover:text-[#4A5567]"
         >
           ✕

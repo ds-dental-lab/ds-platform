@@ -24,6 +24,8 @@ import {
   boardRow,
   boardTone,
   canReprint,
+  canDismiss,
+  stallAdvice,
   remainingLabel,
   remainingOf,
   canHandDesign,
@@ -428,6 +430,53 @@ describe('치과 책갈피 한 줄 (2026-10-15)', () => {
     expect(boardTone(['done', 'action'])).toBe('action');
     expect(boardTone(['done', 'progress'])).toBe('progress');
     expect(boardTone([])).toBeNull();
+  });
+});
+
+describe('FlowTemp 그만두기 — ✕ 로 치울 수 있는 것 (2026-10-19 "UI 출구가 없네")', () => {
+  it('다 나온 것·실패한 것·디자인이 멈춘 것은 치운다', () => {
+    expect(canDismiss(job({ step: 'done' }))).toBe(true);
+    expect(canDismiss(job({ step: 'failed' }))).toBe(true);
+    expect(canDismiss(job({ step: 'waiting_design', designStage: 'stalled' }))).toBe(true);
+  });
+
+  it('★ 돌고 있는 것은 못 치운다 — 프린터가 뽑는 중에 사라지면 안 된다', () => {
+    expect(canDismiss(job({ step: 'waiting_design', designStage: 'generating' }))).toBe(false);
+    for (const step of ['slicing', 'queued', 'sending', 'printing'] as const) {
+      expect(canDismiss(job({ step }))).toBe(false);
+    }
+  });
+
+  it('책갈피 줄에 canDismiss 가 붙고, 멈춘 줄은 출구를 말해 준다', () => {
+    const r = boardRow(job({ step: 'waiting_design', designStage: 'stalled', designNote: '치식을 못 읽었습니다 — 화면을 보고 사람이 확인해 주세요' }));
+    expect(r.canDismiss).toBe(true);
+    expect(r.status).toBe('디자인 멈춤');
+    expect(r.detail).toContain('깎은 치아를 찾지 못했습니다');
+    expect(r.detail).toContain('✕');
+    expect(boardRow(job({ step: 'printing', percent: 10 })).canDismiss).toBe(false);
+  });
+});
+
+describe('멈춘 까닭을 치과 말로 (2026-10-19)', () => {
+  it('치식을 못 읽음 → 스캔 다시 올리기 또는 그만두기', () => {
+    const a = stallAdvice('치식을 못 읽었습니다 — 화면을 보고 사람이 확인해 주세요');
+    expect(a.what).toContain('깎은 치아');
+    expect(a.todo).toContain('스캔');
+    expect(a.todo).toContain('✕');
+  });
+  it('건수·로그인·배달 — 치과가 할 일은 기다리기', () => {
+    expect(stallAdvice('내보내기 건수가 없습니다 (0/3)').todo).toContain('기다려');
+    expect(stallAdvice('덴트버드 로그인이 풀렸습니다').what).not.toContain('덴트버드');
+    expect(stallAdvice('내보낸 뒤 30분째 주문에 안 올라왔습니다').what).toContain('올라오지');
+  });
+  it('★ 모르는 까닭은 내부 말을 새지 않고 "센터가 보고 있습니다"', () => {
+    const a = stallAdvice('Dentbird: Multiple login detected on chrome 9333');
+    expect(a.what).not.toMatch(/Dentbird|chrome|9333/);
+    expect(a.todo).toContain('센터');
+    expect(stallAdvice(null).todo).toContain('센터');
+  });
+  it('알림 한 줄도 같은 말을 쓴다', () => {
+    expect(autoNotice(job({ step: 'waiting_design', designStage: 'stalled', designNote: '치식을 못 읽었습니다' }))).toContain('깎은 치아');
   });
 });
 

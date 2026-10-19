@@ -235,7 +235,7 @@ export async function getFlowTempBoard(): Promise<Board> {
   const { data, error } = await supabase
     .from('auto_jobs')
     .select(
-      'order_id, step, bed_cleared_at, percent, failed_at, failed_reason, design_stage, finished_at, updated_at, ' +
+      'order_id, step, bed_cleared_at, percent, failed_at, failed_reason, design_stage, design_note, finished_at, updated_at, ' +
         'started_at, remaining_min, layer_now, layer_total, ' +
         'orders!inner(order_no, patient_label, deleted_at, order_items(tooth_number, type_code))',
     )
@@ -256,6 +256,7 @@ export async function getFlowTempBoard(): Promise<Board> {
     failed_at: string | null;
     failed_reason: string | null;
     design_stage: string | null;
+    design_note: string | null;
     finished_at: string | null;
     started_at: string | null;
     remaining_min: number | null;
@@ -288,6 +289,7 @@ export async function getFlowTempBoard(): Promise<Board> {
         failedAt: isAutoStep(r.failed_at) ? r.failed_at : null,
         failedReason: r.failed_reason,
         designStage: isDesignStage(r.design_stage) ? r.design_stage : null,
+        designNote: r.design_note,
         finishedAt: r.finished_at,
         startedAt: r.started_at,
         remainingMin: r.remaining_min,

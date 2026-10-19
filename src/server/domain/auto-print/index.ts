@@ -142,6 +142,8 @@ export interface AutoJob {
   step: AutoStep;
   /** 디자인 칸 안의 잔걸음. 디자인 칸이 아니거나 아직이면 null */
   designStage?: DesignStage | null;
+  /** 일꾼이 남긴 멈춘 까닭 (원문). 치과에는 그대로 안 보이고 stallAdvice 로 바꿔 보입니다 */
+  designNote?: string | null;
   /** 다 나온 때. 아직이면 null */
   finishedAt?: string | null;
   /** 프린터가 우리 파일을 돌리기 시작한 때 */
@@ -236,8 +238,59 @@ export function canClearBed(job: AutoJob): boolean {
  * ★ 횟수를 막지 않습니다. PLA 몇 그램과 10분이라. 대신 몇 번인지 남깁니다 —
  *   같은 건을 자꾸 다시 뽑으면 디자인을 고쳐야 한다는 신호입니다.
  */
+/**
+ * 디자인이 멈춘 까닭을 **치과 말로** — 무엇이 문제이고(what) 무엇을 하면 되는지(todo).
+ * (사용자 지적 2026-10-19 — "어떤 오류인지도, 뭘 해야 할지도 안 알려준다")
+ *
+ * ★ 일꾼의 원문(design_note)은 센터용입니다 — 설계 도구 이름·화면 상태 같은 내부 말이 섞여
+ *   치과에 그대로 보이면 안 됩니다. 여기서 **정해진 문장**으로만 바꿉니다. 모르는 까닭은
+ *   "센터가 보고 있습니다" 로 — 틀린 안내보다 조용한 쪽이 낫습니다.
+ * ★ todo 는 치과가 **실제로 할 수 있는 것**만 적습니다: 스캔 다시 올리기, FlowTemp 그만두기, 기다리기.
+ */
+export interface StallAdvice {
+  what: string;
+  todo: string;
+}
+
+export function stallAdvice(note: string | null | undefined): StallAdvice {
+  const n = (note ?? '').trim();
+  if (/치식을 못 읽|프렙|지대치|깎은/.test(n)) {
+    return {
+      what: '스캔에서 깎은 치아를 찾지 못했습니다',
+      todo: '임플란트·무삭제 케이스면 FlowTemp 를 그만두고(✕), 크라운 프렙 스캔이면 주문 수정에서 스캔을 다시 올려 주세요',
+    };
+  }
+  if (/건수|횟수|차감|credit/i.test(n)) {
+    return { what: '설계 서비스의 이번 달 건수가 모자랍니다', todo: '센터가 처리합니다 — 기다려 주세요' };
+  }
+  if (/로그인|session|세션/i.test(n)) {
+    return { what: '설계 PC 점검 중입니다', todo: '센터가 처리합니다 — 기다려 주세요' };
+  }
+  if (/올라오지|내보낸 뒤|배달|deliver/i.test(n)) {
+    return { what: '설계 파일이 서버에 올라오지 않았습니다', todo: '센터가 다시 겁니다 — 기다려 주세요' };
+  }
+  if (/시험|--no-export/.test(n)) {
+    return { what: '시험으로 돌린 건입니다', todo: '센터가 정리합니다' };
+  }
+  return { what: '디자인이 늦어지고 있습니다', todo: '센터가 보고 있습니다 — 늦어지면 연락드립니다' };
+}
+
 export function canReprint(job: AutoJob): boolean {
   return job.step === 'done';
+}
+
+/**
+ * 치과가 ✕ 로 치울 수 있는가 — **FlowTemp 그만두기** (사용자 지적 2026-10-19 "UI 출구가 없네").
+ *
+ * ★ 전에는 다 나온 것만 치웠습니다. 그러자 디자인이 멈추거나 출력이 실패한 건은
+ *   치과 화면에 빨갛게 **영원히** 남고, 치과가 할 수 있는 게 없었습니다 — 다시 걸기는
+ *   센터 몫이라서요. 멈춘 건·실패한 건도 치과가 "임시치아는 그만두겠다" 고 할 수 있어야
+ *   합니다. 크라운 주문은 그대로 갑니다 — 치우는 건 FlowTemp 줄뿐입니다.
+ * ★ 돌고 있는 것(디자인 중·출력 중)은 못 치웁니다 — 프린터가 뽑는 중에 사라지면 안 됩니다.
+ */
+export function canDismiss(job: AutoJob): boolean {
+  if (job.step === 'done' || job.step === 'failed') return true;
+  return job.step === 'waiting_design' && job.designStage === 'stalled';
 }
 
 export type StepState = 'done' | 'current' | 'todo' | 'stopped';
@@ -305,7 +358,10 @@ export function autoNotice(job: AutoJob): string {
     return `출력 중 ${Math.round(job.percent)}%`;
   }
   if (job.step === 'waiting_design') {
-    if (job.designStage === 'stalled') return '디자인이 늦어지고 있습니다 — 확인하고 있습니다';
+    if (job.designStage === 'stalled') {
+      const a = stallAdvice(job.designNote);
+      return `디자인 멈춤 — ${a.what}. ${a.todo}`;
+    }
     if (job.designStage) return `디자인 중 — ${DESIGN_STAGE_LABEL[job.designStage]}`;
     return '디자인 차례를 기다립니다';
   }
@@ -501,6 +557,8 @@ export interface BoardRow {
   canClearBed: boolean;
   /** 여기서 바로 「다시 뽑기」 를 누를 수 있는가 */
   canReprint: boolean;
+  /** ✕ 로 치울 수 있는가 — 다 나온 것·멈춘 것·실패한 것 (FlowTemp 그만두기) */
+  canDismiss: boolean;
   /** 다 나온 때 (ISO). 완료가 아니면 null */
   finishedAt: string | null;
   /** 출력 중 — 남은 분 (프린터 값, 없으면 어림). 모르면 null */
@@ -580,6 +638,7 @@ export function boardRow(job: AutoJob, now: number = Date.now()): BoardRow {
     percent: null as number | null,
     canClearBed: false,
     canReprint: canReprint(job),
+    canDismiss: canDismiss(job),
     finishedAt: job.step === 'done' ? (job.finishedAt ?? null) : null,
     remainingMin: remaining,
     etaAt: remaining === null ? null : new Date(now + remaining * 60000).toISOString(),
@@ -597,7 +656,9 @@ export function boardRow(job: AutoJob, now: number = Date.now()): BoardRow {
   }
   if (job.step === 'waiting_design') {
     if (job.designStage === 'stalled') {
-      return { ...base, tone: 'delay', status: '디자인 지연', detail: '확인하고 있습니다 — 조금 늦어질 수 있습니다' };
+      // ★ 까닭과 할 일을 치과 말로 (2026-10-19 — "어떤 오류인지도 뭘 해야 할지도 안 알려준다")
+      const a = stallAdvice(job.designNote);
+      return { ...base, tone: 'delay', status: '디자인 멈춤', detail: `${a.what} — ${a.todo}` };
     }
     return {
       ...base,

@@ -19,6 +19,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   alertOnMove,
   canHandDesign,
+  canDismiss,
   canMove,
   claimable,
   isAutoStep,
@@ -64,6 +65,7 @@ const asJob = (row: JobRow): AutoJob => ({
   percent: row.percent,
   failedAt: row.failed_at,
   failedReason: row.failed_reason,
+  designNote: row.design_note ?? null,
   designStage: isDesignStage(row.design_stage) ? row.design_stage : null,
   finishedAt: row.finished_at,
   startedAt: row.started_at,
@@ -384,15 +386,22 @@ export async function dismissJob(
   userId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = createAdminClient();
-  const { data, error } = await admin
+  // ★ 다 나온 것·멈춘 것·실패한 것 (domain canDismiss, 2026-10-19). 돌고 있는 것은 못 치웁니다
+  const { data: row } = await admin
+    .from('auto_jobs')
+    .select('id, step, design_stage')
+    .eq('order_id', orderId)
+    .is('dismissed_at', null)
+    .maybeSingle();
+  if (!row) return { ok: false, error: '치울 FlowTemp 가 없습니다' };
+  const ok = canDismiss({ step: row.step, designStage: row.design_stage } as Parameters<typeof canDismiss>[0]);
+  if (!ok) return { ok: false, error: '돌고 있는 중에는 치울 수 없습니다 — 끝나거나 멈춘 뒤에 치워 주세요' };
+
+  const { error } = await admin
     .from('auto_jobs')
     .update({ dismissed_at: new Date().toISOString(), dismissed_by: userId })
-    .eq('order_id', orderId)
-    .eq('step', 'done')
-    .is('dismissed_at', null)
-    .select('id');
+    .eq('id', row.id);
   if (error) return { ok: false, error: error.message };
-  if (!data || data.length === 0) return { ok: false, error: '다 나온 건만 치울 수 있습니다' };
   return { ok: true };
 }
 

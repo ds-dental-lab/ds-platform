@@ -19,7 +19,12 @@
 
 import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitClearBed, submitReprint, submitRetryAutoPrint } from '@/server/actions/auto-print';
+import {
+  submitClearBed,
+  submitDismissAutoJob,
+  submitReprint,
+  submitRetryAutoPrint,
+} from '@/server/actions/auto-print';
 import { remainingLabel, type AutoProgressStep, type BoardRow } from '@/server/domain/auto-print';
 
 const COLOR = {
@@ -39,6 +44,7 @@ export default function AutoPrintPanel({
   manualSlot = null,
   finishedAt = null,
   canReprint = false,
+  canDismiss = false,
   printing = null,
 }: {
   orderId: string;
@@ -55,6 +61,8 @@ export default function AutoPrintPanel({
   finishedAt?: string | null;
   /** 다 나왔다 — 「다시 뽑기」 를 보입니다 */
   canReprint?: boolean;
+  /** 치과가 ✕ 로 치울 수 있다 — 멈춘 것·실패한 것의 「FlowTemp 그만두기」 (domain canDismiss) */
+  canDismiss?: boolean;
   /** 출력 중이면 그 줄 (퍼센트·남은 시간·층) */
   printing?: BoardRow | null;
 }) {
@@ -227,6 +235,38 @@ export default function AutoPrintPanel({
             {pending ? '확인하는 중…' : '비웠습니다'}
           </button>
           {error ? <p className="mt-2 text-[12px] text-[#D64545]">{error}</p> : null}
+        </div>
+      ) : null}
+
+      {/*
+        ★ 치과의 출구 (사용자 지적 2026-10-19 "UI 출구가 없네") — 멈춘 디자인에 치과가 할 수 있는
+          두 가지: 스캔을 바꿔 올리면 다시 설계(주문 수정이 저절로 다시 겁니다), 아니면 FlowTemp 만
+          그만두기. 다시 걸기는 센터 몫 그대로입니다(덴트버드 건수를 쓰니까).
+      */}
+      {canClear && canDismiss && (designStalled || stopped) ? (
+        <div className="mt-3 rounded-lg border border-[#F6DDB0] bg-[#FFF8EC] p-3">
+          <p className="text-[12.5px] leading-relaxed text-[#6B4A16]">
+            {designStalled
+              ? '디자인이 멈춰 센터가 확인하고 있습니다. 스캔을 잘못 올리셨다면 주문 수정에서 파일을 바꾸면 다시 설계합니다.'
+              : '출력이 멈췄습니다. 센터가 확인하고 있습니다.'}{' '}
+            임시치아를 그만두셔도 크라운 주문은 그대로 갑니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              start(async () => {
+                const got = await submitDismissAutoJob(orderId);
+                if (got.ok) router.refresh();
+                else setError(got.error);
+              });
+            }}
+            disabled={pending}
+            className="mt-2.5 rounded-lg border border-[#E0B36A] bg-white px-3.5 py-2 text-[12.5px] font-bold text-[#8A5A12] disabled:opacity-50"
+          >
+            {pending ? '치우는 중…' : 'FlowTemp 그만두기'}
+          </button>
+          {error ? <p className="mt-1.5 text-[12px] text-[#D64545]">{error}</p> : null}
         </div>
       ) : null}
 

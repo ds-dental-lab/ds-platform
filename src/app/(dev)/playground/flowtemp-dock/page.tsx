@@ -18,7 +18,7 @@ const rows: [string, string, number[], AutoJob][] = [
   ['박지영', 'ORD-261015-019', [36], job({ step: 'queued' })],
   ['한복계1', 'ORD-261015-011', [17], job({ step: 'printing', percent: 62, remainingMin: 7, layerNow: 59, layerTotal: 95 })],
   ['윤기두', 'ORD-261015-014', [16], job({ designStage: 'analyzing' })],
-  ['이서연', 'ORD-261015-016', [46], job({ designStage: 'stalled' })],
+  ['이서연', 'ORD-261015-016', [46], job({ designStage: 'stalled', designNote: '치식을 못 읽었습니다 — 화면을 보고 사람이 확인해 주세요' })],
   ['정우성', 'ORD-261015-009', [11], job({ step: 'done', finishedAt: '2026-10-15T06:32:47Z' })],
 ];
 
