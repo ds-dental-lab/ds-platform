@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
 import threading
@@ -41,6 +40,7 @@ import pystray
 from PIL import Image
 
 import medit_case
+import shell_link
 from dxd_case import read_case
 
 HERE = Path(__file__).resolve().parent
@@ -73,7 +73,7 @@ SETTINGS = SETTINGS_DIR / "scan_agent.json"
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.3"
+AGENT_VERSION = "1.3.4"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -218,25 +218,12 @@ def desktop_link() -> Path:
 
 
 def link_target(lnk: Path) -> str | None:
-    """바로가기가 가리키는 곳. 못 읽으면 None"""
-    if not lnk.exists():
-        return None
-    # ★ PowerShell 은 콘솔 코드페이지(cp949)로 뱉습니다. 그대로 utf-8 로 읽으면
-    #   **한글 경로가 깨져** 멀쩡한 바로가기도 "없는 파일" 로 판정됩니다.
-    #   뱉는 쪽을 utf-8 로 돌려 놓습니다.
-    script = (
-        "[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
-        "(New-Object -ComObject WScript.Shell).CreateShortcut('%s').TargetPath" % lnk
-    )
-    try:
-        r = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-        return (r.stdout or "").strip() or None
-    except Exception:  # noqa: BLE001
-        return None
+    """바로가기가 가리키는 곳. 못 읽으면 None
+
+    ★ powershell 을 띄우지 않고 파이썬 안에서 읽습니다 (shell_link, 2026-10-19) —
+      콘솔을 안 거쳐서 한글 경로가 깨질 일도 없습니다.
+    """
+    return shell_link.read_target(lnk)
 
 
 def heal_links() -> None:
@@ -287,30 +274,14 @@ def make_desktop_link() -> None:
     if link.exists():
         return
 
-    icon = asset("denflow.ico")
-    script = (
-        "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}');"
-        "$s.TargetPath='{py}';"
-        "$s.Arguments='{target}';"
-        "$s.WorkingDirectory='{here}';"
-        "$s.IconLocation='{icon}';"
-        "$s.Save()"
-    ).format(
-        lnk=link,
-        py=Path(sys.executable).resolve() if FROZEN else pythonw(),
-        target="" if FROZEN else '\"%s\"' % Path(__file__).resolve(),
-        here=Path(sys.executable).resolve().parent if FROZEN else HERE,
-        icon=icon,
+    # ★ powershell 을 부르지 않습니다 — 파이썬 안에서 씁니다 (shell_link, 2026-10-19)
+    shell_link.write_link(
+        link,
+        Path(sys.executable).resolve() if FROZEN else pythonw(),
+        args="" if FROZEN else '"%s"' % Path(__file__).resolve(),
+        workdir=Path(sys.executable).resolve().parent if FROZEN else HERE,
+        icon=asset("denflow.ico"),
     )
-
-    try:
-        subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-            check=True, capture_output=True,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    except Exception:  # noqa: BLE001 — 아이콘을 못 만들어도 에이전트는 돕니다
-        pass
 
 
 def set_autostart(on: bool) -> str:
@@ -323,37 +294,26 @@ def set_autostart(on: bool) -> str:
         except OSError as e:
             return f"바로가기를 지우지 못했습니다: {e}"
 
-    # ★ 바로가기(.lnk)는 COM 으로만 만들어집니다. 파이썬에 그 모듈이 없을 수 있어
-    #   윈도우에 늘 있는 powershell 에게 맡깁니다.
-    #   exe 로 묶였으면 exe 자체를 가리킵니다 — 뒤에 붙일 것이 없습니다.
+    # ★★ powershell 을 띄우지 않습니다 (사용자 결정 2026-10-19). "스크립트가 powershell 로
+    #   자동 시작을 심는" 모양은 보안 모듈이 가장 먼저 묻는 행동입니다. 윈도우의 같은
+    #   셸 링크 객체를 파이썬 안에서 부릅니다 (shell_link).
     exe = Path(sys.executable).resolve()
     #: ★ 윈도우가 켜질 때는 **창 없이** 트레이로만 뜹니다 (사용자 요청 2026-10-06).
     #   진료실 화면에 창이 하나 떠 있는 것 자체가 거슬립니다.
-    target = "--tray" if FROZEN else '\"%s\" --tray' % Path(__file__).resolve()
-
-    script = (
-        "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}');"
-        "$s.TargetPath='{py}';"
-        "$s.Arguments='{target}';"
-        "$s.WorkingDirectory='{here}';"
-        "$s.WindowStyle=7;"
-        "$s.Save()"
-    ).format(
-        lnk=link,
-        py=exe if FROZEN else pythonw(),
-        target=target,
-        here=exe.parent if FROZEN else HERE,
-    )
+    target = "--tray" if FROZEN else '"%s" --tray' % Path(__file__).resolve()
 
     try:
         link.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-            check=True, capture_output=True,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    except Exception as e:
+    except OSError as e:
         return f"자동 시작을 켜지 못했습니다: {e}"
+    if not shell_link.write_link(
+        link,
+        exe if FROZEN else pythonw(),
+        args=target,
+        workdir=exe.parent if FROZEN else HERE,
+        minimized=True,
+    ):
+        return "자동 시작을 켜지 못했습니다 — 바로가기를 만들 수 없습니다."
 
     return "윈도우를 켜면 저절로 떠서 지켜봅니다."
 

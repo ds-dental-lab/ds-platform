@@ -133,7 +133,8 @@ def main(argv: list[str] | None = None) -> int:
     upload(staged, f"{agent_v}.zip")
 
     base = env("NEXT_PUBLIC_SUPABASE_URL")
-    print(f"\n받는 주소 : {base}/storage/v1/object/public/{BUCKET}/latest.zip")
+    # ★ 버킷은 비공개입니다 (2026-10-19) — 공개 주소는 닫혔고, 치과는 /agent 에서 번호로 받습니다
+    print(f"\n저장소    : {base} 의 {BUCKET}/latest.zip (비공개)")
     print("치과 안내 : https://denflow.kr/agent")
     return 0
 
