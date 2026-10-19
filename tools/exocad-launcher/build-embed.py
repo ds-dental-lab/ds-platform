@@ -31,7 +31,10 @@ import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-OUT = HERE / "dist-embed" / "덴플로우 에이전트"
+#: ★ 이 PC 에서는 치ㅣ 에이전트가 dist-embed 에서 바로 돕니다 — 도는 동안은 지울 수
+#:   없습니다(PermissionError, 2026-10-19). 그럴 땐 DENFLOW_DIST 로 다른 자리에 만들고
+#:   release.py 도 같은 변수를 봅니다.
+OUT = Path(os.environ.get("DENFLOW_DIST") or HERE / "dist-embed" / "덴플로우 에이전트")
 
 #: 끼워 넣은 파이썬이 들어갈 폴더 이름.
 #:

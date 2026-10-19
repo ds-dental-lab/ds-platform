@@ -23,6 +23,7 @@ r"""
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 import urllib.error
@@ -36,7 +37,8 @@ ROOT = HERE.parent.parent
 #:   PyInstaller 로 묶은 dist/ 는 백신에 걸려 버렸습니다 — 서명 없는 새
 #:   실행 파일이라서입니다. dist-embed/ 안에는 우리가 만든 실행 파일이
 #:   하나도 없고, python.exe 는 파이썬 재단이 서명한 것입니다.
-DIST = HERE / "dist-embed" / "덴플로우 에이전트"
+#: build-embed.py 와 같은 변수 — 도는 에이전트 폴더를 못 지울 때 다른 자리에 만든 것을 올립니다
+DIST = Path(os.environ.get("DENFLOW_DIST") or HERE / "dist-embed" / "덴플로우 에이전트")
 BUCKET = "agent-release"
 
 
