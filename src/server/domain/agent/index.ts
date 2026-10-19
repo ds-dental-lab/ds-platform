@@ -36,11 +36,28 @@ export const AGENT_NOTE = '설치할 때 윈도우가 묻는 창을 줄이고, �
 export const AGENT_DOWNLOAD_URL = 'https://denflow.kr/agent';
 
 /** 실제 zip 이 놓이는 자리. release.py 가 여기로 올립니다 */
-export const AGENT_ZIP_PATH = 'agent-release/latest.zip';
+export const AGENT_BUCKET = 'agent-release';
+export const AGENT_ZIP_NAME = 'latest.zip';
+export const AGENT_ZIP_PATH = `${AGENT_BUCKET}/${AGENT_ZIP_NAME}`;
 
-/** 치과가 보는 받는 주소 */
-export function agentZipUrl(supabaseUrl: string): string {
-  return `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/${AGENT_ZIP_PATH}`;
+/**
+ * 내려받기 번호 — 여섯 자리 고정 비밀번호 (사용자 결정 2026-10-19).
+ *
+ * ★★ 왜 공개를 닫았나 — "다른 회사가 치과로 가입해서 받아 갈 수 있다". 로그인은
+ *   울타리가 못 됩니다(치과 계정은 누구나 만듭니다). 번호는 **센터만 압니다** —
+ *   설치는 사장님이 직접 가거나 원격으로 해 주기로 했으니 번호가 돌아다닐 일이 없습니다.
+ * ★ 번호는 코드에 없습니다 — 환경 변수 AGENT_DOWNLOAD_PIN. 여기는 **견주는 법**만 둡니다.
+ * ★ 길이가 달라도 끝까지 견줍니다 — 몇 자리에서 틀렸는지 시간으로 새지 않게.
+ */
+export const AGENT_PIN_LENGTH = 6;
+
+export function pinMatches(input: unknown, secret: string | undefined): boolean {
+  if (typeof input !== 'string' || !secret) return false;
+  const a = input.trim();
+  if (!/^\d{6}$/.test(a) || !/^\d{6}$/.test(secret)) return false;
+  let diff = 0;
+  for (let i = 0; i < AGENT_PIN_LENGTH; i += 1) diff |= a.charCodeAt(i) ^ secret.charCodeAt(i);
+  return diff === 0;
 }
 
 /**

@@ -12,17 +12,18 @@
 // ★ 로그인 없이 열립니다. 치과 직원이 전화 받으며 여는 화면이라
 //   로그인을 요구하면 거기서 끊깁니다. 받는 것은 프로그램 묶음뿐이고
 //   환자 정보가 없습니다.
+// ★★ 대신 **여섯 자리 번호**가 있어야 받습니다 (사용자 결정 2026-10-19 — "다운받기를
+//   오픈하는 게 걸린다", 다른 회사가 치과로 가입해 받아 갈 수 있으니 로그인으론 못 막음).
+//   번호는 센터만 알고, 설치는 사장님이 직접·원격으로 해 줍니다. 버킷은 비공개,
+//   맞으면 1분짜리 서명 주소 (actions/agent-download).
 //
 // ★ 검색에는 안 올립니다 (noindex) — 치과에 드리는 주소지 공개 글이
 //   아닙니다. 기공소 이야기는 쓰지 않습니다.
 // =========================================================
 
 import type { Metadata } from 'next';
-import {
-  AGENT_NOTE,
-  AGENT_VERSION,
-  agentZipUrl,
-} from '@/server/domain/agent';
+import { AGENT_NOTE, AGENT_VERSION } from '@/server/domain/agent';
+import DownloadGate from '@/components/agent/DownloadGate';
 
 export const metadata: Metadata = {
   /*
@@ -109,8 +110,6 @@ const DIALOGS = [
 ];
 
 export default function AgentDownloadPage() {
-  const zip = agentZipUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '');
-
   return (
     <main className="mx-auto max-w-[640px] px-5 py-14">
       <p className="text-[12.5px] font-extrabold tracking-[0.02em] text-[#1279E8]">DenFlow</p>
@@ -128,12 +127,8 @@ export default function AgentDownloadPage() {
           <span className="text-[12.5px] text-[#7C8595]">{AGENT_NOTE}</span>
         </div>
 
-        <a
-          href={zip}
-          className="mt-4 inline-block rounded-lg bg-[#1279E8] px-5 py-2.5 text-[13.5px] font-bold text-white"
-        >
-          내려받기
-        </a>
+        {/* ★ 누구나 받던 단추를 번호 뒤로 넣었습니다 (사용자 2026-10-19 — "다운받기를 오픈하는 게 걸린다") */}
+        <DownloadGate />
 
         <p className="mt-2.5 text-[11.5px] text-[#98A2B3]">
           윈도우용 · 압축 파일입니다. 설치 과정은 없습니다.
