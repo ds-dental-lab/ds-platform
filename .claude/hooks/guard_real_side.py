@@ -42,7 +42,11 @@ WRITE_WORDS = re.compile(
 )
 
 # ★ 이름이 나온다고 막지 않습니다 — grep·git 에도 나옵니다. **실행할 때만** 막습니다
-_LAUNCH = r"(?:^|[\s;|&(\"'\\/])(?:pythonw?[0-9.]*(?:\.exe)?|py(?:\.exe)?|start-process\s+\S*pythonw?\S*)\b"
+# python 이 **명령 조각의 첫 낱말**일 때만 (grep "def pythonw" scan_agent.py 는 실행이 아닙니다)
+_LAUNCH = (
+    r"(?:^|[;|&(]\s*|start-process\s+(?:-filepath\s+)?)"
+    r"[\"']?(?:[^\s\"';|&]*[\\/])?(?:pythonw?[0-9.]*(?:\.exe)?|py(?:\.exe)?)[\"']?(?=\s)"
+)
 _SAME_CMD = r"[^\n;|&]*?"  # 같은 명령 안에서
 _SAME_LINE = r"[^\n]*?"  # python -c "a; b" 처럼 따옴표 안에 ; 가 있을 때
 SERVICES = re.compile(

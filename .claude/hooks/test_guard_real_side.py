@@ -48,6 +48,10 @@ more_block = [
 # heredoc — 본문에 이름이 나오는 것은 통과, 대상이 그 폴더면 막힘
 more_allow.append("cat >> notes.md <<'EOF'\n막는 곳: AppData\\Roaming\\DenFlow\npythonw exocad_watch.py\nEOF\ngrep -n x MEMORY.md")
 more_block.append("cat > \"$APPDATA/DenFlow/design_agent.json\" <<'EOF'\n{}\nEOF")
+more_allow.append(r'cd tools && grep -n "^def main\|def pythonw" scan_agent.py | head')
+more_allow.append(r'sed -n 1,5p scan_agent.py; echo done')
+more_block.append(r'Start-Process -FilePath "$t\pythonw.exe" -ArgumentList "scan_agent.py --tray"')
+more_block.append(r'cd tools/exocad-launcher && py exocad_watch.py')
 for c in more_allow:
     if g.verdict(c): print("WRONGLY BLOCKED:", c); bad += 1
 for c in more_block:
