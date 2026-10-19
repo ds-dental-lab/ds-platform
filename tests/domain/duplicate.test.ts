@@ -135,8 +135,8 @@ describe('FlowTemp 는 같은 치아의 크라운과 짝 (2026-10-15, 과금 1�
     expect(unpairedAutoTooth([item(16, 'auto_temp', true)])).toBe(16);
     expect(unpairedAutoTooth([item(16, 'auto_temp', true), item(16, 'crown')])).toBeNull();
     expect(unpairedAutoTooth([item(16, 'auto_temp', true), item(17, 'crown')])).toBe(16);
-    // 폰틱 크라운은 짝이 아닙니다 — 씌울 지대치가 없습니다
-    expect(unpairedAutoTooth([item(16, 'auto_temp', true), item(16, 'crown', false, true)])).toBe(16);
+    // ★ 폰틱 크라운도 짝입니다 (2026-10-19) — 임시 브릿지는 가운데 폰틱까지 한 덩어리
+    expect(unpairedAutoTooth([item(16, 'auto_temp', true, true), item(16, 'crown', false, true)])).toBeNull();
     expect(unpairedAutoTooth([item(16, 'crown')])).toBeNull();
   });
 });
@@ -154,9 +154,12 @@ describe('「FlowTemp 함께」 스위치 — FlowTemp 를 더 얹을 치아 (20
     expect(teethNeedingCompanion([item(16, 'crown'), item(16, 'auto_temp', true)])).toEqual([]);
   });
 
-  it('★ 폰틱 크라운·인레이·임플란트에는 안 얹는다 — 과금 1안을 스위치가 깨지 않게', () => {
-    expect(teethNeedingCompanion([item(16, 'crown', false, true)])).toEqual([]);
+  it('★ 인레이·임플란트에는 안 얹는다 — 과금 1안을 스위치가 깨지 않게', () => {
     expect(teethNeedingCompanion([item(16, 'inlay'), item(17, 'implant')])).toEqual([]);
+  });
+
+  it('폰틱 크라운에도 얹는다 — 임시 브릿지의 가운데 이 (2026-10-19)', () => {
+    expect(teethNeedingCompanion([item(16, 'crown', false, true)])).toEqual([16]);
   });
 
   it('짝 없는 FlowTemp 만 있는 치아는 건드리지 않는다 (그건 unpairedAutoTooth 가 알린다)', () => {

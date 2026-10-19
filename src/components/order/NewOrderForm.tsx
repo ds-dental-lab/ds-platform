@@ -377,8 +377,8 @@ function OrderFormBody({
   const autoOf = (code: string) => Boolean(prosthesisCatalog.find((t) => t.code === code)?.autoPipeline);
   /** 자동 출력 제품(FlowTemp) — 치과 목록에 있을 때만. 없으면 「함께」 스위치도 없습니다 */
   const autoProduct = prosthesisCatalog.find((t) => t.autoPipeline) ?? null;
-  /** 지금 찍는 조건이 FlowTemp 의 짝이 될 수 있는가 (크라운 · 폰틱 아님) */
-  const brushPairsWithAuto = Boolean(autoProduct) && AUTO_PARTNER_TYPES.includes(typeCode) && !isPontic;
+  /** 지금 찍는 조건이 FlowTemp 의 짝이 될 수 있는가 (크라운 — 폰틱이어도 됩니다, 2026-10-19) */
+  const brushPairsWithAuto = Boolean(autoProduct) && AUTO_PARTNER_TYPES.includes(typeCode);
   const lockedType = lockedOrderType([
     ...entries.map((e) => autoOf(e.typeCode)),
     autoOf(typeCode),
@@ -505,7 +505,8 @@ function OrderFormBody({
         tooth,
         typeCode: autoProduct.code,
         materialCode: material,
-        isPontic: false,
+        // ★ 폰틱 크라운이면 FlowTemp 도 폰틱 — 임시 브릿지의 가운데 이 (2026-10-19)
+        isPontic: Boolean(crown.isPontic),
         shadeSystem: crown.shadeSystem,
         shade: crown.shade,
         implant: EMPTY_SELECTION,
@@ -530,7 +531,7 @@ function OrderFormBody({
       //   크라운을 찍으면 같은 치아에 FlowTemp 도 얹고, 다시 눌러 크라운이 빠지면
       //   FlowTemp 도 같이 뺍니다. 안 그러면 짝 없는 FlowTemp 가 혼자 남습니다.
       const stillPaired = next.some(
-        (e) => e.tooth === tooth && !autoOf(e.typeCode) && !e.isPontic && AUTO_PARTNER_TYPES.includes(e.typeCode),
+        (e) => e.tooth === tooth && !autoOf(e.typeCode) && AUTO_PARTNER_TYPES.includes(e.typeCode),
       );
       next = stillPaired
         ? withCompanions(next, tooth)
@@ -655,10 +656,11 @@ function OrderFormBody({
       return;
     }
 
-    // 이미 일반 보철이 있으면 폰틱으로 바꿉니다
+    // 이미 일반 보철이 있으면 폰틱으로 바꿉니다 (같은 치아의 FlowTemp 도 함께 폰틱이 됩니다)
     if (mine.length > 0) {
       setHint('');
-      setEntries(entries.map((e) => (e.tooth === tooth ? { ...e, isPontic: true } : e)));
+      const flipped = entries.map((e) => (e.tooth === tooth ? { ...e, isPontic: true } : e));
+      setEntries(withAuto && brushPairsWithAuto ? withCompanions(flipped, tooth) : flipped);
       return;
     }
 
@@ -670,7 +672,7 @@ function OrderFormBody({
     }
 
     setHint('');
-    setEntries([
+    const placed: Entry[] = [
       ...entries,
       {
         tooth,
@@ -682,7 +684,9 @@ function OrderFormBody({
         implant,
         hasGingival: false,
       },
-    ]);
+    ];
+    // ★ 「FlowTemp 함께」 가 켜져 있으면 폰틱에도 FlowTemp 폰틱을 같이 (2026-10-19)
+    setEntries(withAuto && brushPairsWithAuto ? withCompanions(placed, tooth) : placed);
   }
 
   /**

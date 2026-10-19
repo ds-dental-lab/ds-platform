@@ -45,7 +45,9 @@ export interface PairingItem {
 /**
  * 짝(같은 치아의 최종 크라운)이 없는 FlowTemp 의 치식. 다 짝이 있으면 null.
  *
- * ★ 폰틱 크라운은 짝이 아닙니다 — 깎은 지대치가 있어야 임시치아를 씌웁니다.
+ * ★ 폰틱 크라운도 짝입니다 (사용자 2026-10-19 — "FlowTemp 도 폰틱이 존재해"). 임시
+ *   브릿지는 가운데 폰틱까지 한 덩어리로 뽑습니다. 전에는 "지대치가 있어야" 로 뺐는데,
+ *   그러면 브릿지 케이스의 가운데 이에 FlowTemp 를 못 넣었습니다.
  */
 export function unpairedAutoTooth(items: PairingItem[]): number | null {
   for (const it of items) {
@@ -54,7 +56,6 @@ export function unpairedAutoTooth(items: PairingItem[]): number | null {
       (o) =>
         o.tooth === it.tooth &&
         !o.autoPipeline &&
-        !o.isPontic &&
         AUTO_PARTNER_TYPES.includes(o.typeCode),
     );
     if (!paired) return it.tooth;
@@ -65,15 +66,16 @@ export function unpairedAutoTooth(items: PairingItem[]): number | null {
 /**
  * 「FlowTemp 함께」 스위치가 켜졌을 때 FlowTemp 를 **더 얹어야 할 치아들** (사용자 요청 2026-10-19).
  *
- * ★ 짝이 되는 최종 크라운(폰틱 아님)은 있는데 FlowTemp 가 아직 없는 치아입니다.
+ * ★ 짝이 되는 최종 크라운(폰틱 포함)은 있는데 FlowTemp 가 아직 없는 치아입니다.
  *   스위치는 "크라운 찍을 때 FlowTemp 도 같이" 라는 뜻이라, 짝 없는 치아에는 안 얹습니다 —
- *   과금 1안(크라운과 함께만)을 스위치가 깨지 않게.
+ *   과금 1안(크라운과 함께만)을 스위치가 깨지 않게. 폰틱 크라운이면 FlowTemp 도 폰틱으로
+ *   얹습니다(얹는 쪽이 isPontic 을 따라갑니다).
  * ★ 차례는 치식 번호 순 — 어느 순서로 찍었든 같은 결과가 나오게.
  */
 export function teethNeedingCompanion(items: PairingItem[]): number[] {
   const teeth = new Set<number>();
   for (const it of items) {
-    if (it.autoPipeline || it.isPontic || !AUTO_PARTNER_TYPES.includes(it.typeCode)) continue;
+    if (it.autoPipeline || !AUTO_PARTNER_TYPES.includes(it.typeCode)) continue;
     const has = items.some((o) => o.tooth === it.tooth && o.autoPipeline);
     if (!has) teeth.add(it.tooth);
   }
