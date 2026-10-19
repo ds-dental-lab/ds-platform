@@ -41,6 +41,7 @@ from PIL import Image
 
 import medit_case
 import shell_link
+import takeover
 from dxd_case import read_case
 
 HERE = Path(__file__).resolve().parent
@@ -69,11 +70,12 @@ else:
     SETTINGS_DIR = HERE
 
 SETTINGS = SETTINGS_DIR / "scan_agent.json"
+takeover.configure(SETTINGS_DIR)
 
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.6"
+AGENT_VERSION = "1.3.7"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -172,14 +174,24 @@ def only_one() -> bool:
         kernel32.CreateMutexW.restype = wintypes.HANDLE
         kernel32.CreateMutexW.argtypes = [wintypes.LPCVOID, wintypes.BOOL, wintypes.LPCWSTR]
 
-        handle = kernel32.CreateMutexW(None, False, r"Local\DenFlowAgent")
-        already = ctypes.get_last_error() == 183  # ERROR_ALREADY_EXISTS
-        if already:
-            raise_existing()
-            return False
+        def try_mutex():
+            global _ONLY_ONE
+            h = kernel32.CreateMutexW(None, False, r"Local\DenFlowAgent")
+            if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
+                kernel32.CloseHandle(h)
+                return False
+            _ONLY_ONE = h   # 놓으면 표가 사라집니다
+            return True
 
-        _ONLY_ONE = handle   # 놓으면 표가 사라집니다
-        return True
+        if try_mutex():
+            return True
+        # ★★ 떠 있는 쪽이 **옛 판**이면 내리고 자리를 잡습니다 (1.3.7, takeover). 같은 판이면
+        #   전처럼 그 창만 앞으로 — 바탕화면 아이콘을 또 누른 경우입니다.
+        running = takeover.read_run()
+        if takeover.decide(AGENT_VERSION, running) == "takeover" and takeover.take_over(AGENT_VERSION, running, try_mutex):
+            return True
+        raise_existing()
+        return False
     except Exception:  # noqa: BLE001 — 표를 못 달아도 프로그램은 떠야 합니다
         return True
 
@@ -661,6 +673,7 @@ class App:
         self.p_code = tk.StringVar(value=self.agent.cfg.get("printer_code", ""))
         self.p_on = tk.BooleanVar(value=self.agent.cfg.get("printer_kind") == "bambu")
 
+        takeover.write_run(AGENT_VERSION)
         self._header()
         self._update_bar()
         body = tk.Frame(self.root, bg=BG)
@@ -1146,6 +1159,7 @@ class App:
 
     def quit(self) -> None:
         self.agent.stop.set()
+        takeover.clear_run()
         try:
             self.tray.stop()
         except Exception:  # noqa: BLE001
@@ -1304,7 +1318,25 @@ class App:
         self.print_thread.start()
         self.say("출력 작업도 지켜봅니다.")
 
+    def _watch_handoff(self) -> None:
+        """새 판이 "자리 넘겨 주세요" 를 적으면 곱게 끝냅니다 (1.3.7)"""
+        if takeover.handoff_requested():
+            self.say("새 판이 켜져 자리를 넘깁니다.")
+            self.quit()
+            return
+        self.root.after(1000, self._watch_handoff)
+
     def run(self) -> None:
+        if takeover.TOOK_OVER:
+            self.say(f"옛 판({takeover.TOOK_OVER})을 내리고 이 판({AGENT_VERSION})이 자리를 잡았습니다.")
+            # ★ 다른 폴더에 풀어 켰을 수 있습니다 — 자동 시작·바탕화면 아이콘을 이 자리로
+            if autostart_on():
+                set_autostart(True)
+            desk = desktop_link()
+            if desk.exists() and (link_target(desk) or "") != pythonw():
+                desk.unlink(missing_ok=True)
+            make_desktop_link()
+        self.root.after(1000, self._watch_handoff)
         self.root.mainloop()
         self.agent.stop.set()
 
