@@ -15,16 +15,20 @@
 //   그래서 **그날의 한국 날짜 00:00 UTC**(= 한국 아침 9시)로 적습니다 —
 //   언제 돌든 한국 날짜와 정산 달이 어긋나지 않습니다.
 //
-// ★ 자동으로 넘기는 것은 **제작·배송** 뿐입니다. 접수·디자인·제작대기는
-//   아직 만들지도 않은 것이라 시한이 지나도 완료가 아닙니다 — 늦은 것이지
+// ★ 자동으로 넘기는 것은 **제작대기·제작·배송** 입니다. 접수·재스캔·디자인은
+//   디자인도 안 끝난 것이라 시한이 지나도 완료가 아닙니다 — 늦은 것이지
 //   끝난 것이 아닙니다.
+// ★ 제작대기는 처음엔 뺐다가 **넣었습니다** (사용자 결정 2026-10-19). 디자인은 끝나
+//   기공소로 넘어간 건인데, 기공소가 '제작' 단추를 안 누른 채 만들어 보내는 일이
+//   잦아 시한이 지나도 제작대기에 그대로 남아 있었습니다. 시한이 지났으면 나간 것으로
+//   봅니다 — 정산도 그날로 잡힙니다.
 // =========================================================
 
 import type { OrderStatus } from '@/server/domain/order-status';
 import { todayInKst } from '@/server/domain/week';
 
 /** 자동 완료 대상이 되는 상태 */
-export const AUTO_COMPLETE_FROM: OrderStatus[] = ['production', 'shipping'];
+export const AUTO_COMPLETE_FROM: OrderStatus[] = ['production_wait', 'production', 'shipping'];
 
 /** 시계가 부르는 시각 — 03:00 KST. 몇 시에 돌든 적히는 시각은 stampFor 가 정합니다 */
 export const AUTO_COMPLETE_HOUR_KST = 3;

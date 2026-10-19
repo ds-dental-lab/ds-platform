@@ -1,7 +1,7 @@
 // =========================================================
 // 놓을 위치: src/server/repositories/auto-complete.ts
 //
-// 요청시한이 된 제작·배송 건을 '완료' 로 넘깁니다 (사용자 요청 2026-10-01).
+// 요청시한이 된 제작대기·제작·배송 건을 '완료' 로 넘깁니다 (사용자 요청 2026-10-01).
 // 새벽 3시(KST)에 DB 시계가 /api/jobs/auto-complete 를 부릅니다.
 //
 // ★ 배송 시각(shipped_at)이 비어 있으면 **그날(한국 날짜)로 채웁니다** — 정산이 그
@@ -45,7 +45,7 @@ export async function runAutoComplete(now: Date = new Date()): Promise<AutoCompl
   const rows = (data ?? []) as {
     id: string;
     order_no: string;
-    status: 'production' | 'shipping';
+    status: 'production_wait' | 'production' | 'shipping';
     due_date: string;
     shipped_at: string | null;
   }[];

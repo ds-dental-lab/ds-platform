@@ -10,14 +10,15 @@ import {
 import { periodOfDate, periodRange, isBillable } from '@/server/domain/billing';
 
 describe('자동 완료 대상', () => {
-  it('제작·배송만 넘깁니다', () => {
-    expect(AUTO_COMPLETE_FROM).toEqual(['production', 'shipping']);
+  it('제작대기·제작·배송을 넘깁니다 (제작대기는 2026-10-19 사용자 결정으로 추가)', () => {
+    expect(AUTO_COMPLETE_FROM).toEqual(['production_wait', 'production', 'shipping']);
+    expect(isAutoCompletable('production_wait')).toBe(true);
     expect(isAutoCompletable('production')).toBe(true);
     expect(isAutoCompletable('shipping')).toBe(true);
   });
 
-  it('아직 안 만든 단계는 시한이 지나도 완료가 아닙니다', () => {
-    for (const status of ['received', 'rescan', 'designing', 'production_wait'] as const) {
+  it('디자인이 안 끝난 단계는 시한이 지나도 완료가 아닙니다', () => {
+    for (const status of ['received', 'rescan', 'designing'] as const) {
       expect(isAutoCompletable(status)).toBe(false);
     }
   });
