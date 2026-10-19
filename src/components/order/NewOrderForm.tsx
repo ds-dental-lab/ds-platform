@@ -50,7 +50,13 @@ import {
   isBridgeable,
   buildAbbr,
 } from '@/server/domain/prosthesis';
-import { addPlacement, unpairedAutoTooth, type Placement } from '@/server/domain/duplicate';
+import {
+  AUTO_PARTNER_TYPES,
+  addPlacement,
+  teethNeedingCompanion,
+  unpairedAutoTooth,
+  type Placement,
+} from '@/server/domain/duplicate';
 import { lockedOrderType, ORDERABLE_TYPES } from '@/server/domain/order-type';
 import {
   EMPTY_SHADE,
@@ -263,6 +269,12 @@ function OrderFormBody({
 
   // ---------- 치식선택 ----------
   const [isPontic, setIsPontic] = useState(false);
+  /*
+    ★ 「FlowTemp 함께」 (사용자 요청 2026-10-19 — "치과에서 FlowTemp 같이 주문할 때 버튼").
+      켜 두면 크라운을 찍을 때 같은 치아에 FlowTemp 가 같이 올라갑니다. 보철선택에서
+      FlowTemp 를 따로 고르고 치아를 한 번 더 찍는 수고를 없앱니다.
+  */
+  const [withAuto, setWithAuto] = useState(false);
   const [entries, setEntries] = useState<Entry[]>(initial?.entries ?? []);
   // ★ 저장된 묶음에서 되읽은 값으로 시작합니다 (2026-10-12)
   const [severedKeys, setSeveredKeys] = useState<string[]>(initial?.severedKeys ?? []);
@@ -363,6 +375,10 @@ function OrderFormBody({
       찍기 전부터 막아야 '아날로그로 골라 놓고 FlowTemp 를 찍는' 순서가 안 생깁니다.
   */
   const autoOf = (code: string) => Boolean(prosthesisCatalog.find((t) => t.code === code)?.autoPipeline);
+  /** 자동 출력 제품(FlowTemp) — 치과 목록에 있을 때만. 없으면 「함께」 스위치도 없습니다 */
+  const autoProduct = prosthesisCatalog.find((t) => t.autoPipeline) ?? null;
+  /** 지금 찍는 조건이 FlowTemp 의 짝이 될 수 있는가 (크라운 · 폰틱 아님) */
+  const brushPairsWithAuto = Boolean(autoProduct) && AUTO_PARTNER_TYPES.includes(typeCode) && !isPontic;
   const lockedType = lockedOrderType([
     ...entries.map((e) => autoOf(e.typeCode)),
     autoOf(typeCode),
@@ -375,6 +391,7 @@ function OrderFormBody({
       ? `${SHADE_SYSTEMS.find((s) => s.code === shadeSystem)?.name ?? ''} ${formatShade(shade)}`
       : null,
     isPontic ? '폰틱' : null,
+    withAuto && brushPairsWithAuto ? `${autoProduct?.name ?? 'FlowTemp'} 함께` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -468,9 +485,48 @@ function OrderFormBody({
     return [...kept, ...rebuilt];
   }
 
+  const pairingItems = (list: Entry[]) =>
+    list.map((e) => ({
+      tooth: e.tooth,
+      typeCode: e.typeCode,
+      isPontic: Boolean(e.isPontic),
+      autoPipeline: autoOf(e.typeCode),
+    }));
+
+  /** 짝 크라운은 있는데 FlowTemp 가 없는 치아에 FlowTemp 를 얹은 새 목록 */
+  function withCompanions(list: Entry[], onlyTooth?: number): Entry[] {
+    if (!autoProduct) return list;
+    const material = getMaterials(prosthesisCatalog, autoProduct.code)[0]?.code ?? '';
+    const teeth = teethNeedingCompanion(pairingItems(list)).filter((t) => onlyTooth === undefined || t === onlyTooth);
+    if (teeth.length === 0) return list;
+    const added: Entry[] = teeth.map((tooth) => {
+      const crown = list.find((e) => e.tooth === tooth && !autoOf(e.typeCode))!;
+      return {
+        tooth,
+        typeCode: autoProduct.code,
+        materialCode: material,
+        isPontic: false,
+        shadeSystem: crown.shadeSystem,
+        shade: crown.shade,
+        implant: EMPTY_SELECTION,
+        hasGingival: false,
+      };
+    });
+    return [...list, ...added];
+  }
+
+  /** 스위치를 켜면 지금 찍힌 크라운들에 FlowTemp 를 얹고, 끄면 FlowTemp 만 뺍니다 */
+  function toggleWithAuto(on: boolean) {
+    setWithAuto(on);
+    setHint('');
+    setEntries(on ? withCompanions(entries) : entries.filter((e) => !autoOf(e.typeCode)));
+  }
+
   /** 치아 하나에 지금 조건대로 보철을 얹습니다 */
   function placeTooth(tooth: number, useSystem: string, useShade: ToothShade) {
-    const next = placedOn(entries, tooth, useSystem, useShade);
+    let next = placedOn(entries, tooth, useSystem, useShade);
+    // ★ 「FlowTemp 함께」 가 켜져 있고 방금 찍은 것이 짝 크라운이면 같은 치아에 FlowTemp 도
+    if (withAuto && brushPairsWithAuto) next = withCompanions(next, tooth);
     setEntries(next);
 
     /*
@@ -1241,6 +1297,15 @@ function OrderFormBody({
           </div>
 
           <div className="flex items-center gap-4">
+            {/* ★ FlowTemp 를 보는 치과에만 스위치가 섭니다. 크라운이 아닌 조건이면 잠깁니다 */}
+            {autoProduct ? (
+              <Toggle
+                on={withAuto}
+                disabled={!brushPairsWithAuto && !withAuto}
+                onChange={toggleWithAuto}
+                label={`${autoProduct.name} 함께`}
+              />
+            ) : null}
             <Toggle
               on={isPontic}
               disabled={!isBridgeable(prosthesisCatalog, typeCode, materialCode)}

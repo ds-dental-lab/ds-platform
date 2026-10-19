@@ -63,6 +63,24 @@ export function unpairedAutoTooth(items: PairingItem[]): number | null {
 }
 
 /**
+ * 「FlowTemp 함께」 스위치가 켜졌을 때 FlowTemp 를 **더 얹어야 할 치아들** (사용자 요청 2026-10-19).
+ *
+ * ★ 짝이 되는 최종 크라운(폰틱 아님)은 있는데 FlowTemp 가 아직 없는 치아입니다.
+ *   스위치는 "크라운 찍을 때 FlowTemp 도 같이" 라는 뜻이라, 짝 없는 치아에는 안 얹습니다 —
+ *   과금 1안(크라운과 함께만)을 스위치가 깨지 않게.
+ * ★ 차례는 치식 번호 순 — 어느 순서로 찍었든 같은 결과가 나오게.
+ */
+export function teethNeedingCompanion(items: PairingItem[]): number[] {
+  const teeth = new Set<number>();
+  for (const it of items) {
+    if (it.autoPipeline || it.isPontic || !AUTO_PARTNER_TYPES.includes(it.typeCode)) continue;
+    const has = items.some((o) => o.tooth === it.tooth && o.autoPipeline);
+    if (!has) teeth.add(it.tooth);
+  }
+  return [...teeth].sort((a, b) => a - b);
+}
+
+/**
  * 허용 조합 3종. (기능명세서 §4.2.7)
  *
  *   크라운 지르코니아          + 크라운 PMMA
