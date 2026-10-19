@@ -23,7 +23,7 @@ import time
 
 #: 내면 (inner-input-*) — 3D 프린팅 · 블록 아웃 켬
 INNER: dict[str, float] = {
-    "minimalThickness": 0.450,      # 최소 두께
+    "minimalThickness": 0.450,      # 최소 두께 — 0.8 과 뽑아 비교해 0.45 로 확정 (사용자 2026-10-19)
     "cementGap": 0.040,             # 시멘트 갭
     "adaptiveExtraGap": 0.000,      # 적응형 추가 간격
     "minimalCementGap": 0.000,      # 마진 씰 갭
