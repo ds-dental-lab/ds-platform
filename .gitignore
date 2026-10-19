@@ -52,6 +52,8 @@ scripts_*.mjs
 settings.json
 # 작업 도구 문지기 훅 설정은 저장소에 둡니다 (비밀 없음)
 !.claude/settings.json
+# claude.ai 업로드용 스킬 zip — 저장소엔 .claude/skills/denflow 만 둡니다
+tools/skill/dist/
 tools/exocad-launcher/settings.json
 tools/exocad-launcher/chrome-profile/
 tools/exocad-launcher/logs/

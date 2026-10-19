@@ -12,6 +12,19 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/tools/skill/build_denflow_skill.py\" --hook",
+            "timeout": 30,
+            "statusMessage": "DenFlow 스킬 기록 맞추기"
+          }
+        ]
+      }
     ]
   }
 }
