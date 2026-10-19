@@ -253,26 +253,24 @@ export interface StallAdvice {
 }
 
 export function stallAdvice(note: string | null | undefined): StallAdvice {
+  // ★ 짧게 — 책갈피 한 줄에 들어가야 합니다 (사용자 2026-10-19 "설명이 너무 길어")
   const n = (note ?? '').trim();
   if (/치식을 못 읽|프렙|지대치|깎은/.test(n)) {
-    return {
-      what: '스캔에서 깎은 치아를 찾지 못했습니다',
-      todo: '임플란트·무삭제 케이스면 FlowTemp 를 그만두고(✕), 크라운 프렙 스캔이면 주문 수정에서 스캔을 다시 올려 주세요',
-    };
+    return { what: '자연치가 아닙니다', todo: '임플란트는 추후 업데이트 됩니다' };
   }
   if (/건수|횟수|차감|credit/i.test(n)) {
-    return { what: '설계 서비스의 이번 달 건수가 모자랍니다', todo: '센터가 처리합니다 — 기다려 주세요' };
+    return { what: '이번 달 설계 건수를 다 썼습니다', todo: '센터가 처리합니다' };
   }
   if (/로그인|session|세션/i.test(n)) {
-    return { what: '설계 PC 점검 중입니다', todo: '센터가 처리합니다 — 기다려 주세요' };
+    return { what: '설계 PC 점검 중입니다', todo: '센터가 처리합니다' };
   }
   if (/올라오지|내보낸 뒤|배달|deliver/i.test(n)) {
-    return { what: '설계 파일이 서버에 올라오지 않았습니다', todo: '센터가 다시 겁니다 — 기다려 주세요' };
+    return { what: '설계 파일이 안 올라왔습니다', todo: '센터가 다시 겁니다' };
   }
   if (/시험|--no-export/.test(n)) {
-    return { what: '시험으로 돌린 건입니다', todo: '센터가 정리합니다' };
+    return { what: '시험 건입니다', todo: '센터가 정리합니다' };
   }
-  return { what: '디자인이 늦어지고 있습니다', todo: '센터가 보고 있습니다 — 늦어지면 연락드립니다' };
+  return { what: '디자인이 늦어집니다', todo: '센터가 보고 있습니다' };
 }
 
 export function canReprint(job: AutoJob): boolean {
@@ -658,7 +656,7 @@ export function boardRow(job: AutoJob, now: number = Date.now()): BoardRow {
     if (job.designStage === 'stalled') {
       // ★ 까닭과 할 일을 치과 말로 (2026-10-19 — "어떤 오류인지도 뭘 해야 할지도 안 알려준다")
       const a = stallAdvice(job.designNote);
-      return { ...base, tone: 'delay', status: '디자인 멈춤', detail: `${a.what} — ${a.todo}` };
+      return { ...base, tone: 'delay', status: '디자인 멈춤', detail: `${a.what}. ${a.todo}` };
     }
     return {
       ...base,

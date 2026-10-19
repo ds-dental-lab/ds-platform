@@ -402,6 +402,19 @@ export async function dismissJob(
     .update({ dismissed_at: new Date().toISOString(), dismissed_by: userId })
     .eq('id', row.id);
   if (error) return { ok: false, error: error.message };
+
+  /*
+    ★ 그만두면 **주문서에서도 FlowTemp 줄을 뺍니다** (사용자 2026-10-19 "그만두면 주문서에서 빼줘").
+      멈춘 것·실패한 것만 — 다 나온 것(done)은 치과가 받은 물건이라 줄을 남깁니다.
+      크라운 줄은 그대로입니다. 어떤 줄이 FlowTemp 인지는 제품 표의 auto_pipeline 이 말합니다.
+  */
+  if (row.step !== 'done') {
+    const { data: types } = await admin.from('prosthesis_types').select('code').eq('auto_pipeline', true);
+    const codes = (types ?? []).map((t: { code: string }) => t.code);
+    if (codes.length > 0) {
+      await admin.from('order_items').delete().eq('order_id', orderId).in('type_code', codes);
+    }
+  }
   return { ok: true };
 }
 
