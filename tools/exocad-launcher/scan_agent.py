@@ -73,7 +73,7 @@ SETTINGS = SETTINGS_DIR / "scan_agent.json"
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.5"
+AGENT_VERSION = "1.3.6"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -708,6 +708,11 @@ class App:
         tk.Label(title, text="덴플로우 에이전트", font=(F, 14, "bold"), bg=PAPER, fg=INK).pack(side="left")
         # ★ 판 번호를 보이게 둡니다 — 치과에 전화로 물을 때 읽어 주실 수 있게
         tk.Label(title, text=AGENT_VERSION, font=(F, 9), bg=PAPER, fg=FAINT).pack(side="left", padx=(7, 0), pady=(5, 0))
+        # ★ 늘 보이는 "새 판 확인" (사용자 요청 2026-10-19) — 판 확인은 6시간마다라, 설치 다니며
+        #   "지금 최신인가?" 를 바로 알 길이 없었습니다. 누르면 그 자리에서 물어봅니다.
+        chk = tk.Label(title, text="새 판 확인", font=(F, 9, "underline"), bg=PAPER, fg=BLUE, cursor="hand2")
+        chk.pack(side="left", padx=(10, 0), pady=(5, 0))
+        chk.bind("<Button-1>", lambda _e: threading.Thread(target=self.check_update_now, daemon=True).start())
         tk.Label(
             left, text="구강스캐너에서 내보내면 스캔이 덴플로우로 올라갑니다",
             font=(F, 9), bg=PAPER, fg=DIM,
@@ -763,6 +768,24 @@ class App:
             out["printer"] = {"kind": kind, "ip": cfg.get("printer_last_ip") or ""}
         return out
 
+    def _ask_server_for_update(self) -> tuple[bool, str] | None:
+        """서버에 판을 물어봅니다. (새 판 있나, 띠에 쓸 글) · 서버가 안 되면 None"""
+        got = post_json(
+            f"{SITE}/api/device/agent",
+            {"version": AGENT_VERSION},
+            self.agent.cfg.get("token"),
+        )
+        if not got.get("ok", True) and "latest" not in got:
+            return None
+        if not got.get("outdated"):
+            return False, ""
+        self.up_url = got.get("url") or SITE
+        note = (got.get("note") or "").strip()
+        text = f"새 판이 있습니다 — {got.get('latest')}"
+        if note:
+            text += f" · {note}"
+        return True, text
+
     def check_update(self) -> None:
         """
         판 번호를 물어봅니다.
@@ -770,24 +793,29 @@ class App:
         ★ 서버가 안 되거나 답이 이상해도 **조용히 넘어갑니다.** 판 확인
           때문에 에이전트가 안 뜨면 그게 더 큰일입니다.
         ★ 켤 때 한 번, 그 뒤 여섯 시간에 한 번. 치과 PC 는 며칠씩 켜 둡니다.
+          그 사이에 보고 싶으면 머리의 "새 판 확인" (check_update_now).
         """
         while True:
             try:
-                got = post_json(
-                    f"{SITE}/api/device/agent",
-                    {"version": AGENT_VERSION},
-                    self.agent.cfg.get("token"),
-                )
-                if got.get("outdated"):
-                    self.up_url = got.get("url") or SITE
-                    note = (got.get("note") or "").strip()
-                    text = f"새 판이 있습니다 — {got.get('latest')}"
-                    if note:
-                        text += f" · {note}"
-                    self.root.after(0, lambda t=text: self._show_update(t))
+                r = self._ask_server_for_update()
+                if r and r[0]:
+                    self.root.after(0, lambda t=r[1]: self._show_update(t))
             except Exception:  # noqa: BLE001 — 판 확인이 에이전트를 막지 않습니다
                 pass
             time.sleep(6 * 60 * 60)
+
+    def check_update_now(self) -> None:
+        """"새 판 확인" 을 눌렀을 때 — 결과를 **말로** 돌려줍니다 (최신이어도 조용하면 눌렀는지 모릅니다)"""
+        try:
+            r = self._ask_server_for_update()
+        except Exception:  # noqa: BLE001
+            r = None
+        if r is None:
+            self.root.after(0, lambda: self.say("판을 확인하지 못했습니다 — 인터넷이나 덴플로우 연결을 봐 주세요"))
+        elif r[0]:
+            self.root.after(0, lambda t=r[1]: self._show_update(t))
+        else:
+            self.root.after(0, lambda: self.say(f"지금 판({AGENT_VERSION})이 최신입니다."))
 
     def _show_update(self, text: str) -> None:
         self.up_text.config(text=text)
