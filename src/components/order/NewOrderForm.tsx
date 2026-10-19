@@ -525,8 +525,17 @@ function OrderFormBody({
   /** 치아 하나에 지금 조건대로 보철을 얹습니다 */
   function placeTooth(tooth: number, useSystem: string, useShade: ToothShade) {
     let next = placedOn(entries, tooth, useSystem, useShade);
-    // ★ 「FlowTemp 함께」 가 켜져 있고 방금 찍은 것이 짝 크라운이면 같은 치아에 FlowTemp 도
-    if (withAuto && brushPairsWithAuto) next = withCompanions(next, tooth);
+    if (withAuto && brushPairsWithAuto) {
+      // ★ 「FlowTemp 함께」 — 같이 올라간 만큼 같이 내려갑니다 (사용자 지적 2026-10-19).
+      //   크라운을 찍으면 같은 치아에 FlowTemp 도 얹고, 다시 눌러 크라운이 빠지면
+      //   FlowTemp 도 같이 뺍니다. 안 그러면 짝 없는 FlowTemp 가 혼자 남습니다.
+      const stillPaired = next.some(
+        (e) => e.tooth === tooth && !autoOf(e.typeCode) && !e.isPontic && AUTO_PARTNER_TYPES.includes(e.typeCode),
+      );
+      next = stillPaired
+        ? withCompanions(next, tooth)
+        : next.filter((e) => !(e.tooth === tooth && autoOf(e.typeCode)));
+    }
     setEntries(next);
 
     /*
