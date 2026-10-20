@@ -31,7 +31,7 @@ import {
 import { listNotices, type NoticeRow } from '@/server/repositories/notice';
 import { pickupStillListed, pickupWaiting } from '@/server/domain/pickup';
 import type { OrderStatus, Sector } from '@/server/domain/order-status';
-import type { IssueType } from '@/server/domain/order-list';
+import { inIssueFilter, pickIssue, type IssueType } from '@/server/domain/order-list';
 
 export interface HomeDelivery {
   id: string;
@@ -125,7 +125,7 @@ interface RawRow {
   designer_user_id: string | null;
   created_by: string | null;
   clinic: { name: string } | null;
-  order_issues: { issue_type: IssueType; resolved_at: string | null }[] | null;
+  order_issues: { issue_type: IssueType; opened_at: string; resolved_at: string | null }[] | null;
 }
 
 /** 완료·취소는 '진행중' 이 아닙니다 */
@@ -176,7 +176,7 @@ export async function getHomeSummary(): Promise<HomeSummary> {
     .select(
       'id, status, due_date, patient_label, designer_user_id, created_by, ' +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
-        'order_issues(issue_type, resolved_at)',
+        'order_issues(issue_type, opened_at, resolved_at)',
     )
     .is('deleted_at', null);
 
@@ -192,11 +192,20 @@ export async function getHomeSummary(): Promise<HomeSummary> {
 
     statusCounts[row.status] = (statusCounts[row.status] ?? 0) + 1;
 
-    // ★ 아직 안 풀린 이슈만 셉니다. 지나간 재스캔까지 세면
-    //   "지금 손봐야 할 것" 이 아니라 "여태 있었던 일" 이 됩니다.
-    for (const issue of row.order_issues ?? []) {
-      if (issue.resolved_at) continue;
-      issueCounts[issue.issue_type] = (issueCounts[issue.issue_type] ?? 0) + 1;
+    if (sector === 'design_center') {
+      // ★ 디자인센터는 주문관리 이슈 필터와 **같은 규칙**으로 셉니다 (사용자 2026-10-20).
+      //   재스캔·리메이크는 접수 상태일 때만 — HOME 숫자를 눌러 들어간 목록과 맞아야 합니다.
+      const issue = pickIssue(row.order_issues);
+      if (issue && inIssueFilter(issue, row.status, sector)) {
+        issueCounts[issue] = (issueCounts[issue] ?? 0) + 1;
+      }
+    } else {
+      // ★ 아직 안 풀린 이슈만 셉니다. 지나간 재스캔까지 세면
+      //   "지금 손봐야 할 것" 이 아니라 "여태 있었던 일" 이 됩니다.
+      for (const issue of row.order_issues ?? []) {
+        if (issue.resolved_at) continue;
+        issueCounts[issue.issue_type] = (issueCounts[issue.issue_type] ?? 0) + 1;
+      }
     }
 
     if (row.due_date === today) {

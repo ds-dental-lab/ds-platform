@@ -18,6 +18,7 @@ import { getSession } from '@/server/policies/session';
 import type { OrderStatus } from '@/server/domain/order-status';
 import {
   inIssueFilter,
+  pickIssue,
   type IssueType,
   type SortColumn,
   type ToothCell,
@@ -261,19 +262,6 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
     issueCounts,
     truncated,
   };
-}
-
-/**
- * 목록의 '이슈' 열에 무엇을 찍을지.
- * 아직 안 닫힌 것을 먼저 보고, 없으면 가장 최근 것을 보여줍니다.
- */
-function pickIssue(
-  issues: { issue_type: IssueType; opened_at: string; resolved_at: string | null }[] | null,
-): IssueType | null {
-  if (!issues || issues.length === 0) return null;
-
-  const sorted = [...issues].sort((a, b) => b.opened_at.localeCompare(a.opened_at));
-  return (sorted.find((i) => !i.resolved_at) ?? sorted[0]).issue_type;
 }
 
 /** 상태는 이름이 아니라 진행 순서로 세웁니다 */

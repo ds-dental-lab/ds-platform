@@ -80,6 +80,20 @@ export const ISSUE_META: Record<IssueType, { label: string; bg: string; fg: stri
 export const ISSUE_ORDER: IssueType[] = ['rescan', 'remake', 'repair', 'analog'];
 
 /**
+ * 한 주문의 대표 이슈 — 목록의 이슈 칸과 이슈 필터가 이것을 봅니다.
+ * 아직 안 닫힌 것을 먼저 보고, 없으면 가장 최근 것입니다.
+ * ★ HOME 도 디자인센터에서는 이것으로 셉니다 (2026-10-20) — 두 화면 숫자가 같아야
+ *   HOME 숫자를 눌러 들어간 주문관리가 같은 건을 보여 줍니다.
+ */
+export function pickIssue(
+  issues: readonly { issue_type: IssueType; opened_at: string; resolved_at: string | null }[] | null,
+): IssueType | null {
+  if (!issues || issues.length === 0) return null;
+  const sorted = [...issues].sort((a, b) => b.opened_at.localeCompare(a.opened_at));
+  return (sorted.find((i) => !i.resolved_at) ?? sorted[0]).issue_type;
+}
+
+/**
  * 주문관리 오른쪽 이슈 필터(아이콘 숫자·거르기)에 이 주문을 넣는가.
  *
  * ★ 디자인센터에서 재스캔·리메이크는 **접수 상태일 때만** 잡습니다

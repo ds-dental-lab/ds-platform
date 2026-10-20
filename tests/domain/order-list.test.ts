@@ -16,6 +16,7 @@ import {
   SECTOR_COLOR,
   LIST_STATUSES,
   inIssueFilter,
+  pickIssue,
 } from '@/server/domain/order-list';
 
 describe('D-Day', () => {
@@ -271,5 +272,19 @@ describe('이슈 필터 — 센터의 재스캔·리메이크는 접수일 때�
   });
   it('이슈가 없으면 안 잡힘', () => {
     expect(inIssueFilter(null, 'received', 'design_center')).toBe(false);
+  });
+});
+
+describe('대표 이슈 — 목록·HOME 이 같이 씀', () => {
+  it('안 닫힌 것이 먼저, 없으면 가장 최근 것', () => {
+    expect(pickIssue(null)).toBe(null);
+    expect(pickIssue([
+      { issue_type: 'remake', opened_at: '2026-10-01', resolved_at: null },
+      { issue_type: 'rescan', opened_at: '2026-10-05', resolved_at: '2026-10-06' },
+    ])).toBe('remake');
+    expect(pickIssue([
+      { issue_type: 'repair', opened_at: '2026-10-01', resolved_at: '2026-10-02' },
+      { issue_type: 'rescan', opened_at: '2026-10-05', resolved_at: '2026-10-06' },
+    ])).toBe('rescan');
   });
 });
