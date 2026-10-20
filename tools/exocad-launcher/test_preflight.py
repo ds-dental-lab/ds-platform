@@ -54,6 +54,40 @@ class PreflightTest(unittest.TestCase):
         (self.appdata / "DenFlow" / "design_agent.json").write_text("{}", encoding="utf-8")
         self.assertIn("설계 열쇠(design_agent.json)", self.check())
 
+    def test_server_role_needs_only_its_two(self):
+        # ★ 서버 PC (2026-10-20): 설계 일꾼·임시치아만 맡음 — exocad vbs·런처 설정은 안 물음
+        self._all_ready()
+        (self.appdata / "DenFlow" / "watchers.json").write_text(
+            json.dumps({"installed": ["덴플로우 임시치아 지켜보기.vbs", "덴플로우 설계 일꾼.vbs"]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (self.appdata / "DenFlow" / "launcher" / "config.json").unlink()
+        s = self.appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+        (s / "덴플로우 exocad 지켜보기.vbs").unlink()
+        self.assertEqual(self.check(), [])
+        self.assertEqual(watch_common.expected_scripts(self.appdata), ["temp_watch", "design_worker"])
+
+    def test_server_role_still_misses_its_own(self):
+        self._all_ready()
+        (self.appdata / "DenFlow" / "watchers.json").write_text(
+            json.dumps({"installed": ["덴플로우 설계 일꾼.vbs"]}, ensure_ascii=False), encoding="utf-8")
+        s = self.appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+        (s / "덴플로우 설계 일꾼.vbs").unlink()
+        self.assertEqual(self.check(), ["시작프로그램 덴플로우 설계 일꾼.vbs"])
+
+    def test_broken_list_falls_back_to_all(self):
+        self._all_ready()
+        (self.appdata / "DenFlow" / "watchers.json").write_text("{bad", encoding="utf-8")
+        self.assertEqual(self.check(), [])
+        self.assertEqual(len(watch_common.expected_watchers(self.appdata)), 3)
+
+    def test_only_picks_known_scripts(self):
+        self.assertEqual(set(install_watch._chosen(["x", "--only", "design_worker", "temp_watch"]).values()),
+                         {"design_worker.py", "temp_watch.py"})
+        self.assertEqual(len(install_watch._chosen(["x"])), 3)
+        with self.assertRaises(SystemExit):
+            install_watch._chosen(["x", "--only", "nope"])
+
     def test_vbs_names_match_installer(self):
         self.assertEqual(set(watch_common.STARTUP_VBS), set(install_watch.WATCHERS))
 

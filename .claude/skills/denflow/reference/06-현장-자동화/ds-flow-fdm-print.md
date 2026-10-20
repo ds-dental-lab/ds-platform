@@ -172,3 +172,9 @@ layer_height 를 0.12(실수)로 넣고 0.2mm 로 잘린 적이 있습니다.
 - 설치: 크롬, OrcaSlicer 2.4.2(한 번 실행), Python 3.13 + selenium·numpy·pillow, tools/exocad-launcher, link_design.py, dentbird_web 로그인, install_watch(exocad 지켜보기는 빼고), 시험 주문 → 재부팅 확인.
 - 미니 PC 사양을 받으면 맞는지 봐 주기로 함.
 - **확정(사용자 2026-10-19): 지금 이 PC(DESKTOP-9J707DH)는 디자인 PC로 쓰고, 다른 PC를 항상 켜 두는 서버로 둠.** 그러니 설계 일꾼·임시치아 지켜보기·덴트버드 크롬·설계 PC 열쇠는 그 PC로 옮기고, 이 PC에는 exocad 지켜보기만 남겨야 함. 이 PC의 시작프로그램 vbs 셋 중 둘(임시치아·설계 일꾼)은 그때 빼야 함 — preflight(STARTUP_VBS)도 역할별로 갈라야 함(지금은 셋 다 있어야 정상으로 봄). 기기 상태판엔 '설계 PC' 하나로 뜨므로 서버 PC 등록 시 이름 구분 필요.
+
+## 서버 PC 이관 준비 (2026-10-20)
+- 역할 나눔: **디자인 PC** = exocad·exocad_watch·Claude·치ㅣ 에이전트(프린터) / **서버 PC**(i7-8700·B360M·24GB) = design_worker·temp_watch·덴트버드 크롬·오르카.
+- `install_watch.py --only <이름들>` 로 맡을 것을 고르고 `%APPDATA%\DenFlow\watchers.json` 에 적음. `watch_common.expected_watchers/expected_scripts` 가 그것을 읽어 preflight 와 _health.watchers 가 **맡은 것만** 봄(서버에 exocad 없다고 경고 안 함). 파일 없으면 셋 다(예전 그대로).
+- 서버 PC 설치: `tools/exocad-launcher/setup_server.cmd`(winget: Git·Python3.13·Chrome·Orca → C:\DenFlow\ds-platform clone → pip) → `setup_server.py`(오르카 첫 실행·설계 PC 연결 코드·덴트버드 크롬 로그인+다운로드 허용·시작프로그램 둘·점검). 안내문 `SERVER-PC.md`.
+- 서버가 뜬 뒤 디자인 PC 에서 `install_watch.py --off --only design_worker temp_watch` + pythonw 끝내기 (사용자 손 — 문지기 훅이 내가 못 하게 막음).

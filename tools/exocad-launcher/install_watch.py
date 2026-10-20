@@ -89,8 +89,46 @@ def vbs_for(python, script, crash) -> str:
     return chr(10).join(lines) + chr(10)
 
 
+def _chosen(argv: list[str]) -> dict[str, str]:
+    """--only exocad_watch temp_watch ... 로 고른 것만. 없으면 셋 다.
+
+    ★ 2026-10-20 — 서버 PC 는 `--only design_worker temp_watch`, 디자인 PC 는
+      `--only exocad_watch` 로 나눕니다. 두 PC 가 같은 일을 맡으면 한 건을 둘이 집습니다.
+    """
+    if "--only" not in argv:
+        return dict(WATCHERS)
+    names = argv[argv.index("--only") + 1:]
+    names = [n for n in names if not n.startswith("--")]
+    picked = {vbs: script for vbs, script in WATCHERS.items() if Path(script).stem in names}
+    unknown = set(names) - {Path(s).stem for s in WATCHERS.values()}
+    if unknown or not picked:
+        raise SystemExit(f"--only 뒤에는 이 중에서: {', '.join(Path(s).stem for s in WATCHERS.values())}")
+    return picked
+
+
+def _remember(installed_now: list[str], removed_now: list[str]) -> None:
+    """이 PC 가 맡은 지켜보기 목록을 적습니다 — 자기점검(preflight)이 이것을 봅니다."""
+    import json
+    from watch_common import watchers_file  # noqa: PLC0415
+
+    f = watchers_file()
+    try:
+        have = json.loads(f.read_text(encoding="utf-8")).get("installed") or []
+    except (OSError, ValueError):
+        have = []
+    have = [n for n in have if n in WATCHERS]
+    for n in installed_now:
+        if n not in have:
+            have.append(n)
+    have = [n for n in have if n not in removed_now]
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps({"installed": have}, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"이 PC 가 맡은 것: {', '.join(Path(WATCHERS[n]).stem for n in have) or '없음'}")
+
+
 def main() -> int:
     off = "--off" in sys.argv
+    chosen = _chosen(sys.argv)
 
     python = Path(sys.executable)
     if python.name.lower() == "pythonw.exe":
@@ -98,8 +136,10 @@ def main() -> int:
 
     STARTUP.mkdir(parents=True, exist_ok=True)
 
-    for name, script in WATCHERS.items():
+    done: list[str] = []
+    for name, script in chosen.items():
         target = STARTUP / name
+        done.append(name)
 
         if off:
             if target.exists():
@@ -117,6 +157,7 @@ def main() -> int:
         )
         print(f"넣었습니다: {target}")
 
+    _remember([] if off else done, done if off else [])
     if off:
         print("★ 이미 돌고 있는 것은 작업 관리자에서 python.exe 를 끝내 주세요")
         return 0

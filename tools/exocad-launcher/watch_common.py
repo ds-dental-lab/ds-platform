@@ -179,6 +179,38 @@ def ensure_design_key(who: str) -> None:
 
 #: 시작프로그램에 있어야 할 것 (install_watch.WATCHERS 와 같게 — 시험이 맞춰 봅니다)
 STARTUP_VBS = ("덴플로우 exocad 지켜보기.vbs", "덴플로우 임시치아 지켜보기.vbs", "덴플로우 설계 일꾼.vbs")
+#: vbs 이름 → 스크립트 이름
+WATCHER_OF = {
+    "덴플로우 exocad 지켜보기.vbs": "exocad_watch",
+    "덴플로우 임시치아 지켜보기.vbs": "temp_watch",
+    "덴플로우 설계 일꾼.vbs": "design_worker",
+}
+
+
+def watchers_file(appdata: Path | None = None) -> Path:
+    """이 PC 가 맡은 지켜보기 목록 — install_watch 가 적습니다 (2026-10-20)."""
+    appdata = appdata or Path(os.environ.get("APPDATA", Path.home()))
+    return appdata / "DenFlow" / "watchers.json"
+
+
+def expected_watchers(appdata: Path | None = None) -> list[str]:
+    """이 PC 에 있어야 할 vbs 이름들.
+
+    ★ 왜 (2026-10-20) — 서버 PC 는 설계 일꾼·임시치아만 맡고 exocad 지켜보기는 디자인
+      PC 에 남습니다. 목록 파일이 없으면 예전처럼 셋 다 있어야 하는 것으로 봅니다.
+    """
+    import json as _json
+    try:
+        got = _json.loads(watchers_file(appdata).read_text(encoding="utf-8")).get("installed")
+        if isinstance(got, list):
+            return [n for n in STARTUP_VBS if n in got]
+    except (OSError, ValueError):
+        pass
+    return list(STARTUP_VBS)
+
+
+def expected_scripts(appdata: Path | None = None) -> list[str]:
+    return [WATCHER_OF[n] for n in expected_watchers(appdata)]
 
 
 def preflight(appdata: Path | None = None, home: Path | None = None) -> list[str]:
@@ -200,12 +232,14 @@ def preflight(appdata: Path | None = None, home: Path | None = None) -> list[str
             missing.append("설계 열쇠(design_agent.json)")
     except (OSError, ValueError):
         missing.append("설계 열쇠(design_agent.json)")
-    if not (appdata / "DenFlow" / "launcher" / "config.json").is_file():
+    expected = expected_watchers(appdata)
+    # ★ 런처 설정은 exocad 를 맡은 PC 에서만 필요합니다 (서버 PC 에는 exocad 가 없음)
+    if "덴플로우 exocad 지켜보기.vbs" in expected and not (appdata / "DenFlow" / "launcher" / "config.json").is_file():
         missing.append("런처 설정(config.json) — exocad 가 안 열립니다")
     if not (home / "AppData" / "Roaming" / "OrcaSlicer" / "OrcaSlicer.conf").is_file():
         missing.append("오르카 설정 — 오르카를 한 번 켜야 합니다")
     startup = appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
-    for name in STARTUP_VBS:
+    for name in expected:
         if not (startup / name).is_file():
             missing.append(f"시작프로그램 {name}")
     return missing

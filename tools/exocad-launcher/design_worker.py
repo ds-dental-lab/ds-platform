@@ -220,7 +220,7 @@ def _health() -> dict:
         dentbird += " · 못 쓰는 상태(쉬는 중)"
     # ★ 빠진 것이 **바뀔 때만** 오류로 남깁니다 — 1분마다 같은 말이 쌓이지 않게
     global _missing_seen
-    from watch_common import preflight  # noqa: PLC0415
+    from watch_common import preflight, expected_scripts as _expected_scripts  # noqa: PLC0415
     missing = preflight()
     if missing and missing != _missing_seen and _heart is not None:
         _heart.report("설계 PC 에 빠진 것: " + ", ".join(missing))
@@ -229,7 +229,8 @@ def _health() -> dict:
         "kind": "design",
         "missing": missing,
         "dentbird": dentbird,
-        "watchers": {n: min(_age(n), 999999) for n in ("exocad_watch", "temp_watch")},
+        # ★ 이 PC 가 맡은 것만 — 서버 PC 에는 exocad 지켜보기가 없습니다 (2026-10-20)
+        "watchers": {n: min(_age(n), 999999) for n in _expected_scripts() if n != "design_worker"},
         "doing": _doing,
     }
 
