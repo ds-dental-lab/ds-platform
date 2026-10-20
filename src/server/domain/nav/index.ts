@@ -79,7 +79,13 @@ export const NAV: Record<Sector, NavItem[]> = {
   design_center: [
     { label: 'HOME', href: '/design', icon: 'home' },
     { label: '주문등록', href: '/design/orders/new', icon: 'new' },
-    { label: '주문목록', href: '/design/orders', icon: 'list' },
+    /*
+      ★ 센터의 주문목록은 **접수 필터가 켜진 채** 열립니다 (사용자 요청 2026-10-20).
+        센터가 목록을 여는 까닭은 거의 늘 "새로 들어온 것" 입니다. 접수 아이콘을
+        한 번 더 누르면 꺼져 전체가 됩니다 (OrderQuickFilters 의 토글 규칙).
+        활성 메뉴 판별은 물음표 앞까지만 봅니다 (SectorShell).
+    */
+    { label: '주문목록', href: '/design/orders?status=received', icon: 'list' },
     { label: '배송조회', href: '/design/deliveries', icon: 'delivery' },
     /* 신터링 뒤 크라운을 가리는 종이 (2026-09-28) — 디자인 미리보기 하루치 */
     { label: '크라운 찾기', href: '/design/previews', icon: 'product' },

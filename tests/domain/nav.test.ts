@@ -157,3 +157,13 @@ describe('★ 감춘 메뉴에는 문이 달려 있어야 합니다', () => {
     ]);
   });
 });
+
+describe('센터 주문목록 메뉴 — 접수 필터가 켜진 채 열림 (사용자 2026-10-20)', () => {
+  it('주소에 status=received 가 붙어 있다', () => {
+    const item = NAV.design_center.find((i) => i.label === '주문목록');
+    expect(item?.href).toBe('/design/orders?status=received');
+  });
+  it('치과·기공소 주문목록은 그대로', () => {
+    expect(NAV.clinic.find((i) => i.label === '주문목록')?.href).toBe('/clinic/orders');
+  });
+});

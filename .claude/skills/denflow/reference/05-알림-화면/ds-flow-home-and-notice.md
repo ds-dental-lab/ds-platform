@@ -106,3 +106,6 @@ fillDeliveryDetails, 플레이그라운드 검증까지 끝난 상태).
 
 ## 작업 리스트(디자인센터) 범위 (2026-10-19)
 - 10/12 "넘긴 뒤도 보이게" → 기공소가 며칠째 만드는 것까지 49줄이 올라옴 → 사용자 지적. **넘긴 줄은 넘긴 그날(KST)만**, 디자인 중인 줄은 날짜 무관(`worklist.keepsAfterHandoff`). 넘긴 날은 order_status_history(to=production_wait) 마지막 줄. 이력 없으면 뺌.
+
+## 센터 사이드바 '주문목록' 은 접수 필터가 켜진 채 열림 (사용자 2026-10-20)
+`domain/nav` 의 design_center 주문목록 href = `/design/orders?status=received`. 접수 아이콘을 다시 누르면 꺼져 전체. SectorShell 의 켜짐 판별은 물음표 앞 경로만 봄. 치과·기공소는 그대로.

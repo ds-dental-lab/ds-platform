@@ -202,11 +202,13 @@ export default function SectorShell({
    *   나머지는 '앞이 같은 것 중 가장 긴 것' 이 이깁니다.
    */
 
+  // ★ 메뉴 주소에 물음표(기본 필터)가 붙어 있어도 켜짐 판별은 경로만 봅니다 (2026-10-20)
+  const pathOf = (href: string) => href.split('?')[0];
   const activeHref = items
     .map((item) => item.href)
     .filter((href): href is string => Boolean(href))
-    .filter((href) => (href === root ? pathname === href : pathname.startsWith(href)))
-    .sort((a, b) => b.length - a.length)[0];
+    .filter((href) => (pathOf(href) === root ? pathname === root : pathname.startsWith(pathOf(href))))
+    .sort((a, b) => pathOf(b).length - pathOf(a).length)[0];
 
   async function handleLogout() {
     const supabase = createClient();
