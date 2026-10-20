@@ -98,16 +98,14 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       드문 경우이고, 그때 조금 헛도는 편이 **매번 한 왕복을 더 기다리는
       것보다 낫습니다.**
   */
-  const repair = await getRepairContext(order);
+  // ★ 자동 템포러리 진행 줄(auto)도 같이 — 따로 기다리던 왕복 하나를 뺌 (2026-10-20)
+  const [repair, auto] = await Promise.all([getRepairContext(order), getAutoView(order.id)]);
 
   const progress = orderProgress({
     status: order.status,
     isRepair: order.is_repair,
     pickups,
   });
-
-  // 자동 템포러리로 들어온 건이면 진행 줄이 붙습니다 (아니면 null)
-  const auto = await getAutoView(order.id);
 
   return (
     <OrderDetailScreen

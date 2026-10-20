@@ -10,7 +10,7 @@
 // =========================================================
 
 import PreviewPeek from '@/components/order/PreviewPeek';
-import Link from 'next/link';
+import NavLink from '@/components/layout/NavLink';
 import {
   computeDDay,
   formatToothList,
@@ -128,7 +128,7 @@ export default function OrderTable({
                       기능이 있어도 없는 것과 같았습니다.
                   */}
                   {sortable ? (
-                    <Link
+                    <NavLink
                       href={sortHref(c.key)}
                       title={`${c.label} 순서로 정렬`}
                       className={
@@ -149,7 +149,7 @@ export default function OrderTable({
                           ▲▼
                         </span>
                       )}
-                    </Link>
+                    </NavLink>
                   ) : (
                     c.label
                   )}

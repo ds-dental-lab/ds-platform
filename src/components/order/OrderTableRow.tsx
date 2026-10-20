@@ -12,6 +12,7 @@
 
 'use client';
 
+import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 /*
   ★ Next 16 의 router.prefetch 는 기본이 'auto'(뼈대만)라 내용까지 받으려면
@@ -29,10 +30,18 @@ export interface OrderTableRowProps {
 
 export default function OrderTableRow({ href, label, children }: OrderTableRowProps) {
   const router = useRouter();
+  /*
+    ★ 누른 줄은 상세가 올 때까지 파랗게 남습니다 (사용자 2026-10-20 —
+      "버튼 반응속도가 느려보여"). 상세는 운영 실측 0.4~0.9초 뒤에 뜨는데,
+      그동안 아무 표시가 없어 두 번 누르는 일이 생깁니다.
+  */
+  const [pending, startTransition] = useTransition();
+  const go = () => startTransition(() => router.push(href));
 
   return (
     <tr
-      onClick={() => router.push(href)}
+      onClick={go}
+      aria-busy={pending}
       /*
         ★ 줄에 마우스를 올리면 상세를 미리 받습니다 (2026-09-06 — "주문상세
           누를 때 느리다"). 줄을 훑다가 누르기까지의 틈에 내용이 옵니다.
@@ -43,13 +52,16 @@ export default function OrderTableRow({ href, label, children }: OrderTableRowPr
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          router.push(href);
+          go();
         }
       }}
       tabIndex={0}
       role="link"
       aria-label={label}
-      className="cursor-pointer border-b border-gray-100 transition-colors last:border-0 hover:bg-[#FAFBFD] focus-visible:bg-[#FAFBFD] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+      className={
+        'border-b border-gray-100 transition-colors last:border-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ' +
+        (pending ? 'cursor-progress bg-[#EDF3FE]' : 'cursor-pointer hover:bg-[#FAFBFD] focus-visible:bg-[#FAFBFD]')
+      }
     >
       {children}
     </tr>

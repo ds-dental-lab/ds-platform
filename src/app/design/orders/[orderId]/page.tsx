@@ -116,7 +116,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
     ★ 리메이크가 아니면 사유를 묻지도 않습니다 (2026-08-14).
       원주문에는 적을 사유가 없습니다.
   */
-  const [repair, reasons, money, seats, fitCard, exocadLast] = await Promise.all([
+  const [repair, reasons, money, seats, fitCard, exocadLast, auto] = await Promise.all([
     getRepairContext(order),
     order.is_remake
       ? getOrderReasons(orderId)
@@ -138,6 +138,8 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
     getFitCard(order.clinic_org_id),
     // ★ exocad 로 보낸 마지막 기록 (2026-09-09) — 런처가 안 뜬 것을 알아채는 단서
     getLastExocadExport(order.id),
+    // ★ 자동 템포러리 진행 줄 — 따로 기다리던 왕복 하나를 여기에 태움 (2026-10-20)
+    getAutoView(order.id),
   ]);
 
   const mySeat = checkSeat(seat, viewer);
@@ -191,9 +193,6 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
   // 수거 줄과 스패너가 같은 자리에 섭니다. 둘 다 없으면 자리도 안 냅니다
   const showPickup = pickups.length > 0;
   const hasExtra = showPickup || Boolean(money);
-
-  // 자동 템포러리로 들어온 건이면 진행 줄이 붙습니다 (아니면 null)
-  const auto = await getAutoView(order.id);
 
   return (
     <OrderDetailScreen

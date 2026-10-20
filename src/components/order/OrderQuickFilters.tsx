@@ -21,7 +21,7 @@
 //   고르고 끄는 규칙은 domain/order-list 에 있습니다(테스트로 잠금).
 // =========================================================
 
-import Link from 'next/link';
+import NavLink from '@/components/layout/NavLink';
 import { STATUS_LABEL, type OrderStatus } from '@/server/domain/order-status';
 import {
   statusesForSector,
@@ -212,12 +212,12 @@ function IconButton({
   const faded = count === 0 && !active;
 
   return (
-    <Link
+    <NavLink
       href={href}
       title={title}
-      aria-pressed={active}
+      pressed={active}
       className={
-        'relative flex min-w-[68px] flex-col items-center gap-1.5 rounded-lg px-1 pb-1 pt-1.5 transition-colors ' +
+        'flex min-w-[68px] flex-col items-center gap-1.5 rounded-lg px-1 pb-1 pt-1.5 transition-colors ' +
         (active ? 'bg-[#EDF3FE]' : 'hover:bg-[#F4F6F9]')
       }
     >
@@ -255,6 +255,6 @@ function IconButton({
           {count > 999 ? '999+' : count}
         </span>
       )}
-    </Link>
+    </NavLink>
   );
 }
