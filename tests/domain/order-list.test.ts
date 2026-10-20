@@ -15,6 +15,7 @@ import {
   isSortable,
   SECTOR_COLOR,
   LIST_STATUSES,
+  inIssueFilter,
 } from '@/server/domain/order-list';
 
 describe('D-Day', () => {
@@ -246,5 +247,29 @@ describe('리메이크 표기', () => {
     const cell = formatRemakeCell({ isRemake: true, remakeSeq: 1, remakeCount: 1 });
     expect(cell.text).toBe('1');
     expect(cell.isSelf).toBe(true);
+  });
+});
+
+describe('이슈 필터 — 센터의 재스캔·리메이크는 접수일 때만 (사용자 2026-10-20)', () => {
+  it('센터: 리메이크는 접수일 때만 잡힘', () => {
+    expect(inIssueFilter('remake', 'received', 'design_center')).toBe(true);
+    expect(inIssueFilter('remake', 'designing', 'design_center')).toBe(false);
+    expect(inIssueFilter('remake', 'completed', 'design_center')).toBe(false);
+  });
+  it('센터: 재스캔도 접수일 때만 — 재스캔 대기 중은 왼쪽 상태 단추 몫', () => {
+    expect(inIssueFilter('rescan', 'received', 'design_center')).toBe(true);
+    expect(inIssueFilter('rescan', 'rescan', 'design_center')).toBe(false);
+    expect(inIssueFilter('rescan', 'production_wait', 'design_center')).toBe(false);
+  });
+  it('센터: 리페어·아날로그는 그대로', () => {
+    expect(inIssueFilter('repair', 'completed', 'design_center')).toBe(true);
+    expect(inIssueFilter('analog', 'designing', 'design_center')).toBe(true);
+  });
+  it('치과·기공소는 예전 그대로', () => {
+    expect(inIssueFilter('remake', 'completed', 'clinic')).toBe(true);
+    expect(inIssueFilter('rescan', 'designing', 'lab')).toBe(true);
+  });
+  it('이슈가 없으면 안 잡힘', () => {
+    expect(inIssueFilter(null, 'received', 'design_center')).toBe(false);
   });
 });

@@ -79,6 +79,28 @@ export const ISSUE_META: Record<IssueType, { label: string; bg: string; fg: stri
 
 export const ISSUE_ORDER: IssueType[] = ['rescan', 'remake', 'repair', 'analog'];
 
+/**
+ * 주문관리 오른쪽 이슈 필터(아이콘 숫자·거르기)에 이 주문을 넣는가.
+ *
+ * ★ 디자인센터에서 재스캔·리메이크는 **접수 상태일 때만** 잡습니다
+ *   (사용자 요청 2026-10-20 — "접수상태와 리메이크가 있을때만 보이게").
+ *   이 필터는 '새로 받아 손대야 할 재스캔·리메이크' 를 찾는 단추입니다.
+ *   디자인에 들어가거나 완료된 건까지 세면 숫자가 줄지 않고 쌓이기만 합니다.
+ *   재스캔을 기다리는 중(상태 '재스캔')은 왼쪽 상태 단추가 이미 보여 줍니다.
+ * ★ 목록의 이슈 칸(줄마다 붙는 표시)은 그대로 둡니다 — 이력이라 지워지면 안 됩니다.
+ * ★ 치과·기공소 화면과 리페어·아날로그는 예전 그대로입니다 (요청 범위 밖).
+ */
+export function inIssueFilter(
+  issue: IssueType | null,
+  status: OrderStatus,
+  sector: 'clinic' | 'design_center' | 'lab' | null | undefined,
+): boolean {
+  if (!issue) return false;
+  if (sector !== 'design_center') return true;
+  if (issue === 'rescan' || issue === 'remake') return status === 'received';
+  return true;
+}
+
 // ---------- D-Day ----------
 
 export interface DDay {

@@ -17,6 +17,7 @@ import { recordAccess } from '@/server/audit';
 import { getSession } from '@/server/policies/session';
 import type { OrderStatus } from '@/server/domain/order-status';
 import {
+  inIssueFilter,
   type IssueType,
   type SortColumn,
   type ToothCell,
@@ -188,7 +189,10 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
 
   for (const row of rows) {
     statusCounts[row.status] = (statusCounts[row.status] ?? 0) + 1;
-    if (row.issue) issueCounts[row.issue] = (issueCounts[row.issue] ?? 0) + 1;
+    // ★ 센터의 재스캔·리메이크는 접수 상태만 셉니다 (domain/order-list 의 inIssueFilter)
+    if (row.issue && inIssueFilter(row.issue, row.status, session?.orgType)) {
+      issueCounts[row.issue] = (issueCounts[row.issue] ?? 0) + 1;
+    }
   }
 
   // ---------- 상태 · 이슈 좁히기 ----------
@@ -201,7 +205,11 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
   const issues = query.issues ?? [];
 
   if (statuses.length > 0) rows = rows.filter((r) => statuses.includes(r.status));
-  if (issues.length > 0) rows = rows.filter((r) => r.issue !== null && issues.includes(r.issue));
+  if (issues.length > 0) {
+    rows = rows.filter(
+      (r) => r.issue !== null && issues.includes(r.issue) && inIssueFilter(r.issue, r.status, session?.orgType),
+    );
+  }
 
   // ---------- 정렬 ----------
   const sort = query.sort ?? 'received_at';
