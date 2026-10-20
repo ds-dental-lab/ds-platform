@@ -207,6 +207,16 @@ export function isExocadResultStatus(v: unknown): v is ExocadResultStatus {
  */
 export const EXOCAD_CLAIM_MINUTES = 10;
 
+/**
+ * 누른 지 이만큼 지나야 지켜보기가 집어 갑니다 (2026-10-20).
+ *
+ * ★★ 브라우저 링크(denflow://)와 exocad 지켜보기가 **같은 PC** 에서 돌면 한 건을
+ *   둘 다 띄웠습니다 — 0.5초 차이로 런처가 두 번 뜨고 exocad 환자가 둘씩 생겼습니다
+ *   (10/20 유선조·문상규·장양현). 링크 쪽이 먼저 받아 가면(fetchedAt) 지켜보기는
+ *   볼 일이 없습니다. 브라우저가 없는 서버 PC 에서는 이 몇 초 뒤에 지켜보기가 엽니다.
+ */
+export const EXOCAD_CLAIM_DELAY_SECONDS = 8;
+
 export interface PendingExport {
   orderId: string;
   requestedAt: string;
@@ -222,9 +232,11 @@ export interface PendingExport {
  */
 export function nextExport(rows: PendingExport[], now: Date = new Date()): PendingExport | null {
   const floor = now.getTime() - EXOCAD_CLAIM_MINUTES * 60_000;
+  // ★ 방금 누른 것은 아직 안 줍니다 — 브라우저 링크가 먼저 열 틈 (EXOCAD_CLAIM_DELAY_SECONDS)
+  const ceiling = now.getTime() - EXOCAD_CLAIM_DELAY_SECONDS * 1000;
 
   const waiting = rows
-    .filter((r) => !r.fetchedAt && Date.parse(r.requestedAt) >= floor)
+    .filter((r) => !r.fetchedAt && Date.parse(r.requestedAt) >= floor && Date.parse(r.requestedAt) <= ceiling)
     .sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
 
   return waiting[0] ?? null;

@@ -772,6 +772,25 @@ class Job:
 
 # ---------- 시작 ----------
 
+#: 같은 주문의 두 번째 실행이 물러나는 시간. 한 실행이 보통 2~10초, dxd 변환이면 5분까지입니다.
+OPEN_LOCK_SECONDS = 180
+
+
+def _first_opener(order_id: str) -> bool:
+    """이 주문을 지금 처음 여는 실행인가. 자물쇠는 logs/opening/<주문> 파일의 시각입니다."""
+    try:
+        lock_dir = LOG_DIR / "opening"
+        lock_dir.mkdir(parents=True, exist_ok=True)
+        lock = lock_dir / order_id
+        if lock.exists() and time.time() - lock.stat().st_mtime < OPEN_LOCK_SECONDS:
+            return False
+        lock.write_text(dt.datetime.now().isoformat(timespec="seconds"), encoding="utf-8")
+        return True
+    except OSError:
+        # 자물쇠를 못 만들면 막지 않습니다 — 두 번 여는 것이 아예 안 여는 것보다 낫습니다
+        return True
+
+
 def parse_launch(arg: str) -> tuple[str, str, str]:
     """
     (하는 일, 주문 ID, 토큰).
@@ -836,6 +855,15 @@ def _main() -> None:
         from auto_print_run import run_auto_print  # noqa: PLC0415
 
         raise SystemExit(run_auto_print(order_id, token))
+
+    # ★★ 같은 주문을 두 번 띄우지 않습니다 (2026-10-20). 브라우저 링크(denflow://)와
+    #   exocad 지켜보기가 같은 PC 에서 같이 돌면 0.5초 차이로 둘 다 띄워, exocad 에
+    #   환자·치료가 둘씩 생겼습니다 (유선조·문상규·장양현). 단추를 두 번 누른 때도 같습니다.
+    #   먼저 뜬 쪽만 일하고 뒤는 창도 없이 물러납니다.
+    if order_id and not _first_opener(order_id):
+        _step(f"같은 주문을 이미 여는 중 — 물러남 {order_id[:8]}")
+        logging.getLogger("launcher").info("같은 주문을 이미 여는 중이라 물러납니다: %s", order_id[:8])
+        return
 
     cfg = load_config()
     win = Window()

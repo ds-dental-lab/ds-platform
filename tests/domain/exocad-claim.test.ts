@@ -8,7 +8,7 @@
 // =========================================================
 
 import { describe, it, expect } from 'vitest';
-import { nextExport, EXOCAD_CLAIM_MINUTES, type PendingExport } from '@/server/domain/exocad';
+import { nextExport, EXOCAD_CLAIM_MINUTES, EXOCAD_CLAIM_DELAY_SECONDS, type PendingExport } from '@/server/domain/exocad';
 
 const NOW = new Date('2026-10-14T10:00:00.000Z');
 
@@ -49,5 +49,22 @@ describe('에이전트가 집어 갈 줄', () => {
       row({ orderId: '먼저', requestedAt: ago(5) }),
     ];
     expect(nextExport(rows, NOW)?.orderId).toBe('먼저');
+  });
+});
+
+describe('브라우저 링크가 먼저 열 틈 (2026-10-20 — 런처가 둘 뜨던 것)', () => {
+  const secAgo = (sec: number) => new Date(NOW.getTime() - sec * 1000).toISOString();
+
+  it('방금(3초 전) 누른 것은 아직 안 줍니다', () => {
+    expect(nextExport([row({ requestedAt: secAgo(3) })], NOW)).toBeNull();
+  });
+
+  it('틈이 지나면 줍니다', () => {
+    expect(nextExport([row({ requestedAt: secAgo(EXOCAD_CLAIM_DELAY_SECONDS + 1) })], NOW)?.orderId).toBe('o1');
+  });
+
+  it('틈 안의 것은 건너뛰고 지난 것을 줍니다', () => {
+    const rows = [row({ orderId: 'new', requestedAt: secAgo(2) }), row({ orderId: 'old', requestedAt: secAgo(30) })];
+    expect(nextExport(rows, NOW)?.orderId).toBe('old');
   });
 });
