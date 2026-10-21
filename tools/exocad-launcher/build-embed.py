@@ -68,7 +68,7 @@ PY_URL = f"https://www.python.org/ftp/python/{PY_VER}/python-{PY_VER}-embed-amd6
 SOURCES = ["scan_agent.py", "medit_case.py", "dxd_case.py", "heartbeat.py", "shell_link.py", "takeover.py", "install_check.py", "denflow.ico"]
 
 #: 자동 출력까지 쓰려면 함께 가야 하는 것들 (치과 PC 가 프린터에 보냅니다)
-PRINT_SOURCES = ["print_loop.py", "printer_send.py", "printer_find.py"]
+PRINT_SOURCES = ["print_loop.py", "printer_send.py", "printer_find.py", "printer_sweep.py"]
 
 #: ★ paho-mqtt 를 빠뜨렸었습니다. 「프린터 찾기」는 FTPS 만 써서 **통과하는데**
 #:   정작 출력을 걸 때 MQTT 가 없어 실패합니다 — 점검은 멀쩡하고 실전만

@@ -234,22 +234,21 @@ def self_test(settings: dict, seconds: float = 4.0) -> Check:
         """
         last = (settings.get("printer_last_ip") or "").strip()
 
-        if last:
-            try:
-                from printer_send import BambuPrinter  # noqa: PLC0415
+        # ★ 지난 주소 → 같은 망 훑기 (2026-10-21). 공유기가 주소를 바꿔도 여기서 다시 찾습니다
+        try:
+            from printer_sweep import sweep  # noqa: PLC0415
 
-                BambuPrinter(
-                    host=last, access_code=code, serial=serial, timeout=8
-                ).login_test()
-                return Check(
-                    True,
-                    f"지난번 주소({last})로 들어갔습니다 — 다만 프린터 방송은 "
-                    "못 듣고 있습니다. 윈도우 방화벽에서 이 프로그램의 네트워크를 "
-                    "허용해 주세요. 공유기가 주소를 바꾸면 못 찾게 됩니다.",
-                    ip=last,
-                )
-            except Exception:  # noqa: BLE001 — 지난번 주소도 아니면 아래로
-                pass
+            swept = sweep(serial, code, preferred=last)
+        except Exception:  # noqa: BLE001
+            swept = None
+        if swept:
+            return Check(
+                True,
+                f"프린터 방송은 못 듣지만 망을 훑어 {swept} 에서 찾았습니다. "
+                "출력은 그대로 됩니다. 윈도우 방화벽에서 이 프로그램의 네트워크를 "
+                "허용해 두면 더 빨리 찾습니다.",
+                ip=swept,
+            )
 
         return Check(
             False,

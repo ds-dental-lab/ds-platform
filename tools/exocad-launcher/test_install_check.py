@@ -71,12 +71,20 @@ class SingleChecks(unittest.TestCase):
         items = ic.check_printer({"printer_kind": "bambu", "printer_serial": "X"})
         self.assertFalse(items[0].ok)
 
-    def test_printer_no_broadcast_no_last_ip(self):
-        with mock.patch("printer_find.discover", return_value=[]):
+    def test_printer_no_broadcast_no_sweep_hit(self):
+        with mock.patch("printer_find.discover", return_value=[]),              mock.patch("printer_sweep.sweep", return_value=None):
             items = ic.check_printer({"printer_kind": "bambu", "printer_serial": "S", "printer_code": "C"}, seconds=0.1)
         self.assertFalse(items[0].ok)
-        self.assertIn("방화벽", items[0].fix)
+        self.assertIn("훑어도 없습니다", items[0].detail)
         self.assertEqual(items[-1].name, "프린터 포트")
+
+    def test_printer_no_broadcast_but_sweep_finds(self):
+        # 방송은 막혔는데 훑어서 찾음 → 주소로 이어서 봄 (포트 검사는 닫힌 주소라 실패로 끝남)
+        with mock.patch("printer_find.discover", return_value=[]),              mock.patch("printer_sweep.sweep", return_value="10.9.9.9"),              mock.patch.object(ic, "_port_open", return_value=False):
+            items = ic.check_printer({"printer_kind": "bambu", "printer_serial": "S", "printer_code": "C"}, seconds=0.1)
+        self.assertIn("10.9.9.9", items[0].detail)
+        self.assertIn("방화벽", items[0].fix)
+        self.assertEqual(items[1].name, "프린터 포트 8883·990")
 
 
 class RunAllTest(unittest.TestCase):

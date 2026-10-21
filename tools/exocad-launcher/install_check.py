@@ -262,12 +262,22 @@ def check_printer(cfg: dict, seconds: float = 4.0) -> list[Item]:
             "3번 칸의 시리얼이 이 프린터 것인지 확인해 주세요",
         ))
     else:
-        host = last
-        out.append(Item(
-            "프린터 찾기(방송)", False,
-            "같은 망에서 프린터 방송이 안 들립니다" + (f" — 지난 주소 {last} 로 이어서 봅니다" if last else ""),
-            "① 프린터가 켜져 있고 PC 와 같은 와이파이/공유기인지 ② 윈도우 방화벽이 이 프로그램을 막고 있지 않은지. 공유기에서 프린터 IP 를 고정해 두면 방송 없이도 됩니다",
-        ))
+        # ★ 방송이 안 들리면 같은 망을 훑어 봅니다 (printer_sweep, 2026-10-21)
+        from printer_sweep import sweep  # noqa: PLC0415
+
+        host = sweep(serial, code, preferred=last) or ""
+        if host:
+            out.append(Item(
+                "프린터 찾기(방송)", False,
+                f"방송은 안 들리지만 망을 훑어 {host} 에서 찾았습니다 — 출력은 됩니다",
+                "윈도우 방화벽에서 이 프로그램(pythonw.exe)의 네트워크를 허용해 주세요. 허용하면 훑지 않고 바로 찾습니다",
+            ))
+        else:
+            out.append(Item(
+                "프린터 찾기(방송)", False,
+                "같은 망에서 프린터 방송도 안 들리고, 훑어도 없습니다",
+                "① 프린터가 켜져 있고 PC 와 같은 와이파이/공유기인지 (이중 공유기·손님망이면 다른 대역) ② 접속 코드가 맞는지. 공유기에서 프린터 IP 를 고정해 두면 다음부터 더 빠릅니다",
+            ))
     if not host:
         out.append(Item("프린터 포트", False, "시험할 주소가 없습니다", "먼저 방송이 들리게 하거나, 「프린터 찾기」 로 한 번 찾아 주소를 적어 두세요"))
         return out

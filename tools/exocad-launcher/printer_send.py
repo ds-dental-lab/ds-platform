@@ -221,6 +221,15 @@ class BambuPrinter:
         if got:
             self.host = got.ip
             return got.ip
+        # ★ 방송을 못 들으면 같은 망을 훑습니다 (2026-10-21) — 지난 주소부터 봅니다.
+        #   공유기가 바뀌어 주소가 달라져도 사람 없이 다시 붙는 길입니다.
+        if self.serial and self.access_code:
+            from printer_sweep import sweep  # noqa: PLC0415
+
+            swept = sweep(self.serial, self.access_code, preferred=self.host)
+            if swept:
+                self.host = swept
+                return swept
         if self.host:
             return self.host
         raise OSError("프린터를 찾지 못했습니다 (켜져 있는지, 같은 와이파이인지 봐 주세요)")
