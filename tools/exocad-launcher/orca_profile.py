@@ -298,12 +298,52 @@ def skip_leveling(machine: dict) -> bool:
     return True
 
 
+#: 시작 G코드에서 **과잉 압출 선**(앞쪽 가장자리 Y≈-2.5, X68→115)을 긋는 구간들.
+#: 여는 줄부터 닫는 줄 전까지의 `G0 X…` 를 옆으로 옮깁니다 (2026-10-21 자리 돌리기).
+#: 같은 자리에 매번 그어서 옛 선 위에 겹쳐 쌓였습니다. 어디로 얼마나는 plate_slot 이 정합니다.
+PURGE_SECTIONS = (
+    ("M1002 gcode_claim_action : 8", "G1 X-13.5 Y0 Z10"),  # 토출 보정 그림(보정 켤 때만 긋는 선)
+    (";===== extrude cali test", ";========turn off light"),  # 늘 긋는 선
+)
+
+
+def shift_purge_line(machine: dict, dx: float) -> int:
+    """과잉 압출 선을 X 로 dx 만큼 옮깁니다. 옮긴 줄 수를 돌려줍니다"""
+    import re  # noqa: PLC0415
+
+    gcode = machine.get("machine_start_gcode")
+    if not isinstance(gcode, str) or not dx:
+        return 0
+    lines = gcode.split(chr(10))
+    moved = 0
+    closing: str | None = None
+    for i, line in enumerate(lines):
+        bare = line.strip()
+        if closing is None:
+            for open_, close in PURGE_SECTIONS:
+                if bare.startswith(open_):
+                    closing = close
+                    break
+            continue
+        if bare.startswith(closing):
+            closing = None
+            continue
+        m = re.match(r"^(\s*G0 X)(-?\d+(?:\.\d+)?)(.*)$", line)
+        if m:
+            lines[i] = f"{m.group(1)}{float(m.group(2)) + dx:g}{m.group(3)}"
+            moved += 1
+    if moved:
+        machine["machine_start_gcode"] = chr(10).join(lines)
+    return moved
+
+
 def spread(
     out_dir: Path,
     profiles: "ProfileSet",
     vendor: str = "BBL",
     dental: bool = True,
     process_extra: dict[str, object] | None = None,
+    purge_dx: float = 0.0,
 ) -> "ProfileSet":
     """
     셋을 펼쳐 파일로 쓰고, **그 경로들**을 돌려줍니다.
@@ -329,6 +369,8 @@ def spread(
                 skip_vibration(data)
             if SKIP_LEVELING:
                 skip_leveling(data)
+            if purge_dx:
+                shift_purge_line(data, purge_dx)
 
         over = {"process": DENTAL, "filament": DENTAL_FILAMENT}.get(kind)
         if over and dental:

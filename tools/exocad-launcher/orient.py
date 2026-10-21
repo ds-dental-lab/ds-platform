@@ -77,19 +77,27 @@ def spin(tris: np.ndarray, rx: float = 0.0, ry: float = 0.0, rz: float = 0.0) ->
     return out.reshape(tris.shape)
 
 
-def drop_to_bed(tris: np.ndarray, bed: tuple[float, float] | None = None) -> np.ndarray:
+def drop_to_bed(
+    tris: np.ndarray,
+    bed: tuple[float, float] | None = None,
+    at: tuple[float, float] | None = None,
+) -> np.ndarray:
     """
-    바닥(z=0)에 내려놓고 판 가운데로 옮깁니다.
+    바닥(z=0)에 내려놓고 판 위 자리로 옮깁니다.
 
     ★ 돌리고 나면 메쉬가 바닥 아래로 내려갑니다. 그대로 넘기면 오르카가
       잠긴 부분을 잘라 버리거나 판 밖이라고 거부합니다.
-    ★ `bed` 를 주면 그 가운데로, 안 주면 원점으로 옮깁니다.
+    ★ `at` 을 주면 그 자리(mm)로, 없으면 `bed` 의 가운데로, 둘 다 없으면 원점으로.
+      자리는 plate_slot 이 돌립니다 — 안 비운 판에 또 뽑아도 안 겹치게 (2026-10-21).
     """
     pts = tris.reshape(-1, 3).astype(np.float64)
     lo, hi = pts.min(axis=0), pts.max(axis=0)
     mid = (lo + hi) / 2
 
-    cx, cy = (bed[0] / 2, bed[1] / 2) if bed else (0.0, 0.0)
+    if at is not None:
+        cx, cy = float(at[0]), float(at[1])
+    else:
+        cx, cy = (bed[0] / 2, bed[1] / 2) if bed else (0.0, 0.0)
     shift = np.array([cx - mid[0], cy - mid[1], -lo[2]], dtype=np.float64)
     return (pts + shift).reshape(tris.shape)
 
@@ -132,6 +140,7 @@ def place(
     ry: float = 0.0,
     rz: float = 0.0,
     bed: tuple[float, float] | None = None,
+    at: tuple[float, float] | None = None,
 ) -> dict:
     """
     STL 을 돌려 바닥에 내려놓고 새 STL 로 씁니다.
@@ -142,7 +151,7 @@ def place(
     if len(tris) == 0:
         raise ValueError(f"읽을 면이 없습니다: {src.name}")
 
-    moved = drop_to_bed(spin(tris, rx, ry, rz), bed)
+    moved = drop_to_bed(spin(tris, rx, ry, rz), bed, at)
     save_stl(dst, moved.astype(np.float32), "denflow")
 
     pts = moved.reshape(-1, 3)
@@ -152,6 +161,7 @@ def place(
         "rotate_x": float(rx),
         "rotate_y": float(ry),
         "rotate_z": float(rz),
+        "at": [round(float(v), 2) for v in ((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2)],
         "size": [round(float(v), 2) for v in (hi - lo)],
         "min": [round(float(v), 2) for v in lo],
         "max": [round(float(v), 2) for v in hi],

@@ -133,11 +133,17 @@ def deliver(
         return False
 
     # --- 돌리고 자르기 ---
-    say(f"자르는 중… (x {rx}° / y {ry}°)")
+    # ★ 판 위 자리를 돌립니다 — 안 비운 판에 또 뽑아도 바로 앞 것과 안 겹치게 (2026-10-21)
+    from plate_slot import take as take_slot  # noqa: PLC0415
+    slot = take_slot()
+    say(f"자르는 중… (x {rx}° / y {ry}°, {slot.label})")
     try:
         # ★ --layer 는 이번 한 건만 (기본 0.16 은 orca_profile.DENTAL)
         extra = {"layer_height": f"{layer:g}"} if layer else None
-        made = build(stl, out_dir, *prof.as_tuple(), rx=rx, ry=ry, rz=rz, stem=order_id, process_extra=extra)
+        made = build(
+            stl, out_dir, *prof.as_tuple(), rx=rx, ry=ry, rz=rz, stem=order_id,
+            process_extra=extra, at=(slot.x, slot.y), purge_dx=slot.purge_dx,
+        )
     except (SliceError, ValueError) as e:
         say(f"실패: {e}")
         return False

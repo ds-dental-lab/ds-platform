@@ -75,6 +75,10 @@ def run_orca(
         str(exe),
         "--debug", "2",
         "--slice", "0",
+        # ★★ 오르카는 STL 을 받으면 **판 가운데로 옮겨 놓습니다**(arrange). 그러면
+        #   orient 가 정한 자리(plate_slot 자리 돌리기)가 지워집니다 — 실측 2026-10-21:
+        #   (55,110) 에 놓은 STL 이 1층에서 X80~100 / Y81~99 로 나왔습니다. 끕니다.
+        "--arrange", "0",
         "--load-settings", f"{machine.resolve()};{process.resolve()}",
         "--load-filaments", str(filament.resolve()),
         "--export-3mf", str(out_3mf.resolve()),
@@ -237,9 +241,12 @@ def build(
     bed: tuple[float, float] | None = None,
     stem: str | None = None,
     process_extra: dict[str, object] | None = None,
+    at: tuple[float, float] | None = None,
+    purge_dx: float = 0.0,
 ) -> dict:
     """
     STL 하나 → 출력 파일 + 그림 + 적어 둘 값.
+    ★ `at` 은 판 위 자리, `purge_dx` 는 과잉 압출 선 옮김 — 둘 다 plate_slot 이 정합니다.
 
     돌려주는 것은 그대로 auto_jobs 에 적을 수 있는 모양입니다.
     """
@@ -255,11 +262,11 @@ def build(
     #   그대로 주면 이름만 맞고 값은 기본값으로 잘립니다. 펼쳐서 넘깁니다.
     from orca_profile import ProfileSet, spread  # noqa: PLC0415
     machine, process, filament = spread(
-        out_dir / "프로파일", ProfileSet(machine, process, filament), process_extra=process_extra
+        out_dir / "프로파일", ProfileSet(machine, process, filament), process_extra=process_extra, purge_dx=purge_dx
     ).as_tuple()
 
     rotated = out_dir / f"{stem}_놓임.stl"
-    placed = place(stl, rotated, rx=rx, ry=ry, rz=rz, bed=bed)
+    placed = place(stl, rotated, rx=rx, ry=ry, rz=rz, bed=bed, at=at)
 
     out_3mf = out_dir / f"{stem}.gcode.3mf"
     run_orca(rotated, out_3mf, machine, process, filament)
