@@ -65,6 +65,7 @@ GROUPS: dict[str, list[str]] = {
     ],
     "08-대외-법": [
         "ds-flow-terms", "ds-flow-privacy-policy", "ds-flow-business-registration",
+        "ds-flow-prior-patents",
         "ds-flow-homepage", "ds-flow-seo", "ds-flow-reference-sites",
     ],
 }

@@ -75,7 +75,7 @@ takeover.configure(SETTINGS_DIR)
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.8"
+AGENT_VERSION = "1.3.9"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -1021,6 +1021,58 @@ class App:
 
         self.start_btn = self._button(row, "지켜보기 시작", self.toggle_watch, kind="primary")
         self.start_btn.pack(side="right", ipadx=22, ipady=7)
+        # ★ 설치 날 빠진 것을 한 번에 — 망·방화벽·절전·백신·프린터 (2026-10-21)
+        self._button(row, "설치 점검", self.install_check).pack(side="right", padx=(0, 8), ipadx=10, ipady=7)
+
+    def install_check(self) -> None:
+        """
+        설치 점검 창. 검사는 install_check.run_all 이 하고, 여기서는 줄만 받아 적습니다.
+        ★ 결과는 %APPDATA%\\DenFlow\\install_check.txt 에도 남깁니다 — 전화로 "뭐라고 떠요?"
+          대신 그 파일을 보내 달라고 하면 됩니다.
+        """
+        win = tk.Toplevel(self.root)
+        win.title("설치 점검")
+        win.geometry("640x520")
+        win.configure(bg=BG)
+        head = tk.Label(win, text="검사하는 중… (프린터까지 20초쯤 걸립니다)", font=(F, 10, "bold"), bg=BG, fg=INK, anchor="w")
+        head.pack(fill="x", padx=16, pady=(14, 6))
+        box = tk.Text(win, font=(F, 9), bg=PAPER, fg=SUB, relief="flat", state="disabled", wrap="word", padx=12, pady=8)
+        box.pack(fill="both", expand=True, padx=16, pady=(0, 12))
+        box.tag_configure("bad", foreground=RED)
+        box.tag_configure("good", foreground=GREEN)
+        box.tag_configure("fix", foreground=INK, lmargin1=24, lmargin2=24)
+
+        def put(line: str, tag: str = "") -> None:
+            def _do() -> None:
+                box.config(state="normal")
+                box.insert("end", line + "\n", tag)
+                box.see("end")
+                box.config(state="disabled")
+            self.root.after(0, _do)
+
+        def work() -> None:
+            from install_check import run_all  # noqa: PLC0415
+            try:
+                rep = run_all(
+                    self.agent.cfg, site=SITE, storage_url=SUPABASE_URL, settings_dir=SETTINGS_DIR,
+                    autostart=autostart_on(),
+                    say=lambda m: put(m, "bad" if m.startswith("[X]") else "good" if m.startswith("[O]") else ""),
+                )
+            except Exception as e:  # noqa: BLE001
+                put(f"점검이 멈췄습니다 — {e}", "bad")
+                return
+            for i in rep.bad:
+                if i.fix:
+                    put(f"→ {i.name}: {i.fix}", "fix")
+            try:
+                (SETTINGS_DIR / "install_check.txt").write_text(rep.text(), encoding="utf-8")
+            except OSError:
+                pass
+            summary = "빠진 것 없음 — 설치해도 됩니다" if rep.ok else f"빠진 것 {len(rep.bad)} — 위의 → 줄을 따라 고쳐 주세요"
+            self.root.after(0, lambda: head.config(text=summary, fg=GREEN if rep.ok else RED))
+            self.say("설치 점검: " + summary)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _log(self, body) -> None:
         wrap = tk.Frame(body, bg=LINE)
@@ -1371,6 +1423,14 @@ def unblock_folder(folder: Path) -> int:
 
 
 if __name__ == "__main__":
+    # ★ --check: 창 없이 설치 점검만 찍고 끝납니다 (원격으로 봐 줄 때)
+    if "--check" in sys.argv:
+        from install_check import run_all
+
+        _rep = run_all(load_settings(), site=SITE, storage_url=SUPABASE_URL, settings_dir=SETTINGS_DIR, autostart=autostart_on())
+        print(_rep.text())
+        raise SystemExit(0 if _rep.ok else 1)
+
     # ★ 두 번째로 켜면 떠 있는 창만 앞으로 올리고 조용히 물러납니다.
     #   "이미 켜져 있습니다" 같은 알림창을 띄우지 않습니다 — 치과는
     #   창이 올라오는 것만 보면 됩니다.
