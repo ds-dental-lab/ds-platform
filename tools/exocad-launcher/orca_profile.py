@@ -461,9 +461,18 @@ DENTAL: dict[str, object] = {
     "support_threshold_angle": "60",
     "support_top_z_distance": "0.18",
     "support_bottom_z_distance": "0.18",
-    "support_object_xy_distance": "0.18",
-    "support_interface_spacing": "0.4",
-    "support_bottom_interface_spacing": "0.4",
+    #: ★ 서포트와 치아 **사이가 지저분하다** (사용자 2026-10-21, 손에 쥐고 본 것).
+    #:   세 군데를 손봅니다 — 아직 뽑아 보기 전이라 **다음 출력으로 확인**합니다.
+    #:   · 옆 간격 0.18 → 0.35: 서포트 벽이 치아 옆면에 눌어붙어 뜯긴 자국이 남던 것
+    #:   · 닿는 면 간격 0.4 → 0.2, 닿는 층 2 → 3: 성긴 접촉면이 실처럼 늘어지던 것
+    #:   · 닿는 면 무늬 interlaced: 치아와 엇갈려 깔아 떼어도 깔끔하게
+    #:   · 닿는 면 속도 60 → 40: 가늘게 깔리는 자리라 빨리 가면 흘립니다
+    "support_object_xy_distance": "0.35",
+    "support_interface_spacing": "0.2",
+    "support_bottom_interface_spacing": "0.2",
+    "support_interface_top_layers": "3",
+    "support_interface_bottom_layers": "2",
+    "support_interface_pattern": "rectilinear_interlaced",
     "support_base_pattern_spacing": "2",
     #: ★ **판 위에서만** 세웁니다. 치아 표면을 짚고 올라서면 그 자국이
     #:   그대로 남습니다 — 입에 들어가는 면입니다
@@ -515,7 +524,7 @@ DENTAL: dict[str, object] = {
     "overhang_3_4_speed": ["10"],
     #: 서포트를 빨리 뽑으면 가늘어서 휘청입니다
     "support_speed": ["60"],
-    "support_interface_speed": ["60"],
+    "support_interface_speed": ["40"],
     #: 첫 층은 천천히 — 바닥 면적이 손톱만 한 물건입니다
     "initial_layer_speed": ["20"],
     "initial_layer_infill_speed": ["50"],

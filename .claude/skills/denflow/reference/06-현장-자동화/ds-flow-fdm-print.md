@@ -191,3 +191,4 @@ layer_height 를 0.12(실수)로 넣고 0.2mm 로 잘린 적이 있습니다.
 - hold(건수·설정·로그인·안 올라옴) 만 센터 알림(전처럼). 포기가 24시간 안 3건 잇따르면 센터에 한 번 알림(`publishDesignStreak`).
 - 마이그레이션 `20261021120000_flowtemp_zero_touch.sql`(design_tries·design_wait·ended·트리거) — **사용자가 db push**. 테스트 83.
 - 아직 안 한 것: 덴트버드 보내기 전 스캔 사전 검사(파일 없음·한쪽 악 없음), 센터 STL 올리기 단추. 실제 실패율은 11/06 뒤 10~20건으로 재고 치과 공개 결정.
+- **서포트 접촉면 손봄 (2026-10-21, 사용자 "출력물과 서포트 사이가 지저분")**: orca_profile.DENTAL — 옆 간격 0.18→0.35, 접촉면 간격 0.4→0.2, 접촉 층 top 3/bottom 2, 무늬 rectilinear_interlaced, 접촉면 속도 60→40. z 띄움 0.18 은 그대로. 로컬 자르기 확인(tetetet 16번: 62층 13m11s). **뽑아서 확인 전.** 시험 주문은 다 지워져 있음 — 치ㅣ 주문(16 크라운+FlowTemp) 넣고 서버 PC 내려받기 폴더에 `tetetet_16-16-crown.stl` 넣으면 temp_watch 가 집음.
