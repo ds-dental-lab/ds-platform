@@ -352,6 +352,26 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
     opened_by_org_id: session.orgId,
     reason: input.notes.trim(),
   });
+  /*
+    ★★ **리메이크 주문 자신에게도 딱지를 붙입니다** (점검 2026-10-21).
+
+      딱지가 원주문(완료)에만 있었습니다. 그런데 센터의 리메이크 필터와
+      HOME 은 2026-10-20 부터 '접수 상태인 것만' 세기로 했습니다 — 완료된
+      원주문은 안 세고, 새로 생긴 리메이크 주문은 딱지가 없어 안 셉니다.
+      **둘 다 안 세니 센터 필터의 리메이크는 영영 0** 이었습니다 (실제 DB 에서
+      확인 — 리메이크 ORD-261015-010 의 이슈 줄 없음).
+
+      리페어는 처음부터 자기 주문에 붙였습니다 (지금 손이 가야 하는 건이
+      그것이라서). 리메이크도 같습니다 — 접수된 리메이크가 센터 필터에
+      잡히고, 디자인에 들어가면 접수 규칙에 따라 필터에서 빠집니다.
+      원주문의 딱지는 그대로 둡니다 — "이 건이 다시 만들어졌다" 는 이력입니다.
+  */
+  await supabase.from('order_issues').insert({
+    order_id: remake.id,
+    issue_type: 'remake',
+    opened_by_org_id: session.orgId,
+    reason: input.notes.trim(),
+  });
 
   // 새 주문의 시작점 (from 은 비어 있습니다 — 생성이니까)
   await supabase.from('order_status_history').insert({
