@@ -265,6 +265,38 @@ def skip_vibration(machine: dict) -> int:
 #: 토출 보정과 달리 되돌릴 일이 생길 수 있습니다.
 SKIP_VIBRATION = True
 
+#: 출력 앞 바닥 다지기(베드 레벨링)를 건너뛰는 손잡이 (2026-10-21).
+#:
+#: ★★ 왜 — 사용자 "시간이 좀 더 줄었으면". 2mm 정육면체를 잘라도 예상 7분 44초가
+#:   나왔습니다. 13분짜리 크라운에서 **7분이 물건과 상관없는 시작·마무리**이고,
+#:   그중 큰 덩어리가 매 출력 앞의 바닥 다지기입니다. 속도를 아무리 올려도 시간이
+#:   안 줄던 까닭입니다(겉벽 25→35 가 31초, 서포트 60→100 이 1초).
+#:
+#: ★ 토출 보정과 같은 손잡이입니다 — 밤부가 주석으로 둔
+#:   `;M1002 set_flag g29_before_print_flag=1` 자리에 0 을 넣으면 바로 아래
+#:   `judge_flag` 블록(G29 A1 …)과, 그 다음 '다진 뒤 다시 원점' 블록이 함께 안 돕니다.
+#:   출력 명령의 `bed_leveling: false` 는 A1 mini 가 무시했지만(2026-10-10) 이 길은
+#:   G코드라 그대로 듣습니다.
+#:
+#: ★★ 건너뛰면 **기계에 저장된 지난 바닥 지도**를 씁니다. 판이 같고 라프트를 까는
+#:   손톱만 한 물건이라 괜찮다고 보지만, **첫 층이 안 붙거나 노즐이 긁으면 여기부터
+#:   되돌리세요**(False). 판을 바꾸거나 기계를 옮겼으면 한 번은 다지게 두세요.
+SKIP_LEVELING = True
+
+LEVELING_OFF = (
+    ";M1002 set_flag g29_before_print_flag=1",
+    "M1002 set_flag g29_before_print_flag=0",
+)
+
+
+def skip_leveling(machine: dict) -> bool:
+    """시작 G코드에서 바닥 다지기를 끕니다. 바꿨으면 True"""
+    gcode = machine.get("machine_start_gcode")
+    if not isinstance(gcode, str) or LEVELING_OFF[0] not in gcode:
+        return False
+    machine["machine_start_gcode"] = gcode.replace(LEVELING_OFF[0], LEVELING_OFF[1], 1)
+    return True
+
 
 def spread(
     out_dir: Path,
@@ -295,6 +327,8 @@ def spread(
             skip_flow_cali(data)
             if SKIP_VIBRATION:
                 skip_vibration(data)
+            if SKIP_LEVELING:
+                skip_leveling(data)
 
         over = {"process": DENTAL, "filament": DENTAL_FILAMENT}.get(kind)
         if over and dental:
