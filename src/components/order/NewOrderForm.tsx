@@ -540,9 +540,9 @@ function OrderFormBody({
     setEntries(next);
 
     /*
-      ★ FlowTemp 만 찍힌 치아가 있으면 바로 알려 줍니다 (2026-10-15, 과금 1안).
-        막지는 않습니다 — 크라운을 먼저 찍든 FlowTemp 를 먼저 찍든 되게 둡니다.
-        저장할 때는 서버(validateOrder)가 막습니다.
+      ★ FlowTemp 만 찍힌 치아가 있으면 값이 붙는다는 것만 알려 줍니다 (과금 2안, 2026-10-21).
+        막지 않습니다 — 임시치아만도 주문이 됩니다. 같은 치아 크라운을 함께 주문하면
+        정산에서 0원이 됩니다. 값은 적지 않습니다(제품가가 바뀌면 화면 글이 거짓이 됩니다).
     */
     const unpaired = unpairedAutoTooth(
       next.map((e) => ({
@@ -554,7 +554,7 @@ function OrderFormBody({
     );
     if (unpaired !== null) {
       const name = prosthesisCatalog.find((t) => t.autoPipeline)?.name ?? '자동 출력 제품';
-      setHint(`${unpaired}번 — ${name} 는 같은 치아의 크라운과 함께 주문합니다. 크라운도 찍어 주세요`);
+      setHint(`${unpaired}번 — ${name} 만 주문하면 임시치아 값이 붙습니다. 같은 치아의 크라운을 함께 주문하면 0원입니다`);
     }
   }
 

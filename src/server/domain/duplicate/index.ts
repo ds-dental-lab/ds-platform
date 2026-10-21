@@ -64,6 +64,29 @@ export function unpairedAutoTooth(items: PairingItem[]): number | null {
 }
 
 /**
+ * 짝(같은 치아의 최종 크라운)이 **있는** FlowTemp 의 치식들 — 정산에서 0원이 되는 줄 (2026-10-21).
+ *
+ * ★★ 과금 2안 (사용자 결정 2026-10-21): FlowTemp 는 **값 하나에 규칙 하나**.
+ *   임시치아 1개 제품가(8,000원), 그 치아의 크라운을 함께 주문하면 0원.
+ *   전에는 짝 없는 FlowTemp 를 저장에서 **막았는데**(과금 1안), 스캐너 장기 계약 등으로
+ *   크라운을 못 주는 치과가 많아 임시치아만도 받기로 했습니다. 막기 → 값 매기기.
+ * ★ "무료"는 **그 치아** 크라운에만 묶입니다. 다른 치아 크라운 하나로 임시치아 여럿을
+ *   무료로 받는 길을 막는 것이 이 함수의 치아 단위 비교입니다.
+ * ★ 폰틱 크라운도 짝입니다 (unpairedAutoTooth 와 같은 규칙).
+ */
+export function pairedAutoTeeth(items: PairingItem[]): number[] {
+  const teeth = new Set<number>();
+  for (const it of items) {
+    if (!it.autoPipeline) continue;
+    const paired = items.some(
+      (o) => o.tooth === it.tooth && !o.autoPipeline && AUTO_PARTNER_TYPES.includes(o.typeCode),
+    );
+    if (paired) teeth.add(it.tooth);
+  }
+  return [...teeth].sort((a, b) => a - b);
+}
+
+/**
  * 「FlowTemp 함께」 스위치가 켜졌을 때 FlowTemp 를 **더 얹어야 할 치아들** (사용자 요청 2026-10-19).
  *
  * ★ 짝이 되는 최종 크라운(폰틱 포함)은 있는데 FlowTemp 가 아직 없는 치아입니다.

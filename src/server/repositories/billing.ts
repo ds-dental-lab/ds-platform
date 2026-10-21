@@ -19,6 +19,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/server/policies/session';
 import { resolvePartyPrice } from '@/server/domain/pricing';
+import { pairedAutoTeeth } from '@/server/domain/duplicate';
 import { loadDatedOverrides, priceDay } from '@/server/repositories/price-history';
 import {
   itemAmount,
@@ -302,18 +303,36 @@ export async function getSettlement(
   // ---------- 줄을 폅니다 ----------
   const items: SettlementItem[] = [];
 
+  const autoTypes = new Set(catalog.filter((t) => t.autoPipeline).map((t) => t.code));
   for (const order of orders.data as unknown as RawOrder[]) {
     const day = priceDay(order.shipped_at);
+    /*
+      ★★ FlowTemp 는 같은 치아의 크라운이 **같은 주문에** 있으면 0원 (과금 2안, 2026-10-21).
+        규칙은 domain/duplicate 의 pairedAutoTeeth — 치아 단위라 다른 치아 크라운으로는
+        안 됩니다. 짝 없는 FlowTemp 는 제품가(임시치아 값) 그대로 셈합니다.
+    */
+    const freeTeeth = new Set(
+      pairedAutoTeeth(
+        (order.order_items ?? []).map((i) => ({
+          tooth: i.tooth_number,
+          typeCode: i.type_code,
+          isPontic: i.is_pontic,
+          autoPipeline: autoTypes.has(i.type_code),
+        })),
+      ),
+    );
 
     for (const raw of order.order_items ?? []) {
       const price = priceOf(raw.type_code, raw.material_code, day);
+      const freeAuto = autoTypes.has(raw.type_code) && freeTeeth.has(raw.tooth_number);
 
       // ★ 리메이크·리페어는 셈하지 않습니다. 0원으로 목록에만 남습니다
-      const money: ItemAmount = order.is_billable
-        ? itemAmount({ isPontic: raw.is_pontic, hasGingival: raw.has_gingival, ...price })
-        : { amount: 0, unpriced: false };
+      const money: ItemAmount =
+        order.is_billable && !freeAuto
+          ? itemAmount({ isPontic: raw.is_pontic, hasGingival: raw.has_gingival, ...price })
+          : { amount: 0, unpriced: false };
 
-      const abbr = buildAbbr(catalog, raw.type_code, raw.material_code);
+      const abbr = buildAbbr(catalog, raw.type_code, raw.material_code) + (freeAuto ? ' (크라운 함께)' : '');
 
       items.push({
         orderId: order.id,

@@ -272,6 +272,9 @@ export async function moveStep(
   const alert = alertOnMove(row.step, to);
   if (alert) await publishAutoAlert(row.order_id, alert, extra.reason ?? null);
 
+  // ★ 임시치아만 있는 주문은 다 나오면 그 자리에서 완료 (과금 2안, 2026-10-21)
+  if (to === 'done') await completeAutoOnlyOrder(admin, row.order_id);
+
   return { ok: true };
 }
 
@@ -1191,6 +1194,46 @@ export async function claimNextDesign(
     };
   }
   return { ok: true, job: null, available: false };
+}
+
+/**
+ * FlowTemp 만 있는 주문을 **출력이 끝난 자리에서 완료**로 넘깁니다 (과금 2안, 2026-10-21).
+ *
+ * ★ 왜 — 임시치아만 주문이 열리면서(크라운 없이 8,000원) 생긴 구멍입니다. 그런 주문은
+ *   디자인·제작·배송이 없어 아무도 상태를 못 넘기고 **접수에 영영** 남습니다. 센터 목록을
+ *   어지럽히고, 정산은 배송일(shipped_at)로 자르니 **청구도 안 됩니다.**
+ * ★ 크라운이 하나라도 있으면 손대지 않습니다 — 그 주문은 평소대로 기공 흐름을 탑니다.
+ * ★ 배송 시각은 지금으로 — 그날이 정산 단가의 기준일이 됩니다. 이력은 사람 없이 남깁니다
+ *   (밤 자동 완료와 같은 모양).
+ */
+async function completeAutoOnlyOrder(admin: ReturnType<typeof createAdminClient>, orderId: string): Promise<void> {
+  const { data: order } = await admin
+    .from('orders')
+    .select('id, status, shipped_at, order_items(type_code)')
+    .eq('id', orderId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const row = order as unknown as { status: string; shipped_at: string | null; order_items: { type_code: string }[] | null } | null;
+  if (!row || row.status === 'completed' || row.status === 'cancelled') return;
+  const items = row.order_items ?? [];
+  if (items.length === 0) return;
+  const auto = await autoTypeCodes();
+  if (!items.every((i) => auto.has(i.type_code))) return;
+
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from('orders')
+    .update({ status: 'completed', shipped_at: row.shipped_at ?? now })
+    .eq('id', orderId);
+  if (error) return;
+  await admin.from('order_status_history').insert({
+    order_id: orderId,
+    from_status: row.status,
+    to_status: 'completed',
+    actor_org_id: null,
+    actor_user_id: null,
+    reason: '임시치아만 있는 주문 — 출력이 끝나 자동 완료',
+  });
 }
 
 async function autoTypeCodes(): Promise<Set<string>> {

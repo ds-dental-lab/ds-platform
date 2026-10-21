@@ -246,10 +246,13 @@ export function validateOrder(
       autoPipeline: Boolean(catalog.find((t) => t.code === i.typeCode)?.autoPipeline),
     })),
   );
-  if (unpaired !== null) {
-    const name = catalog.find((t) => t.autoPipeline)?.name ?? '자동 출력 제품';
-    return `${unpaired}번 — ${name} 는 같은 치아의 크라운과 함께 주문해 주세요`;
-  }
+  /*
+    ★★ 더는 막지 않습니다 (과금 2안, 사용자 결정 2026-10-21).
+      짝 없는 FlowTemp 는 임시치아 값(제품가)을 받고, 짝이 있으면 정산에서 0원이 됩니다
+      (repositories/billing 의 pairedAutoTeeth). 여기서는 알아만 둡니다 — 화면 안내는
+      NewOrderForm 이 합니다.
+  */
+  void unpaired;
 
   return null;
 }

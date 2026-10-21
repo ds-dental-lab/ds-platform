@@ -11,6 +11,7 @@ import {
   getAllowedPairs,
   MAX_PER_TOOTH,
   unpairedAutoTooth,
+  pairedAutoTeeth,
   teethNeedingCompanion,
   type Placement,
 } from '@/server/domain/duplicate';
@@ -138,6 +139,31 @@ describe('FlowTemp 는 같은 치아의 크라운과 짝 (2026-10-15, 과금 1�
     // ★ 폰틱 크라운도 짝입니다 (2026-10-19) — 임시 브릿지는 가운데 폰틱까지 한 덩어리
     expect(unpairedAutoTooth([item(16, 'auto_temp', true, true), item(16, 'crown', false, true)])).toBeNull();
     expect(unpairedAutoTooth([item(16, 'crown')])).toBeNull();
+  });
+});
+
+describe('짝 있는 FlowTemp 는 0원 — pairedAutoTeeth (과금 2안, 2026-10-21)', () => {
+  const item = (tooth: number, typeCode: string, autoPipeline = false, isPontic = false) => ({
+    tooth, typeCode, autoPipeline, isPontic,
+  });
+
+  it('같은 치아 크라운이 있으면 그 치식, 없으면 빈 목록', () => {
+    expect(pairedAutoTeeth([item(16, 'auto_temp', true), item(16, 'crown')])).toEqual([16]);
+    expect(pairedAutoTeeth([item(16, 'auto_temp', true)])).toEqual([]);
+  });
+
+  it('★ 다른 치아 크라운으로는 안 된다 — 치아 단위', () => {
+    expect(pairedAutoTeeth([item(16, 'auto_temp', true), item(17, 'crown')])).toEqual([]);
+    expect(pairedAutoTeeth([item(16, 'auto_temp', true), item(17, 'auto_temp', true), item(17, 'crown')])).toEqual([17]);
+  });
+
+  it('폰틱 크라운도 짝이고, 인레이는 짝이 아니다', () => {
+    expect(pairedAutoTeeth([item(16, 'auto_temp', true, true), item(16, 'crown', false, true)])).toEqual([16]);
+    expect(pairedAutoTeeth([item(16, 'auto_temp', true), item(16, 'inlay')])).toEqual([]);
+  });
+
+  it('치식 번호 순으로 돌려준다', () => {
+    expect(pairedAutoTeeth([item(26, 'auto_temp', true), item(26, 'crown'), item(16, 'auto_temp', true), item(16, 'crown')])).toEqual([16, 26]);
   });
 });
 
