@@ -115,7 +115,10 @@ def _remember(installed_now: list[str], removed_now: list[str]) -> None:
     try:
         have = json.loads(f.read_text(encoding="utf-8")).get("installed") or []
     except (OSError, ValueError):
-        have = []
+        # ★ 목록 파일이 아직 없는 PC — 시작프로그램 폴더에 실제로 있는 것부터 셉니다.
+        #   (2026-10-21 디자인 PC 에서 --off 만 돌리자 '맡은 것: 없음' 이 됐습니다 —
+        #   exocad 지켜보기 vbs 가 버젓이 있는데도요.)
+        have = [n for n in WATCHERS if (STARTUP / n).is_file()]
     have = [n for n in have if n in WATCHERS]
     for n in installed_now:
         if n not in have:

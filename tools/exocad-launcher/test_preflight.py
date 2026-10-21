@@ -88,6 +88,26 @@ class PreflightTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             install_watch._chosen(["x", "--only", "nope"])
 
+    def test_remember_seeds_from_startup_folder(self):
+        # ★ 2026-10-21: 목록 파일이 없으면 시작프로그램 폴더의 실제 vbs 를 출발점으로
+        import os
+        startup = self.appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+        startup.mkdir(parents=True)
+        (startup / "덴플로우 exocad 지켜보기.vbs").write_text("", encoding="utf-8")
+        (startup / "덴플로우 설계 일꾼.vbs").write_text("", encoding="utf-8")
+        old_env, old_startup = os.environ.get("APPDATA"), install_watch.STARTUP
+        os.environ["APPDATA"] = str(self.appdata)
+        install_watch.STARTUP = startup
+        try:
+            install_watch._remember([], ["덴플로우 설계 일꾼.vbs"])
+        finally:
+            install_watch.STARTUP = old_startup
+            if old_env is None:
+                del os.environ["APPDATA"]
+            else:
+                os.environ["APPDATA"] = old_env
+        self.assertEqual(watch_common.expected_scripts(self.appdata), ["exocad_watch"])
+
     def test_vbs_names_match_installer(self):
         self.assertEqual(set(watch_common.STARTUP_VBS), set(install_watch.WATCHERS))
 

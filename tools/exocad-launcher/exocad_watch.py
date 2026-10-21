@@ -125,6 +125,19 @@ def open_exocad(order_id: str, token: str) -> None:
     detached([str(pythonw if pythonw.exists() else exe), str(HERE / "launcher.py"), url])
 
 
+def _health_here() -> dict:
+    """이 PC 의 상태 — 설계 일꾼이 다른 PC 에 있을 때 그 대신 보냅니다 (2026-10-21)."""
+    from watch_common import _age, expected_scripts, preflight  # noqa: PLC0415
+
+    return {
+        "kind": "design",
+        "missing": preflight(),
+        "dentbird": "다른 PC 몫",
+        "watchers": {n: min(_age(n), 999999) for n in expected_scripts() if n != "design_worker"},
+        "doing": "exocad 대기",
+    }
+
+
 def main() -> int:
     from watch_common import beat, revive, single_instance  # noqa: PLC0415
 
@@ -153,6 +166,20 @@ def main() -> int:
 
     say(f"지켜봅니다 — {base} · {POLL_SECONDS}초마다")
     quiet = False
+
+    # ★ 설계 일꾼이 이 PC 몫이 아니면(서버 PC 로 옮긴 뒤, 2026-10-21) 심장 소리는 여기서 냅니다.
+    #   안 그러면 이 PC 의 '설계 PC' 줄이 3분 뒤 '꺼짐' 이 되고 센터에 헛알림이 갑니다.
+    #   일꾼이 이 PC 에 있으면 일꾼이 보내니 여기서는 안 보냅니다 (둘이 보내면 상태가 엇갈립니다).
+    try:
+        from watch_common import expected_scripts  # noqa: PLC0415
+
+        if "design_worker" not in expected_scripts():
+            from heartbeat import Heartbeat  # noqa: PLC0415
+
+            Heartbeat(base, lambda: token, None, _health_here).start()
+            say("설계 일꾼이 다른 PC 에 있어 상태 보고는 여기서 보냅니다")
+    except Exception as e:  # noqa: BLE001
+        say(f"상태 보고를 못 켰습니다 — {e!r}")
 
     while True:
         # ★★ 표시와 살리기를 **맨 앞에서** (2026-10-16 아침). 뒤에 두었더니
