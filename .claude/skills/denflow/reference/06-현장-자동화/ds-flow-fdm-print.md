@@ -178,3 +178,4 @@ layer_height 를 0.12(실수)로 넣고 0.2mm 로 잘린 적이 있습니다.
 - `install_watch.py --only <이름들>` 로 맡을 것을 고르고 `%APPDATA%\DenFlow\watchers.json` 에 적음. `watch_common.expected_watchers/expected_scripts` 가 그것을 읽어 preflight 와 _health.watchers 가 **맡은 것만** 봄(서버에 exocad 없다고 경고 안 함). 파일 없으면 셋 다(예전 그대로).
 - 서버 PC 설치: `tools/exocad-launcher/setup_server.cmd`(winget: Git·Python3.13·Chrome·Orca → C:\DenFlow\ds-platform clone → pip) → `setup_server.py`(오르카 첫 실행·설계 PC 연결 코드·덴트버드 크롬 로그인+다운로드 허용·시작프로그램 둘·점검). 안내문 `SERVER-PC.md`.
 - 서버가 뜬 뒤 디자인 PC 에서 `install_watch.py --off --only design_worker temp_watch` + pythonw 끝내기 (사용자 손 — 문지기 훅이 내가 못 하게 막음).
+- **이관 완료 (2026-10-21 오전)**: 서버 PC = 호스트 **FT**(로컬 계정 FlowTemp, 저장소 C:\DenFlow\ds-platform, Python 3.13, 덴플로우에 "설계 PC (FT)"). 디자인 PC(DESKTOP-9J707DH)는 design_worker·temp_watch 뺌 → exocad_watch 가 상태 보고(심장)를 대신 보냄(`exocad_watch._health_here`, doing "exocad 대기"). 기기 상태에 두 줄 다 살아 있음 확인. 서버 PC 윈도우 11 Home — 원격은 크롬 원격 데스크톱으로 넣을 것(미설치).
