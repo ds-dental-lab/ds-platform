@@ -87,8 +87,10 @@ def open_browser(url: str, background: bool = False) -> None:
         if alive():
             print(f"띄웠습니다 — 프로필 {PROFILE}")
             print("그 창에서 한 번 로그인해 주세요. 비밀번호는 아무 데도 안 적힙니다.")
-            if background:
-                minimize()
+            # ★ background 여도 **최소화하지 않습니다** (2026-10-21). 서버 PC 에서 최소화한
+            #   채로 도구 막대가 안 떠 멈췄습니다(zzz 건). 10/15 실측은 디자인 PC(엔비디아)였고
+            #   서버 PC 는 내장 그래픽이라 같다고 볼 수 없습니다. 서버 PC 는 보는 사람이 없어
+            #   창이 떠 있어도 거슬릴 것이 없고, 붙을 때마다 keep_awake 가 최소화를 풉니다.
             return
         time.sleep(1)
     print("띄웠지만 디버그 포트가 안 열렸습니다")
@@ -164,6 +166,51 @@ def keep_awake(d) -> None:
     """
     d.execute_cdp_cmd("Emulation.setFocusEmulationEnabled", {"enabled": True})
     d.execute_cdp_cmd("Page.setWebLifecycleState", {"state": "active"})
+    unminimize(d)
+
+
+def unminimize(d) -> str:
+    """창이 작업표시줄에 내려가 있으면 **앞으로 끌어오지 않고** 보통 크기로 되돌립니다 (2026-10-21).
+
+    ★ 왜 — 최소화된 창은 크롬이 '안 보임' 으로 봐서 WebGL 그리기가 서고, 덴트버드 도구
+      막대가 안 뜨는 쪽으로 의심됩니다(서버 PC zzz 건). 되돌리기만 하고 활성화는 안 합니다.
+    돌려주는 값: 되돌린 뒤의 창 상태(normal·minimized·…) 또는 '모름'.
+    """
+    try:
+        win = d.execute_cdp_cmd("Browser.getWindowForTarget", {})
+        state = (win.get("bounds") or {}).get("windowState", "")
+        if state == "minimized":
+            d.execute_cdp_cmd("Browser.setWindowBounds", {"windowId": win["windowId"], "bounds": {"windowState": "normal"}})
+            win = d.execute_cdp_cmd("Browser.getWindowForTarget", {})
+            state = (win.get("bounds") or {}).get("windowState", "")
+        return state or "모름"
+    except Exception:  # noqa: BLE001
+        return "모름"
+
+
+def window_report(d) -> str:
+    """멈췄을 때 남길 창 사정 한 줄 — 창 상태·보임·크기 (2026-10-21)."""
+    try:
+        state = (d.execute_cdp_cmd("Browser.getWindowForTarget", {}).get("bounds") or {}).get("windowState", "?")
+    except Exception:  # noqa: BLE001
+        state = "?"
+    try:
+        vis, w, h = d.execute_script("return [document.visibilityState, innerWidth, innerHeight]")
+    except Exception:  # noqa: BLE001
+        vis, w, h = "?", "?", "?"
+    return f"창 {state} · 보임 {vis} · 화면 {w}x{h}"
+
+
+def snapshot(d, tag: str) -> str:
+    """지금 화면을 logs/ 에 그림으로 남깁니다. 돌려주는 값은 파일 이름(못 남기면 빈 글)."""
+    try:
+        folder = STATE / "logs"
+        folder.mkdir(parents=True, exist_ok=True)
+        name = f"dentbird-{tag}-{time.strftime('%Y%m%d-%H%M%S')}.png"
+        d.get_screenshot_as_file(str(folder / name))
+        return name
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 #: 화면에서 사람이 누르는 것들만 추립니다 — 전부 뜨면 글이 묻힙니다

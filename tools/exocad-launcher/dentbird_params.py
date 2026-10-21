@@ -122,7 +122,7 @@ def _set_check(d, testid: str, on: bool) -> None:
         raise ParamError(f"'{testid}' 를 {'켜지' if on else '끄지'} 못했습니다")
 
 
-def _crown_toolbar(d, wait_s: float = 20.0) -> None:
+def _crown_toolbar(d, wait_s: float = 40.0) -> None:
     """크라운 도구 막대(내면·다듬기…)가 없으면 크라운을 골라서 엽니다
 
     ★★ 생성 직후에는 이름표를 한 번 누르고 2초 기다리는 것으로 모자랐습니다 (2026-10-19
@@ -150,7 +150,15 @@ def _crown_toolbar(d, wait_s: float = 20.0) -> None:
             time.sleep(0.5)
             if has():
                 return
-    raise ParamError("크라운을 골라도 도구 막대가 안 뜹니다 — 덴트버드 화면이 바뀌었는지 보세요")
+    # ★ 멈춘 까닭을 다음에 바로 알 수 있게 — 창 사정과 그림을 같이 남깁니다 (2026-10-21,
+    #   서버 PC zzz 건: 최소화된 창 때문인지 화면이 바뀐 것인지 글만으로는 못 가렸습니다)
+    from dentbird_web import snapshot, window_report  # noqa: PLC0415
+
+    shot = snapshot(d, "toolbar")
+    raise ParamError(
+        "크라운을 골라도 도구 막대가 안 뜹니다 — " + window_report(d)
+        + (f" · 그림 {shot}" if shot else "") + " — 덴트버드 화면이 바뀌었는지 보세요"
+    )
 
 
 def _inner_values(d) -> dict[str, float]:

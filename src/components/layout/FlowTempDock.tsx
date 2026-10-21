@@ -381,9 +381,14 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
           </span>
         </div>
 
+        {/*
+          ★ 진행 문장이 이 카드의 본문입니다 (사용자 2026-10-21 — "진행상황 알려주는 멘트가
+            한눈에 안 띄네"). 옅은 회색 작은 글씨였던 것을 본문 크기·진한 색으로 올립니다.
+          ★ 주문번호(ORD-…)는 뺐습니다 — 치과에는 환자 이름이 곧 주문입니다.
+        */}
         <p
-          className="mt-1.5 text-[12px] leading-snug"
-          style={{ color: item.tone === 'progress' ? '#7C8595' : color.ink }}
+          className="mt-2 text-[13px] font-semibold leading-snug"
+          style={{ color: item.tone === 'progress' ? '#3A4F66' : color.ink }}
         >
           {item.tone === 'error'
             ? `오류 — ${item.detail}`
@@ -391,11 +396,10 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
               ? `${hhmm(item.finishedAt)} 완료 — 꺼내 주세요`
               : item.detail}
         </p>
-        <p className="mt-0.5 text-[11px] text-[#B6BECC]">
-          {item.orderNo}
-          {/* ★ 출력 중이면 끝날 시각 (2026-10-15 — "남은 시간은 안 보여주네") */}
-          {item.etaAt ? <span className="ml-1.5 text-[#7C8595]">· {hhmm(item.etaAt)} 완료 예정</span> : null}
-        </p>
+        {/* ★ 출력 중이면 끝날 시각 (2026-10-15 — "남은 시간은 안 보여주네") */}
+        {item.etaAt ? (
+          <p className="mt-0.5 text-[11.5px] text-[#7C8595]">{hhmm(item.etaAt)} 완료 예정</p>
+        ) : null}
       </Link>
 
       {error && !item.canClearBed ? (
