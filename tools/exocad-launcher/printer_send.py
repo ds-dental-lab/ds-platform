@@ -49,6 +49,12 @@ CONFIRM_SECONDS = 90
 #: (우리가 30초마다 상태를 물으니 조용한 것은 조용한 것입니다)
 SILENT_SECONDS = 180
 
+#: 소식이 끊기면 포기 전에 프린터를 **다시 찾아 붙어 보는** 횟수 (2026-10-21).
+#: 공유기가 여러 대인 치과는 출력 중에 프린터가 다른 공유기로 옮겨 붙어 주소가 바뀝니다.
+#: 그러면 통로만 끊기고 프린터는 계속 뽑는데, 전에는 3분 뒤 "실패" 로 치과에 알렸습니다.
+#: 두 번(최대 6분 더) 다시 찾아 붙고, 그래도 안 되면 그때 알립니다.
+REFIND_TRIES = 2
+
 #: 소식은 오는데 층·진행률이 안 움직이는 시간.
 #: ★ 첫 층이 6분 걸립니다 — 그동안 층수도 진행률도 안 움직입니다.
 #:   짧게 잡으면 정상 출력을 실패로 끊습니다.
@@ -233,6 +239,19 @@ class BambuPrinter:
         if self.host:
             return self.host
         raise OSError("프린터를 찾지 못했습니다 (켜져 있는지, 같은 와이파이인지 봐 주세요)")
+
+    def _refind(self) -> str | None:
+        """
+        지금 주소를 **새로** 알아냅니다 — 방송 → 지난 주소 확인 → 대역 훑기.
+        resolve() 와 달리 확인 안 된 옛 주소를 돌려주지 않습니다. 못 찾으면 None.
+        """
+        from printer_find import find  # noqa: PLC0415
+        from printer_sweep import sweep  # noqa: PLC0415
+
+        got = find(self.serial) if self.serial else None
+        if got:
+            return got.ip
+        return sweep(self.serial, self.access_code, preferred=self.host)
 
     def login_test(self) -> None:
         """들어가지기만 보고 끊습니다. 「프린터 찾기」가 씁니다"""
@@ -663,6 +682,7 @@ class BambuPrinter:
         mark: tuple = ()
         told = 0.0
         asked = time.time()
+        refinds = 0  # 소식이 끊겨 다시 찾아 붙은 횟수
         out: Progress | None = None
 
         try:
@@ -674,6 +694,35 @@ class BambuPrinter:
 
                 # 조용함 — 통로가 끊긴 것입니다
                 if now - heard["at"] > SILENT_SECONDS:
+                    # ★ 포기 전에 프린터를 다시 찾아 붙습니다 — 주소가 바뀌었을 수 있습니다
+                    if refinds < REFIND_TRIES:
+                        refinds += 1
+                        yield Progress(
+                            state.get("mc_percent"),
+                            f"프린터 소식이 끊겨 다시 찾는 중 ({refinds}/{REFIND_TRIES})",
+                            layer=state.get("layer_num"),
+                            layers=state.get("total_layer_num"),
+                        )
+                        try:
+                            fresh = self._refind()
+                        except Exception:  # noqa: BLE001
+                            fresh = None
+                        if fresh:
+                            client.loop_stop()
+                            try:
+                                client.disconnect()
+                            except OSError:
+                                pass
+                            self.host = fresh
+                            client = self._mqtt()
+                            client.on_message = on_message
+                            try:
+                                client.connect(fresh, 8883, keepalive=60)
+                                client.loop_start()
+                            except Exception:  # noqa: BLE001 — 다음 차례에 또 해 봅니다
+                                pass
+                        heard["at"] = now
+                        continue
                     out = Progress(
                         state.get("mc_percent"),
                         "",
