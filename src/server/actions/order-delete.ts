@@ -16,6 +16,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/server/policies/session';
 import { canDeleteOrder, STATUS_LABEL, type OrderStatus } from '@/server/domain/order-status';
 
@@ -65,6 +66,17 @@ export async function submitDeleteOrder(orderId: string): Promise<DeleteOrderRes
     return { ok: false, error: '지울 수 있는 주문이 아닙니다' };
   }
 
+  /*
+    ★ FlowTemp 출력 줄도 함께 내립니다 (2026-10-21 — 지운 시험 주문의 잡 9개가 남아
+      있었음). 주문이 사라져도 auto_jobs 는 남아서, 설계 일꾼·책갈피·알림이 없는 주문을
+      붙들 수 있습니다. 치과 화면은 orders.deleted_at 으로 거르지만 잡 자체는 살아 있었습니다.
+      관리자 연결로 씁니다 — auto_jobs 는 치과 계정이 고칠 수 없는 표입니다.
+  */
+  await createAdminClient()
+    .from('auto_jobs')
+    .update({ dismissed_at: new Date().toISOString(), dismissed_by: session.user.id })
+    .eq('order_id', orderId)
+    .is('dismissed_at', null);
   // 리메이크였다면 원주문에 남긴 흔적을 되돌립니다
   if (order.is_remake && order.parent_order_id) {
     await rollbackParent(supabase, order.parent_order_id as string);
