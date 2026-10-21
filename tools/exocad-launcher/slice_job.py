@@ -141,6 +141,56 @@ def facts_of(out_3mf: Path) -> dict:
         "printer": settings.get("printer_settings_id"),
     }
 
+#: 프린터 화면에 뜨는 그림의 로고 (사용자 2026-10-21 "프린트 대기화면에 DenFlow 로고")
+LOGO = Path(__file__).resolve().parent / "denflow_logo.png"
+
+
+def brand(out_3mf: Path, preview_png: Path, logo: Path = LOGO) -> bool:
+    """
+    출력 파일 안에 **프린터 화면용 그림**을 넣습니다 — 덴플로우 로고 + 놓인 모습.
+
+    ★ 오르카 명령줄은 썸네일을 안 만듭니다. 그런데 `_rels/.rels` 는 이미
+      `Metadata/plate_1.png`(큰 것)·`plate_1_small.png`(작은 것)를 가리키고 있어,
+      그 이름으로 그림만 넣으면 A1 mini 가 대기·출력 화면에 그대로 띄웁니다.
+    ★ 못 넣어도 출력은 됩니다 — 그림이 없을 뿐입니다. 그래서 실패를 삼킵니다.
+    """
+    try:
+        import io  # noqa: PLC0415
+        import os  # noqa: PLC0415
+
+        from PIL import Image  # noqa: PLC0415
+
+        big = Image.new("RGBA", (512, 512), (255, 255, 255, 255))
+        if logo.is_file():
+            lg = Image.open(logo).convert("RGBA")
+            lg.thumbnail((360, 360))
+            big.alpha_composite(lg, ((512 - lg.width) // 2, 40))
+        if preview_png.is_file():
+            pv = Image.open(preview_png).convert("RGBA")
+            pv.thumbnail((150, 150))
+            big.alpha_composite(pv, (512 - pv.width - 16, 512 - pv.height - 16))
+        small = big.copy()
+        small.thumbnail((128, 128))
+
+        def png_bytes(im) -> bytes:
+            b = io.BytesIO()
+            im.convert("RGB").save(b, format="PNG")
+            return b.getvalue()
+
+        tmp = out_3mf.with_suffix(".tmp")
+        with zipfile.ZipFile(out_3mf) as src, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as dst:
+            for item in src.infolist():
+                if item.filename in ("Metadata/plate_1.png", "Metadata/plate_1_small.png"):
+                    continue
+                dst.writestr(item, src.read(item.filename))
+            dst.writestr("Metadata/plate_1.png", png_bytes(big))
+            dst.writestr("Metadata/plate_1_small.png", png_bytes(small))
+        os.replace(tmp, out_3mf)
+        return True
+    except Exception:  # noqa: BLE001 — 그림은 덤입니다
+        return False
+
+
 def preview(stl: Path, png: Path, size: int = 420) -> Path:
     """
     돌려 놓은 모습 한 장. 비스듬히 봅니다 — 눕힌 각도가 보여야 합니다.
@@ -190,6 +240,8 @@ def build(
     run_orca(rotated, out_3mf, machine, process, filament)
 
     png = preview(rotated, out_dir / f"{stem}_놓임.png")
+    # ★ 프린터 화면용 그림 — 로고 + 놓인 모습 (2026-10-21)
+    brand(out_3mf, png)
 
     return {
         "stl": str(rotated),
