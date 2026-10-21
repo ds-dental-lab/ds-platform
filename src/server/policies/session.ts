@@ -8,7 +8,9 @@
 
 import { cache } from 'react';
 import { redirect, notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { hasAuthCookie } from '@/server/domain/login';
 import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 
 export type Sector = 'clinic' | 'design_center' | 'lab';
@@ -40,12 +42,53 @@ export const getSession = cache(async function getSession() {
       혹시 대칭키(HS256) 프로젝트로 바뀌면 supabase-js 가 알아서
       서버에 물어봅니다. 그때는 전과 같아질 뿐 틀리지는 않습니다.
   */
-  const { data: claims } = await supabase.auth.getClaims();
+  const { data: claims, error: claimsError } = await supabase.auth.getClaims();
 
-  const userId = claims?.claims?.sub;
-  if (!userId) return null;
+  let userId = claims?.claims?.sub;
+  let email = (claims?.claims?.email as string | undefined) ?? '';
 
-  const email = (claims?.claims?.email as string | undefined) ?? '';
+  /*
+    ★★ **토큰이 안 풀렸다고 바로 "로그아웃" 으로 보지 않습니다** (2026-10-21).
+
+      주문완료를 누른 순간 로그인 화면으로 튕기는 일이 같은 날 두 번
+      있었습니다. 그때 주소는 `/login` 이었습니다 — 문 앞(proxy)이 보낸
+      것이 아니라(그쪽은 ?next= 를 붙입니다) **여기서** redirect 한 것입니다.
+      그런데 몇 분 뒤 같은 쿠키로 다른 화면은 멀쩡히 열렸습니다. 세션이
+      죽은 것이 아니라 **이 한 번의 검증이 실패**한 것입니다.
+
+      getClaims 는 서명을 이 서버에서 풉니다. 공개키를 못 받아 오거나,
+      만료 90초 전 갱신이 다른 요청(20초 자국 묻기 + 그 직후 refresh)과
+      겹쳐 어긋나면, 토큰이 멀쩡해도 빈손으로 돌아옵니다. 문 앞(proxy)은
+      그때 getUser 로 한 번 더 묻는데, 여기는 안 묻고 바로 끊었습니다.
+
+    ★ 그래서 인증 쿠키가 **있을 때만** 인증 서버에 한 번 더 묻습니다.
+      쿠키가 없으면 로그인이 아닌 것이 확실하니 왕복을 안 붙입니다.
+      어느 쪽으로 끝나든 까닭을 기록에 남깁니다 — 다음에 또 튕기면
+      Vercel 로그에서 `[session]` 으로 찾습니다.
+  */
+  if (!userId) {
+    const names = (await cookies()).getAll().map((c) => c.name);
+    if (!hasAuthCookie(names)) return null;
+
+    const {
+      data: { user: checked },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    console.error(
+      '[session] 토큰 검증 실패 → 인증 서버에 재확인',
+      JSON.stringify({
+        claims: claimsError?.code ?? claimsError?.message ?? 'no claims',
+        recovered: Boolean(checked),
+        user: userError?.code ?? userError?.message ?? null,
+      }),
+    );
+
+    if (!checked) return null;
+    userId = checked.id;
+    email = checked.email ?? '';
+  }
+
   const user = { id: userId, email };
 
   /*

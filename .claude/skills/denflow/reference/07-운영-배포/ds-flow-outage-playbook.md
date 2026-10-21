@@ -41,3 +41,10 @@ Supabase 쪽 **시계가 틀어져** DB가 로그인 토큰을 `PGRST303 JWT iss
   **service role 로 보내서 막힌 와중에도 나갑니다**
 
 관련: [[ds-flow-deploy]] [[ds-flow-db-guards]]
+
+## 주문완료 누르자 로그인 화면으로 (2026-10-21, 치ㅣ 시험 주문 셋 중 둘)
+- 증상: 브라우저 창에서 주문등록 폼을 채우고 **주문완료를 누른 직후** `/login` 으로 떨어짐 (13:08, 13:27 KST). 주문은 만들어졌음. 몇 분 뒤 같은 쿠키로 주문등록 화면이 다시 열림 → 세션이 죽은 게 아니라 **그 한 번의 검증이 실패**한 것.
+- 주소가 단서: 문 앞(proxy.ts)이 보내면 `/login?next=…` 가 붙음. 단순 `/login` 은 `requireSession` 의 `redirect('/login')` — 즉 **화면을 그리는 쪽의 getSession 이 빈손**이었음. 주문이 생기면 20초 자국 묻기(AutoRefresh)가 바뀐 걸 보고 `router.refresh()` 를 부르는데, 그 다시 그리기에서 getClaims 가 실패했다고 봄 (만료 90초 전 갱신이 두 요청에 겹침, 또는 공개키 받기 실패 — 확정은 못 함).
+- 10:36 로그인 → 12:31 (GET 이동) 때는 `?next=` 붙은 쪽이었음 — 그건 토큰 만료 뒤 갱신 실패(쿠키 없이 1시간 55분 방치).
+- 고침: `policies/session.ts` getSession — claims 가 비어도 인증 쿠키가 있으면 **getUser 로 한 번 더 확인**(proxy 와 같은 길), 결과를 `[session] 토큰 검증 실패 → 인증 서버에 재확인` 으로 console.error → Vercel 로그에서 찾을 수 있음.
+- 못 본 것(사용자 손): Supabase 대시보드 Authentication 로그에서 10/21 13:08·13:27 KST 치ㅣ 계정의 token refresh 오류, 그리고 Sessions 설정의 **JWT 만료 시간·refresh token reuse interval**. 대시보드·Vercel 로그는 내 브라우저 창에서 로그인이 풀려 못 들어감.
