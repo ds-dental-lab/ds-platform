@@ -160,15 +160,32 @@ def brand(out_3mf: Path, preview_png: Path, logo: Path = LOGO) -> bool:
 
         from PIL import Image  # noqa: PLC0415
 
+        from PIL import ImageDraw, ImageFont  # noqa: PLC0415
+
+        # ★ 로고 + 회사 이름만 (사용자 2026-10-21 "치아는 빼고 로고랑 DenFlow 회사명만").
+        #   글자는 화면 로고(DenFlowLogo)와 같은 모양 — 'Den' 진하게 남색, 'Flow' 회색.
         big = Image.new("RGBA", (512, 512), (255, 255, 255, 255))
         if logo.is_file():
             lg = Image.open(logo).convert("RGBA")
-            lg.thumbnail((360, 360))
-            big.alpha_composite(lg, ((512 - lg.width) // 2, 40))
-        if preview_png.is_file():
-            pv = Image.open(preview_png).convert("RGBA")
-            pv.thumbnail((150, 150))
-            big.alpha_composite(pv, (512 - pv.width - 16, 512 - pv.height - 16))
+            lg.thumbnail((300, 300))
+            big.alpha_composite(lg, ((512 - lg.width) // 2, 56))
+        font = None
+        for name in ("segoeuib.ttf", "arialbd.ttf", "malgunbd.ttf"):
+            try:
+                font = ImageFont.truetype(name, 78)
+                break
+            except OSError:
+                continue
+        font = font or ImageFont.load_default()
+        draw = ImageDraw.Draw(big)
+        den, flow = "Den", "Flow"
+        w_den = draw.textlength(den, font=font)
+        w_flow = draw.textlength(flow, font=font)
+        x = (512 - (w_den + w_flow)) / 2
+        y = 392
+        draw.text((x, y), den, font=font, fill=(27, 42, 74, 255))
+        draw.text((x + w_den, y), flow, font=font, fill=(154, 163, 174, 255))
+        del preview_png  # 치아 그림은 안 넣습니다
         small = big.copy()
         small.thumbnail((128, 128))
 
