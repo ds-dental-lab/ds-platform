@@ -4,13 +4,27 @@
 // 기기 상태판 — 치과 PC·설계 PC 가 잘 도는지 (사용자 요청 2026-10-16).
 //
 // ★ 센터 관리자만 봅니다(메뉴 결정). 꺼짐 알림은 센터 전체에 갑니다.
-// ★ 급한 것이 위로: 꺼짐 → 확인 필요 → 정상 → 옛 판.
 // ★ 30초마다 저절로 다시 그립니다(TickRefresh) — 켜 두고 보는 화면입니다.
+// ★★ 단순하게 (사용자 2026-10-21 "어지럽구나"). 묶음은 셋 — 문제 / 정상 / 옛 판.
+//   정상인 기기는 한 줄로 끝나고, 지난 기록은 접습니다. 설계 기기는 **서버 PC** 와
+//   **디자인 PC** 로 갈라 적습니다 (domain/device-health 의 deviceRole).
 // =========================================================
 
 import { requireManagerSector } from '@/server/policies/session';
 import { deviceBoard } from '@/server/repositories/device-health';
-import { deviceState, stateLabel, staleWatchers, versionBehind, type DeviceState } from '@/server/domain/device-health';
+import {
+  deviceGroup,
+  deviceRole,
+  deviceState,
+  ROLE_LABEL,
+  splitEvents,
+  staleWatchers,
+  stateLabel,
+  versionBehind,
+  type DeviceGroup,
+  type DeviceRole,
+  type DeviceState,
+} from '@/server/domain/device-health';
 import { AGENT_VERSION } from '@/server/domain/agent';
 import TickRefresh from '@/components/layout/TickRefresh';
 
@@ -22,7 +36,15 @@ const TONE: Record<DeviceState, { dot: string; chip: string; ink: string }> = {
   ok: { dot: '#12855B', chip: '#E7F5EE', ink: '#0E6B49' },
   legacy: { dot: '#B6BECC', chip: '#F2F4F7', ink: '#5B6577' },
 };
-const ORDER: Record<DeviceState, number> = { offline: 0, warn: 1, ok: 2, legacy: 3 };
+const STATE_ORDER: Record<DeviceState, number> = { offline: 0, warn: 1, ok: 2, legacy: 3 };
+// 서버 PC 가 맨 위 — 설계가 거기서 돕니다
+const ROLE_ORDER: Record<DeviceRole, number> = { server: 0, design: 1, clinic: 2 };
+
+const GROUP: Record<DeviceGroup, { title: string; ink: string }> = {
+  trouble: { title: '문제', ink: '#A32F2F' },
+  fine: { title: '정상', ink: '#0E6B49' },
+  legacy: { title: '옛 판 — 상태를 안 보냄', ink: '#5B6577' },
+};
 
 function ago(iso: string | null, now: number): string {
   if (!iso) return '소식 없음';
@@ -49,31 +71,29 @@ export default async function DesignDevicesPage() {
   const board = await deviceBoard();
   const now = board.now;
   const rows = board.rows
-    .map((d) => ({ ...d, state: deviceState(d, now) }))
-    .sort((a, b) => ORDER[a.state] - ORDER[b.state] || a.orgName.localeCompare(b.orgName, 'ko'));
+    .map((d) => {
+      const state = deviceState(d, now);
+      return { ...d, state, role: deviceRole(d), group: deviceGroup(state) };
+    })
+    .sort(
+      (a, b) =>
+        STATE_ORDER[a.state] - STATE_ORDER[b.state] ||
+        ROLE_ORDER[a.role] - ROLE_ORDER[b.role] ||
+        a.orgName.localeCompare(b.orgName, 'ko'),
+    );
 
-  const count = (s: DeviceState) => rows.filter((r) => r.state === s).length;
+  const groups = (['trouble', 'fine', 'legacy'] as const).map((g) => ({ key: g, items: rows.filter((r) => r.group === g) }));
+  const trouble = rows.filter((r) => r.group === 'trouble').length;
 
   return (
-    <div className="mx-auto max-w-[1100px] pb-10">
+    <div className="mx-auto max-w-[900px] pb-10">
       <TickRefresh everySec={30} />
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[20px] font-bold tracking-[-0.02em] text-[#1A2130]">기기 상태</h1>
           <p className="mt-1 text-[13px] text-[#7C8595]">
-            치과 PC(덴플로우 에이전트)와 설계 PC 가 잘 도는지. 새 판은 1분마다 상태를 보냅니다 · 최신 판 {AGENT_VERSION}
+            {trouble === 0 ? '모두 정상입니다.' : `${trouble}대를 봐 주세요.`} 최신 판 {AGENT_VERSION}
           </p>
-        </div>
-        <div className="flex gap-2 text-[12.5px]">
-          {(['offline', 'warn', 'ok', 'legacy'] as const).map((s) => (
-            <span
-              key={s}
-              className="rounded-full px-2.5 py-1 font-semibold"
-              style={{ background: TONE[s].chip, color: TONE[s].ink }}
-            >
-              {stateLabel(s).split(' — ')[0]} {count(s)}
-            </span>
-          ))}
         </div>
       </div>
 
@@ -82,84 +102,87 @@ export default async function DesignDevicesPage() {
           연결된 기기가 없습니다.
         </p>
       ) : (
-        <ul className="space-y-2.5">
-          {rows.map((d) => {
-            const tone = TONE[d.state];
-            const isDesign = d.orgType === 'design_center' || d.status.kind === 'design';
-            const stale = staleWatchers(d.status.watchers);
-            return (
-              <li
-                key={d.id}
-                className="rounded-xl border bg-white p-4"
-                style={{ borderColor: d.state === 'ok' || d.state === 'legacy' ? '#E8EBF0' : tone.dot }}
-              >
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: tone.dot }} aria-hidden="true" />
-                  <b className="text-[15px] font-bold tracking-[-0.02em] text-[#1A2130]">{d.orgName}</b>
-                  <span className="text-[13px] text-[#4A5567]">{d.name}</span>
-                  <span className="rounded-md bg-[#F2F4F7] px-1.5 py-0.5 text-[11.5px] font-semibold text-[#4A5567]">
-                    {isDesign ? '설계 PC' : '치과 PC'}
-                  </span>
-                  <span
-                    className="ml-auto rounded-full px-2.5 py-0.5 text-[12px] font-bold"
-                    style={{ background: tone.chip, color: tone.ink }}
-                  >
-                    {stateLabel(d.state)}
-                  </span>
-                </div>
+        <div className="space-y-6">
+          {groups.map(({ key, items }) =>
+            items.length === 0 ? null : (
+              <section key={key}>
+                <h2 className="mb-2 text-[12.5px] font-bold" style={{ color: GROUP[key].ink }}>
+                  {GROUP[key].title} {items.length}
+                </h2>
+                <ul className="space-y-2">
+                  {items.map((d) => {
+                    const tone = TONE[d.state];
+                    const stale = staleWatchers(d.status.watchers);
+                    const { shown, folded } = splitEvents(d.events, d.state, now);
+                    // 문제가 있을 때만 그 까닭을 한 줄로 — 정상이면 아무 말 없음
+                    const why: string[] = [];
+                    if (d.status.missing?.length) why.push(`빠진 것: ${d.status.missing.join(' · ')}`);
+                    if (stale.length) why.push(`멈춘 프로그램: ${stale.join(', ')}`);
+                    if (d.status.printer?.ok === false) why.push('프린터 연결 안 됨');
+                    if (d.status.folderOk === false) why.push('스캔 감시 폴더 없음');
+                    const behind = versionBehind(d.version, AGENT_VERSION);
 
-                <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12.5px] text-[#4A5567]">
-                  <span>
-                    마지막 소식 <b className="font-semibold text-[#1A2130]">{ago(d.heartbeatAt ?? d.lastSeenAt, now)}</b>
-                  </span>
-                  <span>
-                    판 <b className="font-semibold text-[#1A2130]">{d.version ?? '—'}</b>
-                    {versionBehind(d.version, AGENT_VERSION) ? (
-                      <span className="ml-1 text-[#E09A1B]">(최신 {AGENT_VERSION})</span>
-                    ) : null}
-                  </span>
-                  {d.status.printer?.kind && d.status.printer.kind !== 'mock' ? (
-                    <span>
-                      프린터{' '}
-                      <b className="font-semibold" style={{ color: d.status.printer.ok === false ? '#A32F2F' : '#1A2130' }}>
-                        {d.status.printer.ok === false ? '연결 안 됨' : '연결됨'}
-                      </b>
-                      {d.status.printer.ip ? <span className="text-[#98A2B3]"> · {d.status.printer.ip}</span> : null}
-                    </span>
-                  ) : null}
-                  {d.status.folderOk === false ? (
-                    <span className="font-semibold text-[#A32F2F]">스캔 감시 폴더 없음</span>
-                  ) : null}
-                  {d.status.dentbird ? (
-                    <span>
-                      덴트버드 창 <b className="font-semibold text-[#1A2130]">{d.status.dentbird}</b>
-                    </span>
-                  ) : null}
-                  {d.status.missing?.length ? (
-                    <span className="font-semibold text-[#A32F2F]">빠진 것: {d.status.missing.join(' · ')}</span>
-                  ) : null}
-                  {stale.length ? (
-                    <span className="font-semibold text-[#A32F2F]">멈춘 프로그램: {stale.join(', ')}</span>
-                  ) : null}
-                  {d.status.doing ? <span>지금 {d.status.doing}</span> : null}
-                </div>
+                    return (
+                      <li
+                        key={d.id}
+                        className="rounded-xl border bg-white px-4 py-3"
+                        style={{ borderColor: key === 'trouble' ? tone.dot : '#E8EBF0' }}
+                      >
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: tone.dot }} aria-hidden="true" />
+                          <span className="rounded-md bg-[#1A2130] px-1.5 py-0.5 text-[11.5px] font-bold text-white">
+                            {ROLE_LABEL[d.role]}
+                          </span>
+                          <b className="text-[14.5px] font-bold tracking-[-0.02em] text-[#1A2130]">
+                            {d.role === 'clinic' ? d.orgName : d.status.host ?? d.name}
+                          </b>
+                          <span className="text-[12.5px] text-[#7C8595]">{ago(d.heartbeatAt ?? d.lastSeenAt, now)}</span>
+                          {d.status.printer?.kind && d.status.printer.kind !== 'mock' && d.status.printer.ok !== false ? (
+                            <span className="text-[12.5px] text-[#7C8595]">· 프린터 연결됨</span>
+                          ) : null}
+                          {behind ? <span className="text-[12px] text-[#E09A1B]">· 판 {d.version} (최신 {AGENT_VERSION})</span> : null}
+                          <span
+                            className="ml-auto rounded-full px-2.5 py-0.5 text-[12px] font-bold"
+                            style={{ background: tone.chip, color: tone.ink }}
+                          >
+                            {stateLabel(d.state).split(' — ')[0]}
+                          </span>
+                        </div>
 
-                {d.events.length ? (
-                  <ul className="mt-2.5 space-y-1 rounded-lg bg-[#F8F9FB] p-2.5">
-                    {d.events.map((e, i) => (
-                      <li key={i} className="flex gap-2 text-[12px]">
-                        <span className="shrink-0 tabular-nums text-[#98A2B3]">{clock(e.at)}</span>
-                        <span style={{ color: e.level === 'error' ? '#A32F2F' : e.level === 'warn' ? '#8A5A12' : '#4A5567' }}>
-                          {e.message}
-                        </span>
+                        {why.length ? (
+                          <p className="mt-1.5 text-[12.5px] font-semibold text-[#A32F2F]">{why.join(' · ')}</p>
+                        ) : null}
+
+                        {shown.map((e, i) => (
+                          <p key={i} className="mt-1.5 flex gap-2 text-[12.5px]">
+                            <span className="shrink-0 tabular-nums text-[#98A2B3]">{clock(e.at)}</span>
+                            <span style={{ color: e.level === 'error' ? '#A32F2F' : e.level === 'warn' ? '#8A5A12' : '#4A5567' }}>
+                              {e.message}
+                            </span>
+                          </p>
+                        ))}
+
+                        {folded.length ? (
+                          <details className="mt-1.5">
+                            <summary className="cursor-pointer text-[12px] text-[#98A2B3]">지난 기록 {folded.length}</summary>
+                            <ul className="mt-1.5 space-y-1 rounded-lg bg-[#F8F9FB] p-2.5">
+                              {folded.map((e, i) => (
+                                <li key={i} className="flex gap-2 text-[12px] text-[#7C8595]">
+                                  <span className="shrink-0 tabular-nums text-[#B6BECC]">{clock(e.at)}</span>
+                                  <span>{e.message}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        ) : null}
                       </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
+                    );
+                  })}
+                </ul>
+              </section>
+            ),
+          )}
+        </div>
       )}
     </div>
   );

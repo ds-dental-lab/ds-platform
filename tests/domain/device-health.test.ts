@@ -6,6 +6,9 @@ import {
   sanitizeStatus,
   staleWatchers,
   versionBehind,
+  deviceRole,
+  splitEvents,
+  deviceGroup,
 } from '@/server/domain/device-health';
 
 const now = Date.parse('2026-10-16T05:00:00Z');
@@ -58,5 +61,33 @@ describe('기기가 보낸 것을 거른다', () => {
   });
   it('멈춘 지켜보기', () => {
     expect(staleWatchers({ temp_watch: 20, exocad_watch: 400 })).toEqual(['exocad_watch']);
+  });
+});
+
+describe('서버 PC / 디자인 PC / 치과 PC (사용자 2026-10-21)', () => {
+  it('exocad 지켜보기를 맡은 설계 기기가 디자인 PC, 나머지 설계 기기는 서버 PC', () => {
+    expect(deviceRole({ orgType: 'design_center', status: { kind: 'design', watchers: { exocad_watch: 3 }, doing: 'exocad 대기' } })).toBe('design');
+    expect(deviceRole({ orgType: 'design_center', status: { kind: 'design', watchers: { temp_watch: 2 }, doing: '대기' } })).toBe('server');
+    expect(deviceRole({ orgType: 'clinic', status: { kind: 'clinic' } })).toBe('clinic');
+  });
+
+  it('정상 기기는 한 시간 안의 기록 하나만, 문제 기기는 제일 최근 것 하나만 보이고 나머지는 접힘', () => {
+    const now = Date.parse('2026-10-21T03:30:00Z');
+    const ev = (min: number) => ({ at: new Date(now - min * 60_000).toISOString(), level: 'error' as const, message: 'x' });
+    const old = [ev(120), ev(200)];
+    expect(splitEvents(old, 'ok', now)).toEqual({ shown: [], folded: old });
+    const mixed = [ev(200), ev(10)];
+    const r = splitEvents(mixed, 'ok', now);
+    expect(r.shown.map((e) => e.at)).toEqual([ev(10).at]);
+    expect(r.folded).toHaveLength(1);
+    expect(splitEvents(old, 'warn', now).shown).toHaveLength(1);
+    expect(splitEvents([], 'offline', now)).toEqual({ shown: [], folded: [] });
+  });
+
+  it('묶음 — 꺼짐·확인 필요는 문제, 정상은 정상, 옛 판은 따로', () => {
+    expect(deviceGroup('offline')).toBe('trouble');
+    expect(deviceGroup('warn')).toBe('trouble');
+    expect(deviceGroup('ok')).toBe('fine');
+    expect(deviceGroup('legacy')).toBe('legacy');
   });
 });

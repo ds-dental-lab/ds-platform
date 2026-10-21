@@ -148,3 +148,57 @@ export function staleWatchers(w: Record<string, number> | undefined): string[] {
     .filter(([, age]) => age > WATCHER_STALE_SECONDS)
     .map(([name]) => name);
 }
+
+// ---------- 역할과 보여 줄 것 (사용자 2026-10-21 "어지럽구나 · 서버 PC / 디자인 PC 나눠줘") ----------
+
+export type DeviceRole = 'server' | 'design' | 'clinic';
+
+/**
+ * 어느 PC 인가.
+ * ★ 설계 기기는 둘로 갈립니다 — exocad 지켜보기를 맡은 쪽이 **디자인 PC**, 설계 일꾼·임시치아를
+ *   맡은 쪽이 **서버 PC** (2026-10-21 이관). 기기가 보낸 상태(watchers·doing)로 가립니다.
+ */
+export function deviceRole(input: { orgType?: string | null; status?: DeviceStatus | null }): DeviceRole {
+  const st = input.status ?? {};
+  const isDesign = input.orgType === 'design_center' || st.kind === 'design';
+  if (!isDesign) return 'clinic';
+  if (st.watchers && 'exocad_watch' in st.watchers) return 'design';
+  if ((st.doing ?? '').startsWith('exocad')) return 'design';
+  return 'server';
+}
+
+export const ROLE_LABEL: Record<DeviceRole, string> = { server: '서버 PC', design: '디자인 PC', clinic: '치과 PC' };
+
+export interface DeviceEvent {
+  at: string;
+  level: string;
+  message: string;
+}
+
+/**
+ * 카드에 바로 보일 기록과 접어 둘 기록.
+ *
+ * ★ 지난 일까지 다 펼쳐 놓으니 지금 어떤지가 안 보였습니다. **정상인 기기는 최근 한 시간 안의
+ *   것 하나만**, 문제가 있는 기기는 제일 최근 것 하나만 바로 보이고, 나머지는 접습니다.
+ */
+export function splitEvents(
+  events: DeviceEvent[],
+  state: DeviceState,
+  now: number,
+): { shown: DeviceEvent[]; folded: DeviceEvent[] } {
+  const sorted = [...events].sort((a, b) => b.at.localeCompare(a.at));
+  if (sorted.length === 0) return { shown: [], folded: [] };
+  const head = sorted[0];
+  const fresh = now - new Date(head.at).getTime() < RECENT_ERROR_MINUTES * 60_000;
+  const show = state === 'ok' || state === 'legacy' ? fresh : true;
+  return show ? { shown: [head], folded: sorted.slice(1) } : { shown: [], folded: sorted };
+}
+
+/** 카드를 묶는 칸 — 문제 / 정상 / 옛 판 */
+export type DeviceGroup = 'trouble' | 'fine' | 'legacy';
+
+export function deviceGroup(state: DeviceState): DeviceGroup {
+  if (state === 'offline' || state === 'warn') return 'trouble';
+  if (state === 'legacy') return 'legacy';
+  return 'fine';
+}
