@@ -26,6 +26,11 @@ import {
   canReprint,
   canDismiss,
   stallAdvice,
+  stallKind,
+  designVerdict,
+  GIVE_UP_MESSAGE,
+  DESIGN_AUTO_RETRIES,
+  DESIGN_RETRY_AFTER_MINUTES,
   remainingLabel,
   remainingOf,
   canHandDesign,
@@ -475,11 +480,11 @@ describe('멈춘 까닭을 치과 말로 (2026-10-19)', () => {
     expect(stallAdvice("전용 크롬에서 ai.dentbird.com 의 '여러 파일 다운로드' 를 허용해 주세요").what).toBe('설계 PC 설정이 필요합니다');
     expect(stallAdvice('내보낸 뒤 30분째 주문에 안 올라왔습니다').what).toContain('안 올라왔습니다');
   });
-  it('★ 모르는 까닭은 내부 말을 새지 않고 "센터가 보고 있습니다"', () => {
+  it('★ 모르는 까닭은 내부 말을 새지 않고 "잠시 뒤 다시 합니다" (2026-10-21 — 센터 손 없이)', () => {
     const a = stallAdvice('Dentbird: Multiple login detected on chrome 9333');
     expect(a.what).not.toMatch(/Dentbird|chrome|9333/);
-    expect(a.todo).toContain('센터');
-    expect(stallAdvice(null).todo).toContain('센터');
+    expect(a.todo).toContain('다시 합니다');
+    expect(stallAdvice(null).todo).toContain('다시 합니다');
   });
   it('알림 한 줄도 같은 말을 쓴다', () => {
     expect(autoNotice(job({ step: 'waiting_design', designStage: 'stalled', designNote: '치식을 못 읽었습니다' }))).toContain('자연치가 아닙니다');
@@ -563,8 +568,11 @@ describe('설계 일꾼에게 줄 일감 (2026-10-15)', () => {
     expect(canHandDesign({ ...base, designStage: 'analyzing', updatedAt: '2026-10-15T07:20:00Z' }, now)).toBe(true);
   });
 
-  it('멈춘 것(확인 중)은 다시 안 준다 — 사람이 볼 차례', () => {
-    expect(canHandDesign({ ...base, designStage: 'stalled', updatedAt: '2026-10-15T01:00:00Z' }, now)).toBe(false);
+  it('멈춘 것(확인 중)은 바로 다시 안 준다 — 일시적 멈춤만 5분 뒤에 한 번 (2026-10-21)', () => {
+    // 방금 멈춘 것은 안 줍니다 (now 는 01:00 기준 바로 뒤)
+    expect(canHandDesign({ ...base, designStage: 'stalled', updatedAt: new Date(now - 60_000).toISOString() }, now)).toBe(false);
+    // 장비·계정 문제는 아무리 지나도 안 줍니다 — 센터 몫
+    expect(canHandDesign({ ...base, designStage: 'stalled', designNote: '로그인이 풀렸습니다', updatedAt: '2026-10-15T01:00:00Z' }, now)).toBe(false);
   });
 
   it('디자인 차례가 아니거나 취소된 주문은 안 준다', () => {
@@ -625,5 +633,69 @@ describe('멈추면 알린다 (2026-10-16 점검)', () => {
     const a = autoAlert('failed', { orderNo: 'ORD-1', patientLabel: '홍', productName: 'FlowTemp', reason: '필라멘트가 떨어졌습니다' });
     expect(a.title).toContain('멈췄습니다');
     expect(a.body).toContain('필라멘트');
+  });
+});
+
+describe('센터 손 없이 — 멈춤을 기계가 가릅니다 (사용자 결정 2026-10-21)', () => {
+  it('종류를 글자로 가릅니다', () => {
+    expect(stallKind('치식이 0개입니다 — 지금은 싱글 크라운만 자동으로 합니다')).toBe('unsupported');
+    expect(stallKind('치식을 못 읽었습니다 — 화면을 보고 사람이 확인해 주세요')).toBe('unreadable');
+    expect(stallKind('치식이 주문서와 다릅니다 — 주문서 [27] · 덴트버드 [26]')).toBe('unreadable');
+    expect(stallKind('상악 스캔을 못 찾았습니다 — 파일: a.ply')).toBe('scan');
+    expect(stallKind('덴트버드가 두 번 다 분류하다 파일을 내려놓았습니다 — 스캔을 봐 주세요')).toBe('scan');
+    expect(stallKind('이번 달 덴트버드 내보내기 건수가 없습니다 (0/3)')).toBe('credits');
+    expect(stallKind("전용 크롬에서 ai.dentbird.com 의 '여러 파일 다운로드' 를 허용해 주세요")).toBe('setup');
+    expect(stallKind('내보낸 뒤 30분째 주문에 안 올라왔습니다')).toBe('setup');
+    expect(stallKind('설계값을 못 맞췄습니다 — 크라운을 골라도 도구 막대가 안 뜹니다')).toBe('transient');
+    expect(stallKind('300초가 지나도 생성이 안 끝납니다')).toBe('transient');
+    expect(stallKind(null)).toBe('transient');
+  });
+
+  it('판정 — 못 하는 건 포기, 스캔은 기다림, 장비는 센터, 일시적은 한 번 더', () => {
+    expect(designVerdict('치식이 2개입니다', 0)).toBe('give_up');
+    expect(designVerdict('치식을 못 읽었습니다', 0)).toBe('give_up');
+    expect(designVerdict('하악 스캔을 못 찾았습니다', 0)).toBe('wait_scan');
+    expect(designVerdict('건수가 없습니다', 0)).toBe('hold');
+    expect(designVerdict('로그인이 풀렸습니다', 0)).toBe('hold');
+    expect(designVerdict('도구 막대가 안 뜹니다', 0)).toBe('retry');
+    expect(designVerdict('도구 막대가 안 뜹니다', DESIGN_AUTO_RETRIES)).toBe('give_up');
+  });
+
+  it('일시적 멈춤은 5분 뒤에 일꾼이 다시 집습니다 — 다른 멈춤은 안 집습니다', () => {
+    const now = Date.parse('2026-10-21T03:00:00Z');
+    const base = { orderStatus: 'designing', step: 'waiting_design' as const, scanCount: 2 };
+    const at = (min: number) => new Date(now - min * 60000).toISOString();
+    const tr = { ...base, designStage: 'stalled' as const, designNote: '도구 막대가 안 뜹니다', designTries: 1 };
+    expect(canHandDesign({ ...tr, updatedAt: at(DESIGN_RETRY_AFTER_MINUTES - 1) }, now)).toBe(false);
+    expect(canHandDesign({ ...tr, updatedAt: at(DESIGN_RETRY_AFTER_MINUTES + 1) }, now)).toBe(true);
+    expect(canHandDesign({ ...tr, updatedAt: at(60), designTries: DESIGN_AUTO_RETRIES + 1 }, now)).toBe(false);
+    expect(canHandDesign({ ...tr, updatedAt: at(60), designNote: '건수가 없습니다' }, now)).toBe(false);
+    expect(canHandDesign({ ...tr, updatedAt: at(60), designNote: '하악 스캔을 못 찾았습니다' }, now)).toBe(false);
+    expect(canHandDesign({ ...base, designStage: 'ended', updatedAt: at(60) }, now)).toBe(false);
+  });
+
+  it('포기한 건 — 치과는 부드러운 안내만 보고 ✕ 로 치울 수 있습니다', () => {
+    const j = job({ step: 'waiting_design', designStage: 'ended' });
+    expect(autoNotice(j)).toBe(GIVE_UP_MESSAGE);
+    expect(canDismiss(j)).toBe(true);
+    const r = boardRow(j);
+    expect(r.tone).toBe('info');
+    expect(r.detail).toBe(GIVE_UP_MESSAGE);
+    for (const word of ['실패', '오류', '덴트버드', '기공소', 'STL']) {
+      expect(r.status + r.detail + GIVE_UP_MESSAGE).not.toContain(word);
+    }
+  });
+
+  it('치과 알림 둘 — 포기·스캔 다시 올리기 — 에 설계 프로그램 이름이 없습니다', () => {
+    const a = autoAlert('design_ended', { orderNo: 'ORD-1', patientLabel: '홍', productName: 'FlowTemp' });
+    expect(a.title + a.body).toContain('평소대로');
+    const b = autoAlert('design_scan', { orderNo: 'ORD-1', patientLabel: '홍', productName: 'FlowTemp', reason: '스캔 파일을 확인해 주세요' });
+    expect(b.title).toContain('다시 올려');
+    for (const t of [a, b]) expect(t.title + t.body).not.toMatch(/덴트버드|dentbird|기공소|STL/i);
+  });
+
+  it('스캔 멈춤은 치과에 다시 올리라고, 일시적 멈춤은 잠시 뒤 다시 한다고 말합니다', () => {
+    expect(stallAdvice('하악 스캔을 못 찾았습니다').todo).toContain('다시 올리면');
+    expect(stallAdvice('도구 막대가 안 뜹니다').todo).toContain('다시 합니다');
   });
 });

@@ -314,7 +314,7 @@ export async function getFlowTempBoard(): Promise<Board> {
   /*
     ★ 급한 것이 위로 — 오류, 치과 할 일, 지연, 진행 순. 같으면 최근 것이 위.
   */
-  const order = { error: 0, action: 1, delay: 2, progress: 3, done: 4 } as const;
+  const order = { error: 0, action: 1, delay: 2, progress: 3, done: 4, info: 5 } as const;
   /*
     ★ 치과 PC 가 꺼져 있으면 그 말로 바꿉니다 (2026-10-16 점검). 자기 치과
       기기는 RLS 로 읽힙니다.

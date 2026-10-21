@@ -182,3 +182,12 @@ layer_height 를 0.12(실수)로 넣고 0.2mm 로 잘린 적이 있습니다.
 - 서버 PC 혼자 돌게 한 설정(2026-10-21): 전원 절전 안 함 · 로그인 옵션 "다시 로그인" 안 함 · **자동 로그인은 netplwiz 체크 칸이 숨겨져 있음** → 관리자 cmd 로 `reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device" /v DevicePasswordLessBuildVersion /t REG_DWORD /d 0 /f` 뒤 netplwiz 에서 체크 해제(재부팅 때 잠금 화면에서 멈춰 일꾼이 안 떴던 것) · BIOS Restore after AC Power Loss = Power On · 크롬 원격 데스크톱 설치. 재부팅 뒤 손 안 대고 신호 재개 확인.
 - **서버 PC 첫 건(zzz #27, 2026-10-21 11:15) 멈춤**: "크라운을 골라도 도구 막대가 안 뜹니다". 생성까지는 갔음(최소화 상태에서 WebGL 이 아예 선 것은 아님). 의심: 최소화된 창(내장 그래픽) 또는 화면 크기. 고침: ① open_browser(background) 가 **더는 최소화 안 함** ② keep_awake 가 붙을 때마다 CDP Browser.setWindowBounds 로 최소화를 풂(`unminimize`, 활성화 안 함) ③ 도구 막대 기다림 20→40초, 실패하면 `window_report`(창 상태·visibilityState·innerWidth×Height)와 `snapshot`(logs/dentbird-toolbar-*.png) 을 멈춤 글에 붙임. 임시 크롬(9334)으로 되돌리기·rAF(최소화 243/2초)·그림 저장 확인.
 - 치과 책갈피 카드: 진행 문장을 본문 크기(13px 굵게 진한 색)로, 주문번호(ORD-) 줄 뺌 (사용자 2026-10-21).
+
+## 센터 손 없이 — 멈춤을 기계가 처리 (사용자 결정 2026-10-21 "센터에서 손이 안 갔으면 해")
+- 전제: **FlowTemp 는 되면 좋은 덤.** 안 되면 치과가 평소대로 임시치아, 크라운 주문은 그대로. 센터는 건별로 손대지 않음.
+- 규칙(domain/auto-print): `stallKind(note)` = unsupported·unreadable·scan·credits·setup·transient → `designVerdict(note, tries)` = give_up / wait_scan / hold / retry(≤1회, 5분 뒤 `canHandDesign` 이 다시 집음). 서버 `setDesignStage` 가 멈춤 보고를 받을 때 판정.
+- give_up → design_stage **'ended'**, FlowTemp 줄 삭제(`removeAutoItems`), 치과 알림 `design_ended`. 치과 말 `GIVE_UP_MESSAGE` = "이번 건은 임시치아를 미리 준비해 드리기 어렵습니다. 평소대로 진행해 주세요." (사용자 "우회적으로"). 책갈피 회색 tone 'info' '평소대로', ✕ 로 치움. 다시 걸기 불가.
+- wait_scan → design_wait='scan' + 치과 알림 `design_scan`("스캔 파일을 다시 올려 주세요"), **스캔 다시 올리면 DB 트리거 `auto_jobs_scan_resume`(order_files) 가 다시 엶**.
+- hold(건수·설정·로그인·안 올라옴) 만 센터 알림(전처럼). 포기가 24시간 안 3건 잇따르면 센터에 한 번 알림(`publishDesignStreak`).
+- 마이그레이션 `20261021120000_flowtemp_zero_touch.sql`(design_tries·design_wait·ended·트리거) — **사용자가 db push**. 테스트 83.
+- 아직 안 한 것: 덴트버드 보내기 전 스캔 사전 검사(파일 없음·한쪽 악 없음), 센터 STL 올리기 단추. 실제 실패율은 11/06 뒤 10~20건으로 재고 치과 공개 결정.

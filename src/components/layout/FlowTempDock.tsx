@@ -80,6 +80,8 @@ const TONE: Record<BoardTone, { main: string; soft: string; ink: string; label: 
   delay: { main: '#E09A1B', soft: '#FFF6E5', ink: '#8A5A12', label: '지연' },
   progress: { main: '#4F6B8A', soft: '#EEF2F7', ink: '#3A4F66', label: '진행 중' },
   done: { main: '#12855B', soft: '#E7F5EE', ink: '#0E6B49', label: '완료' },
+  // ★ 자동 설계를 접은 건 — 오류가 아니라 안내 (2026-10-21)
+  info: { main: '#8B94A3', soft: '#F2F4F7', ink: '#4A5567', label: '안내' },
 };
 
 const noop = () => () => {};

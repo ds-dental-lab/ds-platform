@@ -20,6 +20,8 @@ import {
   alertOnMove,
   canHandDesign,
   canDismiss,
+  designVerdict,
+  stallAdvice,
   canMove,
   claimable,
   isAutoStep,
@@ -297,22 +299,91 @@ export async function setDesignStage(
     return { ok: false, error: '설계 PC 만 적을 수 있습니다' };
   }
 
-  const { data, error } = await admin
+  if (stage !== 'stalled') {
+    const { data, error } = await admin
+      .from('auto_jobs')
+      .update({ design_stage: stage, design_note: null, updated_at: new Date().toISOString() })
+      .eq('order_id', orderId)
+      .eq('step', 'waiting_design')
+      .select('id');
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) return { ok: false, error: '디자인 차례인 주문이 아닙니다' };
+    return { ok: true };
+  }
+
+  /*
+    ★★ 멈추면 **기계가 먼저 판정합니다** (사용자 결정 2026-10-21 — "센터에서 손이 안 갔으면").
+      retry      일시적 — 5분 뒤 일꾼이 한 번 더 집어 갑니다 (claimNextDesign · canHandDesign)
+      wait_scan  스캔 문제 — 치과에 알리고, 스캔을 다시 올리면 DB 트리거가 다시 엽니다
+      give_up    자동으로 못 하는 건 — 포기: FlowTemp 줄을 빼고 치과에 '평소대로' 안내
+      hold       장비·계정 문제 — 센터에 알림 (전처럼)
+  */
+  const { data: cur } = await admin
     .from('auto_jobs')
-    .update({
-      design_stage: stage,
-      design_note: stage === 'stalled' ? (note ?? '').slice(0, 500) || null : null,
-      updated_at: new Date().toISOString(),
-    })
+    .select('id, design_tries')
     .eq('order_id', orderId)
     .eq('step', 'waiting_design')
-    .select('id');
+    .maybeSingle();
+  const row = cur as { id: string; design_tries: number | null } | null;
+  if (!row) return { ok: false, error: '디자인 차례인 주문이 아닙니다' };
+  const tries = row.design_tries ?? 0;
+  const clean = (note ?? '').slice(0, 500) || null;
+  const verdict = designVerdict(clean, tries);
+  const stamp = new Date().toISOString();
 
+  if (verdict === 'give_up') {
+    const { error } = await admin
+      .from('auto_jobs')
+      .update({ design_stage: 'ended', design_note: clean, design_wait: null, updated_at: stamp })
+      .eq('id', row.id);
+    if (error) return { ok: false, error: error.message };
+    await removeAutoItems(admin, orderId);
+    await publishAutoAlert(orderId, 'design_ended');
+    await publishDesignStreak(orderId);
+    return { ok: true };
+  }
+
+  const patch: Record<string, unknown> = { design_stage: 'stalled', design_note: clean, updated_at: stamp };
+  if (verdict === 'retry') patch.design_tries = tries + 1;
+  if (verdict === 'wait_scan') patch.design_wait = 'scan';
+  const { error } = await admin.from('auto_jobs').update(patch).eq('id', row.id);
   if (error) return { ok: false, error: error.message };
-  if (!data || data.length === 0) return { ok: false, error: '디자인 차례인 주문이 아닙니다' };
-  // ★ 멈췄으면 센터에 알립니다 (2026-10-16 점검)
-  if (stage === 'stalled') await publishDesignStall(orderId, note);
+
+  if (verdict === 'wait_scan') await publishAutoAlert(orderId, 'design_scan', stallAdvice(clean).what);
+  // ★ 센터에 알리는 건 센터만 고칠 수 있는 것뿐 (2026-10-16 점검 → 2026-10-21 좁힘)
+  if (verdict === 'hold') await publishDesignStall(orderId, clean);
   return { ok: true };
+}
+
+/** 주문서에서 FlowTemp 줄을 뺍니다 — 그만두기·포기가 같이 씁니다. 어떤 줄이 FlowTemp 인지는 제품 표(auto_pipeline)가 말합니다 */
+async function removeAutoItems(admin: ReturnType<typeof createAdminClient>, orderId: string): Promise<void> {
+  const { data: types } = await admin.from('prosthesis_types').select('code').eq('auto_pipeline', true);
+  const codes = (types ?? []).map((t: { code: string }) => t.code);
+  if (codes.length > 0) {
+    await admin.from('order_items').delete().eq('order_id', orderId).in('type_code', codes);
+  }
+}
+
+/**
+ * 포기가 **잇따르면** 센터에 한 번 알립니다 (2026-10-21).
+ *
+ * ★ 건마다 알리지 않습니다 — 센터가 손댈 일이 아니라서요. 그런데 하루에 셋이 잇따라
+ *   포기되면 그건 건이 아니라 장비·덴트버드 쪽이 아픈 것입니다. 그때만 알립니다.
+ */
+const STREAK_TO_ALERT = 3;
+async function publishDesignStreak(orderId: string): Promise<void> {
+  const admin = createAdminClient();
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { data } = await admin
+    .from('auto_jobs')
+    .select('design_stage')
+    .eq('step', 'waiting_design')
+    .gte('updated_at', since)
+    .order('updated_at', { ascending: false })
+    .limit(STREAK_TO_ALERT);
+  const recent = (data ?? []) as { design_stage: string | null }[];
+  if (recent.length < STREAK_TO_ALERT || !recent.every((r) => r.design_stage === 'ended')) return;
+  await publishDesignStall(orderId, `자동 설계 포기가 ${STREAK_TO_ALERT}건째 잇따릅니다 — 설계 PC·덴트버드를 봐 주세요`);
 }
 
 /**
@@ -413,13 +484,7 @@ export async function dismissJob(
       멈춘 것·실패한 것만 — 다 나온 것(done)은 치과가 받은 물건이라 줄을 남깁니다.
       크라운 줄은 그대로입니다. 어떤 줄이 FlowTemp 인지는 제품 표의 auto_pipeline 이 말합니다.
   */
-  if (row.step !== 'done') {
-    const { data: types } = await admin.from('prosthesis_types').select('code').eq('auto_pipeline', true);
-    const codes = (types ?? []).map((t: { code: string }) => t.code);
-    if (codes.length > 0) {
-      await admin.from('order_items').delete().eq('order_id', orderId).in('type_code', codes);
-    }
-  }
+  if (row.step !== 'done') await removeAutoItems(admin, orderId);
   return { ok: true };
 }
 
@@ -863,6 +928,9 @@ export async function retryJob(
     ★ 디자인이 멈춘 것(확인 중)도 다시 겁니다 (2026-10-15). 단계는 그대로
       '디자인' 이라 잔걸음만 지우면 설계 일꾼이 다시 가져갑니다.
   */
+  if (row.step === 'waiting_design' && row.design_stage === 'ended') {
+    return { ok: false, error: '자동 설계를 접은 건입니다 — 주문서에 FlowTemp 를 다시 넣으면 새로 시작합니다' };
+  }
   if (row.step === 'waiting_design' && row.design_stage === 'stalled') {
     const { error } = await admin
       .from('auto_jobs')
@@ -1048,7 +1116,7 @@ export async function claimNextDesign(
   const { data, error } = await admin
     .from('auto_jobs')
     .select(
-      'id, order_id, step, design_stage, updated_at, created_at, ' +
+      'id, order_id, step, design_stage, design_note, design_tries, updated_at, created_at, ' +
         'orders!inner(order_no, status, deleted_at, order_items(tooth_number, type_code), ' +
         'order_files(kind, upload_status, deleted_at, file_name, storage_path, file_size))',
     )
@@ -1064,6 +1132,8 @@ export async function claimNextDesign(
     order_id: string;
     step: AutoStep;
     design_stage: string | null;
+    design_note: string | null;
+    design_tries: number | null;
     updated_at: string;
     orders: { order_no: string; status: string; order_items: { tooth_number: number; type_code: string }[] | null; order_files: File[] | null };
   };
@@ -1081,6 +1151,8 @@ export async function claimNextDesign(
         designStage: isDesignStage(r.design_stage) ? r.design_stage : null,
         updatedAt: r.updated_at,
         scanCount: scansOf(r).length,
+        designNote: r.design_note,
+        designTries: r.design_tries ?? 0,
       },
       now,
     );

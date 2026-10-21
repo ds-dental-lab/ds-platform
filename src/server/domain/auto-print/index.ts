@@ -105,7 +105,7 @@ export const SHOWN_STEPS: readonly AutoStep[] = [
  *   글자라, 되돌리기·다시 걸기 규칙을 건드릴 일이 없습니다.
  * ★ 설계 PC 의 매크로가 넘을 때마다 적습니다. 비어 있으면 아직 손 안 댄 것.
  */
-export type DesignStage = 'uploading' | 'analyzing' | 'generating' | 'exporting' | 'stalled';
+export type DesignStage = 'uploading' | 'analyzing' | 'generating' | 'exporting' | 'stalled' | 'ended';
 
 export const DESIGN_STAGES: readonly DesignStage[] = [
   'uploading',
@@ -113,6 +113,8 @@ export const DESIGN_STAGES: readonly DesignStage[] = [
   'generating',
   'exporting',
   'stalled',
+  // ★ 자동 설계를 **포기한** 자리 (2026-10-21) — 치과에 '평소대로' 안내, FlowTemp 줄은 빠짐
+  'ended',
 ] as const;
 
 export function isDesignStage(v: unknown): v is DesignStage {
@@ -126,6 +128,63 @@ export function isDesignStage(v: unknown): v is DesignStage {
  * ★ 멈춰도 '실패' 라고 안 합니다 — 센터가 붙잡고 있는 중입니다. 까닭은
  *   센터 화면(design_note)에만 뜹니다.
  */
+/**
+ * 자동 설계를 포기할 때 치과가 보는 말 (사용자 2026-10-21 — "좀 더 우회적으로").
+ *
+ * ★★ 센터가 건마다 손대지 않기로 했습니다 (사용자 결정 2026-10-21). FlowTemp 는
+ *   '되면 좋은 덤' — 안 되면 치과가 평소대로 임시치아를 만들고, 크라운 주문은 그대로
+ *   갑니다. 그래서 "실패" 라고 하지 않고, 할 일만 부드럽게 말합니다.
+ */
+export const GIVE_UP_MESSAGE = '이번 건은 임시치아를 미리 준비해 드리기 어렵습니다. 평소대로 진행해 주세요.';
+
+/** 스스로 다시 걸어 보는 횟수 (일시적 멈춤만) */
+export const DESIGN_AUTO_RETRIES = 1;
+/** 멈춘 뒤 이만큼 지나야 다시 걸어 봅니다 — 화면 타이밍·잠깐의 끊김이 가라앉게 */
+export const DESIGN_RETRY_AFTER_MINUTES = 5;
+
+/**
+ * 일꾼이 남긴 멈춘 까닭을 **무엇 때문인지**로 가릅니다 (2026-10-21).
+ *
+ *   unsupported  자동으로 못 하는 종류(임플란트·여러 치아) — 포기
+ *   unreadable   덴트버드가 치식을 못 읽거나 주문서와 다름 — 포기
+ *   scan         스캔 파일을 못 찾거나 여럿·분류 실패 — 치과가 다시 올리면 이어서
+ *   credits      이달 건수 소진 — 센터가 봄
+ *   setup        설계 PC 설정·로그인·내보내기 설정·안 올라옴 — 센터가 봄
+ *   transient    그 밖(단추·시간 초과·도구 막대) — 한 번 더 해 보고, 또 멈추면 포기
+ *
+ * ★ 글자로 가릅니다 — 일꾼은 사람 말로 적고, 종류 코드는 안 보냅니다. 새 멈춤 말이
+ *   생기면 기본은 transient 라 한 번 더 해 보고 포기합니다. 사람이 영원히 기다리는
+ *   자리는 없습니다.
+ */
+export type StallKind = 'unsupported' | 'unreadable' | 'scan' | 'credits' | 'setup' | 'transient';
+
+export function stallKind(note: string | null | undefined): StallKind {
+  const n = (note ?? '').trim();
+  if (/치식이 \d+개|임플란트|자연치|프렙|지대치|깎은/.test(n)) return 'unsupported';
+  if (/치식을 못 읽|치식이 주문서와 다릅|치식이 다릅|크라운이 주문서와 다릅/.test(n)) return 'unreadable';
+  if (/스캔을 못 찾|스캔 후보가|파일을 내려놓|스캔을 봐 주세요|두 번 실패/.test(n)) return 'scan';
+  if (/건수|횟수|차감|credit/i.test(n)) return 'credits';
+  if (/다운로드|download|로그인|session|세션|창이 안 떠|CAM 축|ZIP으로 압축|올라오지|올라왔|내보낸 뒤|배달|deliver/i.test(n)) {
+    return 'setup';
+  }
+  return 'transient';
+}
+
+export type DesignVerdict = 'retry' | 'wait_scan' | 'give_up' | 'hold';
+
+/**
+ * 멈췄을 때 기계가 할 일. tries 는 **이미 스스로 다시 건 횟수**입니다.
+ *
+ * ★ hold 만 사람(센터) 몫입니다 — 장비·계정 문제라 한 번 고치면 다 풀리는 것들.
+ */
+export function designVerdict(note: string | null | undefined, tries: number): DesignVerdict {
+  const kind = stallKind(note);
+  if (kind === 'unsupported' || kind === 'unreadable') return 'give_up';
+  if (kind === 'scan') return 'wait_scan';
+  if (kind === 'credits' || kind === 'setup') return 'hold';
+  return tries < DESIGN_AUTO_RETRIES ? 'retry' : 'give_up';
+}
+
 // ★ 치과가 읽는 문장으로 (사용자 2026-10-19 — "진행상황이 보였으면"). 잔걸음 칸·책갈피 둘 다 씁니다
 const DESIGN_STAGE_LABEL: Record<DesignStage, string> = {
   uploading: '스캔을 확인하고 있습니다',
@@ -133,6 +192,7 @@ const DESIGN_STAGE_LABEL: Record<DesignStage, string> = {
   generating: '치아를 설계하고 있습니다',
   exporting: '설계를 마무리하고 있습니다',
   stalled: '확인 중',
+  ended: GIVE_UP_MESSAGE,
 };
 
 export function designStageLabel(stage: DesignStage): string {
@@ -274,7 +334,12 @@ export function stallAdvice(note: string | null | undefined): StallAdvice {
   if (/시험|--no-export/.test(n)) {
     return { what: '시험 건입니다', todo: '센터가 정리합니다' };
   }
-  return { what: '디자인이 늦어집니다', todo: '센터가 보고 있습니다' };
+  // ★ 스캔은 치과가 고칠 수 있는 것 — 다시 올리면 저절로 이어집니다 (2026-10-21)
+  if (stallKind(n) === 'scan') {
+    return { what: '스캔 파일을 확인해 주세요', todo: '다시 올리면 이어서 합니다' };
+  }
+  // ★ 일시적 멈춤은 기계가 한 번 더 해 봅니다 (2026-10-21) — 센터가 보고 있다고 하지 않습니다
+  return { what: '디자인이 늦어집니다', todo: '잠시 뒤 다시 합니다' };
 }
 
 export function canReprint(job: AutoJob): boolean {
@@ -292,7 +357,7 @@ export function canReprint(job: AutoJob): boolean {
  */
 export function canDismiss(job: AutoJob): boolean {
   if (job.step === 'done' || job.step === 'failed') return true;
-  return job.step === 'waiting_design' && job.designStage === 'stalled';
+  return job.step === 'waiting_design' && (job.designStage === 'stalled' || job.designStage === 'ended');
 }
 
 export type StepState = 'done' | 'current' | 'todo' | 'stopped';
@@ -360,6 +425,7 @@ export function autoNotice(job: AutoJob): string {
     return `출력 중 ${Math.round(job.percent)}%`;
   }
   if (job.step === 'waiting_design') {
+    if (job.designStage === 'ended') return GIVE_UP_MESSAGE;
     if (job.designStage === 'stalled') {
       const a = stallAdvice(job.designNote);
       return `디자인 멈춤 — ${a.what}. ${a.todo}`;
@@ -488,7 +554,7 @@ export function matchWaiting(jobs: WaitingJob[], designTeeth: number[]): Matched
 
 // ★ 'failed' 를 더했습니다 (2026-10-16 점검) — 출력이 멈추면 치과가 손댈 일입니다.
 //   책갈피가 빨개지는 것만으로는 화면을 안 보고 있는 치과가 모릅니다.
-export type AutoAlertKind = 'bed' | 'done' | 'failed';
+export type AutoAlertKind = 'bed' | 'done' | 'failed' | 'design_ended' | 'design_scan';
 
 export interface AutoAlert {
   title: string;
@@ -500,6 +566,20 @@ export function autoAlert(
   input: { orderNo: string; patientLabel: string; productName: string; reason?: string | null },
 ): AutoAlert {
   const who = `${input.orderNo} · ${input.patientLabel}`;
+  // ★ 자동 설계 포기 (2026-10-21) — 센터 손 없이 치과에 바로. 말은 GIVE_UP_MESSAGE 하나로
+  if (kind === 'design_ended') {
+    return {
+      title: `${input.productName} — 이번 건은 평소대로 진행해 주세요`,
+      body: `${who} — ${GIVE_UP_MESSAGE}`,
+    };
+  }
+  // ★ 스캔 파일 문제 — 치과가 고칠 수 있는 것만 치과에 (2026-10-21)
+  if (kind === 'design_scan') {
+    return {
+      title: `${input.productName} — 스캔 파일을 다시 올려 주세요`,
+      body: `${who} — ${input.reason?.trim() || '스캔 파일을 확인해 주세요'}. 다시 올리면 이어서 합니다`,
+    };
+  }
   if (kind === 'failed') {
     return {
       title: `${input.productName} 출력이 멈췄습니다 — 확인해 주세요`,
@@ -543,7 +623,7 @@ export function alertOnMove(from: AutoStep, to: AutoStep): AutoAlertKind | null 
  *   done     초록. 다 나왔습니다 — 꺼냈는지는 모르니 '할 일' 로 붙잡지 않습니다
  *            (6시간 내내 탭이 파랗게 서 있으면 이미 꺼낸 사람에게 거짓말이 됩니다)
  */
-export type BoardTone = 'error' | 'action' | 'delay' | 'progress' | 'done';
+export type BoardTone = 'error' | 'action' | 'delay' | 'progress' | 'done' | 'info';
 
 export interface BoardRow {
   tone: BoardTone;
@@ -619,6 +699,7 @@ const DESIGN_OVERALL: Record<DesignStage, number> = {
   generating: 20,
   exporting: 28,
   stalled: 12,
+  ended: 12,
 };
 
 function overallOf(job: AutoJob): number {
@@ -657,6 +738,10 @@ export function boardRow(job: AutoJob, now: number = Date.now()): BoardRow {
     };
   }
   if (job.step === 'waiting_design') {
+    if (job.designStage === 'ended') {
+      // ★ 포기한 건 — 회색으로, 치과가 ✕ 로 치웁니다 (2026-10-21)
+      return { ...base, tone: 'info', status: '평소대로', detail: GIVE_UP_MESSAGE };
+    }
     if (job.designStage === 'stalled') {
       // ★ 까닭과 할 일을 치과 말로 (2026-10-19 — "어떤 오류인지도 뭘 해야 할지도 안 알려준다")
       const a = stallAdvice(job.designNote);
@@ -730,6 +815,10 @@ export interface DesignCandidate {
   updatedAt: string;
   /** 다 올라온 스캔 파일 수 */
   scanCount: number;
+  /** 멈춘 까닭 (stalled 일 때) */
+  designNote?: string | null;
+  /** 스스로 다시 건 횟수 */
+  designTries?: number;
 }
 
 /**
@@ -745,7 +834,14 @@ export function canHandDesign(c: DesignCandidate, now: number): boolean {
   if (c.step !== 'waiting_design') return false;
   if (['uploading', 'cancelled', 'completed'].includes(c.orderStatus)) return false;
   if (c.scanCount === 0) return false;
-  if (c.designStage === 'stalled') return false;
+  if (c.designStage === 'ended') return false;
+  if (c.designStage === 'stalled') {
+    // ★ 일시적 멈춤만, 5분 지난 뒤, 정해진 횟수 안에서 한 번 더 (2026-10-21)
+    if (stallKind(c.designNote) !== 'transient') return false;
+    if ((c.designTries ?? 0) > DESIGN_AUTO_RETRIES) return false;
+    const idle = (now - new Date(c.updatedAt).getTime()) / 60000;
+    return idle >= DESIGN_RETRY_AFTER_MINUTES;
+  }
   /*
     ★★ '마무리'(내보냄) 는 **묵어도 다시 안 줍니다** (2026-10-16 점검). 내보낸 뒤
       네트워크가 끊겨 소식이 없을 때 다시 주면, 처음부터 설계해 **덴트버드 건수를
