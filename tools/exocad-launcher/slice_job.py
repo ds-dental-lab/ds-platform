@@ -141,30 +141,59 @@ def facts_of(out_3mf: Path) -> dict:
         "printer": settings.get("printer_settings_id"),
     }
 
-def brand(out_3mf: Path, preview_png: Path) -> bool:
+#: 프린터 화면 그림의 로고 (마크) — 글자는 아래서 그립니다
+LOGO = Path(__file__).resolve().parent / "denflow_logo.png"
+
+
+def brand(out_3mf: Path, preview_png: Path, logo: Path = LOGO) -> bool:
     """
-    출력 파일 안에 **프린터 화면용 그림**을 넣습니다 — 놓인 모습.
+    출력 파일 안에 **프린터 화면용 그림**을 넣습니다 — 위에 가로 로고(마크 + DenFlow), 아래에 놓인 모습.
 
     ★ 오르카 명령줄은 썸네일을 안 만듭니다. 그런데 `_rels/.rels` 는 이미
       `Metadata/plate_1.png`(큰 것)·`plate_1_small.png`(작은 것)를 가리키고 있어,
       그 이름으로 그림만 넣으면 A1 mini 가 출력 화면에 그대로 띄웁니다.
-    ★ 로고를 넣어 봤다가 뺐습니다 (사용자 2026-10-21 "이게 뭐냐 — 절전 모드 때나 띄워줘").
-      프린터가 그림을 받는 자리는 **출력 중 썸네일 하나뿐**이고 대기·절전 화면은
-      바꿀 길이 없습니다(설정도 명령도 없음). 그 자리엔 크라운 놓인 모습이 맞습니다.
+    ★ 모양은 사용자가 정했습니다 (2026-10-21): 로고만 크게 넣었더니 "진행률은 보여야지" —
+      진행률은 프린터가 그림 옆에 따로 그리지만, 그림 자리에는 크라운이 보여야 합니다.
+      그래서 **위쪽에 가로 로고를 작게**, 아래에 크라운. 대기·절전 화면은 바꿀 길이 없습니다.
     ★ 못 넣어도 출력은 됩니다 — 그림이 없을 뿐입니다. 그래서 실패를 삼킵니다.
     """
     try:
         import io  # noqa: PLC0415
         import os  # noqa: PLC0415
 
-        from PIL import Image  # noqa: PLC0415
+        from PIL import Image, ImageDraw, ImageFont  # noqa: PLC0415
 
-        if not preview_png.is_file():
-            return False
         big = Image.new("RGBA", (512, 512), (255, 255, 255, 255))
-        pv = Image.open(preview_png).convert("RGBA")
-        pv.thumbnail((440, 440))
-        big.alpha_composite(pv, ((512 - pv.width) // 2, (512 - pv.height) // 2))
+        # --- 위쪽 띠: 마크 + 글자 (화면 로고와 같은 모양 — Den 남색 굵게, Flow 회색) ---
+        font = None
+        for name in ("segoeuib.ttf", "arialbd.ttf", "malgunbd.ttf"):
+            try:
+                font = ImageFont.truetype(name, 54)
+                break
+            except OSError:
+                continue
+        font = font or ImageFont.load_default()
+        draw = ImageDraw.Draw(big)
+        den, flow = "Den", "Flow"
+        w_den, w_flow = draw.textlength(den, font=font), draw.textlength(flow, font=font)
+        mark = None
+        if logo.is_file():
+            mark = Image.open(logo).convert("RGBA")
+            mark.thumbnail((64, 64))
+        total = (mark.width + 14 if mark else 0) + w_den + w_flow
+        x = (512 - total) / 2
+        top = 28
+        if mark:
+            big.alpha_composite(mark, (int(x), top))
+            x += mark.width + 14
+        ty = top + 2
+        draw.text((x, ty), den, font=font, fill=(27, 42, 74, 255))
+        draw.text((x + w_den, ty), flow, font=font, fill=(154, 163, 174, 255))
+        # --- 아래: 놓인 크라운 ---
+        if preview_png.is_file():
+            pv = Image.open(preview_png).convert("RGBA")
+            pv.thumbnail((380, 380))
+            big.alpha_composite(pv, ((512 - pv.width) // 2, 112 + (380 - pv.height) // 2))
         small = big.copy()
         small.thumbnail((128, 128))
 
@@ -236,7 +265,7 @@ def build(
     run_orca(rotated, out_3mf, machine, process, filament)
 
     png = preview(rotated, out_dir / f"{stem}_놓임.png")
-    # ★ 프린터 화면용 그림 — 놓인 모습 (2026-10-21)
+    # ★ 프린터 화면용 그림 — 위에 가로 로고, 아래 놓인 모습 (2026-10-21)
     brand(out_3mf, png)
 
     return {
