@@ -53,6 +53,8 @@ interface JobRow {
   design_stage: string | null;
   design_note: string | null;
   finished_at: string | null;
+  /** 치과가 FlowTemp 를 그만둔 시각 — 찍히면 없는 건으로 봅니다 (2026-10-19) */
+  dismissed_at: string | null;
   started_at: string | null;
   remaining_min: number | null;
   layer_now: number | null;
@@ -77,7 +79,7 @@ const asJob = (row: JobRow): AutoJob => ({
 const COLUMNS =
   'id, order_id, clinic_org_id, printer_id, step, bed_cleared_at, ' +
   'percent, tries, failed_at, failed_reason, print_file_path, design_stage, design_note, finished_at, ' +
-  'started_at, remaining_min, layer_now, layer_total';
+  'started_at, remaining_min, layer_now, layer_total, dismissed_at';
 
 /** 주문 하나의 작업. 없으면 null */
 export async function jobOfOrder(
@@ -86,7 +88,10 @@ export async function jobOfOrder(
   const admin = createAdminClient();
   const { data } = await admin.from('auto_jobs').select(COLUMNS).eq('order_id', orderId).maybeSingle();
   const row = data as JobRow | null;
-  return row ? { id: row.id, designNote: row.design_note, ...asJob(row) } : null;
+  // ★ 그만둔 건은 없는 건입니다 (2026-10-21) — 책갈피와 같은 눈. 그만둔 뒤에도 주문 상세에
+  //   '디자인 다시 걸기' 가 남아 있어, 눌렀더니 치식 0개로 또 멈췄습니다(zzz 건).
+  if (!row || row.dismissed_at) return null;
+  return { id: row.id, designNote: row.design_note, ...asJob(row) };
 }
 
 /**
@@ -849,6 +854,10 @@ export async function retryJob(
   const { data } = await admin.from('auto_jobs').select(COLUMNS).eq('order_id', orderId).maybeSingle();
   const row = data as JobRow | null;
   if (!row) return { ok: false, error: '자동 진행 중인 주문이 아닙니다' };
+  // ★ 그만둔 건은 주문서에서 FlowTemp 줄이 빠져 있어 다시 걸어도 치식이 없습니다 (2026-10-21)
+  if (row.dismissed_at) {
+    return { ok: false, error: 'FlowTemp 를 그만둔 건입니다 — 주문서에 FlowTemp 를 다시 넣으면 새로 시작합니다' };
+  }
 
   /*
     ★ 디자인이 멈춘 것(확인 중)도 다시 겁니다 (2026-10-15). 단계는 그대로
