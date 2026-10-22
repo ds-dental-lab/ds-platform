@@ -242,4 +242,41 @@ def preflight(appdata: Path | None = None, home: Path | None = None) -> list[str
     for name in expected:
         if not (startup / name).is_file():
             missing.append(f"시작프로그램 {name}")
+    # ★★ 설계 일꾼을 맡은 PC(서버 PC)는 **첫 주문이 오기 전에** 더 봅니다 (2026-10-22, 사용자
+    #   "계속 처음이라 이러는 게 많네"). 그날 하나씩 터진 것: DS Core 로그인, 덴트버드 크롬의
+    #   '여러 파일 다운로드' 허용. 주문이 와서야 알면 치과가 기다립니다 — 미리 빨갛게.
+    if "덴플로우 설계 일꾼.vbs" in expected:
+        missing += worker_preflight(appdata)
+    return missing
+
+
+def worker_preflight(appdata: Path, check_packages: bool = True) -> list[str]:
+    """설계 일꾼이 **첫 건을 끝까지** 하는 데 필요한 것 중 빠진 것 (서버 PC)"""
+    import json as _json
+
+    missing: list[str] = []
+    launcher = appdata / "DenFlow" / "launcher"
+    # 1) 덴트버드 전용 크롬 — 프로필이 있어야(=한 번 띄워 로그인) 일꾼이 붙습니다
+    pref = launcher / "chrome-dentbird" / "Default" / "Preferences"
+    if not pref.is_file():
+        missing.append("덴트버드 전용 크롬 — 한 번 띄워 로그인해야 합니다 (setup_server.py 의 크롬 단계)")
+    else:
+        # 2) '여러 파일 다운로드' 허용 — 없으면 내보내기 직전에 섭니다 (2026-10-22 서버 PC 에서 겪음)
+        try:
+            d = _json.loads(pref.read_text(encoding="utf-8"))
+            ex = (d.get("profile", {}).get("content_settings", {}).get("exceptions", {}).get("automatic_downloads", {}))
+            if not any("ai.dentbird.com" in k and v.get("setting") == 1 for k, v in ex.items()):
+                missing.append("덴트버드 크롬 '여러 파일 다운로드' 허용 — 크롬 창을 닫았다 다시 띄우면 됩니다")
+        except (OSError, ValueError):
+            missing.append("덴트버드 크롬 설정 파일을 못 읽음")
+    # 3) DS Core — 시로나 dxd 주문이 오면 여기서 바꿉니다. 로그인된 프로필이나 계정 중 하나
+    if not (launcher / "chrome-profile-1").is_dir() and not (launcher / "settings.json").is_file():
+        missing.append("DS Core 로그인 (시로나 dxd 용) — python dscore.py --login")
+    # 4) 파이썬 꾸러미 — 하나라도 없으면 그 단계에서 조용히 죽습니다
+    if check_packages:
+        for mod, name in (("selenium", "selenium"), ("paho.mqtt.client", "paho-mqtt"), ("numpy", "numpy"), ("PIL", "pillow")):
+            try:
+                __import__(mod)
+            except ImportError:
+                missing.append(f"파이썬 꾸러미 {name} — pip install {name}")
     return missing

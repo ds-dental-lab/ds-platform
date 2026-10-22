@@ -102,7 +102,9 @@ def step_dscore() -> bool:
     password = getpass.getpass("DS Core 비밀번호 (화면에 안 보임): ")
     dscore.save_settings(email, password)
     print(f"저장했습니다: {dscore.SETTINGS}")
-    return True
+    # ★ 새 PC 의 빈 프로필 자동 로그인은 자주 틀어집니다 — 첫 한 번은 창에서 사람이 (2026-10-22)
+    print("크롬 창을 띄웁니다 — 거기서 한 번 로그인해 주세요.")
+    return dscore.login_by_hand()
 
 
 def step_chrome() -> None:

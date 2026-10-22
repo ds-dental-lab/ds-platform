@@ -30,12 +30,19 @@ class PreflightTest(unittest.TestCase):
         s.mkdir(parents=True)
         for n in watch_common.STARTUP_VBS:
             (s / n).write_text("", encoding="utf-8")
+        # 설계 일꾼 쪽 (2026-10-22): 덴트버드 크롬 프로필(다운로드 허용) + DS Core 계정
+        pref = d / "launcher" / "chrome-dentbird" / "Default" / "Preferences"
+        pref.parent.mkdir(parents=True)
+        pref.write_text(json.dumps({"profile": {"content_settings": {"exceptions": {"automatic_downloads": {
+            "https://ai.dentbird.com:443,*": {"setting": 1}}}}}}), encoding="utf-8")
+        (d / "launcher" / "settings.json").write_text("{}", encoding="utf-8")
 
     def check(self):
         return watch_common.preflight(self.appdata, self.home)
 
     def test_all_missing(self):
-        self.assertEqual(len(self.check()), 6)
+        # 열쇠·런처 설정·오르카·시작프로그램 셋 = 6, 설계 일꾼 쪽 둘(덴트버드 크롬·DS Core) = 8 (2026-10-22)
+        self.assertEqual(len(self.check()), 8)
 
     def test_all_ready(self):
         self._all_ready()
@@ -74,6 +81,36 @@ class PreflightTest(unittest.TestCase):
         s = self.appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
         (s / "덴플로우 설계 일꾼.vbs").unlink()
         self.assertEqual(self.check(), ["시작프로그램 덴플로우 설계 일꾼.vbs"])
+
+    def test_worker_needs_dentbird_profile(self):
+        self._all_ready()
+        (self.appdata / "DenFlow" / "launcher" / "chrome-dentbird" / "Default" / "Preferences").unlink()
+        got = [m for m in self.check() if "덴트버드" in m]
+        self.assertEqual(len(got), 1)
+        self.assertIn("로그인", got[0])
+
+    def test_worker_needs_multi_download_allowed(self):
+        self._all_ready()
+        pref = self.appdata / "DenFlow" / "launcher" / "chrome-dentbird" / "Default" / "Preferences"
+        pref.write_text("{}", encoding="utf-8")
+        got = [m for m in self.check() if "다운로드" in m]
+        self.assertEqual(len(got), 1)
+
+    def test_worker_needs_dscore(self):
+        self._all_ready()
+        (self.appdata / "DenFlow" / "launcher" / "settings.json").unlink()
+        self.assertTrue(any("DS Core" in m for m in self.check()))
+        # 로그인된 프로필이 있으면 계정 파일이 없어도 됩니다
+        (self.appdata / "DenFlow" / "launcher" / "chrome-profile-1").mkdir()
+        self.assertFalse(any("DS Core" in m for m in self.check()))
+
+    def test_exocad_only_pc_skips_worker_checks(self):
+        self._all_ready()
+        (self.appdata / "DenFlow" / "watchers.json").write_text(
+            json.dumps({"installed": ["덴플로우 exocad 지켜보기.vbs"]}, ensure_ascii=False), encoding="utf-8")
+        (self.appdata / "DenFlow" / "launcher" / "settings.json").unlink()
+        (self.appdata / "DenFlow" / "launcher" / "chrome-dentbird" / "Default" / "Preferences").unlink()
+        self.assertEqual(self.check(), [])
 
     def test_broken_list_falls_back_to_all(self):
         self._all_ready()
