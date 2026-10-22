@@ -363,9 +363,33 @@ export async function setDesignStage(
 async function removeAutoItems(admin: ReturnType<typeof createAdminClient>, orderId: string): Promise<void> {
   const { data: types } = await admin.from('prosthesis_types').select('code').eq('auto_pipeline', true);
   const codes = (types ?? []).map((t: { code: string }) => t.code);
-  if (codes.length > 0) {
-    await admin.from('order_items').delete().eq('order_id', orderId).in('type_code', codes);
+  if (codes.length === 0) return;
+  const { data: items } = await admin.from('order_items').select('id, type_code').eq('order_id', orderId);
+  const rows = (items ?? []) as { id: string; type_code: string }[];
+  const autoRows = rows.filter((r) => codes.includes(r.type_code));
+  if (autoRows.length === 0) return;
+  /*
+    ★★ **임시치아만 있는 주문은 줄을 빼지 않고 주문을 취소합니다** (2026-10-22, 시험 ORD-261022-001).
+      과금 2안으로 FlowTemp 만 주문이 열리자, 포기 때 줄을 빼니 **항목이 하나도 없는 접수 주문**이
+      남았습니다. 센터 목록에 빈 주문이 떠 있고 아무도 못 닫습니다. 만들 것도 받을 돈도 없으니
+      취소가 맞습니다. 치과 안내('평소대로')는 그대로 갑니다.
+  */
+  if (autoRows.length === rows.length) {
+    const { data: o } = await admin.from('orders').select('status').eq('id', orderId).maybeSingle();
+    const from = (o as { status: string } | null)?.status ?? 'received';
+    if (from === 'cancelled' || from === 'completed') return;
+    await admin.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
+    await admin.from('order_status_history').insert({
+      order_id: orderId,
+      from_status: from,
+      to_status: 'cancelled',
+      actor_org_id: null,
+      actor_user_id: null,
+      reason: '임시치아만 있는 주문 — 자동 설계를 못 해 취소',
+    });
+    return;
   }
+  await admin.from('order_items').delete().eq('order_id', orderId).in('type_code', codes);
 }
 
 /**
