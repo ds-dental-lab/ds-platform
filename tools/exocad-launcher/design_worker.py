@@ -128,6 +128,9 @@ _session_bad_at = 0.0
 #: 일감 처리 중에 서버에 다시 물을 때 쓰는 주소·기기 열쇠 (main 이 채움)
 _CTX: dict[str, str] = {}
 
+#: DS Core 에서 바꾼 ply 를 주문에 되돌려 올릴 것인가 — 꺼 둠 (사용자 2026-10-22 "저장소가 아깝다")
+SHARE_CONVERTED = False
+
 
 def _fresh_order_token(order_id: str, teeth: list[int]) -> str:
     """
@@ -165,8 +168,11 @@ def _handle(job: dict, spend: bool) -> None:
         unzip_all(folder)
         # ★ 시로나 dxd 만 왔으면 DS Core 에서 ply 로 (2026-10-22). 다른 스캔이 있으면 그냥 지나감
         _meshes, converted = ensure_meshes(folder, order_id, say=say)
-        if converted:
-            # ★ 바꾼 ply 를 주문에 되돌려 올립니다 — 크라운 런처가 DS Core 를 건너뛰게. 실패해도 계속
+        # ★ 바꾼 ply 를 주문에 되돌려 올리는 것은 **꺼 둡니다** (사용자 결정 2026-10-22).
+        #   DS Core 변환이 1분이라 런처가 건너뛰어 버는 게 작고, 주문마다 20MB 가 쌓이며,
+        #   치과 화면에 자기가 안 올린 ply 셋이 보입니다. 길(deliver.upload_scans, API scan 모드,
+        #   런처의 건너뛰기)은 남겨 두었으니 필요해지면 SHARE_CONVERTED 를 켭니다.
+        if converted and SHARE_CONVERTED:
             from deliver import upload_scans  # noqa: PLC0415
 
             fresh = _fresh_order_token(order_id, teeth) or job.get("token", "")
