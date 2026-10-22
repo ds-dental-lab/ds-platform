@@ -74,6 +74,8 @@ export interface ProgressInput {
   status: OrderStatus;
   /** 리페어는 접수·디자인 단계를 지나지 않습니다 */
   isRepair: boolean;
+  /** 임시치아만 주문(order_type temp)은 접수 → 완료 둘뿐 — 기공 단계가 없습니다 (2026-10-22) */
+  isTempOnly?: boolean;
   pickups: { status: string }[];
 }
 
@@ -100,6 +102,7 @@ const NOTE: Record<string, string> = {
   shipping: '제작이 끝나 배송 중입니다.',
   completed: '완료되었습니다.',
   cancelled: '취소된 주문입니다.',
+  temp_received: '임시치아를 자동으로 만들고 있습니다. 다 나오면 완료로 바뀝니다.',
 };
 
 export function progressNote(steps: ProgressStep[]): string {
@@ -113,6 +116,18 @@ export function orderProgress(input: ProgressInput): ProgressStep[] {
   // 취소된 주문은 과정이 없습니다. 거기서 멈춘 것입니다
   if (rank < 0) {
     return [{ key: 'cancelled', label: '취소', state: 'current' }];
+  }
+  /*
+    ★ 임시치아만 주문은 디자인·제작·배송 칸이 **없습니다** (2026-10-22). 서버가 설계하고
+      치과 프린터가 뽑고 끝나면 완료 — 기공 흐름을 안 탑니다. 여섯 칸을 보이면 치과가
+      "디자인은 언제 하나" 를 기다립니다. 진행은 자동 출력 칸(책갈피)이 따로 보여 줍니다.
+  */
+  if (input.isTempOnly) {
+    const done = input.status === 'completed';
+    return [
+      { key: 'temp_received', label: '접수', state: done ? 'done' : 'current' },
+      { key: 'completed', label: '완료', state: done ? 'current' : 'todo' },
+    ];
   }
 
   /*

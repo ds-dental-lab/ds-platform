@@ -249,3 +249,22 @@ describe('업로드중 진행 막대', () => {
     expect(labels(steps)).not.toContain('디자인');
   });
 });
+
+describe('임시치아만 주문 — 접수와 완료 둘뿐 (2026-10-22)', () => {
+  it('진행 중이면 접수가 지금, 완료는 할 일', () => {
+    const steps = orderProgress({ status: 'received', isRepair: false, isTempOnly: true, pickups: [] });
+    expect(steps.map((s) => s.label)).toEqual(['접수', '완료']);
+    expect(steps[0].state).toBe('current');
+    expect(progressNote(steps)).toContain('자동');
+  });
+
+  it('완료면 완료가 지금', () => {
+    const steps = orderProgress({ status: 'completed', isRepair: false, isTempOnly: true, pickups: [] });
+    expect(steps[1].state).toBe('current');
+    expect(progressNote(steps)).toBe('완료되었습니다.');
+  });
+
+  it('취소는 취소 한 칸 그대로', () => {
+    expect(orderProgress({ status: 'cancelled', isRepair: false, isTempOnly: true, pickups: [] })[0].key).toBe('cancelled');
+  });
+});
