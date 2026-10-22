@@ -433,8 +433,8 @@ describe('지우기 전에 알려야 할 것', () => {
     expect(w).toContain('청구');
   });
 
-  it('취소된 건도 같습니다', () => {
-    expect(deleteWarnings('cancelled').join(' ')).toContain('통계');
+  it('취소된 건은 경고 없이 지웁니다 — 끝난 건이고 통계에도 없습니다 (2026-10-22)', () => {
+    expect(deleteWarnings('cancelled')).toEqual([]);
   });
 
   it('작업 중인 건은 어느 단계인지 말해 줍니다', () => {
