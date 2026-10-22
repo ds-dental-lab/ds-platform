@@ -274,7 +274,8 @@ def worker_preflight(appdata: Path, check_packages: bool = True) -> list[str]:
         missing.append("DS Core 로그인 (시로나 dxd 용) — python dscore.py --login")
     # 4) 파이썬 꾸러미 — 하나라도 없으면 그 단계에서 조용히 죽습니다
     if check_packages:
-        for mod, name in (("selenium", "selenium"), ("paho.mqtt.client", "paho-mqtt"), ("numpy", "numpy"), ("PIL", "pillow")):
+        # ★ paho(프린터 통로)는 치과 에이전트 몫이라 서버 PC 에는 없어도 됩니다 — 실측 2026-10-22 에 헛경고
+        for mod, name in (("selenium", "selenium"), ("numpy", "numpy"), ("PIL", "pillow")):
             try:
                 __import__(mod)
             except ImportError:
