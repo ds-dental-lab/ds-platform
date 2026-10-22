@@ -53,6 +53,37 @@ def alive() -> bool:
         return False
 
 
+def allow_multi_downloads(profile: Path) -> bool:
+    """
+    전용 프로필에 ai.dentbird.com 의 **'여러 파일 자동 다운로드' 허용**을 미리 적어 둡니다 (2026-10-22).
+
+    ★ 왜 — 새 PC(서버 PC)에서 첫 내보내기가 "전용 크롬에서 허용해 주세요" 로 섰습니다. 사람이
+      chrome://settings 에 들어가 한 번 켜야 했던 설정인데, 그러면 PC 마다 손이 갑니다.
+      크롬은 Preferences 파일을 **켤 때** 읽으니, 띄우기 전에 적어 두면 처음부터 허용입니다.
+    ★ 크롬이 떠 있는 동안은 안 건드립니다 — 켜진 크롬이 자기 걸로 덮어씁니다. open_browser 는
+      alive() 가 아닐 때만 여기로 옵니다.
+    """
+    pref = profile / "Default" / "Preferences"
+    try:
+        data = json.loads(pref.read_text(encoding="utf-8")) if pref.is_file() else {}
+    except (OSError, ValueError):
+        data = {}
+    ex = (data.setdefault("profile", {}).setdefault("content_settings", {})
+          .setdefault("exceptions", {}).setdefault("automatic_downloads", {}))
+    key = "https://ai.dentbird.com:443,*"
+    if ex.get(key, {}).get("setting") == 1:
+        return False
+    ex[key] = {"setting": 1}
+    try:
+        pref.parent.mkdir(parents=True, exist_ok=True)
+        pref.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        print("전용 크롬에 '여러 파일 다운로드' 허용을 적어 두었습니다")
+        return True
+    except OSError as e:
+        print(f"다운로드 허용을 못 적었습니다 — {e}")
+        return False
+
+
 def open_browser(url: str, background: bool = False) -> None:
     """전용 크롬을 띄웁니다. background=True 면 뜬 뒤 바로 **최소화** 합니다.
 
@@ -65,6 +96,7 @@ def open_browser(url: str, background: bool = False) -> None:
         return
 
     PROFILE.mkdir(parents=True, exist_ok=True)
+    allow_multi_downloads(PROFILE)
     # ★ 떼어서 — 크롬이 일꾼의 crash.txt 를 물려받아 잠그던 것 (spawn.py, 2026-10-16)
     from spawn import detached  # noqa: PLC0415
     detached(
