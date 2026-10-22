@@ -663,10 +663,40 @@ def _convert(dxd: Path, folder: Path, folder_name: str, patient_name: str, card_
     return placed, cleanup
 
 
+def login_by_hand(minutes: int = 10) -> bool:
+    """
+    창을 띄워 **사람이** DS Core 에 로그인하게 둡니다 (2026-10-22, 서버 PC 첫 로그인용).
+
+    ★ 새 PC 의 빈 프로필에서 자동 로그인은 자주 틀어집니다 — reCAPTCHA, 새 기기 확인,
+      반복 실패로 계정이 잠시 막히는 일(2026-09-10). 첫 한 번은 사람이 하는 게 가장 확실하고,
+      그 뒤로는 같은 프로필(chrome-profile-1)을 일꾼이 창 없이 그대로 씁니다.
+    ★ 여기서는 아무것도 입력하지 않습니다 — 환자 목록('신규 환자')이 보이면 됐다고 봅니다.
+    """
+    ds = DSCore(Path(tempfile.mkdtemp(prefix="dscore-login-")), show=True, say=print)
+    try:
+        ds.d.get(BASE + "/#/patients")
+        print(f"창에서 DS Core 에 로그인해 주세요 — 환자 목록이 뜨면 저절로 닫힙니다 (최대 {minutes}분)")
+        for _ in range(minutes * 30):
+            time.sleep(2)
+            try:
+                ds.enable_semantics()
+                if ds.d.find_elements(By.XPATH, "//flt-semantics[contains(normalize-space(.), '신규 환자')]"):
+                    print("로그인 됐습니다 — 이 PC 의 프로필에 남았습니다")
+                    return True
+            except Exception:  # noqa: BLE001 — 창이 바뀌는 중이면 다음 바퀴에
+                pass
+        print("시간 안에 환자 목록을 못 봤습니다 — 다시 해 주세요")
+        return False
+    finally:
+        ds.close()
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+    if "--login" in sys.argv:
+        raise SystemExit(0 if login_by_hand() else 1)
     if len(sys.argv) < 3:
-        raise SystemExit("사용: dscore.py <dxd> <케이스 폴더> [--show]")
+        raise SystemExit("사용: dscore.py <dxd> <케이스 폴더> [--show]   |   dscore.py --login (사람이 로그인)")
     dxd, folder = Path(sys.argv[1]), Path(sys.argv[2])
     files = convert(dxd, folder, folder.name, folder.name.split("_", 1)[-1], f"TMP-{int(time.time())}", show="--show" in sys.argv, say=print)
     print("done:", [f.name for f in files])
