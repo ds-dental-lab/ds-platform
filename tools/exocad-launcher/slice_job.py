@@ -194,10 +194,12 @@ def brand(out_3mf: Path, preview_png: Path, logo: Path = LOGO) -> bool:
         draw.text((x, ty), den, font=font, fill=(27, 42, 74, 255))
         draw.text((x + w_den, ty), flow, font=font, fill=(154, 163, 174, 255))
         # --- 아래: 놓인 크라운 ---
+        # ★ 아래 30% 는 비워 둡니다 (사용자 2026-10-22 "높이 좀 줄여줘") — 프린터가 그 자리에
+        #   진행률(%)·남은 시간을 그리는데, 크라운이 내려와 있으면 가려집니다. 실측 A1 mini.
         if preview_png.is_file():
             pv = Image.open(preview_png).convert("RGBA")
-            pv.thumbnail((380, 380))
-            big.alpha_composite(pv, ((512 - pv.width) // 2, 112 + (380 - pv.height) // 2))
+            pv.thumbnail((250, 250))
+            big.alpha_composite(pv, ((512 - pv.width) // 2, 100 + (250 - pv.height) // 2))
         small = big.copy()
         small.thumbnail((128, 128))
 
