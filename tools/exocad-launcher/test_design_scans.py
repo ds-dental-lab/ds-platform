@@ -52,6 +52,27 @@ class Pick(unittest.TestCase):
         self.assertEqual(stl.stat().st_size, 84 + 3 * 50)
         self.assertIs(to_stl(stl), stl)
 
+    def test_gingiva_and_preop_are_skipped(self):
+        # DS Core 내보내기 모양 — 잇몸·삭제 전 스캔이 같이 와도 위턱 후보는 하나
+        make(self.dir, "x-upperjaw.ply", "x-upperjaw-gingiva.ply", "x-lowerjaw.ply", "x-upperjaw-situ.ply")
+        prep, anta = pick(candidates(self.dir), 16)
+        self.assertEqual((prep.name, anta.name), ("x-upperjaw.ply", "x-lowerjaw.ply"))
+
+    def test_ensure_meshes_without_dscore_settings(self):
+        from unittest import mock
+        import design_scans
+        make(self.dir, "2026-10-01_환자.dxd")
+        with mock.patch("dscore.has_settings", return_value=False):
+            with self.assertRaises(PickError) as cm:
+                design_scans.ensure_meshes(self.dir, "ORD", say=lambda m: None)
+        self.assertIn("DS Core", str(cm.exception))
+
+    def test_ensure_meshes_noop_when_meshes_exist(self):
+        import design_scans
+        make(self.dir, "a-upperjaw.stl", "x.dxd")
+        got = design_scans.ensure_meshes(self.dir, "ORD", say=lambda m: None)
+        self.assertEqual([p.name for p in got], ["a-upperjaw.stl"])
+
     def test_dxd_only_stops_with_clear_message(self):
         make(self.dir, "2026-10-01_환자.dxd")
         with self.assertRaises(PickError) as cm:

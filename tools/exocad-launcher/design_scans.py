@@ -34,7 +34,9 @@ ANTAGONIST = re.compile(r"antagonist", re.I)
 #   탓에 아래턱을 못 찾았음). 어근(maxill·mandib)으로 봅니다.
 UPPER = re.compile(r"maxill|upper|상악", re.I)
 LOWER = re.compile(r"mandib|lower|하악", re.I)
-SKIP = re.compile(r"occlusion|bite|buccal|교합", re.I)
+# ★ 잇몸 분리(gingiva)·삭제 전(preop/situ) 스캔도 뺍니다 (2026-10-22) — DS Core 내보내기가
+#   '-upperjaw-gingiva.ply' 를 같이 주면 위턱 후보가 둘이 되어 멈췄습니다.
+SKIP = re.compile(r"occlusion|bite|buccal|교합|gingiva|preop|pre-op|situ", re.I)
 
 
 class PickError(Exception):
@@ -56,6 +58,35 @@ def unzip_all(folder: Path) -> None:
                 if not str(target).startswith(str(out.resolve())):
                     raise PickError(f"zip 안에 바깥을 가리키는 경로가 있습니다: {m.filename}")
             zf.extractall(out)
+
+
+def ensure_meshes(folder: Path, folder_name: str, say=print) -> list[Path]:
+    """
+    시로나 dxd 만 온 주문을 위해 — **DS Core 에서 ply 로 바꿔** 폴더에 둡니다 (2026-10-22).
+
+    ★ dxd 안의 턱은 RSA 로 잠겨 있어(client "SIR") 우리가 못 풉니다. 크라운 쪽 exocad 런처가
+      2026-09-10 부터 쓰던 길(dscore.convert: DS Core 에 올려 exocad 용 ply 로 받기)을 그대로
+      씁니다. 치과는 dxd 한 번만 내보내고, 크라운은 dxd(색 있음)로, 임시치아는 이 ply 로.
+    ★ stl·ply·obj 가 하나라도 있으면 아무것도 안 합니다 — DS Core 왕복(3~5분)은 꼭 필요할 때만.
+    ★ 서버 PC 에 DS Core 계정(settings.json)이 없으면 분명한 말로 멈춥니다.
+    """
+    meshes = [p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in SCAN_EXT]
+    if meshes:
+        return meshes
+    dxds = sorted(p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() == DXD_EXT)
+    if not dxds:
+        return meshes
+    import dscore  # noqa: PLC0415
+
+    if not dscore.has_settings():
+        raise PickError(
+            "스캔이 exocad 묶음(dxd)뿐인데 이 PC 에 DS Core 계정이 없어 STL 로 못 바꿉니다 — "
+            "서버 PC 에서 setup_server.py 의 DS Core 단계를 해 주세요"
+        )
+    say(f"dxd 를 DS Core 에서 ply 로 바꾸는 중 (3~5분) — {dxds[0].name}")
+    placed = dscore.convert(dxds[0], folder, folder_name, "", "", say=say)
+    say(f"바꿨습니다 — {', '.join(p.name for p in placed)}")
+    return [p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in SCAN_EXT]
 
 
 def candidates(folder: Path) -> list[Path]:

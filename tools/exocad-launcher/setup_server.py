@@ -84,6 +84,27 @@ def step_link() -> bool:
     return link_design.main() == 0
 
 
+def step_dscore() -> bool:
+    """시로나 치과 dxd → ply 변환용 DS Core 계정 (선택). 값은 이 PC 의 settings.json 에만 남습니다"""
+    hr("3-1. DS Core 계정 (시로나 dxd 변환용, 선택)")
+    import dscore  # noqa: PLC0415
+    import getpass  # noqa: PLC0415
+
+    if dscore.has_settings():
+        print(f"이미 있습니다: {dscore.SETTINGS}")
+        if input("다시 넣을까요? (y/N): ").strip().lower() != "y":
+            return True
+    print("시로나 치과(dxd)가 없으면 비워 두고 Enter.")
+    email = input("DS Core 이메일: ").strip()
+    if not email:
+        print("건너뜁니다 — 나중에 python setup_server.py --dscore")
+        return False
+    password = getpass.getpass("DS Core 비밀번호 (화면에 안 보임): ")
+    dscore.save_settings(email, password)
+    print(f"저장했습니다: {dscore.SETTINGS}")
+    return True
+
+
 def step_chrome() -> None:
     hr("4. 덴트버드 전용 크롬")
     from dentbird_web import HOME_URL, PROFILE, open_browser  # noqa: PLC0415
@@ -137,9 +158,12 @@ def main() -> int:
         return 1
     if "--check" in sys.argv:
         return 1 if step_check() else 0
+    if "--dscore" in sys.argv:
+        return 0 if step_dscore() else 1
     step_packages()
     step_orca()
     step_link()
+    step_dscore()
     step_chrome()
     step_startup()
     missing = step_check()

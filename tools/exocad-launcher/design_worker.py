@@ -41,7 +41,7 @@ import export_tag
 from dentbird_macro import Reporter, SessionLost, Stop, export, run, session_problem
 from dentbird_params import ParamError, apply_all
 from dentbird_web import alive, attach, open_browser, reap_drivers
-from design_scans import PickError, candidates, pick, to_stl, unzip_all
+from design_scans import PickError, candidates, ensure_meshes, pick, to_stl, unzip_all
 from watch_common import beat, revive, single_instance
 
 STATE = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow"
@@ -148,6 +148,8 @@ def _handle(job: dict, spend: bool) -> None:
         folder = WORK / order_id
         download(job["files"], folder)
         unzip_all(folder)
+        # ★ 시로나 dxd 만 왔으면 DS Core 에서 ply 로 (2026-10-22). 다른 스캔이 있으면 그냥 지나감
+        ensure_meshes(folder, order_id, say=say)
         prep, anta = pick(candidates(folder), teeth[0])
         say(f"작업치 {prep.name} · 대합치 {anta.name}")
         # ★ obj(메딧 기본)는 STL 로 바꿔 올립니다 (2026-10-22)
