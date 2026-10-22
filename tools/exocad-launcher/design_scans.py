@@ -138,7 +138,8 @@ def to_stl(path: Path) -> Path:
       부채꼴로 삼각형을 냅니다. 색·법선은 버립니다 — 설계에 필요 없습니다.
     ★ 이미 바꿔 둔 .stl 이 있으면 다시 안 바꿉니다.
     """
-    if path.suffix.lower() != ".obj":
+    ext = path.suffix.lower()
+    if ext not in (".obj", ".ply"):
         return path
     out = path.with_suffix(".stl")
     if out.exists() and out.stat().st_mtime >= path.stat().st_mtime:
@@ -146,6 +147,17 @@ def to_stl(path: Path) -> Path:
 
     import numpy as np  # noqa: PLC0415
     from mesh_io import save_stl  # noqa: PLC0415
+
+    # ★ ply 도 STL 로 (2026-10-22) — 설계 서비스에 ply 를 올려 본 적이 없어 확인된 길(STL)로 갑니다.
+    #   DS Core 가 dxd 를 ply 로 주므로 시로나 치과가 이 길을 탑니다.
+    if ext == ".ply":
+        from mesh_io import load_ply_mesh  # noqa: PLC0415
+
+        pv, pf = load_ply_mesh(path)
+        if len(pv) == 0 or len(pf) == 0:
+            raise PickError(f"ply 를 읽지 못했습니다 — {path.name} (점 {len(pv)}, 면 {len(pf)})")
+        save_stl(out, pv.astype(np.float32)[np.asarray(pf, dtype=np.int64)], "denflow")
+        return out
 
     verts: list[tuple[float, float, float]] = []
     faces: list[tuple[int, int, int]] = []
