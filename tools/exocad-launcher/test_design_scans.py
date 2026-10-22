@@ -29,6 +29,35 @@ class Pick(unittest.TestCase):
         prep, anta = pick(candidates(self.dir), 17)
         self.assertEqual((prep.name, anta.name), ("Maxilla_Base.stl", "Mandible_Base.stl"))
 
+    def test_medit_default_names(self):
+        # 메딧 Link 기본 내보내기 이름 — 2026-10-22 시험에서 아래턱을 못 찾던 것
+        make(self.dir, "2026-09-09-홍길동-maxillary.stl", "2026-09-09-홍길동-mandibular.stl",
+             "2026-09-09-홍길동-occlusionfirst.stl")
+        prep, anta = pick(candidates(self.dir), 16)
+        self.assertEqual((prep.name, anta.name), ("2026-09-09-홍길동-maxillary.stl", "2026-09-09-홍길동-mandibular.stl"))
+        prep, anta = pick(candidates(self.dir), 36)
+        self.assertEqual(prep.name, "2026-09-09-홍길동-mandibular.stl")
+
+    def test_obj_is_candidate_and_converts(self):
+        obj = self.dir / "2026-09-09-홍길동-maxillary.obj"
+        obj.write_text("\n".join(["# <MEDIT>", "v 0 0 0", "v 1 0 0", "v 0 1 0", "v 1 1 0", "f 1/1 2/2 3/3", "f 1 2 4 3", ""]), encoding="utf-8")
+        make(self.dir, "2026-09-09-홍길동-mandibular.obj")
+        found = candidates(self.dir)
+        self.assertEqual(len(found), 2)
+        from design_scans import to_stl
+        stl = to_stl(obj)
+        self.assertEqual(stl.suffix, ".stl")
+        self.assertTrue(stl.exists())
+        # 삼각형 1 + 사각형 부채꼴 2 = 3면 → 84 + 3*50 바이트
+        self.assertEqual(stl.stat().st_size, 84 + 3 * 50)
+        self.assertIs(to_stl(stl), stl)
+
+    def test_dxd_only_stops_with_clear_message(self):
+        make(self.dir, "2026-10-01_환자.dxd")
+        with self.assertRaises(PickError) as cm:
+            candidates(self.dir)
+        self.assertIn("STL", str(cm.exception))
+
     def test_lower_tooth_swaps(self):
         make(self.dir, "Maxilla_Base.stl", "Mandible_Base.stl")
         prep, anta = pick(candidates(self.dir), 36)

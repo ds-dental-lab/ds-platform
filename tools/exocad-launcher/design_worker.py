@@ -41,7 +41,7 @@ import export_tag
 from dentbird_macro import Reporter, SessionLost, Stop, export, run, session_problem
 from dentbird_params import ParamError, apply_all
 from dentbird_web import alive, attach, open_browser, reap_drivers
-from design_scans import PickError, candidates, pick, unzip_all
+from design_scans import PickError, candidates, pick, to_stl, unzip_all
 from watch_common import beat, revive, single_instance
 
 STATE = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow"
@@ -150,6 +150,8 @@ def _handle(job: dict, spend: bool) -> None:
         unzip_all(folder)
         prep, anta = pick(candidates(folder), teeth[0])
         say(f"작업치 {prep.name} · 대합치 {anta.name}")
+        # ★ obj(메딧 기본)는 STL 로 바꿔 올립니다 (2026-10-22)
+        prep, anta = to_stl(prep), to_stl(anta)
 
         run([prep, anta], teeth, say=say, mark=mark)
         say("설계값을 맞춥니다 — 내면 · 교합/인접 · 최소 두께")

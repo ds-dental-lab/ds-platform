@@ -22,12 +22,18 @@ import re
 import zipfile
 from pathlib import Path
 
-SCAN_EXT = (".stl", ".ply")
+#: ★ obj 도 받습니다 (2026-10-22) — 메딧 Link 의 기본 내보내기가 obj 입니다. 올리기 전에
+#:   STL 로 바꿉니다(to_stl) — 설계 서비스가 obj 를 받는지에 기대지 않습니다.
+SCAN_EXT = (".stl", ".ply", ".obj")
+#: exocad 전용 묶음 — 안의 턱 파일이 전용 형식이라 임시치아 설계에 못 씁니다
+DXD_EXT = ".dxd"
 
 PREP = re.compile(r"preparation|(^|[^a-z])prep([^a-z]|$)", re.I)
 ANTAGONIST = re.compile(r"antagonist", re.I)
-UPPER = re.compile(r"maxilla|upper|상악", re.I)
-LOWER = re.compile(r"mandible|lower|하악", re.I)
+# ★ 메딧 기본 이름은 '…-maxillary' / '…-mandibular' (2026-10-22 시험에서 'mandible' 만 보던
+#   탓에 아래턱을 못 찾았음). 어근(maxill·mandib)으로 봅니다.
+UPPER = re.compile(r"maxill|upper|상악", re.I)
+LOWER = re.compile(r"mandib|lower|하악", re.I)
 SKIP = re.compile(r"occlusion|bite|buccal|교합", re.I)
 
 
@@ -53,8 +59,17 @@ def unzip_all(folder: Path) -> None:
 
 
 def candidates(folder: Path) -> list[Path]:
-    """올릴 만한 스캔들 — 교합 스캔 빼고, 같은 이름이면 stl 우선"""
+    """올릴 만한 스캔들 — 교합 스캔 빼고, 같은 이름이면 stl 우선
+
+    ★ dxd 만 있으면 바로 멈춥니다 (2026-10-22 확인). dxd 는 zip 이지만 안의 UpperJaw·LowerJaw 가
+      exocad 전용 형식(STL·PLY 아님)이라 꺼내 써도 설계 서비스가 못 읽습니다.
+    """
     found = [p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in SCAN_EXT]
+    if not found and any(p.suffix.lower() == DXD_EXT for p in folder.rglob("*") if p.is_file()):
+        raise PickError(
+            "스캔이 exocad 묶음(dxd)뿐입니다 — 임시치아 설계에는 STL·PLY·OBJ 가 필요합니다. "
+            "스캐너에서 STL 로 내보내 다시 올려 주세요"
+        )
     found = [p for p in found if not SKIP.search(p.stem)]
     by_stem: dict[str, Path] = {}
     for p in sorted(found, key=lambda x: (x.suffix.lower() != ".stl", str(x))):
@@ -80,3 +95,42 @@ def pick(files: list[Path], tooth: int) -> tuple[Path, Path]:
     lower = [p for p in files if LOWER.search(p.stem) and not UPPER.search(p.stem)]
     up, low = only(upper, "위턱"), only(lower, "아래턱")
     return (up, low) if is_upper(tooth) else (low, up)
+
+
+# ---------------------------------------------------------------- obj → stl
+
+def to_stl(path: Path) -> Path:
+    """
+    올리기 전에 STL 로 맞춥니다. stl·ply 는 그대로, obj 는 옆에 같은 이름의 .stl 로 바꿔 둡니다.
+
+    ★ 메딧 obj 는 'v x y z' 와 'f a b c' 뿐입니다(재질·텍스처 참조는 무시). 면이 네 점 이상이면
+      부채꼴로 삼각형을 냅니다. 색·법선은 버립니다 — 설계에 필요 없습니다.
+    ★ 이미 바꿔 둔 .stl 이 있으면 다시 안 바꿉니다.
+    """
+    if path.suffix.lower() != ".obj":
+        return path
+    out = path.with_suffix(".stl")
+    if out.exists() and out.stat().st_mtime >= path.stat().st_mtime:
+        return out
+
+    import numpy as np  # noqa: PLC0415
+    from mesh_io import save_stl  # noqa: PLC0415
+
+    verts: list[tuple[float, float, float]] = []
+    faces: list[tuple[int, int, int]] = []
+    with path.open("r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            if line.startswith("v "):
+                parts = line.split()
+                verts.append((float(parts[1]), float(parts[2]), float(parts[3])))
+            elif line.startswith("f "):
+                idx = [int(tok.split("/")[0]) for tok in line.split()[1:]]
+                idx = [i - 1 if i > 0 else len(verts) + i for i in idx]
+                for k in range(1, len(idx) - 1):
+                    faces.append((idx[0], idx[k], idx[k + 1]))
+    if not verts or not faces:
+        raise PickError(f"obj 를 읽지 못했습니다 — {path.name} (점 {len(verts)}, 면 {len(faces)})")
+    v = np.asarray(verts, dtype=np.float32)
+    tris = v[np.asarray(faces, dtype=np.int64)]
+    save_stl(out, tris, "denflow")
+    return out
