@@ -374,6 +374,12 @@ def main(argv: list[str] | None = None) -> int:
                     reap_drivers()
                     if args.once:
                         return 0
+                    # ★ 한 건 끝나면 30초 쉬지 않고 바로 다음 것을 묻습니다 (사용자 2026-10-22
+                    #   "30초 쉬는 거 없애줘"). 주문이 몰리면 건마다 30초씩 밀렸습니다.
+                    #   잡은 일감은 design_stage 가 바뀌어 다시 오지 않으니 헛돌지 않습니다 —
+                    #   그래도 만일을 위해 2초는 둡니다.
+                    time.sleep(2)
+                    continue
                 elif args.once:
                     say("일감 없음")
                     return 0
