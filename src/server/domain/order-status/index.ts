@@ -321,7 +321,8 @@ export function canEditDueDate(status: OrderStatus, sector: Sector): boolean {
  * ★ 주문 취소 버튼을 없앴으므로 이 길이 유일한 출구입니다.
  *   접수·재스캔에서 막으면 그만둘 방법이 사라집니다.
  */
-const DELETABLE_STATUSES: OrderStatus[] = ['uploading', 'received', 'rescan'];
+// ★ 취소도 지울 수 있습니다 (사용자 2026-10-22 "취소 건은 삭제도 안 되네") — 끝난 건이라 사람이 붙어 있지 않습니다
+const DELETABLE_STATUSES: OrderStatus[] = ['uploading', 'received', 'rescan', 'cancelled'];
 
 /**
  * ★ 디자인센터는 **단계를 안 가립니다** (사용자 결정 2026-08-12).

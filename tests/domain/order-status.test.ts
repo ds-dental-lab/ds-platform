@@ -147,6 +147,11 @@ describe('수정과 리메이크', () => {
     expect(canDeleteOrder('rescan')).toBe(true);
   });
 
+  it('★ 취소된 건도 지웁니다 — 끝난 건이라 사람이 붙어 있지 않습니다 (2026-10-22)', () => {
+    expect(canDeleteOrder('cancelled')).toBe(true);
+    expect(canDeleteOrder('completed')).toBe(false);
+  });
+
   it('★ 디자인부터는 못 지웁니다 — 사람이 붙어 있습니다', () => {
     for (const status of ['designing', 'production_wait', 'production', 'shipping'] as const) {
       expect(canDeleteOrder(status)).toBe(false);
