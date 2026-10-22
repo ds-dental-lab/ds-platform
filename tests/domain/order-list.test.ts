@@ -128,10 +128,10 @@ describe('상태 색은 섹터 기준', () => {
     expect(colorOfStatus('completed')).toBe(SECTOR_COLOR.done.color);
   });
 
-  it('★ 목록 필터에 취소는 없다', () => {
-    expect(LIST_STATUSES.map((s) => s.status)).not.toContain('cancelled');
-    // 업로드중이 늘어 여덟입니다 (작업지시서 §3-3, 2026-08-21)
-    expect(LIST_STATUSES).toHaveLength(8);
+  it('★ 목록 필터에 취소는 맨 끝 — 기본 목록에서 빠지고 눌러야 보인다 (2026-10-22)', () => {
+    expect(LIST_STATUSES.map((s) => s.status)).toContain('cancelled');
+    // 업로드중이 늘어 여덟(2026-08-21), 취소 단추가 붙어 아홉(2026-10-22)
+    expect(LIST_STATUSES).toHaveLength(9);
     expect(LIST_STATUSES[0].status).toBe('uploading');
   });
 });
@@ -192,7 +192,11 @@ describe('섹터별 상태 목록', () => {
   it('★ 기공소는 제작대기·제작·배송·완료만 본다', () => {
     const shown = statusesForSector('lab').map((s) => s.status);
 
-    expect(shown).toEqual(['production_wait', 'production', 'shipping', 'completed']);
+    expect(shown).toEqual(['production_wait', 'production', 'shipping', 'completed', 'cancelled']);
+  });
+
+  it('★ 취소 단추가 맨 끝에 있다 — 기본 목록에서는 빠지고 눌러야 보인다 (2026-10-22)', () => {
+    expect(LIST_STATUSES[LIST_STATUSES.length - 1].status).toBe('cancelled');
   });
 
   it('치과와 디자인센터는 전 구간을 본다', () => {

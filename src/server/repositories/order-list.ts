@@ -202,7 +202,7 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
   //   고른 상태만 남기고 세면 다른 아이콘이 전부 0이 되어 옮겨 갈 수가 없습니다.
   const statusCounts: Record<string, number> = {};
   const issueCounts: Record<string, number> = {};
-  if (session?.orgType === 'design_center') issueCounts.temp = tempTotal;
+  issueCounts.temp = tempTotal; // 「임시치아」 단추 숫자 — 치과·센터 둘 다 (2026-10-22)
 
   for (const row of rows) {
     statusCounts[row.status] = (statusCounts[row.status] ?? 0) + 1;
@@ -221,7 +221,9 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
   const statuses = query.statuses ?? [];
   const issues = query.issues ?? [];
 
+  // ★ 아무 상태도 안 골랐으면 **취소는 뺍니다** (2026-10-22) — 「취소」 단추를 눌러야 보입니다
   if (statuses.length > 0) rows = rows.filter((r) => statuses.includes(r.status));
+  else rows = rows.filter((r) => r.status !== 'cancelled');
   if (issues.length > 0) {
     rows = rows.filter(
       (r) => r.issue !== null && issues.includes(r.issue) && inIssueFilter(r.issue, r.status, session?.orgType),

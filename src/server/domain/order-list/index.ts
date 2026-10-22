@@ -24,7 +24,7 @@ export const SECTOR_COLOR: Record<StatusSector, { color: string; label: string }
   done: { color: '#5C6779', label: '완료' },
 };
 
-/** 목록 필터에 나오는 상태와 그 담당 섹터. 취소는 목록 필터에 없습니다 */
+/** 목록 필터에 나오는 상태와 그 담당 섹터. 취소는 단추를 눌러야 보입니다 (2026-10-22) */
 export const LIST_STATUSES: { status: OrderStatus; sector: StatusSector }[] = [
   /*
     ★ 업로드중은 **치과 색**입니다. 파일을 마저 올려야 넘어가므로
@@ -40,6 +40,11 @@ export const LIST_STATUSES: { status: OrderStatus; sector: StatusSector }[] = [
   { status: 'production', sector: 'lab' },
   { status: 'shipping', sector: 'lab' },
   { status: 'completed', sector: 'done' },
+  /*
+    ★ 취소는 **기본 목록에서 빠집니다** (사용자 2026-10-22 "취소 건은 안 나와도 될 것 같은데").
+      단추가 있어야 뺄 수 있습니다 — 누르면 그것만 봅니다. 숫자는 늘 셉니다.
+  */
+  { status: 'cancelled', sector: 'done' },
 ];
 
 export function sectorOfStatus(status: OrderStatus): StatusSector {

@@ -187,8 +187,8 @@ export default function OrderQuickFilters({
               active={issues.includes(i)}
             />
           ))}
-          {/* ★ 임시치아만 주문 — 센터 기본 목록에서 빠져 있어 여기로만 봅니다 (2026-10-22) */}
-          {sector === 'design_center' && (
+          {/* ★ 임시치아만 주문 — 센터는 기본 목록에서 빠져 있어 여기로만, 치과는 골라 보기 (2026-10-22) */}
+          {sector !== 'lab' && (
             <IconButton
               href={(() => {
                 const next = new URLSearchParams(params);
