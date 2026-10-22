@@ -62,6 +62,35 @@ def _post(url: str, body: dict) -> dict:
         return {"ok": False, "error": f"서버에 닿지 못했습니다 — {e}"}
 
 
+def upload_scans(order_id: str, token: str, paths: list[Path], say=print) -> bool:
+    """
+    DS Core 에서 바꾼 ply 를 **주문에 스캔으로** 올립니다 (2026-10-22).
+    ★ 크라운 런처가 이 ply 를 보고 DS Core 를 건너뛰게 — 시로나 dxd 가 두 번 다녀오던 것을 한 번으로.
+    ★ 못 올려도 설계는 계속합니다 — 되돌려 올리기는 덤이지 조건이 아닙니다.
+    """
+    if not paths or not token:
+        return False
+    url = f"{BASE}/api/device/print/deliver?t={urllib.parse.quote(token)}"
+    opened = _post(url, {"orderId": order_id, "scan": True, "files": [{"name": p.name, "size": p.stat().st_size} for p in paths]})
+    if not opened.get("ok"):
+        say(f"바꾼 스캔을 되돌려 올릴 자리를 못 받았습니다: {opened.get('error', '')}")
+        return False
+    by_name = {p.name: p for p in paths}
+    done_files = []
+    for slot in opened["slots"]:
+        p = by_name.get(slot["name"])
+        if not p or not put_file(p, slot["path"], slot["token"]):
+            say(f"되돌려 올리지 못했습니다: {slot['name']}")
+            return False
+        done_files.append({"path": slot["path"], "name": slot["name"], "size": p.stat().st_size})
+    got = _post(url, {"orderId": order_id, "scan": True, "done": True, "files": done_files})
+    if not got.get("ok"):
+        say(f"되돌려 올린 스캔을 적지 못했습니다: {got.get('error', '')}")
+        return False
+    say(f"바꾼 스캔 {len(done_files)}개를 주문에 올렸습니다 — 크라운 쪽은 DS Core 를 건너뜁니다")
+    return True
+
+
 def put_file(path: Path, storage_path: str, token: str) -> bool:
     """저장소가 내준 자리로 바로 올립니다"""
     url = (

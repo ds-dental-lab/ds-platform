@@ -18,7 +18,7 @@
 // =========================================================
 
 import { verifyExocadToken } from '@/server/exocad/token';
-import { openDeliverSlots, finishDeliver } from '@/server/repositories/auto-print';
+import { openDeliverSlots, finishDeliver, openScanSlots, finishScanUpload } from '@/server/repositories/auto-print';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +31,8 @@ export async function POST(request: Request) {
     files?: unknown;
     rotate?: unknown;
     facts?: unknown;
+    /** true 면 출력 파일이 아니라 **스캔(ply)** 을 주문에 되돌려 올리는 것 (2026-10-22) */
+    scan?: unknown;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -45,9 +47,14 @@ export async function POST(request: Request) {
   const check = verifyExocadToken(body.orderId, token);
   if (!check.ok) return Response.json({ ok: false, error: check.reason }, { status: 401 });
 
-  const result = body.done
-    ? await finishDeliver(body.orderId, body)
-    : await openDeliverSlots(body.orderId, body);
+  const result =
+    body.scan === true
+      ? body.done
+        ? await finishScanUpload(body.orderId, body)
+        : await openScanSlots(body.orderId, body)
+      : body.done
+        ? await finishDeliver(body.orderId, body)
+        : await openDeliverSlots(body.orderId, body);
 
   return Response.json(result, {
     status: result.ok ? 200 : 400,

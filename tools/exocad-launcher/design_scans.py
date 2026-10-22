@@ -60,7 +60,7 @@ def unzip_all(folder: Path) -> None:
             zf.extractall(out)
 
 
-def ensure_meshes(folder: Path, folder_name: str, say=print) -> list[Path]:
+def ensure_meshes(folder: Path, folder_name: str, say=print) -> tuple[list[Path], list[Path]]:
     """
     시로나 dxd 만 온 주문을 위해 — **DS Core 에서 ply 로 바꿔** 폴더에 둡니다 (2026-10-22).
 
@@ -69,13 +69,14 @@ def ensure_meshes(folder: Path, folder_name: str, say=print) -> list[Path]:
       씁니다. 치과는 dxd 한 번만 내보내고, 크라운은 dxd(색 있음)로, 임시치아는 이 ply 로.
     ★ stl·ply·obj 가 하나라도 있으면 아무것도 안 합니다 — DS Core 왕복(3~5분)은 꼭 필요할 때만.
     ★ 서버 PC 에 DS Core 계정(settings.json)이 없으면 분명한 말로 멈춥니다.
+    ★ 돌려주는 것은 (쓸 스캔들, 이번에 DS Core 에서 **새로 바꾼** 파일들). 둘째가 비면 변환 안 한 것.
     """
     meshes = [p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in SCAN_EXT]
     if meshes:
-        return meshes
+        return meshes, []
     dxds = sorted(p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() == DXD_EXT)
     if not dxds:
-        return meshes
+        return meshes, []
     import dscore  # noqa: PLC0415
 
     if not dscore.has_settings():
@@ -86,7 +87,7 @@ def ensure_meshes(folder: Path, folder_name: str, say=print) -> list[Path]:
     say(f"dxd 를 DS Core 에서 ply 로 바꾸는 중 (3~5분) — {dxds[0].name}")
     placed = dscore.convert(dxds[0], folder, folder_name, "", "", say=say)
     say(f"바꿨습니다 — {', '.join(p.name for p in placed)}")
-    return [p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in SCAN_EXT]
+    return [p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in SCAN_EXT], list(placed)
 
 
 def candidates(folder: Path) -> list[Path]:

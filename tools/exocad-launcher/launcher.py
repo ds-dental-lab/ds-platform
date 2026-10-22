@@ -701,7 +701,16 @@ class Job:
         self.note(f"폴더: {folder}")
 
         # 5. dxd → DS Core 자동 변환 (2026-09-10 — dscore.py, 사람 손 없이)
-        if dxds:
+        # ★ 주문에 상·하악 스캔이 **이미** 있으면 건너뜁니다 (2026-10-22) — 서버 PC 가 FlowTemp 때문에
+        #   DS Core 에서 바꿔 되돌려 올린 색 붙은 ply 가 그것입니다. 같은 dxd 를 두 번 다녀오지 않게.
+        #   dxd 자체는 폴더에 둡니다 — 손으로 열어 볼 수 있게.
+        has_jaws = any(UPPER.search(n) for n in placed) and any(LOWER.search(n) for n in placed)
+        if dxds and has_jaws:
+            for d in dxds:
+                shutil.move(str(d), folder / d.name)
+            self.say("4/5 상·하악 스캔이 이미 있어 DS Core 변환 건너뜀")
+            self.note("주문에 상·하악 스캔(되돌려 올린 ply)이 있어 dxd 변환을 건너뜁니다")
+        elif dxds:
             self.say("4/5 dxd 를 DS Core 에서 변환하는 중 (3~5분)")
             import dscore
             for d in dxds:

@@ -64,14 +64,15 @@ class Pick(unittest.TestCase):
         make(self.dir, "2026-10-01_환자.dxd")
         with mock.patch("dscore.has_settings", return_value=False):
             with self.assertRaises(PickError) as cm:
-                design_scans.ensure_meshes(self.dir, "ORD", say=lambda m: None)
+                design_scans.ensure_meshes(self.dir, "ORD", say=lambda m: None)  # noqa
         self.assertIn("DS Core", str(cm.exception))
 
     def test_ensure_meshes_noop_when_meshes_exist(self):
         import design_scans
         make(self.dir, "a-upperjaw.stl", "x.dxd")
-        got = design_scans.ensure_meshes(self.dir, "ORD", say=lambda m: None)
+        got, converted = design_scans.ensure_meshes(self.dir, "ORD", say=lambda m: None)
         self.assertEqual([p.name for p in got], ["a-upperjaw.stl"])
+        self.assertEqual(converted, [])
 
     def test_dxd_only_stops_with_clear_message(self):
         make(self.dir, "2026-10-01_환자.dxd")

@@ -125,6 +125,21 @@ def download(files: list[dict], folder: Path) -> None:
 _session_bad_at = 0.0
 
 
+#: 일감 처리 중에 서버에 다시 물을 때 쓰는 주소·기기 열쇠 (main 이 채움)
+_CTX: dict[str, str] = {}
+
+
+def _fresh_order_token(order_id: str, teeth: list[int]) -> str:
+    """
+    주문 열쇠를 **새로** 받습니다 (2026-10-22). 일감에 실려 온 열쇠는 10분짜리라, DS Core 왕복
+    (3~5분, 줄 서면 더)이 끝난 뒤에는 만료됐을 수 있습니다. match API 가 같은 주문의 새 열쇠를 줍니다.
+    """
+    if not _CTX.get("base") or not _CTX.get("token"):
+        return ""
+    got = post(f"{_CTX['base']}/api/device/auto-print/match", {"teeth": teeth, "orderId": order_id}, _CTX["token"])
+    return str(got.get("token") or "") if got.get("ok") else ""
+
+
 def handle(job: dict, spend: bool) -> None:
     global _doing
     _doing = f"디자인 중 · {job['orderNo']}"
@@ -149,7 +164,13 @@ def _handle(job: dict, spend: bool) -> None:
         download(job["files"], folder)
         unzip_all(folder)
         # ★ 시로나 dxd 만 왔으면 DS Core 에서 ply 로 (2026-10-22). 다른 스캔이 있으면 그냥 지나감
-        ensure_meshes(folder, order_id, say=say)
+        _meshes, converted = ensure_meshes(folder, order_id, say=say)
+        if converted:
+            # ★ 바꾼 ply 를 주문에 되돌려 올립니다 — 크라운 런처가 DS Core 를 건너뛰게. 실패해도 계속
+            from deliver import upload_scans  # noqa: PLC0415
+
+            fresh = _fresh_order_token(order_id, teeth) or job.get("token", "")
+            upload_scans(order_id, fresh, [p for p in converted if p.suffix.lower() == ".ply"], say=say)
         prep, anta = pick(candidates(folder), teeth[0])
         say(f"작업치 {prep.name} · 대합치 {anta.name}")
         # ★ obj(메딧 기본)는 STL 로 바꿔 올립니다 (2026-10-22)
@@ -280,6 +301,7 @@ def main(argv: list[str] | None = None) -> int:
     if not token:
         say("설정에 기기 열쇠가 없습니다")
         return 1
+    _CTX.update(base=base, token=token)
 
     # ★ 매크로가 7분씩 도는 동안에도 살아 있다는 표시를 남깁니다
     stop = threading.Event()

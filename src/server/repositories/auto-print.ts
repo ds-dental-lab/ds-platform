@@ -34,6 +34,7 @@ import {
 } from '@/server/domain/auto-print';
 import { publishAutoAlert, publishDesignStall } from '@/server/events/auto-print';
 import type { LinkedDevice } from '@/server/repositories/device-link';
+import { issueExocadToken } from '@/server/exocad/token';
 
 const BUCKET = 'order-files';
 
@@ -1090,6 +1091,11 @@ export interface DesignJob {
   teeth: number[];
   /** 스캔 파일 — 바로 받는 주소 (우리 서버를 안 지나갑니다) */
   files: { name: string; url: string; size: number | null }[];
+  /**
+   * 이 주문의 열쇠 (exocad 런처와 같은 것). 설계 PC 가 DS Core 에서 바꾼 ply 를
+   * **주문에 되돌려 올릴 때** 씁니다 (2026-10-22) — 크라운 런처가 그 ply 를 보고 DS Core 를 건너뜁니다.
+   */
+  token: string;
 }
 
 /**
@@ -1190,10 +1196,72 @@ export async function claimNextDesign(
           ),
         ].sort((a, b) => a - b),
         files,
+        token: issueExocadToken(r.order_id) ?? '',
       },
     };
   }
   return { ok: true, job: null, available: false };
+}
+
+// ---------------------------------------------------------------- 스캔 되돌려 올리기 (2026-10-22)
+
+/**
+ * 설계 PC 가 DS Core 에서 바꾼 **색 붙은 ply** 를 주문에 올릴 자리.
+ *
+ * ★ 왜 — 시로나 dxd 는 FlowTemp(서버 PC)와 크라운(디자인 PC 런처)이 **각자** DS Core 를
+ *   다녀왔습니다 (3~5분 × 2, 임시 환자 × 2). 먼저 바꾼 쪽이 주문에 올려 두면 뒤는 건너뜁니다.
+ * ★ 이름은 보낸 그대로(`<주문>-upperjaw.ply`) — 런처가 상·하악을 이름으로 알아봅니다.
+ * ★ 열쇠는 exocad 런처와 같은 주문 열쇠. 치과 스캔 올리기(device/scan)와는 다른 길입니다.
+ */
+export async function openScanSlots(
+  orderId: string,
+  body: { files?: unknown },
+): Promise<{ ok: true; slots: DeliverSlot[]; bucket: string } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+  const { data: order } = await admin.from('orders').select('id').eq('id', orderId).is('deleted_at', null).maybeSingle();
+  if (!order) return { ok: false, error: '주문을 찾지 못했습니다' };
+  const wanted = (Array.isArray(body.files) ? body.files : []) as { name?: unknown }[];
+  const names = wanted.map((f) => (typeof f.name === 'string' ? f.name : '')).filter(Boolean);
+  if (names.length === 0 || names.length > 8) return { ok: false, error: '올릴 스캔이 없거나 너무 많습니다' };
+  const slots: DeliverSlot[] = [];
+  for (const name of names) {
+    const safe = name.replace(/[^\w.\-가-힣]/g, '_').slice(-80);
+    const path = `orders/${orderId}/${crypto.randomUUID()}_${safe}`;
+    const signed = await admin.storage.from(BUCKET).createSignedUploadUrl(path);
+    if (signed.error || !signed.data) return { ok: false, error: '올릴 주소를 못 받았습니다' };
+    slots.push({ role: 'design', name, path, token: signed.data.token });
+  }
+  return { ok: true, slots, bucket: BUCKET };
+}
+
+/** 올린 스캔을 주문 파일(kind 'scan')로 적습니다 — 저장소에 진짜 있는 것만 */
+export async function finishScanUpload(
+  orderId: string,
+  body: { files?: unknown },
+): Promise<{ ok: true; added: number } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+  const files = (Array.isArray(body.files) ? body.files : []) as { path?: unknown; name?: unknown; size?: unknown }[];
+  const rows: Record<string, unknown>[] = [];
+  for (const f of files) {
+    if (typeof f.path !== 'string' || !f.path.startsWith(`orders/${orderId}/`)) continue;
+    const dir = f.path.slice(0, f.path.lastIndexOf('/'));
+    const name = f.path.slice(f.path.lastIndexOf('/') + 1);
+    const { data } = await admin.storage.from(BUCKET).list(dir, { search: name });
+    if (!data?.some((o) => o.name === name)) return { ok: false, error: `${name} 이 저장소에 없습니다` };
+    rows.push({
+      order_id: orderId,
+      kind: 'scan',
+      storage_path: f.path,
+      file_name: typeof f.name === 'string' ? f.name : name,
+      file_size: typeof f.size === 'number' ? f.size : null,
+      mime_type: null,
+      upload_status: 'uploaded',
+    });
+  }
+  if (rows.length === 0) return { ok: false, error: '적을 파일이 없습니다' };
+  const { error } = await admin.from('order_files').insert(rows);
+  if (error) return { ok: false, error: `기록을 남기지 못했습니다: ${error.message}` };
+  return { ok: true, added: rows.length };
 }
 
 /**
