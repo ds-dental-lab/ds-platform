@@ -705,7 +705,11 @@ export default function OrderDetailScreen({
                 보이므로, 눌렀을 때도 그대로 넘어가야 말이 맞습니다.
             */
             assignedLabId={order.lab_org_id ?? labs.find((l) => l.inHouse)?.id ?? null}
-            forwardBlockedReason={forwardBlockedReason}
+            forwardBlockedReason={
+              order.order_type === 'temp'
+                ? '임시치아만 있는 주문 — 서버가 자동으로 설계·출력하고 끝나면 완료됩니다'
+                : forwardBlockedReason
+            }
           />
 
           <Link

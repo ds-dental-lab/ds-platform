@@ -40,6 +40,8 @@ export interface OrderRow {
   remake_seq: number;
   is_remake: boolean;
   is_repair: boolean;
+  /** 주문 종류 — 'temp' 면 임시치아만 (2026-10-22) */
+  order_type: string;
   /**
    * 디자인 STL 미리보기가 있는가 (2026-09-28).
    * ★ 목록에서 바로 열어 보기 위한 표시일 뿐, 주소는 누를 때 받습니다 —
@@ -63,6 +65,8 @@ export interface OrderListQuery {
   statuses?: readonly OrderStatus[];
   /** 고른 이슈들. 상태와는 AND, 이슈끼리는 OR 입니다 */
   issues?: readonly IssueType[];
+  /** 임시치아만 주문만 보기 (센터). 안 켜면 센터 목록에서는 빠집니다 (2026-10-22) */
+  temp?: boolean;
   sort?: SortColumn;
   dir?: 1 | -1;
   page?: number;
@@ -105,6 +109,7 @@ interface RawRow {
   remake_seq: number;
   is_remake: boolean;
   is_repair: boolean;
+  order_type?: string | null;
   clinic: { name: string } | null;
   lab: { name: string } | null;
   order_items: { tooth_number: number; is_pontic: boolean }[] | null;
@@ -128,7 +133,7 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
     .from('orders')
     .select(
       `id, order_no, status, due_date, received_at, created_at, ` +
-        `patient_label:${patientColumn}, remake_count, remake_seq, is_remake, is_repair, ` +
+        `patient_label:${patientColumn}, remake_count, remake_seq, is_remake, is_repair, order_type, ` +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
         labSelect +
         'order_items(tooth_number, is_pontic), ' +
@@ -173,6 +178,7 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
     remake_seq: row.remake_seq ?? 0,
     is_remake: row.is_remake ?? false,
     is_repair: row.is_repair ?? false,
+    order_type: row.order_type ?? 'modelless',
     has_preview: false,
   }));
 
@@ -182,11 +188,21 @@ export async function listOrderPage(query: OrderListQuery = {}): Promise<OrderLi
     rows = rows.filter((r) => r.clinic_name.toLowerCase().includes(needle));
   }
 
+  /*
+    ★ 임시치아만 주문(order_type 'temp')은 센터 기본 목록에서 **뺍니다** (2026-10-22).
+      센터가 손댈 게 없는 주문이라 접수에 섞이면 숫자만 어지럽습니다. 오른쪽 「임시치아」
+      단추를 켜면 그것만 봅니다. 치과·기공소 목록은 그대로입니다.
+  */
+  const tempTotal = rows.filter((r) => r.order_type === 'temp').length;
+  if (query.temp) rows = rows.filter((r) => r.order_type === 'temp');
+  else if (session?.orgType === 'design_center') rows = rows.filter((r) => r.order_type !== 'temp');
+
   // ---------- 아이콘 카운트 ----------
   // ★ 상태·이슈 선택은 빼고 셉니다.
   //   고른 상태만 남기고 세면 다른 아이콘이 전부 0이 되어 옮겨 갈 수가 없습니다.
   const statusCounts: Record<string, number> = {};
   const issueCounts: Record<string, number> = {};
+  if (session?.orgType === 'design_center') issueCounts.temp = tempTotal;
 
   for (const row of rows) {
     statusCounts[row.status] = (statusCounts[row.status] ?? 0) + 1;

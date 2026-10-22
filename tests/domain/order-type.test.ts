@@ -7,6 +7,8 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  effectiveOrderType,
+  ORDER_TYPE_LABEL,
   setupForOrderType,
   needsTeardown,
   lockedOrderType,
@@ -88,5 +90,26 @@ describe('지금 주문할 수 있는 종류 (2026-10-15)', () => {
   it('★ 아날로그는 아직 안 됩니다', () => {
     expect(isOrderable('analog')).toBe(false);
     expect(ORDERABLE_TYPES).not.toContain('analog');
+  });
+});
+
+describe('임시치아만 주문은 종류가 temp (과금 2안, 2026-10-22)', () => {
+  it('항목이 전부 FlowTemp 면 temp', () => {
+    expect(effectiveOrderType('modelless', [true])).toBe('temp');
+    expect(effectiveOrderType('modelless', [true, true])).toBe('temp');
+  });
+
+  it('크라운이 하나라도 있으면 고른 종류 그대로', () => {
+    expect(effectiveOrderType('modelless', [true, false])).toBe('modelless');
+    expect(effectiveOrderType('analog', [false])).toBe('analog');
+  });
+
+  it('항목이 없으면 고른 종류 그대로 — 빈 주문을 temp 로 만들지 않는다', () => {
+    expect(effectiveOrderType('modelless', [])).toBe('modelless');
+  });
+
+  it('이름은 치과가 읽는 말', () => {
+    expect(ORDER_TYPE_LABEL.temp).toBe('임시치아');
+    expect(ORDER_TYPE_LABEL.repair).toBe('리페어');
   });
 });

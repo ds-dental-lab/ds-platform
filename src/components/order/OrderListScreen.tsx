@@ -62,6 +62,7 @@ export default async function OrderListScreen({
       patient: q.patient,
       statuses: q.statuses,
       issues: q.issues,
+      temp: q.temp,
       sort: q.sort,
       dir: q.dir,
       page: q.page,
@@ -94,6 +95,7 @@ export default async function OrderListScreen({
               params={q.raw}
               statuses={q.statuses}
               issues={q.issues}
+              temp={q.temp}
               statusCounts={result.statusCounts}
               issueCounts={result.issueCounts}
               sector={sector}
@@ -184,6 +186,7 @@ function readParams(
     statusesForSector(sector).map(({ status }) => status),
   );
   const issues = parseFilterList(one('issue'), ISSUE_ORDER);
+  const temp = one('temp') === '1';
 
   const sortRaw = one('sort');
   const sort: SortColumn = isSortable(sortRaw) ? sortRaw : 'received_at';
@@ -202,6 +205,7 @@ function readParams(
   if (one('patient')) raw.patient = one('patient');
   if (statuses.length > 0) raw.status = filterListToParam(statuses);
   if (issues.length > 0) raw.issue = filterListToParam(issues);
+  if (temp) raw.temp = '1';
   if (sortRaw && isSortable(sortRaw)) raw.sort = sort;
   if (one('dir')) raw.dir = String(dir);
 
@@ -215,6 +219,7 @@ function readParams(
     patient: one('patient'),
     statuses,
     issues,
+    temp,
     sort,
     dir,
     page,

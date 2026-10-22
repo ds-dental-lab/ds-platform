@@ -124,6 +124,7 @@ interface RawRow {
   patient_label: string;
   designer_user_id: string | null;
   created_by: string | null;
+  order_type?: string | null;
   clinic: { name: string } | null;
   order_issues: { issue_type: IssueType; opened_at: string; resolved_at: string | null }[] | null;
 }
@@ -174,7 +175,7 @@ export async function getHomeSummary(): Promise<HomeSummary> {
   const { data, error } = await supabase
     .from('orders')
     .select(
-      'id, status, due_date, patient_label, designer_user_id, created_by, ' +
+      'id, status, due_date, patient_label, designer_user_id, created_by, order_type, ' +
         'clinic:organizations!orders_clinic_org_id_fkey(name), ' +
         'order_issues(issue_type, opened_at, resolved_at)',
     )
@@ -189,6 +190,8 @@ export async function getHomeSummary(): Promise<HomeSummary> {
 
   for (const row of rows) {
     if (DONE.includes(row.status)) continue;
+    // ★ 임시치아만 주문은 센터 숫자에 안 셉니다 — 손댈 게 없습니다 (2026-10-22)
+    if (sector === 'design_center' && row.order_type === 'temp') continue;
 
     statusCounts[row.status] = (statusCounts[row.status] ?? 0) + 1;
 

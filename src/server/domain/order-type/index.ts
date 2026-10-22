@@ -22,7 +22,35 @@
 //   가는지 알아야 하므로 kind 를 나눕니다.
 // =========================================================
 
-export type OrderType = 'modelless' | 'analog' | 'with_model' | 'model_only' | 'repair';
+export type OrderType = 'modelless' | 'analog' | 'with_model' | 'model_only' | 'repair' | 'temp';
+
+/** 화면에 적는 이름. 치과 화면에도 쓰이니 짧고 평범하게 */
+export const ORDER_TYPE_LABEL: Record<OrderType, string> = {
+  modelless: '모델리스',
+  analog: '아날로그',
+  with_model: '모델 포함',
+  model_only: '모델만',
+  repair: '리페어',
+  temp: '임시치아',
+};
+
+/**
+ * 저장할 종류. **항목이 전부 FlowTemp 면 '임시치아'(temp)** 입니다 (과금 2안, 2026-10-22).
+ *
+ * ★ 리페어가 `repair` 로 갈라지는 것과 같은 수법입니다. 상태 기계는 안 건드리고 종류로 가릅니다 —
+ *   센터가 손댈 게 없는 주문(서버가 설계, 치과 프린터가 출력, 끝나면 저절로 완료)이
+ *   접수 목록·HOME·요청시한 알림에 잡히지 않게.
+ * ★ 크라운이 하나라도 있으면 보통 주문입니다 — 그 주문은 기공 흐름을 탑니다.
+ * ★ 치과가 고르는 값이 아닙니다. 항목을 보고 서버가 정합니다.
+ */
+export function effectiveOrderType(requested: OrderType, autoPipelineFlags: boolean[]): OrderType {
+  if (autoPipelineFlags.length > 0 && autoPipelineFlags.every(Boolean)) return 'temp';
+  return requested;
+}
+
+export function isTempOnly(orderType: string | null | undefined): boolean {
+  return orderType === 'temp';
+}
 
 export type PickupKind = 'prosthesis' | 'model' | 'impression';
 

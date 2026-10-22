@@ -114,6 +114,8 @@ export interface OrderQuickFiltersProps {
   issueCounts: Record<string, number>;
   /** 어느 섹터의 목록인가. 기공소는 앞 단계 상태를 세우지 않습니다 */
   sector: 'clinic' | 'design_center' | 'lab';
+  /** 「임시치아」 단추가 켜져 있는가 (센터만, 2026-10-22) */
+  temp?: boolean;
 }
 
 export default function OrderQuickFilters({
@@ -124,6 +126,7 @@ export default function OrderQuickFilters({
   statusCounts,
   issueCounts,
   sector,
+  temp = false,
 }: OrderQuickFiltersProps) {
   const shownStatuses = statusesForSector(sector).map(({ status }) => status);
 
@@ -184,6 +187,25 @@ export default function OrderQuickFilters({
               active={issues.includes(i)}
             />
           ))}
+          {/* ★ 임시치아만 주문 — 센터 기본 목록에서 빠져 있어 여기로만 봅니다 (2026-10-22) */}
+          {sector === 'design_center' && (
+            <IconButton
+              href={(() => {
+                const next = new URLSearchParams(params);
+                if (temp) next.delete('temp');
+                else next.set('temp', '1');
+                next.delete('page');
+                const qs = next.toString();
+                return qs ? `${basePath}?${qs}` : basePath;
+              })()}
+              label="임시치아"
+              icon={<path d="M7 4h10v6a5 5 0 0 1-10 0zM9 20h6M12 15v5" />}
+              color="#1279E8"
+              count={issueCounts.temp ?? 0}
+              active={temp}
+              title="임시치아만 있는 주문 — 서버가 자동으로 진행"
+            />
+          )}
         </div>
       </div>
 

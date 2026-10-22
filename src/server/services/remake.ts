@@ -130,6 +130,10 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
     .maybeSingle();
 
   if (!parentRow) return { ok: false, error: '주문을 찾을 수 없습니다' };
+  // ★ 임시치아만 주문은 리메이크 대상이 아닙니다 — 다시 뽑기는 치과 책갈피의 「↻ 다시 뽑기」 (2026-10-22)
+  if ((parentRow as { order_type?: string }).order_type === 'temp') {
+    return { ok: false, error: '임시치아만 있는 주문에는 리메이크를 넣을 수 없습니다 — 다시 뽑기를 써 주세요' };
+  }
 
   const parent = parentRow as unknown as {
     id: string;

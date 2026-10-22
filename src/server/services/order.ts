@@ -26,6 +26,7 @@ import { checkDueDate, type DueDatePolicy } from '@/server/domain/due-date';
 import type { HolidayMap } from '@/server/domain/holiday';
 import { canEditSpec, type OrderStatus } from '@/server/domain/order-status';
 import {
+  effectiveOrderType,
   setupForOrderType,
   needsTeardown,
   lockedOrderType,
@@ -294,6 +295,12 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   );
   if (problem) return { ok: false, error: problem };
 
+  // ★ 전부 FlowTemp 면 '임시치아' 종류 (과금 2안, 2026-10-22) — 센터 손이 안 가는 주문
+  const orderType = effectiveOrderType(
+    input.orderType ?? 'modelless',
+    input.items.map((i) => Boolean(catalog.find((t) => t.code === i.typeCode)?.autoPipeline)),
+  );
+
   const owners = await resolveOwners(supabase, membership.org_id, org.org_type, input);
   if ('error' in owners) return { ok: false, error: owners.error };
 
@@ -321,7 +328,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       patient_id: input.patientId ?? null,
       patient_label: labels.plain,
       patient_label_masked: labels.masked,
-      order_type: input.orderType ?? 'modelless',
+      order_type: orderType,
       /*
         ★★ 올릴 파일이 있으면 **업로드중**으로 시작합니다 (§3-3).
           10개 중 8개만 올라간 주문이 '접수' 로 서면 디자인센터가
@@ -332,7 +339,8 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
           (order_files 트리거).
       */
       status: planned > 0 ? 'uploading' : 'received',
-      due_date: input.dueDate,
+      // ★ 임시치아만 주문은 오늘이 시한입니다 — 몇 분 뒤 나오는 것이라 (2026-10-22)
+      due_date: orderType === 'temp' ? todayInKst() : input.dueDate,
       notes: input.notes ?? null,
       created_by: user.id,
       received_at: new Date().toISOString(),
@@ -428,6 +436,8 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     orderId: order.id,
     actorOrgId: membership.org_id,
     actorUserId: user.id,
+    // ★ 임시치아만 주문은 센터에 안 알립니다 — 센터가 손댈 게 없습니다 (2026-10-22)
+    kind: orderType === 'temp' ? 'temp' : 'new',
   });
 
   return { ok: true, orderId: order.id, orderNo: order.order_no };
@@ -732,14 +742,20 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
   const labels = await buildPatientLabels(supabase, input, current.clinic_org_id as string);
   if (!labels) return { ok: false, error: '환자를 찾을 수 없습니다' };
 
+  // ★ 고친 뒤 항목이 전부 FlowTemp 면 '임시치아', 크라운이 생기면 보통 주문 (2026-10-22)
+  const afterType = effectiveOrderType(
+    input.orderType ?? 'modelless',
+    input.items.map((i) => Boolean(catalog.find((t) => t.code === i.typeCode)?.autoPipeline)),
+  );
+
   const { error: headError } = await supabase
     .from('orders')
     .update({
       patient_id: input.patientId ?? null,
       patient_label: labels.plain,
       patient_label_masked: labels.masked,
-      order_type: input.orderType ?? 'modelless',
-      due_date: input.dueDate,
+      order_type: afterType,
+      due_date: afterType === 'temp' ? todayInKst() : input.dueDate,
       notes: input.notes ?? null,
     })
     .eq('id', input.orderId);
@@ -755,7 +771,6 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
       규칙을 한 군데만 두면 반드시 어긋납니다 (재스캔이 그랬습니다).
   */
   const beforeType = (current.order_type as OrderType | null) ?? 'modelless';
-  const afterType = input.orderType ?? 'modelless';
 
   if (beforeType !== afterType) {
     if (needsTeardown(beforeType, afterType)) {

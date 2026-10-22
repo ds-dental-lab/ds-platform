@@ -257,6 +257,15 @@ export default function OrderTable({
                         />
                       )}
 
+                      {row.order_type === 'temp' && (
+                        <span
+                          className="inline-block rounded-full px-[9px] py-[3px] text-[11px] font-bold"
+                          style={{ background: '#E6F1FB', color: '#0C447C' }}
+                          title="임시치아만 있는 주문 — 자동 진행"
+                        >
+                          임시치아
+                        </span>
+                      )}
                       {issue && (
                         <span
                           className="inline-block rounded-full px-[9px] py-[3px] text-[11px] font-bold"

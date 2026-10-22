@@ -172,8 +172,10 @@ export async function publishOrderCreated(event: {
    *   이미 한 번 만들어 보낸 것이 잘못됐다는 뜻이고, 환자는 이미
    *   한 번 헛걸음했습니다. 같은 제목으로 오면 그 급함이 안 보입니다.
    */
-  kind?: 'new' | 'remake';
+  kind?: 'new' | 'remake' | 'temp';
 }): Promise<void> {
+  // ★ 임시치아만 주문은 센터가 손댈 게 없어 종을 안 울립니다 (2026-10-22)
+  if (event.kind === 'temp') return;
   try {
     const supabase = await createClient();
 
