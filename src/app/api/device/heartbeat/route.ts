@@ -11,7 +11,8 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { deviceFromToken } from '@/server/repositories/device-link';
 import { cleanVersion } from '@/server/domain/agent';
-import { sanitizeEvents, sanitizeStatus } from '@/server/domain/device-health';
+import { dentbirdLoggedOut, justLoggedOut, sanitizeEvents, sanitizeStatus, type DeviceStatus } from '@/server/domain/device-health';
+import { publishDentbirdLoggedOut } from '@/server/events/auto-print';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,15 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+
+  // ★ 덴트버드 로그인이 **처음** 풀린 보고면 센터에 알립니다 (2026-10-23). 앞 상태는 바꾸기 전에 읽습니다
+  const next = patch.status as DeviceStatus;
+  let loggedOut = false;
+  if (dentbirdLoggedOut(next)) {
+    const { data: before } = await admin.from('clinic_devices').select('status').eq('id', device.id).maybeSingle();
+    loggedOut = justLoggedOut((before as { status: DeviceStatus | null } | null)?.status, next);
+  }
+
   const { error } = await admin.from('clinic_devices').update(patch).eq('id', device.id);
   if (error) return Response.json({ ok: false, error: error.message }, { status: 500 });
 
@@ -52,6 +62,8 @@ export async function POST(request: Request) {
       .from('device_events')
       .insert(events.map((e) => ({ device_id: device.id, level: e.level, message: e.message })));
   }
+
+  if (loggedOut) await publishDentbirdLoggedOut(device.clinicOrgId, device.name, next.dentbird ?? '');
 
   return Response.json({ ok: true }, { headers: { 'cache-control': 'no-store' } });
 }

@@ -247,6 +247,9 @@ def _health() -> dict:
             dentbird = "덴트버드 페이지 없음"
     except Exception:  # noqa: BLE001
         dentbird = "꺼짐"
+    # ★ 쉬는 동안 읽어 본 것이 '풀림' 이면 그 말이 먼저 — 서버가 이 말로 알림을 보냅니다
+    if _login_lost:
+        dentbird = f"로그인 풀림 — {_login_lost}"
     if time.time() - _session_bad_at < SESSION_PAUSE_SECONDS:
         dentbird += " · 못 쓰는 상태(쉬는 중)"
     # ★ 빠진 것이 **바뀔 때만** 오류로 남깁니다 — 1분마다 같은 말이 쌓이지 않게
@@ -264,6 +267,50 @@ def _health() -> dict:
         "watchers": {n: min(_age(n), 999999) for n in _expected_scripts() if n != "design_worker"},
         "doing": _doing,
     }
+
+
+#: 쉬는 동안 로그인 확인 — 글자만 읽기 / 새로 고쳐서 확인 (2026-10-23)
+LOGIN_PROBE_SECONDS = 120
+LOGIN_RELOAD_SECONDS = 30 * 60
+_next_probe = 0.0
+_next_reload = 0.0
+#: 로그인이 풀린 까닭 — 풀린 동안만 들어 있습니다
+_login_lost: str | None = None
+
+
+def _probe_login() -> None:
+    """
+    ★ 일감이 없을 때도 덴트버드 로그인이 살아 있는지 봅니다 (사용자 2026-10-23 "3번 넣어줘").
+      다른 PC 에서 같은 계정으로 로그인하면 이 창이 끊깁니다. 전에는 주문이 와서야
+      알아 그 주문이 멈췄습니다. 이제 2분마다 글자를 읽고, 30분마다 새로 고쳐 봅니다.
+    ★ 풀리면 상태 보고에 '로그인 풀림' 을 싣습니다 — 서버가 센터에 알림·푸시를 보냅니다.
+      그동안 일감은 안 잡습니다(_session_bad_at). 다시 로그인하면 2분 안에 풀립니다.
+    """
+    global _next_probe, _next_reload, _login_lost, _session_bad_at
+    now = time.time()
+    if now < _next_probe:
+        return
+    _next_probe = now + LOGIN_PROBE_SECONDS
+    reload = now >= _next_reload
+    if reload:
+        _next_reload = now + LOGIN_RELOAD_SECONDS
+
+    from dentbird_macro import session_problem_of  # noqa: PLC0415
+    from dentbird_web import page_snapshot  # noqa: PLC0415
+    snap = page_snapshot(reload=reload)
+    if snap is None:
+        return  # 창이 없거나 못 읽음 — '꺼짐' 은 상태 보고가 따로 봅니다
+    why = session_problem_of(*snap)
+    if why and not _login_lost:
+        say(f"덴트버드 로그인이 풀렸습니다 — {why}")
+        if _heart is not None:
+            _heart.report(f"덴트버드 로그인 풀림 — {why}")
+    elif not why and _login_lost:
+        say("덴트버드 로그인이 돌아왔습니다 — 일감을 다시 받습니다")
+        _session_bad_at = 0.0
+    _login_lost = why
+    if why:
+        _session_bad_at = now
 
 
 def _window_bad() -> bool:
@@ -349,6 +396,11 @@ def main(argv: list[str] | None = None) -> int:
             revive(NAME, say=say)
             # ★ 새 코드가 있으면 스스로 받고 다시 뜹니다 (2026-10-23 — update_server.cmd 손으로 안 눌러도).
             #   여기는 일감을 들고 있지 않은 자리입니다. 5분에 한 번만 봅니다.
+            # ★ 쉬는 동안 덴트버드 로그인 확인 (2026-10-23)
+            try:
+                _probe_login()
+            except Exception as e:  # noqa: BLE001 — 확인이 일꾼을 죽이면 안 됩니다
+                say(f"로그인 확인 중 문제 — {e!r}")
             from watch_common import self_update  # noqa: PLC0415
             if self_update(say=say):
                 time.sleep(30)  # 곧 taskkill 이 옵니다 — 그 사이 새 일감을 잡지 않게

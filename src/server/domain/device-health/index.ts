@@ -120,6 +120,19 @@ export function sanitizeStatus(raw: unknown): DeviceStatus {
   return out;
 }
 
+/**
+ * 설계 PC 가 '덴트버드 로그인 풀림' 을 알렸는가 (2026-10-23).
+ * ★ 설계 일꾼이 상태 문구를 '로그인 풀림' 으로 **시작**합니다(_health).
+ */
+export function dentbirdLoggedOut(status: DeviceStatus | null | undefined): boolean {
+  return !!status?.dentbird?.startsWith('로그인 풀림');
+}
+
+/** 이번 보고에서 **처음** 풀렸는가 — 1분마다 같은 알림이 쌓이지 않게 */
+export function justLoggedOut(prev: DeviceStatus | null | undefined, next: DeviceStatus | null | undefined): boolean {
+  return dentbirdLoggedOut(next) && !dentbirdLoggedOut(prev);
+}
+
 export interface DeviceEventInput {
   level: 'error' | 'warn' | 'info';
   message: string;

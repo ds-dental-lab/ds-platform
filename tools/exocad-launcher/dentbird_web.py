@@ -185,6 +185,70 @@ def dentbird_page_id() -> str | None:
     return pages[0]["id"] if pages else None
 
 
+def page_snapshot(reload: bool = False, timeout: float = 8.0) -> tuple[str, str] | None:
+    """
+    덴트버드 탭의 **주소와 글자**를 읽습니다 — 셀레니움으로 붙지 않습니다 (2026-10-23).
+
+    ★ 왜 — 다른 PC 에서 같은 계정으로 로그인하면 이 창이 끊기는데("Multiple login
+      detected"), 상태 보고는 탭 주소만 봐서 '켜짐' 으로 남았습니다. 주문이 와서야
+      알았습니다. 셀레니움으로 붙으면 창이 앞으로 튀어나와서(2026-10-16) 평소에는
+      못 붙었습니다. 크롬 개발자 연결(웹소켓)로 **글자만** 읽으면 창은 그대로입니다.
+    ★ reload=True 면 먼저 새로 고칩니다 — 가만히 있는 화면은 세션이 끊긴 것을
+      다음 요청 때에야 알 수 있습니다. 일감이 없을 때만 부릅니다.
+    돌려주는 것: (주소, 글자 앞부분) · 덴트버드 탭이 없거나 못 읽으면 None
+    """
+    import websocket  # noqa: PLC0415 — selenium 이 함께 깔아 둡니다
+
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json/list", timeout=3) as r:
+            tabs = json.loads(r.read().decode("utf-8", "replace"))
+    except Exception:  # noqa: BLE001
+        return None
+    pages = [
+        t for t in tabs
+        if t.get("type") == "page" and t.get("webSocketDebuggerUrl")
+        and ("dentbird.com" in t.get("url", "") or "accounts-highdental" in t.get("url", ""))
+    ]
+    if not pages:
+        return None
+    pages.sort(key=lambda t: "ai.dentbird.com" not in t.get("url", ""))
+
+    ws = None
+    try:
+        # ★ Origin 을 안 보냅니다 — 크롬 111+ 는 Origin 이 붙은 연결을 막습니다
+        ws = websocket.create_connection(pages[0]["webSocketDebuggerUrl"], timeout=timeout, suppress_origin=True)
+        seq = 0
+
+        def call(method: str, params: dict | None = None) -> dict:
+            nonlocal seq
+            seq += 1
+            ws.send(json.dumps({"id": seq, "method": method, "params": params or {}}))
+            while True:
+                msg = json.loads(ws.recv())
+                if msg.get("id") == seq:
+                    return msg.get("result") or {}
+
+        # 숨은 창이라도 깨워 둡니다 (keep_awake 와 같은 것)
+        call("Page.setWebLifecycleState", {"state": "active"})
+        if reload:
+            call("Page.reload", {"ignoreCache": False})
+            time.sleep(12)
+        got = call("Runtime.evaluate", {
+            "expression": "JSON.stringify({u: location.href, t: ((document.body && document.body.innerText) || '').slice(0, 6000)})",
+            "returnByValue": True,
+        })
+        value = json.loads(((got.get("result") or {}).get("value")) or "{}")
+        return str(value.get("u", "")), str(value.get("t", ""))
+    except Exception:  # noqa: BLE001 — 못 읽은 것은 '모름' 입니다. 풀렸다고 단정하지 않습니다
+        return None
+    finally:
+        if ws is not None:
+            try:
+                ws.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
 def keep_awake(d) -> None:
     """창이 가려져도, 작업표시줄로 내려놔도 덴트버드가 일하게 합니다
 

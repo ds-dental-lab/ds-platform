@@ -86,6 +86,12 @@ def session_problem(d) -> str | None:
         url = d.current_url.lower()
     except Exception as e:  # noqa: BLE001 — 창에 못 붙는 것도 같은 문제입니다
         return f"덴트버드 창에 붙지 못했습니다 — {e}"
+    return session_problem_of(url, body)
+
+
+def session_problem_of(url: str, body: str) -> str | None:
+    """주소와 글자만으로 — 붙지 않고 읽은 것에도 씁니다 (2026-10-23)"""
+    url = url.lower()
     for sign, why in SESSION_SIGNS:
         if sign in body:
             return why

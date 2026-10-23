@@ -83,6 +83,34 @@ export async function publishAutoAlert(
  *   일입니다(치과는 '디자인 지연' 만 봅니다). 까닭을 그대로 실어 보냅니다 —
  *   센터 화면이라 덴트버드 이야기가 들어가도 됩니다.
  */
+/**
+ * 서버 PC 의 덴트버드 로그인이 풀렸습니다 — 센터에 종·푸시 (2026-10-23).
+ * ★ 주문이 오기 **전에** 알리는 것이 목적입니다. 풀린 채로 주문이 오면 그 주문이 멈춥니다.
+ * ★ 같은 계정으로 다른 PC 에서 로그인하면 생깁니다 — 사람용 계정은 따로 씁니다.
+ */
+export async function publishDentbirdLoggedOut(orgId: string, deviceName: string, detail: string): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const title = '덴트버드 로그인이 풀렸습니다 — FlowTemp 설계가 멈춥니다';
+    const body = `${deviceName} — 서버 PC 의 덴트버드 전용 창에서 다시 로그인해 주세요. ${detail}`.slice(0, 300);
+    const link = '/design/devices';
+
+    await admin.from('notifications').insert({
+      org_id: orgId,
+      channel: 'in_app',
+      status: 'sent',
+      event_type: 'device.dentbird_logged_out',
+      title,
+      body,
+      link,
+      payload: { deviceName },
+    });
+    await sendPushToOrgs(new Map([[orgId, { title, body, link, tag: 'dentbird-logged-out' }]]));
+  } catch (error) {
+    console.error('[events] 덴트버드 로그인 풀림 알림 실패', error);
+  }
+}
+
 export async function publishDesignStall(orderId: string, note: string | null): Promise<void> {
   try {
     const admin = createAdminClient();

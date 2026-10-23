@@ -9,6 +9,8 @@ import {
   deviceRole,
   splitEvents,
   deviceGroup,
+  dentbirdLoggedOut,
+  justLoggedOut,
 } from '@/server/domain/device-health';
 
 const now = Date.parse('2026-10-16T05:00:00Z');
@@ -89,5 +91,27 @@ describe('서버 PC / 디자인 PC / 치과 PC (사용자 2026-10-21)', () => {
     expect(deviceGroup('warn')).toBe('trouble');
     expect(deviceGroup('ok')).toBe('fine');
     expect(deviceGroup('legacy')).toBe('legacy');
+  });
+});
+
+describe('덴트버드 로그인 풀림 알림 (2026-10-23)', () => {
+  it('상태 문구가 로그인 풀림으로 시작하면 풀린 것', () => {
+    expect(dentbirdLoggedOut({ dentbird: '로그인 풀림 — 다른 곳에서 같은 계정으로 로그인해 이 창이 끊겼습니다' })).toBe(true);
+    expect(dentbirdLoggedOut({ dentbird: '로그인 풀림' })).toBe(true);
+    expect(dentbirdLoggedOut({ dentbird: '켜짐' })).toBe(false);
+    expect(dentbirdLoggedOut({})).toBe(false);
+    expect(dentbirdLoggedOut(null)).toBe(false);
+  });
+
+  it('처음 풀린 보고에만 알립니다 — 1분마다 쌓이지 않게', () => {
+    expect(justLoggedOut({ dentbird: '켜짐' }, { dentbird: '로그인 풀림 — x' })).toBe(true);
+    expect(justLoggedOut(null, { dentbird: '로그인 풀림' })).toBe(true);
+    expect(justLoggedOut({ dentbird: '로그인 풀림 — x' }, { dentbird: '로그인 풀림 — x · 못 쓰는 상태(쉬는 중)' })).toBe(false);
+    expect(justLoggedOut({ dentbird: '로그인 풀림' }, { dentbird: '켜짐' })).toBe(false);
+  });
+
+  it('긴 까닭이 붙어도 거르기에서 살아남습니다 (120자)', () => {
+    const s = sanitizeStatus({ dentbird: '로그인 풀림 — ' + '가'.repeat(200) });
+    expect(dentbirdLoggedOut(s)).toBe(true);
   });
 });
