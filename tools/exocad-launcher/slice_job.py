@@ -245,6 +245,7 @@ def build(
     process_extra: dict[str, object] | None = None,
     at: tuple[float, float] | None = None,
     purge_dx: float = 0.0,
+    purge: tuple[float, float, bool] | None = None,
 ) -> dict:
     """
     STL 하나 → 출력 파일 + 그림 + 적어 둘 값.
@@ -264,7 +265,8 @@ def build(
     #   그대로 주면 이름만 맞고 값은 기본값으로 잘립니다. 펼쳐서 넘깁니다.
     from orca_profile import ProfileSet, spread  # noqa: PLC0415
     machine, process, filament = spread(
-        out_dir / "프로파일", ProfileSet(machine, process, filament), process_extra=process_extra, purge_dx=purge_dx
+        out_dir / "프로파일", ProfileSet(machine, process, filament), process_extra=process_extra, purge_dx=purge_dx,
+        purge=purge,
     ).as_tuple()
 
     rotated = out_dir / f"{stem}_놓임.stl"

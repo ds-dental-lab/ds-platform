@@ -189,7 +189,7 @@ def deliver(
         extra = {"layer_height": f"{layer:g}"} if layer else None
         made = build(
             stl, out_dir, *prof.as_tuple(), rx=rx, ry=ry, rz=rz, stem=order_id,
-            process_extra=extra, at=(slot.x, slot.y), purge_dx=slot.purge_dx,
+            process_extra=extra, at=(slot.x, slot.y), purge=slot.purge,
         )
     except (SliceError, ValueError) as e:
         say(f"실패: {e}")

@@ -57,7 +57,7 @@ class SlotTest(unittest.TestCase):
             self.assertEqual([s.index for s in seen[: len(ps.SLOTS)]], list(range(len(ps.SLOTS))))
             # 한 바퀴 돌면 처음으로
             self.assertEqual(seen[ps.CYCLE].index, seen[0].index)
-            self.assertEqual(seen[ps.CYCLE].purge_dx, seen[0].purge_dx)
+            self.assertEqual(seen[ps.CYCLE].purge, seen[0].purge)
             self.assertEqual(json.loads(state.read_text(encoding="utf-8"))["next"], 1)
 
     def test_broken_state_starts_over(self):
@@ -106,6 +106,62 @@ class PurgeLineTest(unittest.TestCase):
         # 노즐 닦기(뒤쪽)·똥 통(X-13.5) 은 그대로
         self.assertIn("G1 X-13.5 Y0 Z10", g1)
         self.assertEqual(g0.count("Y185"), g1.count("Y185"))
+
+    def _always_section(self, g: str) -> list[str]:
+        lines = g.split("\n")
+        a = next(i for i, x in enumerate(lines) if x.strip().startswith(";===== extrude cali test"))
+        b = next(i for i, x in enumerate(lines) if i > a and x.strip().startswith(";========turn off light"))
+        return [x.strip() for x in lines[a:b] if x.strip().startswith("G0 ")]
+
+    def test_vertical_course_draws_along_y(self):
+        # 왼쪽 가장자리 세로 — X 는 4 에 고정, Y 가 45 에서 47mm (2026-10-23)
+        m = o.flatten("BBL", o.VERIFIED["machine"])
+        g0 = m["machine_start_gcode"]
+        n = o.move_purge_line(m, 4.0, 45.0, vertical=True)
+        g1 = m["machine_start_gcode"]
+        self.assertGreater(n, 0)
+        self.assertEqual(g0.count("\n"), g1.count("\n"))
+        sec = self._always_section(g1)
+        self.assertIn("G0 X4 Y45 F30000", sec)
+        ys = [float(s.split(" Y")[1].split()[0]) for s in sec if " Y" in s]
+        self.assertAlmostEqual(min(ys), 45.0)
+        self.assertAlmostEqual(max(ys), 45.0 + o.PURGE_LENGTH)
+        # 이 구간에 X 로 긋는 줄이 남지 않습니다 (시작점 말고)
+        self.assertEqual([s for s in sec if s.startswith("G0 X") and not s.startswith("G0 X4 ")], [])
+        # 압출량·속도 꼬리는 그대로
+        self.assertIn("E10", g1)
+        # 노즐 닦기(뒤쪽)·똥 통 은 그대로
+        self.assertIn("G1 X-13.5 Y0 Z10", g1)
+        self.assertEqual(g0.count("Y185"), g1.count("Y185"))
+
+    def test_second_row_moves_y_too(self):
+        m = o.flatten("BBL", o.VERIFIED["machine"])
+        o.move_purge_line(m, 23.0, 4.0)
+        sec = self._always_section(m["machine_start_gcode"])
+        self.assertIn("G0 X23 Y4 F30000", sec)
+
+    def test_courses_avoid_crown_slots(self):
+        # 압출선(길이 47, 폭 넉넉히 4mm)이 크라운 자리(±10mm)에 안 걸립니다
+        for x0, y0, vertical in ps.PURGE_COURSES:
+            if vertical:
+                box = (x0 - 2, y0, x0 + 2, y0 + o.PURGE_LENGTH)
+            else:
+                box = (x0, y0 - 2, x0 + o.PURGE_LENGTH, y0 + 2)
+            # 앞쪽 끝 Y-2.5 는 원래 선 자리 — 판 앞 테두리까지 씁니다
+            self.assertTrue(-3 <= box[0] and box[2] <= 180 and -5 <= box[1] and box[3] <= 170, (x0, y0))
+            for sx, sy in ps.SLOTS:
+                near = box[0] - 10 < sx < box[2] + 10 and box[1] - 10 < sy < box[3] + 10
+                self.assertFalse(near, f"코스 {(x0, y0, vertical)} ↔ 자리 {(sx, sy)}")
+
+    def test_courses_do_not_overlap_each_other(self):
+        boxes = []
+        for x0, y0, vertical in ps.PURGE_COURSES:
+            boxes.append((x0 - 2, y0, x0 + 2, y0 + o.PURGE_LENGTH) if vertical else (x0, y0 - 2, x0 + o.PURGE_LENGTH, y0 + 2))
+        for i in range(len(boxes)):
+            for j in range(i + 1, len(boxes)):
+                a, b = boxes[i], boxes[j]
+                overlap = a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+                self.assertFalse(overlap, (ps.PURGE_COURSES[i], ps.PURGE_COURSES[j]))
 
     def test_zero_shift_is_noop(self):
         m = o.flatten("BBL", o.VERIFIED["machine"])

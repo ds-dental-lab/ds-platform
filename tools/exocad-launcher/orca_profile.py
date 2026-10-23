@@ -307,8 +307,86 @@ PURGE_SECTIONS = (
 )
 
 
+#: 늘 긋는 선의 원래 시작점과 길이 (A1 mini 시작 G코드 — X68→115, Y-2.5)
+PURGE_START = (68.0, -2.5)
+PURGE_LENGTH = 47.0
+
+
+def move_purge_line(machine: dict, x0: float, y0: float, vertical: bool = False) -> int:
+    """
+    늘 긋는 과잉 압출 선을 **(x0, y0) 에서 시작**하게 옮깁니다 (2026-10-23).
+    vertical=True 면 X 로 긋던 것을 **Y 로** 긋습니다 — 판 양옆 가장자리용.
+
+    ★ 사용자 — "압출선도 모서리 쪽으로 여러 코스 만들어 놓으면 안 되나". 앞쪽 띠 세 곳만
+      돌리면 안 비운 판에서 세 번에 한 번은 겹쳤습니다. 크라운 자리는 X 18~162 라
+      양옆(X≈4, X≈176) 이 비어 있습니다.
+    ★ 원래 선의 모양(속도·압출량·길이)은 그대로 — 좌표만 옮기거나 축만 바꿉니다.
+      선을 따라가는 거리 = X-68, 선에서 벗어난 거리 = Y-(-2.5).
+    ★ 토출 보정 그림(보정 켤 때만) 은 세로로 안 돌립니다 — 가로일 때만 X 로 함께 옮깁니다.
+    돌려주는 것: 바꾼 줄 수
+    """
+    import re  # noqa: PLC0415
+
+    gcode = machine.get("machine_start_gcode")
+    if not isinstance(gcode, str):
+        return 0
+    bx, by = PURGE_START
+    if not vertical and x0 == bx and y0 == by:
+        return 0
+    lines = gcode.split(chr(10))
+    moved = 0
+    closing: str | None = None
+    always = False
+    num = r"(-?\d+(?:\.\d+)?)"
+    for i, line in enumerate(lines):
+        bare = line.strip()
+        if closing is None:
+            for open_, close in PURGE_SECTIONS:
+                if bare.startswith(open_):
+                    closing = close
+                    always = open_.startswith(";===== extrude cali test")
+                    break
+            continue
+        if bare.startswith(closing):
+            closing = None
+            continue
+        m = re.match(r"^(\s*)G0 X" + num + r"(?: Y" + num + r")?(.*)$", line)
+        if not m:
+            continue
+        indent, xs, ys, rest = m.group(1), m.group(2), m.group(3), m.group(4)
+        along = float(xs) - bx
+        if not always:
+            if vertical:
+                continue  # 보정 그림은 세로로 안 돌림
+            new = f"{indent}G0 X{x0 + along:g}" + (f" Y{ys}" if ys is not None else "") + rest
+        elif not vertical:
+            new = f"{indent}G0 X{x0 + along:g}"
+            if ys is not None:
+                new += f" Y{y0 + (float(ys) - by):g}"
+            new += rest
+        else:
+            # 세로 — 따라가는 거리는 Y 로, 벗어난 거리는 X 로
+            if ys is not None:
+                new = f"{indent}G0 X{x0 + (float(ys) - by):g} Y{y0 + along:g}{rest}"
+            else:
+                new = f"{indent}G0 Y{y0 + along:g}{rest}"
+        if new != line:
+            lines[i] = new
+            moved += 1
+    if moved:
+        machine["machine_start_gcode"] = chr(10).join(lines)
+    return moved
+
+
 def shift_purge_line(machine: dict, dx: float) -> int:
-    """과잉 압출 선을 X 로 dx 만큼 옮깁니다. 옮긴 줄 수를 돌려줍니다"""
+    """과잉 압출 선을 X 로 dx 만큼 옮깁니다. 옮긴 줄 수를 돌려줍니다 (옛 이름 — move_purge_line 으로)"""
+    if not dx:
+        return 0
+    return move_purge_line(machine, PURGE_START[0] + dx, PURGE_START[1])
+
+
+def _old_shift_purge_line(machine: dict, dx: float) -> int:
+    """(쓰지 않음 — 2026-10-21 판, 비교용으로 남김)"""
     import re  # noqa: PLC0415
 
     gcode = machine.get("machine_start_gcode")
@@ -344,6 +422,7 @@ def spread(
     dental: bool = True,
     process_extra: dict[str, object] | None = None,
     purge_dx: float = 0.0,
+    purge: tuple[float, float, bool] | None = None,
 ) -> "ProfileSet":
     """
     셋을 펼쳐 파일로 쓰고, **그 경로들**을 돌려줍니다.
@@ -369,7 +448,10 @@ def spread(
                 skip_vibration(data)
             if SKIP_LEVELING:
                 skip_leveling(data)
-            if purge_dx:
+            # ★ 압출선 코스 (2026-10-23) — purge 가 있으면 그것, 없으면 옛 purge_dx
+            if purge is not None:
+                move_purge_line(data, *purge)
+            elif purge_dx:
                 shift_purge_line(data, purge_dx)
 
         over = {"process": DENTAL, "filament": DENTAL_FILAMENT}.get(kind)

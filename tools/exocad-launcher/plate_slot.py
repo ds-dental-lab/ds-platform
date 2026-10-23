@@ -54,14 +54,30 @@ SLOTS: tuple[tuple[float, float], ...] = (
     (90.0, 105.0),
 )
 
-#: 과잉 압출 선을 X 로 얼마나 옮길지. 원래 선은 X68→115 (앞쪽 가운데).
-#: -45 면 X23→70(왼쪽), +45 면 X113→160(오른쪽). 판(180) 안입니다.
-PURGE_SHIFTS: tuple[float, ...] = (0.0, -45.0, 45.0)
+#: 과잉 압출 선 **코스** (시작 X, 시작 Y, 세로인가) — 길이 47mm (2026-10-23)
+#: 사용자 "압출선도 모서리 쪽으로 여러 코스". 앞쪽 띠 가로 6개(세 칸 × 두 줄) +
+#: 양옆 가장자리 세로 4개(X4·X176 × 앞 반·뒤 반). 크라운 자리(X 18~162, Y 28~147)와 안 겹칩니다.
+#: 가로 셋은 끝이 안 닿게 X15·68·121 (옛 23·68·113 은 끝이 2mm 겹쳤습니다).
+#: 순서는 이어지는 둘이 멀리 — 앞 가운데 → 왼쪽 뒤 → 오른쪽 앞 → …
+PURGE_COURSES: tuple[tuple[float, float, bool], ...] = (
+    (68.0, -2.5, False),   # 앞 가운데 (원래 자리)
+    (4.0, 95.0, True),     # 왼쪽 가장자리 뒤쪽 반 (Y95→142)
+    (176.0, 45.0, True),   # 오른쪽 가장자리 앞쪽 반 (Y45→92)
+    (15.0, 4.0, False),    # 앞 왼쪽 둘째 줄 (X15→62)
+    (121.0, -2.5, False),  # 앞 오른쪽 (X121→168)
+    (4.0, 45.0, True),     # 왼쪽 가장자리 앞쪽 반
+    (176.0, 95.0, True),   # 오른쪽 가장자리 뒤쪽 반
+    (68.0, 4.0, False),    # 앞 가운데 둘째 줄
+    (15.0, -2.5, False),   # 앞 왼쪽
+    (121.0, 4.0, False),   # 앞 오른쪽 둘째 줄
+)
+#: 옛 이름 — 가로 코스의 X 옮김 (시험·옛 호출용)
+PURGE_SHIFTS: tuple[float, ...] = tuple(x - 68.0 for x, y, v in PURGE_COURSES if not v and y == -2.5)
 
 STATE_FILE = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow" / "plate_slot.json"
 
-#: 자리와 선이 같이 처음으로 돌아오는 주기 (20 과 3 의 최소공배수)
-CYCLE = math.lcm(len(SLOTS), len(PURGE_SHIFTS))
+#: 자리와 선이 같이 처음으로 돌아오는 주기 (20 과 10 의 최소공배수 = 20)
+CYCLE = math.lcm(len(SLOTS), len(PURGE_COURSES))
 
 
 @dataclass(frozen=True)
@@ -69,7 +85,13 @@ class Slot:
     index: int  # 0부터, SLOTS 안의 번호
     x: float
     y: float
-    purge_dx: float
+    purge: tuple[float, float, bool]
+
+    @property
+    def purge_dx(self) -> float:
+        """옛 이름 — 가로 코스면 X 옮김, 세로면 0"""
+        x, _, vertical = self.purge
+        return 0.0 if vertical else x - 68.0
 
     @property
     def label(self) -> str:
@@ -83,7 +105,7 @@ def slot_at(n: int) -> Slot:
     """n번째(0부터) 차례의 자리. 돌아가므로 몇이든 됩니다"""
     i = n % len(SLOTS)
     x, y = SLOTS[i]
-    return Slot(i, x, y, PURGE_SHIFTS[n % len(PURGE_SHIFTS)])
+    return Slot(i, x, y, PURGE_COURSES[n % len(PURGE_COURSES)])
 
 
 def take(state: Path = STATE_FILE) -> Slot:
