@@ -262,7 +262,7 @@ def reslice_once(base: str, token: str) -> bool:
 
 
 def main() -> int:
-    from watch_common import beat, revive, single_instance  # noqa: PLC0415
+    from watch_common import beat, busy, revive, single_instance  # noqa: PLC0415
 
     # ★★ 둘이 돌면 같은 크라운을 두 번 올립니다 — 이미 누가 돌고 있으면 물러납니다
     from watch_common import ensure_design_key, log_to_crash  # noqa: PLC0415
@@ -311,10 +311,13 @@ def main() -> int:
         # ★ 다시 뽑기 다시 자르기 (2026-10-23) — 폴더 보기와 같은 바퀴에서, 15초마다
         if time.time() >= next_reslice:
             next_reslice = time.time() + RESLICE_POLL_SECONDS
+            busy("temp_watch", True)
             try:
                 reslice_once(base, token)
             except Exception as e:  # noqa: BLE001 — 지켜보기는 안 죽습니다
                 say(f"다시 자르기 — 알 수 없는 문제: {e!r}")
+            finally:
+                busy("temp_watch", False)
 
         # ★★ 표시와 살리기를 **맨 앞에서** (2026-10-16). 뒤에 두면 폴더를 못 읽는
         #   바퀴에서 건너뛰어, 다른 둘이 죽어도 아무도 안 살렸습니다.
@@ -335,10 +338,14 @@ def main() -> int:
             if not settled(stl):
                 seen.discard(key_of(stl))  # 아직 오는 중 — 다음 바퀴에 다시
                 continue
+            # ★ 하는 동안은 스스로 갱신이 기다립니다 (2026-10-23)
+            busy("temp_watch", True)
             try:
                 handle(stl, base, token)
             except Exception as e:  # noqa: BLE001 — 지켜보기는 안 죽습니다
                 say(f"{stl.name} — 알 수 없는 문제: {e!r}")
+            finally:
+                busy("temp_watch", False)
 
         time.sleep(POLL_SECONDS)
 

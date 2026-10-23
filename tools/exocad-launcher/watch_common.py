@@ -88,6 +88,113 @@ def single_instance(name: str) -> bool:
     return True
 
 
+# ---------------------------------------------------------------- 스스로 갱신
+
+#: 몇 초마다 새 코드를 보나 (2026-10-23, 사용자 "update_server.cmd 계속 물어보기 귀찮네")
+UPDATE_CHECK_SECONDS = 300
+#: 임시치아 지켜보기가 이만큼 넘게 '하는 중' 이면 죽은 표시로 봅니다
+BUSY_STALE_SECONDS = 20 * 60
+_next_update_check = 0.0
+
+
+def busy(name: str, on: bool) -> None:
+    """지금 손을 놓으면 안 되는 일을 하는 중이라는 표시 — 스스로 갱신이 기다립니다"""
+    path = STATE / f"{name}.busy"
+    try:
+        if on:
+            STATE.mkdir(parents=True, exist_ok=True)
+            path.write_text(str(time.time()), encoding="utf-8")
+        else:
+            path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _is_busy(name: str) -> bool:
+    try:
+        return time.time() - (STATE / f"{name}.busy").stat().st_mtime < BUSY_STALE_SECONDS
+    except OSError:
+        return False
+
+
+def _git(repo: Path, *args: str, timeout: int = 60) -> tuple[int, str]:
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(repo), *args], capture_output=True, text=True,
+            timeout=timeout, creationflags=flags, stdin=subprocess.DEVNULL,
+        )
+        return r.returncode, (r.stdout or "") + (r.stderr or "")
+    except (OSError, subprocess.SubprocessError) as e:
+        return 1, str(e)
+
+
+def launcher_changes(repo: Path) -> list[str]:
+    """받을 새 커밋 중 **이 폴더(tools/exocad-launcher)** 를 바꾼 파일. 없으면 []"""
+    code, _ = _git(repo, "fetch", "--quiet", "origin", timeout=120)
+    if code != 0:
+        return []
+    code, out = _git(repo, "diff", "--name-only", "HEAD", "@{u}", "--", "tools/exocad-launcher")
+    if code != 0:
+        return []
+    return [line for line in out.splitlines() if line.strip()]
+
+
+def _spawn_detached(args: list[str], cwd: Path) -> None:
+    """창 없이, 이 프로세스가 죽어도 살아남게 띄웁니다"""
+    flags = (
+        getattr(subprocess, "DETACHED_PROCESS", 0)
+        | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    )
+    subprocess.Popen(
+        args, cwd=str(cwd), creationflags=flags,
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        close_fds=True,
+    )
+
+
+def self_update(say=print, repo: Path | None = None) -> bool:
+    """
+    ★ 서버 PC 가 **스스로** 새 코드를 받고 지켜보기들을 다시 띄웁니다 (2026-10-23).
+      사용자 — "update_server.cmd 이거 명령어 계속 물어보기 귀찮네".
+
+    ★ 설계 일꾼이 **쉬는 바퀴에서만** 부릅니다(일감을 들고 있지 않을 때). 임시치아
+      지켜보기가 자르거나 올리는 중이면(busy) 다음 바퀴로 미룹니다 — 중간에 죽이면
+      반쯤 올린 출력 파일이 남습니다.
+    ★ 이 폴더를 바꾼 커밋이 있을 때만 받습니다. 웹만 바뀐 커밋에 일꾼을 다시 띄울
+      까닭이 없습니다.
+    ★ 받는 것과 다시 띄우는 것은 update_server.cmd 가 합니다(사람이 누르던 그것).
+      그 안의 taskkill 이 이 프로세스도 죽이므로, **떨어진 창 없는 cmd** 로 띄웁니다.
+    돌려주는 것: 갱신을 시작했는가
+    """
+    global _next_update_check
+    if time.time() < _next_update_check:
+        return False
+    _next_update_check = time.time() + UPDATE_CHECK_SECONDS
+
+    repo = repo or Path(__file__).resolve().parent.parent.parent
+    script = repo / "tools" / "exocad-launcher" / "update_server.cmd"
+    if not script.is_file() or not (repo / ".git").exists():
+        return False
+
+    changed = launcher_changes(repo)
+    if not changed:
+        return False
+    if _is_busy("temp_watch"):
+        say(f"새 코드 {len(changed)}개 — 임시치아 지켜보기가 일하는 중이라 다음에 받습니다")
+        _next_update_check = time.time() + 60
+        return False
+
+    say(f"새 코드 {len(changed)}개를 받고 다시 뜹니다 — {', '.join(Path(c).name for c in changed[:5])}")
+    try:
+        _spawn_detached(["cmd", "/c", str(script)], repo)
+    except OSError as e:
+        say(f"스스로 갱신을 못 띄웠습니다 — {e}")
+        return False
+    return True
+
+
 def beat(name: str) -> None:
     """살아 있다는 표시"""
     try:

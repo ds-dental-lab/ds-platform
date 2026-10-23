@@ -15,7 +15,8 @@ git pull --ff-only || (echo git pull failed & pause & exit /b 1)
 
 echo [2/3] stopping watchers (pythonw)
 taskkill /f /im pythonw.exe >nul 2>&1
-timeout /t 2 /nobreak >nul
+rem ping, not timeout: timeout exits at once when started without a console (self-update)
+ping -n 3 127.0.0.1 >nul
 
 echo [3/3] starting watchers from Startup
 set STARTED=0

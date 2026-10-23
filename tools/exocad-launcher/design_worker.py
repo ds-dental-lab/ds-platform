@@ -347,6 +347,12 @@ def main(argv: list[str] | None = None) -> int:
         while True:
             # ★ 지켜보기 둘이 죽었으면 살립니다 (그쪽도 이 일꾼을 살핍니다)
             revive(NAME, say=say)
+            # ★ 새 코드가 있으면 스스로 받고 다시 뜹니다 (2026-10-23 — update_server.cmd 손으로 안 눌러도).
+            #   여기는 일감을 들고 있지 않은 자리입니다. 5분에 한 번만 봅니다.
+            from watch_common import self_update  # noqa: PLC0415
+            if self_update(say=say):
+                time.sleep(30)  # 곧 taskkill 이 옵니다 — 그 사이 새 일감을 잡지 않게
+                continue
             if not opened_once and not alive():
                 # ★ PC 를 켠 직후 한 번 — 로그인이 풀렸으면 사람이 아침에 볼 수 있게
                 opened_once = True
