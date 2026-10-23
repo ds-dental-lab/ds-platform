@@ -629,7 +629,9 @@ DENTAL: dict[str, object] = {
     #:   · 닿는 면 무늬 interlaced: 치아와 엇갈려 깔아 떼어도 깔끔하게
     #:   · 닿는 면 속도 60 → 40: 가늘게 깔리는 자리라 빨리 가면 흘립니다
     "support_object_xy_distance": "0.35",
-    "support_interface_spacing": "0.2",
+    #: ★ 0.2 → **0.15** (사용자 2026-10-23 "진짜 쪼금만 더 견고하게"). 위 간격 0.32 로 넓힌 뒤
+    #:   "너무 떼기 쉽다" — 간격은 0.16 단위라 중간이 없어서, 닿는 면을 촘촘하게 해 붙잡는 힘만 조금 올립니다.
+    "support_interface_spacing": "0.15",
     "support_bottom_interface_spacing": "0.2",
     "support_interface_top_layers": "3",
     "support_interface_bottom_layers": "2",
