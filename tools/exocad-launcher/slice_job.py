@@ -149,6 +149,10 @@ def facts_of(out_3mf: Path) -> dict:
 LOGO = Path(__file__).resolve().parent / "denflow_logo.png"
 
 
+#: 프린터 화면 그림에서 흰 카드가 끝나는 줄(512 기준) — 그 아래는 투명. 진행률이 그 자리에 그려집니다
+CARD_BOTTOM = 358
+
+
 def brand(out_3mf: Path, preview_png: Path, logo: Path = LOGO) -> bool:
     """
     출력 파일 안에 **프린터 화면용 그림**을 넣습니다 — 위에 가로 로고(마크 + DenFlow), 아래에 놓인 모습.
@@ -167,7 +171,12 @@ def brand(out_3mf: Path, preview_png: Path, logo: Path = LOGO) -> bool:
 
         from PIL import Image, ImageDraw, ImageFont  # noqa: PLC0415
 
-        big = Image.new("RGBA", (512, 512), (255, 255, 255, 255))
+        # ★★ 바탕은 **투명**, 흰 카드는 위 70% 에만 (사용자 2026-10-23 "수정해 놓은 게 계속 돌아간다").
+        #   전에는 512 전체를 흰색으로 칠해, 크라운을 위로 올려도 **아래 흰 부분이** 프린터가
+        #   그림 위에 겹쳐 그리는 진행률(%)·남은 시간을 덮었습니다(사진: '35% … 0h6m' 윗부분 가림).
+        #   뱀부 스튜디오 그림도 바탕이 투명합니다 — 프린터가 투명을 그대로 보여 줍니다.
+        big = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+        ImageDraw.Draw(big).rounded_rectangle((0, 0, 511, CARD_BOTTOM), radius=28, fill=(255, 255, 255, 255))
         # --- 위쪽 띠: 마크 + 글자 (화면 로고와 같은 모양 — Den 남색 굵게, Flow 회색) ---
         font = None
         for name in ("segoeuib.ttf", "arialbd.ttf", "malgunbd.ttf"):
@@ -205,7 +214,7 @@ def brand(out_3mf: Path, preview_png: Path, logo: Path = LOGO) -> bool:
 
         def png_bytes(im) -> bytes:
             b = io.BytesIO()
-            im.convert("RGB").save(b, format="PNG")
+            im.save(b, format="PNG")  # ★ RGBA 그대로 — RGB 로 바꾸면 투명이 검게/희게 칠해집니다
             return b.getvalue()
 
         tmp = out_3mf.with_suffix(".tmp")
