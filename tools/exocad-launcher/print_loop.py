@@ -38,6 +38,15 @@ BASE = __import__("os").environ.get("DENFLOW_BASE", "https://denflow.kr")  # 시
 #: 급하지 않습니다. 너무 잦으면 서버만 시끄럽습니다.
 POLL_SECONDS = 10
 
+#: ★ 미리 데우기 (사용자 2026-10-23 "미리 데우기도 넣어줘") — **판만**, 55도(텍스처 PEI 첫 층).
+#:   노즐은 안 데웁니다: A1 mini 는 시작할 때 노즐을 170·140 으로 **식히며 기다려서**
+#:   미리 데우면 오히려 2분을 잃었습니다(2026-10-10 실측, printer_send.warm 참고).
+WARM_BED = 55
+#: 판 온도 명령을 다시 보내는 간격 — 프린터가 꺼졌다 켜졌어도 다시 데우게
+WARM_REPEAT_SECONDS = 120
+#: 이만큼 데웠는데도 출력이 안 시작되면 끕니다 — 사람이 없는 밤에 판이 혼자 서 있지 않게
+WARM_MAX_SECONDS = 15 * 60
+
 #: 내려받기가 이보다 오래 걸리면 뭔가 잘못된 것입니다
 DOWNLOAD_TIMEOUT = 300
 
@@ -100,6 +109,11 @@ class PrintWorker:
         self.printer = build_printer(settings, work_dir / "보낸것")
         #: 못 보낸 단계 보고 — 연결이 돌아오면 다시 보냅니다 (2026-10-16 점검)
         self.pending: list[tuple[str, dict]] = []
+        #: 미리 데우기 (2026-10-23) — 서버가 '곧 뽑을 것이 있다' 고 했는가
+        self.warm_hint = False
+        self.warm_since: float | None = None
+        self.warm_sent = 0.0
+        self.warm_gave_up = False
 
     def remember_host(self) -> None:
         """
@@ -126,8 +140,79 @@ class PrintWorker:
         got = _post(f"{BASE}/api/device/print", {}, self.token)
         if not got.get("ok"):
             self.say(f"물어보기 실패: {got.get('error', '')}")
+            self.warm_hint = False
             return None
+        self.warm_hint = bool(got.get("warm"))
         return got.get("job")
+
+    # --- 미리 데우기 (2026-10-23) ---
+
+    def _bed(self, temp: int) -> bool:
+        """
+        판 온도 한 줄을 보냅니다 — **프린터가 놀고 있을 때만**.
+        다른 것을 뽑는 중에 보내면 그 출력의 판 온도를 바꿔 버립니다.
+        """
+        printer = self.printer
+        if not hasattr(printer, "_mqtt"):
+            return False  # 가짜 프린터
+        try:
+            state = printer.status(4.0).get("gcode_state") or ""
+            if state in getattr(printer, "BUSY_STATES", ()):
+                return False
+            client = printer._mqtt()
+            client.connect(printer.host or printer.resolve(), 8883, keepalive=30)
+            client.loop_start()
+            try:
+                time.sleep(1)  # 붙을 틈
+                if temp:
+                    printer.warm(client, temp, 0)
+                else:
+                    printer.cool(client)
+                time.sleep(1)  # 보내고 바로 끊으면 안 나갑니다
+            finally:
+                client.loop_stop()
+                try:
+                    client.disconnect()
+                except OSError:
+                    pass
+            return True
+        except Exception as e:  # noqa: BLE001 — 못 데워도 출력은 됩니다
+            self.say(f"미리 데우기를 못 보냈습니다: {e}")
+            return False
+
+    def keep_warm(self) -> None:
+        """
+        ★ 서버가 '곧 뽑을 것' 이 있다고 하면(설계가 돌기 시작한 때부터) 판을 데워 둡니다.
+          「비웠습니다」를 누른 뒤 판이 55도가 되기를 기다리던 시간(실측 26초쯤)이 사라집니다.
+        ★ 15분 넘게 출력이 안 시작되면 끄고, 그 일이 끝날 때까지 다시 안 데웁니다.
+        ★ 일감이 사라지면(그만두기·삭제) 바로 끕니다.
+        """
+        now = time.time()
+        if self.warm_hint:
+            if self.warm_gave_up:
+                return
+            if self.warm_since is None:
+                self.warm_since = now
+                self.say(f"곧 뽑을 것이 있어 판을 미리 데웁니다 ({WARM_BED}°)")
+            if now - self.warm_since > WARM_MAX_SECONDS:
+                self._bed(0)
+                self.warm_gave_up = True
+                self.say(f"{WARM_MAX_SECONDS // 60}분 동안 출력이 안 시작돼 판을 식힙니다")
+                return
+            # ★ 못 보내도 간격은 지킵니다 — 프린터가 꺼져 있으면 10초마다 같은 경고가 쌓입니다
+            if now - self.warm_sent >= WARM_REPEAT_SECONDS:
+                self.warm_sent = now
+                self._bed(WARM_BED)
+            return
+        if self.warm_since is not None and not self.warm_gave_up:
+            self._bed(0)
+            self.say("뽑을 것이 없어져 판을 식힙니다")
+        self.warm_reset()
+
+    def warm_reset(self) -> None:
+        self.warm_since = None
+        self.warm_sent = 0.0
+        self.warm_gave_up = False
 
     def report(self, job_id: str, **body) -> None:
         """
@@ -222,7 +307,10 @@ class PrintWorker:
         self.flush()
         job = self.claim()
         if not job:
+            self.keep_warm()
             return False
+        # ★ 출력이 시작되면 데우기는 출력 파일이 이어받습니다 — 끄지 않고 표시만 지웁니다
+        self.warm_reset()
         self.run_one(job)
         self.remember_host()
         return True

@@ -601,6 +601,31 @@ export async function clearBed(
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+/**
+ * 이 치과에 **곧 출력할 것**이 있는가 (2026-10-23 미리 데우기).
+ *
+ * ★ 덴트버드 설계가 돌기 시작한 때부터(업로드·분석·생성·내보내기), 다시 자르는 중,
+ *   출력판 확인을 기다리는 중 — 이때부터 판을 데우면 출력이 시작될 때 이미 55도입니다.
+ *   설계 2~3분이면 판이 충분히 데워집니다.
+ * ★ 멈춘 설계(stalled·ended)·그만둔 건은 빼야 쓸데없이 데우지 않습니다.
+ */
+export async function warmSoon(clinicOrgId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('auto_jobs')
+    .select('step, design_stage')
+    .eq('clinic_org_id', clinicOrgId)
+    .is('dismissed_at', null)
+    .in('step', ['waiting_design', 'slicing', 'queued'])
+    .limit(20);
+  return ((data ?? []) as { step: string; design_stage: string | null }[]).some((j) =>
+    j.step === 'waiting_design' ? WARM_DESIGN_STAGES.includes(j.design_stage ?? '') : true,
+  );
+}
+
+/** 설계가 실제로 돌고 있는 칸 — 이때부터 데웁니다 */
+const WARM_DESIGN_STAGES = ['uploading', 'analyzing', 'generating', 'exporting'];
+
 export interface ClaimedJob {
   jobId: string;
   orderId: string;
@@ -618,10 +643,14 @@ export interface ClaimedJob {
  */
 export async function claimPrintJob(
   device: LinkedDevice,
-): Promise<{ ok: true; job: ClaimedJob | null } | { ok: false; error: string }> {
+): Promise<{ ok: true; job: ClaimedJob | null; warm?: boolean } | { ok: false; error: string }> {
   const admin = createAdminClient();
 
   await promoteStaleReslices(device.clinicOrgId);
+
+  // ★ 곧 뽑을 것이 있으면 판을 미리 데우라고 알립니다 (사용자 2026-10-23 "미리 데우기도 넣어줘").
+  //   넘겨줄 일감이 없을 때만 붙입니다 — 넘겨주면 에이전트가 어차피 올리면서 데웁니다.
+  const idle = async () => ({ ok: true as const, job: null, warm: await warmSoon(device.clinicOrgId) });
 
   const { data } = await admin
     .from('auto_jobs')
@@ -634,8 +663,8 @@ export async function claimPrintJob(
     .maybeSingle();
 
   const row = data as JobRow | null;
-  if (!row) return { ok: true, job: null };
-  if (!claimable(asJob(row))) return { ok: true, job: null };
+  if (!row) return idle();
+  if (!claimable(asJob(row))) return idle();
   if (!row.print_file_path) return { ok: false, error: '출력 파일이 없습니다' };
 
   /*
