@@ -22,9 +22,9 @@ import { useRouter } from 'next/navigation';
 import {
   submitClearBed,
   submitDismissAutoJob,
-  submitReprint,
   submitRetryAutoPrint,
 } from '@/server/actions/auto-print';
+import ReprintDialog from '@/components/order/ReprintDialog';
 import { remainingLabel, type AutoProgressStep, type BoardRow } from '@/server/domain/auto-print';
 
 const COLOR = {
@@ -101,13 +101,11 @@ export default function AutoPrintPanel({
     ★ 같은 디자인을 다시 뽑습니다 (사용자 요청 2026-10-15 — 깨짐·분실·하나 더).
       출력판 확인부터 다시 돕니다.
   */
+  // ★ 바로 걸지 않고 확인 창부터 — 「비웠습니다」까지 한 번에 (사용자 2026-10-23)
+  const [asking, setAsking] = useState(false);
   const reprint = () => {
     setError(null);
-    start(async () => {
-      const got = await submitReprint(orderId);
-      if (got.ok) router.refresh();
-      else setError(got.error);
-    });
+    setAsking(true);
   };
 
   const done = canReprint;
@@ -211,6 +209,15 @@ export default function AutoPrintPanel({
           </div>
           {error ? <p className="w-full text-[12px] text-[#D64545]">{error}</p> : null}
         </div>
+      ) : null}
+
+      {asking ? (
+        <ReprintDialog
+          orderId={orderId}
+          canClear={canClear}
+          onClose={() => setAsking(false)}
+          onDone={() => router.refresh()}
+        />
       ) : null}
 
       {designNote ? (

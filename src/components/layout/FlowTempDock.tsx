@@ -24,11 +24,11 @@ import {
   getFlowTempBoard,
   submitClearBed,
   submitDismissAutoJob,
-  submitReprint,
   type Board,
   type BoardItem,
 } from '@/server/actions/auto-print';
 import { boardTone, type BoardTone } from '@/server/domain/auto-print';
+import ReprintDialog from '@/components/order/ReprintDialog';
 
 const BUSY_MS = 6_000;
 const IDLE_MS = 30_000;
@@ -301,13 +301,11 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
   };
 
   // ★ 같은 디자인을 다시 뽑습니다 (2026-10-15). 출력판 확인부터 다시 돕니다
+  // ★ 바로 걸지 않고 확인 창부터 — 「비웠습니다」까지 한 번에 (사용자 2026-10-23)
+  const [asking, setAsking] = useState(false);
   const reprint = () => {
     setError(null);
-    start(async () => {
-      const got = await submitReprint(item.orderId);
-      if (got.ok) await onChanged();
-      else setError(got.error);
-    });
+    setAsking(true);
   };
 
   if (gone && !error) return null;
@@ -420,6 +418,16 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
             {pending ? '거는 중…' : '↻ 다시 뽑기'}
           </button>
         </div>
+      ) : null}
+
+      {asking ? (
+        <ReprintDialog
+          orderId={item.orderId}
+          label={`${item.patientLabel}${item.teeth.length > 0 ? ` · #${item.teeth.join(', ')}` : ''}`}
+          canClear={true}
+          onClose={() => setAsking(false)}
+          onDone={onChanged}
+        />
       ) : null}
 
       {item.canClearBed ? (
