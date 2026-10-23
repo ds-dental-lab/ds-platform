@@ -224,7 +224,9 @@ class PrintWorker:
           몇 번 다시 해 보고, 그래도 안 되면 **보관했다가** 다음 바퀴에 또 보냅니다.
         ★ 퍼센트는 한 번만 — 20초 뒤 새 숫자가 옵니다.
         """
-        tries = 3 if "step" in body else 1
+        # ★ '이어서' 도 잃으면 안 됩니다 — 잃으면 화면에 일시 정지가 끝까지 남습니다 (2026-10-23)
+        must = "step" in body or body.get("resumed") is True
+        tries = 3 if must else 1
         for i in range(tries):
             got = _post(f"{BASE}/api/device/print/report", {"jobId": job_id, **body}, self.token)
             if got.get("ok"):
@@ -237,7 +239,7 @@ class PrintWorker:
             if i < tries - 1:
                 time.sleep(5 * (i + 1))
         self.say(f"알리기 실패: {err}")
-        if "step" in body:
+        if must:
             self.pending.append((job_id, body))
             self.say("  나중에 다시 보냅니다")
 
@@ -283,6 +285,15 @@ class PrintWorker:
                     return
                 if p.note:
                     self.say(p.note)
+                # ★ 일시 정지·이어서 (2026-10-23) — 단계는 그대로, 서버가 '일시 정지' 로 띄우고 알립니다
+                if p.paused:
+                    self.report(job_id, paused=p.paused, percent=p.percent if p.percent is not None else None)
+                    self.say(f"일시 정지 — {p.paused}")
+                    continue
+                if p.resumed:
+                    self.report(job_id, resumed=True, percent=p.percent, **_extras(p))
+                    self.say("이어서 출력합니다")
+                    continue
                 if p.started and not started:
                     # ★★ 프린터가 **우리 파일을** 돌리기 시작한 것을 확인한
                     #   순간에만 '출력 중' 으로 옮깁니다 (2026-10-08).

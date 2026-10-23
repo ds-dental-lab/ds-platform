@@ -63,6 +63,28 @@ STALL_SECONDS = 20 * 60
 #: 상태를 물어보는 주기. 조용함을 '정말 조용함' 으로 만들어 줍니다
 ASK_EVERY = 30
 
+#: ★ 일시 정지 (사용자 2026-10-23 "출력하다 오류 났을 때가 문제"). 필라멘트가 끊기거나 떨어지면
+#:   A1 mini 는 멈추고 자기 화면에 안내 창을 띄웁니다 — 다시 넣고 「이어 하기」면 끝까지 뽑습니다.
+#:   전에는 이걸 바로 실패로 끝냈습니다. 이제 기다리고, 이만큼 넘게 멈춰 있으면 그때 실패로.
+PAUSE_GIVE_UP = 60 * 60
+#: 멈춰 있는 동안 서버에 '아직 멈춤' 을 다시 알리는 간격 — 서버가 30분 침묵을 끊김으로 보지 않게
+PAUSE_REPORT_EVERY = 5 * 60
+
+
+def pause_reason(code) -> str:
+    """
+    일시 정지 까닭을 치과가 읽을 말로. 프린터 화면에 자세한 안내가 따로 뜹니다(실물 확인 2026-10-23).
+    ★ 번호별 뜻은 확인한 것만 적습니다 — 모르는 번호는 번호를 그대로 보여 줍니다.
+    """
+    try:
+        n = int(code or 0)
+    except (TypeError, ValueError):
+        n = 0
+    if not n:
+        return "필라멘트가 끊겼거나 떨어졌을 수 있습니다"
+    hexed = f"{n:08X}"
+    return f"필라멘트가 끊겼거나 떨어졌을 수 있습니다 (프린터 오류 {hexed[:4]}-{hexed[4:]})"
+
 #: SD 카드에 남겨 둘 파일 수 (2026-10-08).
 #: ★ 전에는 **한 번도 안 지웠습니다.** 한 건에 1MB 씩 쌓이다 카드가 차면
 #:   출력이 '취소' 로 떨어집니다 — 왜 그런지 알아내기 가장 어려운 자리입니다.
@@ -88,6 +110,10 @@ class Progress:
     remaining: int | None = None
     layer: int | None = None
     layers: int | None = None
+    #: 일시 정지 까닭 — 있으면 '멈춤(기다림)', 실패가 아닙니다 (2026-10-23)
+    paused: str | None = None
+    #: 일시 정지가 풀려 다시 뽑기 시작함
+    resumed: bool = False
 
 
 class Printer(Protocol):
@@ -683,6 +709,8 @@ class BambuPrinter:
         told = 0.0
         asked = time.time()
         refinds = 0  # 소식이 끊겨 다시 찾아 붙은 횟수
+        paused_since: float | None = None  # 일시 정지가 시작된 때
+        paused_told = 0.0
         out: Progress | None = None
 
         try:
@@ -760,21 +788,48 @@ class BambuPrinter:
                     continue
 
                 # 여기부터는 우리 것입니다
-                if state.get("print_error"):
-                    out = Progress(
-                        state.get("mc_percent"), "", failed=f"프린터 오류 {state['print_error']}"
-                    )
-                    break
+                err = state.get("print_error")
+                # ★★ 일시 정지는 실패가 아닙니다 (2026-10-23) — 기다리고, 풀리면 이어서 지켜봅니다
                 if stage == "PAUSE":
-                    out = Progress(
-                        state.get("mc_percent"),
-                        "",
-                        failed="프린터가 멈춰 섰습니다 (일시정지) — 필라멘트와 화면을 봐 주세요",
-                    )
-                    break
-                if stage == "FAILED":
-                    out = Progress(state.get("mc_percent"), "", failed="프린터가 실패를 알렸습니다")
-                    break
+                    why = pause_reason(err)
+                    pct = state.get("mc_percent")
+                    lay, lays = state.get("layer_num"), state.get("total_layer_num")
+                    if paused_since is None:
+                        paused_since = paused_told = now
+                        yield Progress(pct, f"일시 정지 — {why}", paused=why, layer=lay, layers=lays)
+                    elif now - paused_since > PAUSE_GIVE_UP:
+                        out = Progress(
+                            pct,
+                            "",
+                            failed=f"일시 정지가 {PAUSE_GIVE_UP // 60}분 넘게 이어졌습니다 — {why}. "
+                            "프린터를 보고, 이어 하지 못하면 판을 비운 뒤 다시 걸어 주세요",
+                        )
+                        break
+                    elif now - paused_told >= PAUSE_REPORT_EVERY:
+                        paused_told = now
+                        yield Progress(pct, "일시 정지 중", paused=why, layer=lay, layers=lays)
+                    moved = now  # 멈춰 있는 동안은 '안 움직임' 시계를 세우지 않습니다
+                else:
+                    if paused_since is not None and stage == "RUNNING":
+                        paused_since = None
+                        moved = now
+                        yield Progress(
+                            state.get("mc_percent"),
+                            "이어서 출력합니다",
+                            resumed=True,
+                            remaining=state.get("mc_remaining_time"),
+                            layer=state.get("layer_num"),
+                            layers=state.get("total_layer_num"),
+                        )
+                    if stage == "FAILED":
+                        out = Progress(
+                            state.get("mc_percent"),
+                            "",
+                            failed=f"프린터가 출력을 멈췄습니다 (프린터 오류 {int(err):08X})" if err else "프린터가 실패를 알렸습니다",
+                        )
+                        break
+                    # ★ 오류 번호가 있어도 프린터가 계속 돌고 있으면 실패로 끊지 않습니다
+                    #   — 전에는 번호만 보고 끝내, 이어지는 출력을 실패로 적을 수 있었습니다
                 if stage == "FINISH":
                     out = Progress(100, "출력 완료", done=True)
                     break

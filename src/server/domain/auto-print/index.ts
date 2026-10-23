@@ -421,6 +421,8 @@ export function autoNotice(job: AutoJob): string {
   if (job.step === 'queued' && job.bedClearedAt === null) {
     return '출력판을 비우고 「비웠습니다」를 눌러 주세요';
   }
+  const paused = pausedReason(job);
+  if (paused) return `일시 정지 — ${paused}. 프린터에서 「이어 하기」를 눌러 주세요`;
   if (job.step === 'printing' && job.percent !== null) {
     return `출력 중 ${Math.round(job.percent)}%`;
   }
@@ -554,7 +556,25 @@ export function matchWaiting(jobs: WaitingJob[], designTeeth: number[]): Matched
 
 // ★ 'failed' 를 더했습니다 (2026-10-16 점검) — 출력이 멈추면 치과가 손댈 일입니다.
 //   책갈피가 빨개지는 것만으로는 화면을 안 보고 있는 치과가 모릅니다.
-export type AutoAlertKind = 'bed' | 'done' | 'failed' | 'design_ended' | 'design_scan';
+// ★ 'paused' (2026-10-23) — 필라멘트가 끊기거나 떨어져 프린터가 일시 정지. 실패가 아닙니다.
+export type AutoAlertKind = 'bed' | 'done' | 'failed' | 'design_ended' | 'design_scan' | 'paused';
+
+/**
+ * 출력 중 **일시 정지** 표시 (사용자 2026-10-23 — "출력하다 오류 났을 때가 문제").
+ *
+ * ★ 프린터는 필라멘트가 끊기거나 떨어지면 일시 정지하고 **자기 화면에 안내 창**을 띄웁니다.
+ *   필라멘트를 다시 넣고 「이어 하기」를 누르면 멈춘 층부터 끝까지 뽑습니다. 전에는 이걸
+ *   곧바로 '실패' 로 처리해, 덴플로우엔 실패가 남고 다시 걸면 같은 크라운을 또 뽑았습니다.
+ * ★ DB 칸을 새로 만들지 않고 — 출력 중(printing)인 작업의 failed_reason 에 이 머리말을 붙여
+ *   둡니다. 출력 중에는 쓰이지 않는 칸이고, 끝나면(done) moveStep 이 지웁니다.
+ */
+export const PAUSE_MARK = '일시 정지 — ';
+
+export function pausedReason(job: AutoJob): string | null {
+  if (job.step !== 'printing') return null;
+  const r = job.failedReason ?? '';
+  return r.startsWith(PAUSE_MARK) ? r.slice(PAUSE_MARK.length).trim() || '프린터 화면을 봐 주세요' : null;
+}
 
 export interface AutoAlert {
   title: string;
@@ -584,6 +604,12 @@ export function autoAlert(
     return {
       title: `${input.productName} 출력이 멈췄습니다 — 확인해 주세요`,
       body: `${who} — ${input.reason?.trim() || '프린터를 확인하고 「다시 걸기」를 눌러 주세요'}`,
+    };
+  }
+  if (kind === 'paused') {
+    return {
+      title: `${input.productName} 출력이 잠시 멈췄습니다 — 프린터를 봐 주세요`,
+      body: `${who} — ${input.reason?.trim() || '필라멘트를 확인해 주세요'}. 프린터 화면 안내대로 필라멘트를 다시 넣고 「이어 하기」를 누르면 이어서 뽑습니다`,
     };
   }
   if (kind === 'bed') {
@@ -796,6 +822,19 @@ export function boardRow(job: AutoJob, now: number = Date.now(), typicalSec: num
   }
   if (job.step === 'done') {
     return { ...base, tone: 'done', status: '출력 완료', detail: '다 나왔습니다 — 꺼내 주세요' };
+  }
+  if (job.step === 'printing' && pausedReason(job)) {
+    const p = job.percent === null ? null : Math.max(0, Math.min(100, Math.round(job.percent)));
+    // ★ 일시 정지 — 치과가 손댈 일. 남은 시간은 멈춰 있으니 안 보입니다
+    return {
+      ...base,
+      remainingMin: null,
+      etaAt: null,
+      tone: 'action',
+      status: '일시 정지',
+      detail: `${pausedReason(job)} — 프린터에서 「이어 하기」`,
+      percent: p,
+    };
   }
   if (job.step === 'printing') {
     const p = job.percent === null ? null : Math.max(0, Math.min(100, Math.round(job.percent)));

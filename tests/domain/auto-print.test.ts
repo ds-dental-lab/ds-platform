@@ -21,6 +21,8 @@ import {
   alertOnMove,
   alertPushes,
   typicalPrintSeconds,
+  pausedReason,
+  PAUSE_MARK,
   autoAlert,
   autoNotice,
   boardRow,
@@ -734,5 +736,30 @@ describe('준비 구간 남은 시간은 실제 출력 시간으로 (2026-10-23)
     const r = (s: number) => ({ startedAt: start, finishedAt: new Date(at(s)).toISOString() });
     expect(typicalPrintSeconds([r(417), r(432), r(440), r(60), r(5000)])).toBe(432);
     expect(typicalPrintSeconds([])).toBeNull();
+  });
+});
+
+describe('출력 중 일시 정지 (2026-10-23)', () => {
+  const printing = (reason: string | null) =>
+    ({ step: 'printing', bedClearedAt: 'x', percent: 40, failedAt: null, failedReason: reason }) as never;
+
+  it('머리말이 붙은 사유만 일시 정지', () => {
+    expect(pausedReason(printing(PAUSE_MARK + '필라멘트'))).toBe('필라멘트');
+    expect(pausedReason(printing(null))).toBeNull();
+    expect(pausedReason(printing('다른 까닭'))).toBeNull();
+  });
+  it('책갈피는 할 일(action)로, 남은 시간은 숨김', () => {
+    const row = boardRow(printing(PAUSE_MARK + '필라멘트가 끊겼거나 떨어졌을 수 있습니다'));
+    expect(row.tone).toBe('action');
+    expect(row.status).toBe('일시 정지');
+    expect(row.etaAt).toBeNull();
+  });
+  it('알림은 폰까지, 이어 하기를 안내', () => {
+    expect(alertPushes('paused')).toBe(true);
+    const a = autoAlert('paused', { orderNo: 'O', patientLabel: 'P', productName: 'FlowTemp', reason: '필라멘트' });
+    expect(a.body).toContain('이어 하기');
+  });
+  it('주문 상세 문구', () => {
+    expect(autoNotice(printing(PAUSE_MARK + '필라멘트'))).toContain('이어 하기');
   });
 });

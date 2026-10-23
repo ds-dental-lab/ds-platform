@@ -29,6 +29,7 @@ import {
   retryTo,
   teethMismatch,
   typicalPrintSeconds,
+  PAUSE_MARK,
   type AutoJob,
   type AutoStep,
   type DesignStage,
@@ -755,17 +756,23 @@ export async function reportPrintJob(
     remaining?: unknown;
     layer?: unknown;
     layers?: unknown;
+    /** 일시 정지 까닭 (2026-10-23) — 있으면 '일시 정지' 로 표시하고 치과에 알림 */
+    paused?: unknown;
+    /** 일시 정지가 풀려 다시 뽑는 중 */
+    resumed?: unknown;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = createAdminClient();
 
   const { data } = await admin
     .from('auto_jobs')
-    .select('id, clinic_org_id, step')
+    .select('id, clinic_org_id, step, order_id, failed_reason')
     .eq('id', jobId)
     .maybeSingle();
 
-  const row = data as { id: string; clinic_org_id: string; step: AutoStep } | null;
+  const row = data as
+    | { id: string; clinic_org_id: string; step: AutoStep; order_id: string; failed_reason: string | null }
+    | null;
   if (!row || row.clinic_org_id !== device.clinicOrgId) {
     return { ok: false, error: '작업을 찾지 못했습니다' };
   }
@@ -790,6 +797,37 @@ export async function reportPrintJob(
     const { error } = await admin.from('auto_jobs').update(extras).eq('id', jobId).eq('step', 'printing');
     if (error) console.error('[auto-print] 남은 시간을 못 적었습니다', error.message);
   };
+
+  /*
+    ★ 일시 정지·이어서 (2026-10-23). 단계는 '출력 중' 그대로 — 실패가 아닙니다.
+      처음 멈춘 순간에만 치과에 알립니다(에이전트는 5분마다 같은 말을 다시 보내 소식을 잇습니다).
+  */
+  if (!body.step && typeof body.paused === 'string' && body.paused.trim()) {
+    if (row.step !== 'printing') return { ok: true };
+    const first = !(row.failed_reason ?? '').startsWith(PAUSE_MARK);
+    const { error } = await admin
+      .from('auto_jobs')
+      .update({ failed_reason: (PAUSE_MARK + body.paused.trim()).slice(0, 500), updated_at: new Date().toISOString() })
+      .eq('id', jobId)
+      .eq('step', 'printing');
+    if (error) return { ok: false, error: error.message };
+    if (percent !== null) await reportPercent(jobId, percent);
+    await writeExtras();
+    if (first) await publishAutoAlert(row.order_id, 'paused', body.paused.trim());
+    return { ok: true };
+  }
+  if (!body.step && body.resumed === true) {
+    if (row.step === 'printing' && (row.failed_reason ?? '').startsWith(PAUSE_MARK)) {
+      await admin
+        .from('auto_jobs')
+        .update({ failed_reason: null, updated_at: new Date().toISOString() })
+        .eq('id', jobId)
+        .eq('step', 'printing');
+    }
+    if (percent !== null) await reportPercent(jobId, percent);
+    await writeExtras();
+    return { ok: true };
+  }
 
   // 숫자만 올리는 것은 단계를 안 건드립니다
   if (!body.step && percent !== null) {

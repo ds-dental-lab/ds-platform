@@ -29,6 +29,8 @@ export async function POST(request: Request) {
     remaining?: unknown;
     layer?: unknown;
     layers?: unknown;
+    paused?: unknown;
+    resumed?: unknown;
   };
   try {
     body = (await request.json()) as typeof body;
