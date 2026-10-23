@@ -27,12 +27,6 @@ import {
 import ReprintDialog from '@/components/order/ReprintDialog';
 import { remainingLabel, type AutoProgressStep, type BoardRow } from '@/server/domain/auto-print';
 
-const COLOR = {
-  done: { dot: '#12855B', text: '#4A5567' },
-  current: { dot: '#1279E8', text: '#1279E8' },
-  todo: { dot: '#DDE2EA', text: '#98A2B3' },
-  stopped: { dot: '#D64545', text: '#D64545' },
-} as const;
 
 export default function AutoPrintPanel({
   orderId,
@@ -111,66 +105,76 @@ export default function AutoPrintPanel({
   const done = canReprint;
 
   return (
+    /*
+      ★ 모양 다듬기 (사용자 2026-10-23 "화면 UI 좀 이쁘게"). 동작은 그대로 — 머리줄에 상태 알약,
+        단계는 아이콘 동그라미와 이어지는 선, 지금 칸은 숨 쉬는 점, 출력 중 칸은 큰 숫자와 줄무늬 막대.
+    */
     <section
       className={
-        'rounded-xl border bg-white p-4 ' + (done ? 'border-[#BFE3CF]' : 'border-[#E8EBF0]')
+        'overflow-hidden rounded-2xl border bg-white ' + (done ? 'border-[#BFE3CF]' : stopped ? 'border-[#F3C6C6]' : 'border-[#E3E8EF]')
       }
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-[13.5px] font-bold tracking-[-0.02em] text-[#1A2130]">자동 출력</h3>
+      <div className="flex items-center justify-between gap-3 border-b border-[#F0F2F5] px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <span
+            aria-hidden="true"
+            className={
+              'grid h-8 w-8 place-items-center rounded-lg ' +
+              (done ? 'bg-[#EAF7F0] text-[#12855B]' : stopped ? 'bg-[#FDECEA] text-[#C4383A]' : 'bg-[#EEF5FE] text-[#1279E8]')
+            }
+          >
+            <PrinterIcon />
+          </span>
+          <h3 className="text-[14px] font-extrabold tracking-[-0.02em] text-[#1A2130]">자동 출력</h3>
+        </div>
         <span
           className={
-            'text-[12.5px] ' +
+            'rounded-full px-2.5 py-1 text-[12px] font-bold ' +
             (stopped
-              ? 'font-bold text-[#D64545]'
+              ? 'bg-[#FDECEA] text-[#B83A3A]'
               : done
-                ? 'font-bold text-[#12855B]'
-                : 'text-[#4A5567]')
+                ? 'bg-[#12855B] text-white'
+                : 'bg-[#EEF5FE] text-[#1462B8]')
           }
         >
-          {done ? '✓ ' : ''}
+          {done ? '✓ ' : stopped ? '! ' : ''}
           {notice}
         </span>
       </div>
 
-      <ol aria-label="자동 출력 진행" className="mt-3 flex items-start overflow-x-auto">
+      <div className="px-4 pb-4 pt-4">
+      <ol aria-label="자동 출력 진행" className="flex items-start overflow-x-auto pb-1">
         {steps.map((step, i) => {
-          const color = COLOR[step.state];
           const last = i === steps.length - 1;
-
+          const next = steps[i + 1];
+          const lineDone = step.state === 'done' && next && next.state !== 'todo';
           return (
-            <li key={step.key} className="flex items-start">
-              <div className="flex w-[64px] flex-col items-center gap-1.5">
-                <span
-                  aria-hidden="true"
-                  className="grid h-[18px] w-[18px] place-items-center rounded-full"
-                  style={{ background: color.dot }}
-                >
-                  {step.state === 'stopped' ? (
-                    <span className="text-[11px] font-bold leading-none text-white">!</span>
-                  ) : null}
-                </span>
-                <span
-                  className="text-center text-[11.5px] leading-tight"
-                  style={{ color: color.text }}
-                >
-                  {step.label}
-                  {step.percent !== undefined ? (
-                    <b className="block font-bold">{step.percent}%</b>
-                  ) : null}
-                  {/* ★ 디자인 칸 안에서 지금 하는 일 — '치아 분석' 처럼 (2026-10-15) */}
-                  {step.detail ? (
-                    <span className="mt-0.5 block text-[11px] font-semibold">{step.detail}</span>
-                  ) : null}
-                </span>
-              </div>
+            <li key={step.key} className="relative flex min-w-[64px] flex-1 flex-col items-center">
+              {/* 다음 칸까지 잇는 선 — 동그라미 뒤로 */}
               {last ? null : (
                 <span
                   aria-hidden="true"
-                  className="mt-[8px] h-[2px] w-[14px] shrink-0 rounded"
-                  style={{ background: step.state === 'done' ? '#12855B' : '#DDE2EA' }}
+                  className="absolute left-1/2 top-[13px] h-[2px] w-full"
+                  style={{ background: lineDone || step.state === 'done' ? '#12855B' : '#E3E8EF' }}
                 />
               )}
+              <StepDot state={step.state} />
+              <span
+                className={
+                  'mt-1.5 px-1 text-center text-[11.5px] leading-tight ' +
+                  (step.state === 'current'
+                    ? 'font-bold text-[#1279E8]'
+                    : step.state === 'stopped'
+                      ? 'font-bold text-[#C4383A]'
+                      : step.state === 'done'
+                        ? 'text-[#3A4F66]'
+                        : 'text-[#A3ACB9]')
+                }
+              >
+                {step.label}
+                {step.percent !== undefined ? <b className="block font-extrabold tabular-nums">{step.percent}%</b> : null}
+                {step.detail ? <span className="mt-0.5 block text-[11px] font-semibold">{step.detail}</span> : null}
+              </span>
             </li>
           );
         })}
@@ -319,6 +323,7 @@ export default function AutoPrintPanel({
       ) : null}
 
       {manualSlot ? <div className="mt-3 border-t border-[#F0F2F5] pt-2.5">{manualSlot}</div> : null}
+      </div>
     </section>
   );
 }
@@ -351,37 +356,84 @@ function PrintingCard({ row }: { row: BoardRow }) {
 
   const left = row.etaAt ? Math.max(0, Math.round((new Date(row.etaAt).getTime() - now) / 60000)) : null;
   const pct = row.percent ?? 0;
+  const layers = row.layerNow && row.layerTotal ? `${row.layerNow} / ${row.layerTotal}층` : null;
 
   return (
-    <div className="mt-3 rounded-lg border border-[#D6E2EF] bg-[#F5F8FC] p-3.5">
+    <div className="mt-4 rounded-xl bg-gradient-to-br from-[#F2F7FE] to-[#F8FAFD] p-4 ring-1 ring-[#DCE8F7]">
       <div className="flex items-end justify-between gap-3">
-        <div className="flex items-baseline gap-2">
-          <b className="text-[28px] font-bold leading-none tracking-[-0.03em] text-[#1A2130] tabular-nums">
-            {row.percent !== null ? `${pct}%` : '—'}
+        <div>
+          <p className="text-[11.5px] font-semibold text-[#5A7699]">출력 중</p>
+          <b className="mt-0.5 block text-[34px] font-extrabold leading-none tracking-[-0.04em] text-[#13304F] tabular-nums">
+            {row.percent !== null ? pct : '—'}
+            <span className="ml-0.5 text-[18px] font-bold text-[#5A7699]">%</span>
           </b>
-          <span className="text-[12.5px] font-semibold text-[#4F6B8A]">출력 중</span>
         </div>
         <div className="text-right">
-          <p className="text-[14px] font-bold tracking-[-0.02em] text-[#1A2130]">
+          <p className="text-[15px] font-extrabold tracking-[-0.02em] text-[#13304F]">
             {left !== null ? remainingLabel(left) : '남은 시간 계산 중'}
           </p>
-          {row.etaAt ? (
-            <p className="mt-0.5 text-[11.5px] text-[#7C8595]">{clock(row.etaAt)} 완료 예정</p>
-          ) : null}
+          {row.etaAt ? <p className="mt-0.5 text-[12px] text-[#5A7699]">{clock(row.etaAt)} 완료 예정</p> : null}
         </div>
       </div>
-      <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-[#E3EAF2]">
+      <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white ring-1 ring-[#DCE8F7]">
         <div
-          className="h-full rounded-full bg-[#1279E8] transition-[width] duration-700"
-          style={{ width: `${Math.max(2, pct)}%` }}
-        />
+          className="relative h-full overflow-hidden rounded-full bg-[#1279E8] transition-[width] duration-700"
+          style={{ width: `${Math.max(3, pct)}%` }}
+        >
+          {/* 줄무늬가 천천히 흐릅니다 — 멈춘 게 아니라는 표시 */}
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 animate-[flowtemp-stripes_1.2s_linear_infinite] motion-reduce:animate-none"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(45deg, rgba(255,255,255,0.22) 0 6px, transparent 6px 12px)',
+              backgroundSize: '17px 17px',
+            }}
+          />
+        </div>
       </div>
-      {row.layerNow && row.layerTotal ? (
-        <p className="mt-1.5 text-[11.5px] text-[#7C8595] tabular-nums">
-          {row.layerNow} / {row.layerTotal}층
-        </p>
-      ) : null}
+      {layers ? <p className="mt-2 text-[11.5px] font-semibold text-[#7C8FA6] tabular-nums">{layers}</p> : null}
     </div>
+  );
+}
+
+/** 단계 동그라미 — 다 됨 ✓ · 지금 숨 쉬는 점 · 멈춤 ! · 남음 빈 칸 */
+function StepDot({ state }: { state: 'done' | 'current' | 'todo' | 'stopped' }) {
+  if (state === 'done') {
+    return (
+      <span className="relative z-10 grid h-7 w-7 place-items-center rounded-full bg-[#12855B] text-white shadow-[0_2px_6px_-2px_rgba(18,133,91,0.6)]">
+        <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3.5 w-3.5">
+          <path d="M3.5 8.4l3 3 6-6.6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+    );
+  }
+  if (state === 'current') {
+    return (
+      <span className="relative z-10 grid h-7 w-7 place-items-center rounded-full bg-white ring-[2.5px] ring-[#1279E8]">
+        <span className="absolute h-3 w-3 animate-ping rounded-full bg-[#1279E8]/40 motion-reduce:animate-none" />
+        <span className="h-2.5 w-2.5 rounded-full bg-[#1279E8]" />
+      </span>
+    );
+  }
+  if (state === 'stopped') {
+    return (
+      <span className="relative z-10 grid h-7 w-7 place-items-center rounded-full bg-[#D64545] text-[13px] font-extrabold text-white">
+        !
+      </span>
+    );
+  }
+  return <span className="relative z-10 h-7 w-7 rounded-full bg-white ring-2 ring-[#E3E8EF]" />;
+}
+
+function PrinterIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+      <rect x="3" y="3" width="14" height="14" rx="2.5" />
+      <path d="M3 7.5h14" />
+      <path d="M8.5 7.5v2.2l1.5 1.3 1.5-1.3V7.5" strokeLinecap="round" />
+      <path d="M6 14.5h8" strokeLinecap="round" />
+    </svg>
   );
 }
 

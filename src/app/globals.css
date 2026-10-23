@@ -190,6 +190,13 @@
 .ms-dust-3 { animation-delay: 0.55s; }
 .ms-dust-4 { animation-delay: 0.83s; }
 
+/* FlowTemp 출력 중 막대 줄무늬가 흐름 (2026-10-23) */
+@keyframes flowtemp-stripes {
+  to {
+    background-position: 17px 0;
+  }
+}
+
 @keyframes ms-spin {
   to { transform: rotate(360deg); }
 }
