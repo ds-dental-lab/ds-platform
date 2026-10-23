@@ -887,6 +887,87 @@ class BambuPrinter:
 
         yield out
 
+    # --- 다시 켜졌을 때 하던 출력 이어서 지켜보기 (2026-10-23) ---
+
+    #: 이어서 지켜볼 때 상태를 묻는 간격·끝까지 기다리는 시간·프린터가 안 닿으면 포기할 때
+    FOLLOW_EVERY = 15
+    FOLLOW_LIMIT = 3 * 60 * 60
+    FOLLOW_UNREACHABLE = 10 * 60
+
+    def follow(self, file_name: str, sleep=time.sleep) -> Iterator[Progress]:
+        """
+        ★ 에이전트가 업데이트·재부팅으로 다시 켜졌을 때, **이미 프린터에 보낸 출력**을 끝까지 따라갑니다
+          (사용자 2026-10-23 — 출력 중 업데이트했더니 프린터는 다 뽑았는데 덴플로우는 53% 에 멈춤).
+          내려받기·올리기·출력 명령은 하지 않습니다 — 프린터 상태만 봅니다.
+        ★ 프린터가 지금 **우리 파일**을 말하고 있으면 그대로 따라가고(끝·멈춤·일시 정지 모두),
+          딴 것을 하고 있거나 아무것도 안 하면 결과를 모르는 것이라 실패로 알려 사람이 보게 합니다.
+        """
+        remote = f"{REMOTE_DIR}{self.safe_name(file_name)}"
+        began = time.time()
+        last_heard = time.time()
+        paused_since: float | None = None
+        told_start = False
+        while time.time() - began < self.FOLLOW_LIMIT:
+            try:
+                state = self.status(6.0)
+            except Exception:  # noqa: BLE001
+                state = {}
+            if not state:
+                if time.time() - last_heard > self.FOLLOW_UNREACHABLE:
+                    yield Progress(
+                        None, "",
+                        failed="에이전트가 다시 켜진 뒤 프린터에 닿지 못했습니다 — 출력물을 보고, 다 나왔으면 꺼낸 뒤 다시 뽑아 주세요",
+                    )
+                    return
+                sleep(self.FOLLOW_EVERY)
+                continue
+            last_heard = time.time()
+            stage = state.get("gcode_state") or ""
+            pct = state.get("mc_percent")
+            lay, lays = state.get("layer_num"), state.get("total_layer_num")
+            # ★ 끝난 뒤에는 프린터가 파일 이름 칸을 비웁니다(실물 2026-10-23: FINISH · 이름 '' · 100%).
+            #   이름이 비고 다 끝났으면 마지막 출력 = 우리 것으로 봅니다. 사이에 딴 것을 뽑았다면
+            #   그 이름이 남아 있어 아래에서 걸립니다.
+            unnamed = not any(state.get(k) for k in ("subtask_name", "gcode_file", "task_name"))
+            finished_unnamed = stage == "FINISH" and unnamed and (pct or 0) >= 100
+            if not self._is_mine(state, remote) and not finished_unnamed:
+                yield Progress(
+                    pct, "",
+                    failed="에이전트가 다시 켜지는 동안의 출력 결과를 확인하지 못했습니다 — 출력물을 보고, 다 나왔으면 꺼낸 뒤 다시 뽑아 주세요",
+                )
+                return
+            if stage == "FINISH":
+                yield Progress(100, "출력 완료 (다시 켜진 뒤 확인)", done=True, started=not told_start)
+                try:
+                    self.tidy(remote)
+                except Exception:  # noqa: BLE001
+                    pass
+                return
+            if stage == "FAILED":
+                yield Progress(pct, "", failed="프린터가 출력을 멈췄습니다")
+                return
+            if stage == "PAUSE":
+                why = pause_reason(state.get("print_error"))
+                if paused_since is None:
+                    paused_since = time.time()
+                elif time.time() - paused_since > PAUSE_GIVE_UP:
+                    yield Progress(pct, "", failed=f"일시 정지가 {PAUSE_GIVE_UP // 60}분 넘게 이어졌습니다 — {why}")
+                    return
+                yield Progress(pct, f"일시 정지 — {why}", paused=why, layer=lay, layers=lays)
+            else:
+                if paused_since is not None:
+                    paused_since = None
+                    yield Progress(pct, "이어서 출력합니다", resumed=True,
+                                   remaining=state.get("mc_remaining_time"), layer=lay, layers=lays)
+                elif not told_start:
+                    told_start = True
+                    yield Progress(pct or 0, "다시 켜진 뒤 이어서 지켜봅니다", started=True,
+                                   remaining=state.get("mc_remaining_time"), layer=lay, layers=lays)
+                else:
+                    yield Progress(pct, "출력 중", remaining=state.get("mc_remaining_time"), layer=lay, layers=lays)
+            sleep(self.FOLLOW_EVERY)
+        yield Progress(None, "", failed="이어서 지켜보다 3시간이 지났습니다 — 프린터를 봐 주세요")
+
     # --- SD 카드 치우기 ---
 
     @staticmethod

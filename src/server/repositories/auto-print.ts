@@ -37,6 +37,10 @@ import {
 import { publishAutoAlert, publishDesignStall } from '@/server/events/auto-print';
 import type { LinkedDevice } from '@/server/repositories/device-link';
 import { issueExocadToken } from '@/server/exocad/token';
+import { olderThan } from '@/server/domain/agent';
+
+/** 하던 출력을 이어서 지켜볼 줄 아는 에이전트 판 (2026-10-23) */
+const RESUME_SINCE = '1.3.15';
 
 const BUCKET = 'order-files';
 
@@ -653,6 +657,11 @@ export interface ClaimedJob {
   /** 치과 PC 가 바로 내려받는 주소. 우리 서버를 지나가지 않습니다 */
   downloadUrl: string;
   fileName: string;
+  /**
+   * ★ 이 기기가 이미 집어 가 **보내는 중·출력 중**이던 것 (2026-10-23). 에이전트가 업데이트·재부팅으로
+   *   다시 켜졌을 때 옛 출력을 이어서 지켜보라는 뜻 — 내려받기·올리기·출력 명령 없이 프린터만 봅니다.
+   */
+  resume?: 'sending' | 'printing';
 }
 
 /**
@@ -672,6 +681,42 @@ export async function claimPrintJob(
   // ★ 곧 뽑을 것이 있으면 판을 미리 데우라고 알립니다 (사용자 2026-10-23 "미리 데우기도 넣어줘").
   //   넘겨줄 일감이 없을 때만 붙입니다 — 넘겨주면 에이전트가 어차피 올리면서 데웁니다.
   const idle = async () => ({ ok: true as const, job: null, warm: await warmSoon(device.clinicOrgId) });
+
+  /*
+    ★★ **하던 출력부터** (사용자 2026-10-23 — 출력 중 에이전트를 업데이트했더니 프린터는 다 뽑았는데
+      덴플로우는 53% 에 멈춤). 에이전트는 한 번에 하나만 하므로, 이 기기가 집어 간 '보내는 중·출력 중'
+      이 남아 있으면 그건 **에이전트가 다시 켜져 놓친 것**입니다. 그것을 먼저 돌려줘 이어서 지켜보게 합니다.
+      다른 기기 것은 건드리지 않습니다.
+  */
+  const { data: mine } = await admin
+    .from('auto_jobs')
+    .select('id, order_id, step, print_file_path')
+    .eq('clinic_org_id', device.clinicOrgId)
+    .eq('claimed_device_id', device.id)
+    .in('step', ['sending', 'printing'])
+    .order('claimed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const inflight = mine as { id: string; order_id: string; step: 'sending' | 'printing'; print_file_path: string | null } | null;
+  // 이어서 지켜보기를 아는 판(1.3.15+)에게만 — 옛 판은 내려받을 주소가 비어 실패로 끝냅니다
+  let canResume = false;
+  if (inflight?.print_file_path) {
+    const { data: dev } = await admin.from('clinic_devices').select('agent_version').eq('id', device.id).maybeSingle();
+    const v = (dev as { agent_version: string | null } | null)?.agent_version ?? null;
+    canResume = !!v && !olderThan(v, RESUME_SINCE);
+  }
+  if (inflight?.print_file_path && canResume) {
+    return {
+      ok: true,
+      job: {
+        jobId: inflight.id,
+        orderId: inflight.order_id,
+        downloadUrl: '',
+        fileName: inflight.print_file_path.split('/').pop() ?? 'print.gcode.3mf',
+        resume: inflight.step,
+      },
+    };
+  }
 
   const { data } = await admin
     .from('auto_jobs')

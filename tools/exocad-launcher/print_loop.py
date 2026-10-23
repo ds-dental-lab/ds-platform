@@ -265,6 +265,10 @@ class PrintWorker:
 
     def run_one(self, job: dict) -> None:
         job_id = job["jobId"]
+        # ★ 다시 켜져 하던 출력을 이어서 지켜보기 (2026-10-23)
+        if job.get("resume"):
+            self.resume_one(job)
+            return
         self.say(f"작업 받음 — {job['fileName']}")
 
         try:
@@ -310,6 +314,45 @@ class PrintWorker:
         except Exception as e:  # noqa: BLE001 — 까닭을 삼키면 아무도 모릅니다
             self.report(job_id, step="failed", reason=f"보내다 멈췄습니다 — {e}")
             self.say(f"멈춤: {e}")
+
+    def resume_one(self, job: dict) -> None:
+        """
+        ★ 에이전트가 업데이트·재부팅으로 다시 켜졌을 때 — 서버가 '이 기기가 하던 것' 을 돌려줍니다.
+          프린터 상태만 보고 끝까지 따라가 결과를 알립니다. 이미 '출력 중' 으로 적혀 있으면
+          시작 보고는 다시 하지 않습니다.
+        """
+        job_id = job["jobId"]
+        self.say(f"다시 켜져 하던 출력을 이어서 지켜봅니다 — {job['fileName']}")
+        follow = getattr(self.printer, "follow", None)
+        if follow is None:
+            self.report(job_id, step="failed", reason="다시 켜져 출력 결과를 모릅니다 — 출력물을 봐 주세요")
+            return
+        already_printing = job.get("resume") == "printing"
+        try:
+            for p in follow(job["fileName"]):
+                if p.failed:
+                    self.report(job_id, step="failed", reason=p.failed)
+                    self.say(f"멈춤: {p.failed}")
+                    return
+                if p.paused:
+                    self.report(job_id, paused=p.paused, percent=p.percent)
+                    continue
+                if p.resumed:
+                    self.report(job_id, resumed=True, percent=p.percent, **_extras(p))
+                    continue
+                if p.done:
+                    if not already_printing:
+                        self.report(job_id, step="printing", percent=100)
+                    self.report(job_id, step="done")
+                    self.say("출력 완료 (다시 켜진 뒤 확인)")
+                    return
+                if p.started and not already_printing:
+                    self.report(job_id, step="printing", percent=p.percent or 0, **_extras(p))
+                    already_printing = True
+                elif p.percent is not None:
+                    self.report(job_id, percent=p.percent, **_extras(p))
+        except Exception as e:  # noqa: BLE001
+            self.report(job_id, step="failed", reason=f"이어서 지켜보다 멈췄습니다 — {e}")
 
     # --- 돌기 ---
 
