@@ -46,6 +46,8 @@ export default function ContactForm() {
     setPainPoints((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
   }
 
+  // ★ 선택 항목은 접어 둡니다 (사용자 2026-10-23 "폼이 길어 보여") — 필수(치과명·연락처·이메일·스캐너)만 먼저
+  const [more, setMore] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
@@ -124,10 +126,20 @@ export default function ContactForm() {
           ))}
         </div>
 
-        <div className="mt-6">
-          <Label hint="여러 개 골라도 됩니다 · 없으면 비워 두세요">
+        <button
+          type="button"
+          onClick={() => setMore((v) => !v)}
+          aria-expanded={more}
+          className="mt-6 flex w-full items-center justify-between rounded-lg border border-dashed border-[#DDE2EA] px-4 py-3 text-left text-[13.5px] font-semibold text-[#4A5567] hover:border-[#B6C6DC] hover:bg-[#F7FAFF]"
+        >
+          <span>
             지금 거래하는 기공소에 불만족하는 점
-          </Label>
+            <span className="ml-2 text-[12.5px] font-medium text-[#98A2B3]">선택 · 알려 주시면 상담이 빨라집니다</span>
+          </span>
+          <span aria-hidden className={'text-[#98A2B3] transition-transform ' + (more ? 'rotate-180' : '')}>⌄</span>
+        </button>
+        <div className={more ? 'mt-3' : 'hidden'}>
+          <p className="text-[12.5px] text-[#98A2B3]">여러 개 골라도 됩니다 · 없으면 비워 두세요</p>
           <div className="mt-2.5 flex flex-wrap gap-2">
             {(Object.keys(PAIN_LABEL) as PainPoint[]).map((v) => {
               const on = painPoints.includes(v);

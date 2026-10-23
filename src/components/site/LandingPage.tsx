@@ -202,11 +202,14 @@ function Hero() {
                 뜨면 화면 전체가 느린 것처럼 보입니다(LCP) */}
           <h1
             data-reveal
-            className="mt-4 text-balance text-[27px] font-extrabold leading-[1.3] tracking-[-0.045em] sm:text-[34px]"
+            className="mt-4 text-balance break-keep text-[27px] font-extrabold leading-[1.3] tracking-[-0.045em] sm:text-[34px]"
           >
-            모델은 생략하고, 과정은 간결하게
+            {/* ★ 치과가 얻는 것으로 (사용자 2026-10-23 "홈페이지 이쁘게") — 전 문구는 기공소 쪽 말이었습니다.
+                  길이는 전 것(16자)보다 짧게 — 위 주석의 넘침 문제를 다시 만들지 않게 */}
+            인상재도, 석고 모델도 없이
             <br />
-            <span className="text-[#1279E8]">스캔에서 바로 보철로</span>
+            {/* 폰(375px)에서 한 줄에 들어가게 — '옵니다' 가 '다' 만 떨어졌습니다 */}
+            <span className="text-[#1279E8]">스캔 한 번으로 보철까지</span>
           </h1>
 
           <p
@@ -214,11 +217,11 @@ function Hero() {
             style={{ transitionDelay: '90ms' }}
             className="mt-6 max-w-[520px] text-[15px] leading-relaxed text-[#4A5567]"
           >
-            모델 제작의 번거로움 없이
+            구강스캐너로 뜬 데이터를 그대로 설계하고 제작합니다.
             <br />
-            스캔 데이터에서 최종 보철까지
+            모델을 뜨러 환자를 다시 부를 일이 없고,
             <br />
-            <b className="font-bold text-[#1A2130]">하나의 디지털 프로세스로</b>
+            <b className="font-bold text-[#1A2130]">진행은 화면에서 바로 보입니다.</b>
           </p>
 
           <div data-reveal style={{ transitionDelay: '180ms' }} className="mt-9 flex flex-wrap gap-2.5">
@@ -235,6 +238,20 @@ function Hero() {
               진행 과정 보기
             </a>
           </div>
+
+          {/* ★ 한 줄 약속 셋 — 아래 '취급 범위' 절에 이미 있는 것만 (새 주장 없음) */}
+          <ul data-reveal style={{ transitionDelay: '260ms' }} className="mt-8 flex flex-wrap gap-x-5 gap-y-2">
+            {['스캐너 무관', '모델리스 전 품목', '실시간 진행 공유'].map((t) => (
+              <li key={t} className="flex items-center gap-1.5 text-[13px] font-semibold text-[#4A5567]">
+                <span aria-hidden className="grid h-4 w-4 place-items-center rounded-full bg-[#EAF2FE] text-[#1279E8]">
+                  <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2.5 6.2l2.3 2.3 4.7-5" />
+                  </svg>
+                </span>
+                {t}
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div data-reveal style={{ transitionDelay: '120ms' }}>
@@ -253,20 +270,23 @@ function Hero() {
 
 // ---------- 왜 모델리스인가 ----------
 
-const REASONS = [
+const REASONS: { art: SiteArtName; title: string; body: string }[] = [
   {
+    art: 'review',
     title: '거치는 단계가 적습니다',
     body:
       '모델을 뜨는 공정에는 인상 채득, 석고 주입, 경화, 트리밍이 들어갑니다. ' +
       '모델리스는 그 단계를 지나치므로 그만큼 날이 줄고, 단계마다 생기던 오차도 함께 사라집니다.',
   },
   {
+    art: 'scan',
     title: '스캔 원본을 그대로 씁니다',
     body:
       '모델을 다시 스캔하면 한 번 베낀 것을 또 베끼는 셈입니다. ' +
       '구강 스캐너가 뜬 데이터를 바로 설계에 올립니다.',
   },
   {
+    art: 'design',
     title: '다시 만들 때 빠릅니다',
     body:
       '원본 데이터가 남아 있어 수정이 필요하면 그 자리에서 다시 설계합니다. ' +
@@ -278,12 +298,21 @@ function Why() {
   return (
     <Section id="why" eyebrow="WHY MODELLESS" title="왜 모델리스인가">
       <div className="mt-10 grid gap-5 sm:grid-cols-3">
+        {/* ★ 글 카드 → 그림 카드 (사용자 2026-10-23). 왼쪽 위 아이콘, 오른쪽 위 옅은 큰 번호,
+              올리면 위 테두리가 파랗게 — 진행 과정 절의 그림과 같은 선(SiteArt)이라 한 식구로 보입니다 */}
         {REASONS.map((r, i) => (
-          <div key={r.title} className="rounded-xl border border-[#E8EBF0] bg-white p-6">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#EAF2FE] text-[15px] font-extrabold text-[#1279E8]">
-              {i + 1}
+          <div
+            key={r.title}
+            className="group relative overflow-hidden rounded-2xl border border-[#E8EBF0] bg-white p-6 transition hover:-translate-y-0.5 hover:border-[#B6D0F5] hover:shadow-[0_12px_30px_-18px_rgba(18,121,232,0.45)]"
+          >
+            <span aria-hidden className="absolute inset-x-0 top-0 h-[3px] origin-left scale-x-0 bg-[#1279E8] transition-transform duration-300 group-hover:scale-x-100" />
+            <span aria-hidden className="pointer-events-none absolute -right-1 -top-3 select-none text-[72px] font-extrabold leading-none tracking-[-0.06em] text-[#1279E8]/[0.07]">
+              0{i + 1}
             </span>
-            <h3 className="mt-4 text-[16px] font-extrabold tracking-[-0.02em]">{r.title}</h3>
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#EAF2FE] text-[#1279E8]">
+              <SiteArt name={r.art} className="h-6 w-6" strokeWidth={1.8} />
+            </span>
+            <h3 className="mt-5 text-[16px] font-extrabold tracking-[-0.02em]">{r.title}</h3>
             <p className="mt-2.5 text-[13.5px] leading-relaxed text-[#4A5567]">{r.body}</p>
           </div>
         ))}
@@ -716,7 +745,9 @@ function Section({
           data-reveal
           style={{ transitionDelay: '80ms' }}
           className={
-            'mt-3 text-[26px] font-extrabold tracking-[-0.035em] sm:text-[30px] ' +
+            // ★ text-balance — 폰에서 "이렇게 갑니다" 의 '다' 만 다음 줄로 떨어지던 것 (2026-10-23)
+            // ★ break-keep — 한글은 기본이 글자 단위 줄바꿈이라 '이/렇게' 처럼 낱말 안에서 끊겼습니다
+            'mt-3 text-balance break-keep text-[26px] font-extrabold tracking-[-0.035em] sm:text-[30px] ' +
             (dark ? 'text-white' : 'text-[#1A2130]')
           }
         >
