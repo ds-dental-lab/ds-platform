@@ -28,7 +28,20 @@ CONFIRMED = {
 }
 
 
+#: 기계 쪽 — 이동 때 노즐 들기 (2026-10-23 시간 단축, 출력으로 확인 전)
+CONFIRMED_MACHINE = {
+    "z_hop": ["0.2"],
+    "z_hop_types": ["Normal Lift"],
+}
+
+
 class ConfirmedSettings(unittest.TestCase):
+    def test_machine_values(self):
+        for key, want in CONFIRMED_MACHINE.items():
+            self.assertEqual(o.DENTAL_MACHINE.get(key), want, key)
+        data = o.flatten("BBL", o.VERIFIED["machine"])
+        self.assertEqual(o.apply(data, o.DENTAL_MACHINE), [])
+
     def test_values_are_the_confirmed_ones(self):
         for key, want in CONFIRMED.items():
             self.assertEqual(o.DENTAL.get(key), want, f"{key} 가 확정값({want})과 다릅니다")

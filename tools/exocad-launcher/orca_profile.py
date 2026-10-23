@@ -454,7 +454,7 @@ def spread(
             elif purge_dx:
                 shift_purge_line(data, purge_dx)
 
-        over = {"process": DENTAL, "filament": DENTAL_FILAMENT}.get(kind)
+        over = {"process": DENTAL, "filament": DENTAL_FILAMENT, "machine": DENTAL_MACHINE}.get(kind)
         if over and dental:
             missed = apply(data, over)
             if missed:
@@ -706,6 +706,16 @@ DENTAL: dict[str, object] = {
 #: ★ 식히는 방식도 다릅니다 — 속도를 줄이는 대신 **팬을 끝까지** 씁니다
 #:   (최대 80 → 100, 느려지는 기준 6초 → 1초). 겉벽이 이미 25mm/s 라
 #:   층 시간이 충분합니다.
+#: 기계 쪽 덮어쓰기 — **이동 때 노즐 들기만** (사용자 2026-10-23 "품질 유지하면서 시간 단축").
+#: ★ 크라운 한 개에 빈 이동이 558번, 노즐을 들었다 내리는 Z 이동이 365번입니다. 속도를
+#:   올려도 시간이 안 줄던(서포트 60→150 이 1초) 까닭이 이 잔걸음이었습니다.
+#: ★ 자동(Auto Lift) → 수직(Normal Lift), 0.4 → 0.2mm: 오르카 예상 6분 22초 → 6분 1초.
+#:   겉벽·닦기·속도는 안 건드립니다(품질). 윗면에 옅은 자국이나 휘어 오른 곳에 걸림이 보이면 되돌릴 것.
+DENTAL_MACHINE: dict[str, object] = {
+    "z_hop": ["0.2"],
+    "z_hop_types": ["Normal Lift"],
+}
+
 DENTAL_FILAMENT: dict[str, object] = {
     #: ★★ 0.98 → **0.96** (사용자 결정 2026-10-10). 층을 0.16 으로 올리면
     #:   마진 계단이 굵어지는데, 토출을 줄이면 그만큼 얇아집니다. 둘을 같이
