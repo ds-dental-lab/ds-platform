@@ -90,6 +90,11 @@ def pause_reason(code) -> str:
 #:   출력이 '취소' 로 떨어집니다 — 왜 그런지 알아내기 가장 어려운 자리입니다.
 KEEP_FILES = 20
 
+#: 프린터가 꺼내 둔 G코드(/cache) 중 남길 수 (2026-10-23)
+CACHE_KEEP = 3
+#: 우리가 올린 파일에서 프린터가 꺼낸 것의 이름 — 이 모양만 지웁니다
+_OUR_CACHE = __import__("re").compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_auto_plate_\d+\.gcode$")
+
 #: 올릴 파일을 백신이 쥐고 있을 때 다시 해 보는 횟수 (2026-10-08)
 OPEN_TRIES = 3
 
@@ -884,6 +889,35 @@ class BambuPrinter:
 
     # --- SD 카드 치우기 ---
 
+    @staticmethod
+    def _tidy_cache(ftp, keep: int = CACHE_KEEP) -> int:
+        """
+        ★ 프린터가 출력할 때마다 받은 파일에서 G코드를 꺼내 /cache 에 따로 둡니다 (실물 확인
+          2026-10-23 — 사용자 "프린터 저장소에 쌓이네"). 올린 파일은 지웠지만 이건 안 지워서
+          하루 시험에 25개가 쌓였습니다. **우리 이름 모양(주문id_auto_plate_N.gcode)만**, 최근 몇 개는 남깁니다.
+        """
+        try:
+            names = [n.rsplit("/", 1)[-1] for n in ftp.nlst("/cache")]
+        except (*ftplib.all_errors, OSError):
+            return 0
+        ours = [n for n in names if _OUR_CACHE.match(n)]
+        rows: list[tuple[str, str]] = []
+        for n in ours:
+            try:
+                when = ftp.sendcmd(f"MDTM /cache/{n}").split()[-1]
+            except (*ftplib.all_errors, OSError, IndexError):
+                continue  # 시각을 모르면 건드리지 않습니다
+            rows.append((when, n))
+        rows.sort()
+        gone = 0
+        for _when, n in rows[: max(0, len(rows) - keep)]:
+            try:
+                ftp.delete(f"/cache/{n}")
+                gone += 1
+            except (*ftplib.all_errors, OSError):
+                pass
+        return gone
+
     def tidy(self, printed: str = "", keep: int = KEEP_FILES) -> int:
         """
         뽑은 파일을 지우고, 오래된 것도 몇 개만 남깁니다. 지운 수를 돌려줍니다.
@@ -939,6 +973,8 @@ class BambuPrinter:
                     gone += 1
                 except (*ftplib.all_errors, OSError):
                     pass
+
+            gone += self._tidy_cache(ftp)
         finally:
             try:
                 ftp.quit()
