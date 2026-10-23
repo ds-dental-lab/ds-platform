@@ -243,6 +243,9 @@ export async function moveStep(
   }
 
   if (to === 'queued') {
+    // 다시 자르기를 잡았던 표시(claimed_*) — 출력 대기로 넘어가면 지웁니다 (2026-10-23)
+    patch.claimed_at = null;
+    patch.claimed_device_id = null;
     if (extra.printFilePath) patch.print_file_path = extra.printFilePath;
     if (extra.rotate) {
       patch.rotate_x = extra.rotate.x;
@@ -434,10 +437,18 @@ export async function reprintJob(
 ): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
   const admin = createAdminClient();
 
+  /*
+    ★★ 'queued' 가 아니라 **'slicing'(출력 준비)** 으로 돌립니다 (사용자 2026-10-23
+      "다시 뽑을 때도 자리 바꿔서"). 출력 파일에는 판 위 자리가 박혀 있어서, 그대로
+      다시 보내면 늘 같은 자리·같은 퍼지 줄입니다. 서버 PC 의 임시치아 지켜보기가
+      놓인 STL 을 받아 다음 자리로 다시 잘라 올립니다(claimNextReslice).
+    ★ print_file_path 는 **남깁니다** — 서버 PC 가 3분 안에 안 잡거나 6분 안에 못
+      끝내면 그 옛 파일로 출력합니다(promoteStaleReslices). 자리만 같을 뿐 멈추지 않습니다.
+  */
   const { data, error } = await admin
     .from('auto_jobs')
     .update({
-      step: 'queued',
+      step: 'slicing',
       bed_cleared_at: null,
       bed_cleared_by: null,
       claimed_at: null,
@@ -573,7 +584,9 @@ export async function clearBed(
   const { data } = await admin.from('auto_jobs').select(COLUMNS).eq('order_id', orderId).maybeSingle();
   const row = data as JobRow | null;
   if (!row) return { ok: false, error: '자동 진행 중인 주문이 아닙니다' };
-  if (row.step !== 'queued') return { ok: false, error: '아직 출력할 차례가 아닙니다' };
+  // ★ 다시 뽑기로 '출력 준비(slicing)' 인 동안에도 미리 눌러 둡니다 (2026-10-23 확인 창)
+  const reslicing = row.step === 'slicing' && !!row.print_file_path;
+  if (row.step !== 'queued' && !reslicing) return { ok: false, error: '아직 출력할 차례가 아닙니다' };
   if (row.bed_cleared_at) return { ok: true };
 
   const { error } = await admin
@@ -607,6 +620,8 @@ export async function claimPrintJob(
   device: LinkedDevice,
 ): Promise<{ ok: true; job: ClaimedJob | null } | { ok: false; error: string }> {
   const admin = createAdminClient();
+
+  await promoteStaleReslices(device.clinicOrgId);
 
   const { data } = await admin
     .from('auto_jobs')
@@ -923,7 +938,8 @@ export async function finishDeliver(
 
   return moveStep(job.id, 'queued', {
     printFilePath: print.path,
-    rotate: { x: num(r.x), y: num(r.y), z: num(r.z) },
+    // ★ 다시 자르기는 각도를 안 보냅니다 — 0 으로 덮지 않게 (2026-10-23)
+    ...(body.rotate ? { rotate: { x: num(r.x), y: num(r.y), z: num(r.z) } } : {}),
   });
 }
 
@@ -1132,6 +1148,132 @@ export interface DesignJob {
  * ★ 한 번에 하나. 덴트버드 창은 하나뿐입니다.
  * ★ 디자인센터 기기만.
  */
+/** 서버 PC 가 3분 안에 안 잡으면 / 잡고 6분 안에 못 끝내면 옛 파일로 (2026-10-23) */
+export const RESLICE_PICKUP_MS = 3 * 60_000;
+export const RESLICE_FINISH_MS = 6 * 60_000;
+
+/**
+ * 묵은 다시 자르기를 **옛 출력 파일(같은 자리)** 로 '출력 대기' 에 올립니다 (2026-10-23).
+ *
+ * ★ 서버 PC 가 꺼져 있어도 다시 뽑기는 나가야 합니다. 자리만 같습니다.
+ * ★ 치과 PC 가 일감을 물을 때(20초마다) 그 치과 것만 봅니다 — cron 없이.
+ */
+export async function promoteStaleReslices(clinicOrgId: string): Promise<void> {
+  const admin = createAdminClient();
+  const now = Date.now();
+  const pickup = new Date(now - RESLICE_PICKUP_MS).toISOString();
+  const finish = new Date(now - RESLICE_FINISH_MS).toISOString();
+  const patch = {
+    step: 'queued',
+    claimed_at: null,
+    claimed_device_id: null,
+    updated_at: new Date(now).toISOString(),
+  };
+  // 아무도 안 잡은 것
+  await admin
+    .from('auto_jobs')
+    .update(patch)
+    .eq('clinic_org_id', clinicOrgId)
+    .eq('step', 'slicing')
+    .not('print_file_path', 'is', null)
+    .is('claimed_at', null)
+    .lt('updated_at', pickup);
+  // 잡았는데 못 끝낸 것
+  await admin
+    .from('auto_jobs')
+    .update(patch)
+    .eq('clinic_org_id', clinicOrgId)
+    .eq('step', 'slicing')
+    .not('print_file_path', 'is', null)
+    .lt('claimed_at', finish);
+}
+
+export interface ResliceJob {
+  orderId: string;
+  /** 지난번 올린 **놓인** STL — 이미 돌아가 있습니다. 서명 주소(10분) */
+  stlUrl: string;
+  /** 출력 파일을 올릴 열쇠 (deliver) */
+  token: string;
+  /** 서버가 견줄 치식 — 주문서 것 */
+  teeth: number[];
+}
+
+/**
+ * 서버 PC(임시치아 지켜보기)가 **다시 자를 것**을 가져갑니다 (2026-10-23).
+ *
+ * ★ 표시는 단계가 아니라 모양입니다 — 'slicing' 인데 출력 파일이 이미 있는 것.
+ *   처음 자를 때는 slicing 을 같은 요청 안에서 지나가므로(finishDeliver) 여기 안 걸립니다.
+ *   design_stage 값을 새로 만들면 DB 제약을 고쳐야 해서 이 길을 골랐습니다.
+ * ★ 잡는 것은 한 번만 — claimed_at 이 비어 있는 줄만 바꿉니다.
+ */
+export async function claimNextReslice(
+  device: LinkedDevice,
+): Promise<{ ok: true; job: ResliceJob | null } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+
+  const { data: org } = await admin.from('organizations').select('org_type').eq('id', device.clinicOrgId).maybeSingle();
+  if ((org as { org_type?: string } | null)?.org_type !== 'design_center') {
+    return { ok: false, error: '설계 PC 만 다시 자를 수 있습니다' };
+  }
+
+  const { data: rows, error } = await admin
+    .from('auto_jobs')
+    .select('id, order_id')
+    .eq('step', 'slicing')
+    .not('print_file_path', 'is', null)
+    .is('claimed_at', null)
+    .order('updated_at', { ascending: true })
+    .limit(1);
+  if (error) return { ok: false, error: error.message };
+  const row = ((rows ?? []) as { id: string; order_id: string }[])[0];
+  if (!row) return { ok: true, job: null };
+
+  const now = new Date().toISOString();
+  const { data: taken, error: takeError } = await admin
+    .from('auto_jobs')
+    .update({ claimed_at: now, claimed_device_id: device.id })
+    .eq('id', row.id)
+    .eq('step', 'slicing')
+    .is('claimed_at', null)
+    .select('id');
+  if (takeError) return { ok: false, error: takeError.message };
+  if (!taken || taken.length === 0) return { ok: true, job: null };
+
+  // 못 자르면 바로 옛 파일로 출력 대기 — 기다리게 하지 않습니다
+  const giveBack = async (why: string) => {
+    await moveStep(row.id, 'queued');
+    return { ok: false as const, error: why };
+  };
+
+  // 놓인 STL — 지난번 deliver 가 'etc' 로 남긴 자동디자인.stl 중 가장 새것
+  const { data: files } = await admin
+    .from('order_files')
+    .select('storage_path, created_at')
+    .eq('order_id', row.order_id)
+    .eq('kind', 'etc')
+    .eq('file_name', '자동디자인.stl')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  const stlPath = ((files ?? []) as { storage_path: string }[])[0]?.storage_path;
+  if (!stlPath) return giveBack('놓인 STL 이 없어 같은 자리로 뽑습니다');
+
+  const signed = await admin.storage.from(BUCKET).createSignedUrl(stlPath, 600);
+  if (signed.error || !signed.data) return giveBack('놓인 STL 주소를 못 만들어 같은 자리로 뽑습니다');
+
+  const token = issueExocadToken(row.order_id);
+  if (!token) return giveBack('올리기 열쇠를 못 만들어 같은 자리로 뽑습니다');
+
+  const { data: items } = await admin.from('order_items').select('tooth_number').eq('order_id', row.order_id);
+  const teeth = [
+    ...new Set(
+      ((items ?? []) as { tooth_number: number }[]).map((i) => i.tooth_number).filter((n) => Number.isInteger(n)),
+    ),
+  ];
+
+  return { ok: true, job: { orderId: row.order_id, stlUrl: signed.data.signedUrl, token, teeth } };
+}
+
 export async function claimNextDesign(
   orgId: string,
   /**

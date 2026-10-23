@@ -219,6 +219,48 @@ def _deliver_once(stl: Path, got: dict) -> bool:
     return ok
 
 
+#: 다시 뽑기 다시 자르기를 몇 초마다 묻나 (2026-10-23). 폴더 보기(5초)보다 느슨하게
+RESLICE_POLL_SECONDS = 15
+
+
+def reslice_once(base: str, token: str) -> bool:
+    """
+    다시 뽑기를 **다음 자리로 다시 자릅니다** (사용자 2026-10-23 "다시 뽑을 때도 자리 바꿔서").
+
+    ★ 치과가 「다시 뽑기」를 누르면 작업이 '출력 준비(slicing)' 로 돌아갑니다. 여기서
+      지난번 올린 놓인 STL 을 받아 plate_slot 다음 칸으로 다시 잘라 올립니다.
+    ★ 못 하면 그대로 둡니다 — 3분 안에 아무도 안 잡거나 6분 안에 못 끝내면 서버가
+      **옛 출력 파일(같은 자리)** 로 되돌려 출력은 나갑니다. 자리가 같을 뿐 멈추지 않습니다.
+    돌려주는 것: 일감이 있었는가
+    """
+    got = post(f"{base}/api/device/auto-print/next-reslice", {}, token)
+    if not got.get("ok"):
+        say(f"다시 자르기 묻기 실패: {got.get('error')}")
+        return False
+    job = got.get("job")
+    if not job:
+        return False
+
+    order_id = job["orderId"]
+    say(f"다시 뽑기 — 주문 {order_id[:8]} 를 다음 자리로 다시 자릅니다")
+    WORK.mkdir(parents=True, exist_ok=True)
+    stl = WORK / f"{order_id}_다시.stl"
+    try:
+        with urllib.request.urlopen(job["stlUrl"], timeout=120) as r:
+            stl.write_bytes(r.read())
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        say(f"  놓인 STL 을 못 받았습니다 — {e} (서버가 옛 파일로 되돌립니다)")
+        return True
+
+    from deliver import deliver  # noqa: PLC0415
+    ok = deliver(
+        stl, order_id, job["token"], WORK, 0.0, 0.0,
+        say=lambda m: say("  " + m), reslice_teeth=list(job.get("teeth") or []),
+    )
+    say("  다시 잘라 올렸습니다" if ok else "  다시 자르지 못했습니다 (서버가 옛 파일로 되돌립니다)")
+    return True
+
+
 def main() -> int:
     from watch_common import beat, revive, single_instance  # noqa: PLC0415
 
@@ -264,7 +306,16 @@ def main() -> int:
         + (f" (이름표 {tag['orderId'][:8]} 뒤의 것은 집습니다)" if tag else ""))
     say(f"크라운으로 보는 이름: {'·'.join(words)}")
 
+    next_reslice = 0.0
     while True:
+        # ★ 다시 뽑기 다시 자르기 (2026-10-23) — 폴더 보기와 같은 바퀴에서, 15초마다
+        if time.time() >= next_reslice:
+            next_reslice = time.time() + RESLICE_POLL_SECONDS
+            try:
+                reslice_once(base, token)
+            except Exception as e:  # noqa: BLE001 — 지켜보기는 안 죽습니다
+                say(f"다시 자르기 — 알 수 없는 문제: {e!r}")
+
         # ★★ 표시와 살리기를 **맨 앞에서** (2026-10-16). 뒤에 두면 폴더를 못 읽는
         #   바퀴에서 건너뛰어, 다른 둘이 죽어도 아무도 안 살렸습니다.
         beat("temp_watch")

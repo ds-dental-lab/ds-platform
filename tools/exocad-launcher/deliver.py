@@ -118,7 +118,20 @@ def deliver(
     rz: float = 0.0,
     say=print,
     layer: float | None = None,
+    reslice_teeth: list[int] | None = None,
 ) -> bool:
+    """
+    ★ `reslice_teeth` 를 주면 **다시 뽑기용 다시 자르기**입니다 (사용자 2026-10-23
+      "다시 뽑을 때도 자리 바꿔서"). stl 은 지난번에 올린 '놓인' STL 이라
+      이미 돌아가 있습니다 — 각도는 0, 자리만 다음 칸으로 옮깁니다.
+      .constructionInfo 가 없으니 치식은 서버가 준 것으로 견주고,
+      출력 파일 하나만 올립니다(디자인 STL·그림을 또 올리면 주문 파일이 쌓입니다).
+    """
+    reslice = reslice_teeth is not None
+    roles = ("print",) if reslice else ROLES
+    if reslice:
+        rx = ry = rz = 0.0
+
     if not ready():
         say("오르카를 한 번 켜 주세요 (첫 실행에서 설정이 만들어집니다)")
         return False
@@ -135,11 +148,16 @@ def deliver(
     #   치과에서 그대로 출력됩니다 — 자르고 올린 뒤에 알면 늦습니다.
     # ★ 「CAM 축에 좌표 정렬」을 끄고 내보내면 자세가 케이스마다 달라져
     #   고정 각도가 뜻을 잃습니다. 그것도 여기서 잡습니다.
-    looked = check_case(stl)
-    if not looked.ok:
-        say(f"멈춤: {looked.message}")
-        return False
-    say(looked.message)
+    if reslice:
+        teeth = list(reslice_teeth or [])
+        say(f"다시 자르기 — 치식 {'·'.join(str(t) for t in teeth) or '?'}")
+    else:
+        looked = check_case(stl)
+        if not looked.ok:
+            say(f"멈춤: {looked.message}")
+            return False
+        say(looked.message)
+        teeth = looked.teeth
 
     # --- 올릴 자리 받기 (치식 대조가 여기서 일어납니다) ---
     #
@@ -151,10 +169,10 @@ def deliver(
         url,
         {
             "orderId": order_id,
-            "files": [{"role": r} for r in ROLES],
+            "files": [{"role": r} for r in roles],
             # ★ 서버가 주문서 치식과 **다시** 견줍니다. 여기 것은 빨리
             #   알려주기 위한 것이고, 막는 쪽은 서버입니다.
-            "teeth": looked.teeth,
+            "teeth": teeth,
         },
     )
     if not opened.get("ok"):
@@ -185,6 +203,7 @@ def deliver(
         "preview": Path(made["preview"]),
     }
     assert set(local) == set(ROLES)
+    local = {r: local[r] for r in roles}
 
     # --- 올리기 ---
     uploaded = []
@@ -210,7 +229,8 @@ def deliver(
             "orderId": order_id,
             "done": True,
             "files": uploaded,
-            "rotate": {"x": rx, "y": ry, "z": rz},
+            # ★ 다시 자르기는 각도를 안 바꿨으니 안 보냅니다 — 0 으로 덮어쓰면 기록이 틀어집니다
+            **({} if reslice else {"rotate": {"x": rx, "y": ry, "z": rz}}),
             "facts": {k: made[k] for k in ("layers", "print_time", "slicer", "size")},
         },
     )
