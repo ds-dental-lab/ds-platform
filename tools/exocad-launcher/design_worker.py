@@ -272,6 +272,8 @@ def _health() -> dict:
 #: 쉬는 동안 로그인 확인 — 글자만 읽기 / 새로 고쳐서 확인 (2026-10-23)
 LOGIN_PROBE_SECONDS = 120
 LOGIN_RELOAD_SECONDS = 30 * 60
+#: 확인할 때 새로 고치나 — 끔 (새로 고침마다 덴트버드가 '새 로그인' 메일을 보냈습니다)
+RELOAD_ON_PROBE = False
 _next_probe = 0.0
 _next_reload = 0.0
 #: 로그인이 풀린 까닭 — 풀린 동안만 들어 있습니다
@@ -282,7 +284,7 @@ def _probe_login() -> None:
     """
     ★ 일감이 없을 때도 덴트버드 로그인이 살아 있는지 봅니다 (사용자 2026-10-23 "3번 넣어줘").
       다른 PC 에서 같은 계정으로 로그인하면 이 창이 끊깁니다. 전에는 주문이 와서야
-      알아 그 주문이 멈췄습니다. 이제 2분마다 글자를 읽고, 30분마다 새로 고쳐 봅니다.
+      알아 그 주문이 멈췄습니다. 이제 2분마다 글자를 읽습니다(새로 고침은 뺌 — 아래).
     ★ 풀리면 상태 보고에 '로그인 풀림' 을 싣습니다 — 서버가 센터에 알림·푸시를 보냅니다.
       그동안 일감은 안 잡습니다(_session_bad_at). 다시 로그인하면 2분 안에 풀립니다.
     """
@@ -291,7 +293,12 @@ def _probe_login() -> None:
     if now < _next_probe:
         return
     _next_probe = now + LOGIN_PROBE_SECONDS
-    reload = now >= _next_reload
+    # ★★ 새로 고침은 **안 합니다** (2026-10-23 같은 날 뺌). 넣자마자 아무도 로그인 안 했는데
+    #   덴트버드가 "New login detected" 메일을 보냈습니다 — 일꾼이 다시 뜰 때마다 첫 확인에서
+    #   새로 고쳤고, 시각이 맞았습니다. 글자만 읽는 것은 덴트버드에 요청을 안 보냅니다.
+    #   다른 PC 로그인으로 끊기면 덴트버드 화면이 스스로 'Multiple login detected' 를 띄웁니다
+    #   (2026-10-16 아침 실제로 뜸) — 그걸 읽으면 됩니다.
+    reload = RELOAD_ON_PROBE and now >= _next_reload
     if reload:
         _next_reload = now + LOGIN_RELOAD_SECONDS
 
