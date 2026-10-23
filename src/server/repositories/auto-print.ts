@@ -28,6 +28,7 @@ import {
   isDesignStage,
   retryTo,
   teethMismatch,
+  typicalPrintSeconds,
   type AutoJob,
   type AutoStep,
   type DesignStage,
@@ -620,6 +621,25 @@ export async function warmSoon(clinicOrgId: string): Promise<boolean> {
     .limit(20);
   return ((data ?? []) as { step: string; design_stage: string | null }[]).some((j) =>
     j.step === 'waiting_design' ? WARM_DESIGN_STAGES.includes(j.design_stage ?? '') : true,
+  );
+}
+
+/** 이 치과의 최근 실제 출력 시간(초) — 준비 구간 남은 시간용 (2026-10-23) */
+export async function clinicTypicalPrintSeconds(clinicOrgId: string): Promise<number | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('auto_jobs')
+    .select('started_at, finished_at')
+    .eq('clinic_org_id', clinicOrgId)
+    .eq('step', 'done')
+    .not('started_at', 'is', null)
+    .order('finished_at', { ascending: false })
+    .limit(5);
+  return typicalPrintSeconds(
+    ((data ?? []) as { started_at: string | null; finished_at: string | null }[]).map((r) => ({
+      startedAt: r.started_at,
+      finishedAt: r.finished_at,
+    })),
   );
 }
 

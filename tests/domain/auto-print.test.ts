@@ -20,6 +20,7 @@ import {
   MAX_TRIES,
   alertOnMove,
   alertPushes,
+  typicalPrintSeconds,
   autoAlert,
   autoNotice,
   boardRow,
@@ -707,5 +708,31 @@ describe('폰 푸시는 손댈 일만 (2026-10-23)', () => {
   });
   it('판 비우기·멈춤·스캔·자동 설계 포기는 폰까지', () => {
     for (const k of ['bed', 'failed', 'design_scan', 'design_ended'] as const) expect(alertPushes(k)).toBe(true);
+  });
+});
+
+describe('준비 구간 남은 시간은 실제 출력 시간으로 (2026-10-23)', () => {
+  const start = '2026-10-23T06:36:44Z';
+  const at = (sec: number) => new Date(start).getTime() + sec * 1000;
+  const job = (over: Record<string, unknown>) =>
+    ({ step: 'printing', bedClearedAt: 'x', percent: 0, failedAt: null, failedReason: null, startedAt: start, ...over }) as never;
+
+  it('오늘 실측 — 시작 때 프린터 12분, 실제 7분(417초)', () => {
+    expect(remainingOf(job({ remainingMin: 12, layerNow: 0 }), at(0), 417)).toBe(7);
+    expect(remainingOf(job({ remainingMin: 7, layerNow: 0 }), at(83), 417)).toBe(6);
+  });
+  it('첫 층부터는 프린터 값 그대로', () => {
+    expect(remainingOf(job({ remainingMin: 5, layerNow: 1 }), at(129), 417)).toBe(5);
+  });
+  it('프린터 값이 더 작으면 그쪽', () => {
+    expect(remainingOf(job({ remainingMin: 3, layerNow: 0 }), at(60), 417)).toBe(3);
+  });
+  it('실제 기록이 없으면 프린터 값', () => {
+    expect(remainingOf(job({ remainingMin: 12, layerNow: 0 }), at(0), null)).toBe(12);
+  });
+  it('가운데 값 · 너무 짧거나 긴 것은 버림', () => {
+    const r = (s: number) => ({ startedAt: start, finishedAt: new Date(at(s)).toISOString() });
+    expect(typicalPrintSeconds([r(417), r(432), r(440), r(60), r(5000)])).toBe(432);
+    expect(typicalPrintSeconds([])).toBeNull();
   });
 });

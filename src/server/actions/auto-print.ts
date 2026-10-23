@@ -17,7 +17,14 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/server/policies/session';
-import { clearBed, dismissJob, jobOfOrder, reprintJob, retryJob } from '@/server/repositories/auto-print';
+import {
+  clearBed,
+  clinicTypicalPrintSeconds,
+  dismissJob,
+  jobOfOrder,
+  reprintJob,
+  retryJob,
+} from '@/server/repositories/auto-print';
 import {
   autoProgress,
   autoNotice,
@@ -145,7 +152,9 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
     return ((data ?? []) as { last_seen_at: string | null }[])[0]?.last_seen_at ?? null;
   };
   const clinicOnline = deviceOnline(await lastSeen(o?.clinic_org_id), now);
-  const shown = withClinicPc(boardRow(rest, now), rest, clinicOnline);
+  // ★ 준비 구간 남은 시간은 이 치과의 실제 출력 시간으로 (2026-10-23)
+  const typical = rest.step === 'printing' && o?.clinic_org_id ? await clinicTypicalPrintSeconds(o.clinic_org_id) : null;
+  const shown = withClinicPc(boardRow(rest, now, typical), rest, clinicOnline);
   // ★ 이미 책갈피에서 치운 다 나온 건 — 상세에는 「다시 뽑기」만, 「치우기」는 또 안 띄움 (2026-10-23)
   const board = dismissed ? { ...shown, canDismiss: false } : shown;
 
@@ -281,6 +290,10 @@ export async function getFlowTempBoard(): Promise<Board> {
   const autoTypes = (types ?? []) as { code: string; name: string }[];
   const autoCodes = new Set(autoTypes.map((t) => t.code));
 
+  // ★ 준비 구간 남은 시간은 이 치과의 실제 출력 시간으로 (2026-10-23) — 출력 중인 줄이 있을 때만 묻습니다
+  const typical = rows.some((r) => r.step === 'printing') && session.orgId ? await clinicTypicalPrintSeconds(session.orgId) : null;
+  const now = Date.now();
+
   const items: BoardItem[] = rows
     .filter((r) => isAutoStep(r.step))
     .map((r) => {
@@ -309,7 +322,7 @@ export async function getFlowTempBoard(): Promise<Board> {
               .map((i) => i.tooth_number),
           ),
         ].sort((a, b) => a - b),
-        ...boardRow(job),
+        ...boardRow(job, now, typical),
       };
     });
 

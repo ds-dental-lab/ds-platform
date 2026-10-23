@@ -671,8 +671,22 @@ export interface BoardRow {
  *   올리고, 프린터가 잠깐 말을 안 할 때도 있습니다. 3% 전에는 어림이 크게
  *   흔들려서 안 합니다.
  */
-export function remainingOf(job: AutoJob, now: number): number | null {
+export function remainingOf(job: AutoJob, now: number, typicalSec: number | null = null): number | null {
   if (job.step !== 'printing') return null;
+  /*
+    ★★ **준비 구간(첫 층 전)은 이 치과의 실제 출력 시간으로** (사용자 2026-10-23 "실제 7분인데
+      왜 13분으로 찍히냐"). 프린터 값은 오르카 예상이라 데우기·원점 잡기를 몇 분 길게 잡습니다 —
+      실측: 시작 때 12분(실제 7분), 83초 때 7분(실제 5분 34초). 첫 층부터는 거의 맞습니다
+      (129초 때 5분 / 실제 4분 48초). 그래서 첫 층 전에만 바꿉니다.
+    ★ 최근 실제 시간이 없으면(첫 출력) 프린터 값 그대로.
+  */
+  const prep = (job.layerNow ?? 0) < 1;
+  if (prep && typicalSec && job.startedAt) {
+    const elapsed = (now - new Date(job.startedAt).getTime()) / 1000;
+    const ours = Math.max(1, Math.ceil((typicalSec - elapsed) / 60));
+    const printer = typeof job.remainingMin === 'number' && job.remainingMin >= 0 ? Math.round(job.remainingMin) : null;
+    return printer === null ? ours : Math.min(printer, ours);
+  }
   if (typeof job.remainingMin === 'number' && job.remainingMin >= 0) return Math.round(job.remainingMin);
   const p = job.percent;
   if (!job.startedAt || p === null || p < 3 || p >= 100) return null;
@@ -722,9 +736,22 @@ function overallOf(job: AutoJob): number {
   return OVERALL[job.step];
 }
 
-export function boardRow(job: AutoJob, now: number = Date.now()): BoardRow {
+/**
+ * 최근 실제 출력 시간(초)의 가운데 값 — 준비 구간 남은 시간에 씁니다 (2026-10-23).
+ * ★ 3분 아래·40분 위는 버립니다(끊겼다 다시 붙은 것·시험 정육면체 따위).
+ */
+export function typicalPrintSeconds(rows: { startedAt: string | null; finishedAt: string | null }[]): number | null {
+  const secs = rows
+    .map((r) => (r.startedAt && r.finishedAt ? (new Date(r.finishedAt).getTime() - new Date(r.startedAt).getTime()) / 1000 : NaN))
+    .filter((v) => Number.isFinite(v) && v >= 180 && v <= 2400)
+    .sort((a, b) => a - b);
+  if (secs.length === 0) return null;
+  return Math.round(secs[Math.floor(secs.length / 2)]);
+}
+
+export function boardRow(job: AutoJob, now: number = Date.now(), typicalSec: number | null = null): BoardRow {
   const overall = overallOf(job);
-  const remaining = remainingOf(job, now);
+  const remaining = remainingOf(job, now, typicalSec);
   const printing = job.step === 'printing';
   const base = {
     overall,
