@@ -617,7 +617,10 @@ DENTAL: dict[str, object] = {
     "support_style": "snug",
     #: 20도는 곡면이 많은 치아에 모자랍니다. 60도면 훨씬 자주 받칩니다
     "support_threshold_angle": "60",
-    "support_top_z_distance": "0.18",
+    #: ★ 위 간격 0.18 → **0.32** (사용자 2026-10-23 "서포트랑 출력물 거리 한 단계만, 조금 빡빡하다").
+    #:   서포트가 치아와 같은 층 높이(0.16)로 가서 간격도 0.16 단위로 반올림됩니다 — 실측:
+    #:   0.18 은 0.16 으로 잘렸고, 0.24·0.32 는 똑같은 결과. 그래서 '한 단계' 는 0.16 → 0.32.
+    "support_top_z_distance": "0.32",
     "support_bottom_z_distance": "0.18",
     #: ★ 서포트와 치아 **사이가 지저분하다** (사용자 2026-10-21, 손에 쥐고 본 것).
     #:   세 군데를 손봅니다 — 아직 뽑아 보기 전이라 **다음 출력으로 확인**합니다.
@@ -649,6 +652,9 @@ DENTAL: dict[str, object] = {
     "raft_layers": "2",
     "raft_contact_distance": "0",
     "raft_first_layer_expansion": "1.5",
+    #: ★ 라프트 첫 층을 **빈틈 없는 한 장으로** (사용자 2026-10-23 "라프트 모양 한 덩어리로").
+    #:   기본 90% 는 줄 사이가 살짝 떠 있습니다. 실측 첫 층 라프트 259 → 279mm.
+    "raft_first_layer_density": "100%",
     #: ★★ **판 종류를 박아 둡니다** (2026-10-10). 안 정하면 'Cool Plate' 로
     #:   잡혀 베드가 **35도**로 돕니다 — A1 mini 에 딸려 오는 텍스처 PEI 판에서
     #:   35도면 손톱만 한 라프트가 안 붙습니다. 받은 설정의 55도를 쓰려면
@@ -660,7 +666,10 @@ DENTAL: dict[str, object] = {
     #:   **노즐을 미리 밀어 두려는** 것입니다. 아래 기계 쪽에서 토출 보정을
     #:   건너뛰는데, 그 안에 노즐을 밀어내는 줄이 같이 들어 있어서 그냥
     #:   끄면 첫 층이 비어 나옵니다. 스커트가 그 일을 대신합니다.
-    "skirt_loops": "1",
+    #: ★★ 스커트 **뺌** (사용자 2026-10-23 "동그라미로 잔여물질이 남아 있네"). 첫 층을 그려 보니
+    #:   판에 남는 동그라미가 이 스커트였습니다. 노즐 밀어 두기는 이제 시작 G코드의
+    #:   '늘 긋는 압출선'(코스 10개)이 합니다 — 자른 G코드에서 E10 줄을 확인했습니다.
+    "skirt_loops": "0",
     "skirt_distance": "3",
     "skirt_height": "1",
     "min_skirt_length": "0",
@@ -733,6 +742,7 @@ EXTRA_OK = (
     "support_bottom_interface_spacing",
     "raft_contact_distance",
     "raft_first_layer_expansion",
+    "raft_first_layer_density",
     "min_skirt_length",
     "slow_down_layers",
     "independent_support_layer_height",
