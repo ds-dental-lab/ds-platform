@@ -119,6 +119,7 @@ def deliver(
     say=print,
     layer: float | None = None,
     reslice_teeth: list[int] | None = None,
+    process_extra: dict | None = None,
 ) -> bool:
     """
     ★ `reslice_teeth` 를 주면 **다시 뽑기용 다시 자르기**입니다 (사용자 2026-10-23
@@ -187,6 +188,9 @@ def deliver(
     try:
         # ★ --layer 는 이번 한 건만 (기본 0.16 은 orca_profile.DENTAL)
         extra = {"layer_height": f"{layer:g}"} if layer else None
+        # ★ 한 번만 바꿔 보는 값 (temp_watch 의 oneshot, 2026-10-23)
+        if process_extra:
+            extra = {**(extra or {}), **process_extra}
         made = build(
             stl, out_dir, *prof.as_tuple(), rx=rx, ry=ry, rz=rz, stem=order_id,
             process_extra=extra, at=(slot.x, slot.y), purge=slot.purge,

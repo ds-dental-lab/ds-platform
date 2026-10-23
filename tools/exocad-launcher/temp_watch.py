@@ -223,6 +223,36 @@ def _deliver_once(stl: Path, got: dict) -> bool:
 RESLICE_POLL_SECONDS = 15
 
 
+#: 한 번만 바꿔 자를 값 (사용자 2026-10-23 "한 번만 0.2mm 로 출력해 줘").
+#: ★ 저장소에 이 파일을 두면 서버 PC 가 스스로 갱신으로 받아 **다음 다시 자르기 한 번**에만 씁니다.
+#:   쓴 것은 이 PC 의 작은 기록(id)으로 남겨 두 번 안 씁니다. 파일 안 `id` 를 바꾸면 또 한 번.
+ONESHOT_FILE = HERE / "oneshot.json"
+ONESHOT_USED = STATE / "launcher" / "oneshot_used.txt"
+
+
+def take_oneshot() -> dict | None:
+    """아직 안 쓴 한 번짜리 값이 있으면 꺼내고 '썼다' 고 적습니다. 없으면 None"""
+    try:
+        got = json.loads(ONESHOT_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    oid = str(got.get("id") or "")
+    extra = got.get("process")
+    if not oid or not isinstance(extra, dict) or not extra:
+        return None
+    try:
+        if ONESHOT_USED.read_text(encoding="utf-8").strip() == oid:
+            return None
+    except OSError:
+        pass
+    try:
+        ONESHOT_USED.parent.mkdir(parents=True, exist_ok=True)
+        ONESHOT_USED.write_text(oid, encoding="utf-8")
+    except OSError:
+        return None  # 못 적으면 계속 쓰게 되니 아예 안 씁니다
+    return {str(k): v for k, v in extra.items()}
+
+
 def reslice_once(base: str, token: str) -> bool:
     """
     다시 뽑기를 **다음 자리로 다시 자릅니다** (사용자 2026-10-23 "다시 뽑을 때도 자리 바꿔서").
@@ -253,9 +283,13 @@ def reslice_once(base: str, token: str) -> bool:
         return True
 
     from deliver import deliver  # noqa: PLC0415
+    extra = take_oneshot()
+    if extra:
+        say(f"  이번 한 번만 바꿔 자릅니다 — {extra}")
     ok = deliver(
         stl, order_id, job["token"], WORK, 0.0, 0.0,
         say=lambda m: say("  " + m), reslice_teeth=list(job.get("teeth") or []),
+        process_extra=extra,
     )
     say("  다시 잘라 올렸습니다" if ok else "  다시 자르지 못했습니다 (서버가 옛 파일로 되돌립니다)")
     return True
