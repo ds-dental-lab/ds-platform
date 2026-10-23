@@ -19,15 +19,30 @@ def _dist(a, b):
 
 class SlotTest(unittest.TestCase):
     def test_consecutive_slots_are_far_apart(self):
-        # 바로 앞 크라운이 남아 있어도 안 겹치게 — 이어지는 둘은 35mm 넘게
-        for i in range(len(ps.SLOTS)):
-            a, b = ps.SLOTS[i], ps.SLOTS[(i + 1) % len(ps.SLOTS)]
-            self.assertGreaterEqual(_dist(a, b), 35.0, f"{a} → {b}")
+        # 바로 앞 크라운이 남아 있어도 안 겹치게 — 이어지는 둘은 45mm 넘게 (고리로)
+        n = len(ps.SLOTS)
+        for i in range(n):
+            a, b = ps.SLOTS[i], ps.SLOTS[(i + 1) % n]
+            self.assertGreaterEqual(_dist(a, b), 45.0, f"{a} → {b}")
+
+    def test_recent_three_are_apart(self):
+        # 두세 번 안 비워도 — 최근 세 자리끼리 30mm 넘게
+        n = len(ps.SLOTS)
+        for i in range(n):
+            for j in (1, 2, 3):
+                a, b = ps.SLOTS[i], ps.SLOTS[(i + j) % n]
+                self.assertGreaterEqual(_dist(a, b), 30.0, f"{i}+{j}: {a} → {b}")
+
+    def test_every_cell_once(self):
+        # 판 전체를 고르게 — 5열×4행 칸을 한 번씩, 빠짐·겹침 없이 (2026-10-23)
+        cells = {(x, y) for x in ps.COLS for y in ps.ROWS}
+        self.assertEqual(len(ps.SLOTS), 20)
+        self.assertEqual(set(ps.SLOTS), cells)
 
     def test_slots_stay_inside_plate_margins(self):
-        # 앞쪽(과잉 압출 선)·뒤쪽(노즐 닦기)·양옆을 비워 둡니다
+        # 앞쪽(Y<10 과잉 압출 선)·뒤쪽(Y>170 노즐 닦기)·양옆 — 크라운 반 폭 ≈7mm + 여유
         for x, y in ps.SLOTS:
-            self.assertTrue(30 <= x <= 150 and 30 <= y <= 150, (x, y))
+            self.assertTrue(20 <= x <= 160 and 30 <= y <= 150, (x, y))
 
     def test_purge_shift_keeps_line_on_plate(self):
         # 원래 선 X68→115. 옮겨도 판(0~180) 안
@@ -53,8 +68,8 @@ class SlotTest(unittest.TestCase):
             self.assertEqual(ps.take(state).index, 1)
 
     def test_label_names_the_spot(self):
-        self.assertEqual(ps.slot_at(0).label, "자리 1/6 (앞가운데)")
-        self.assertEqual(ps.slot_at(1).label, "자리 2/6 (뒤왼쪽)")
+        self.assertEqual(ps.slot_at(0).label, "자리 1/20 (앞에서 1줄 · 왼쪽에서 2칸)")
+        self.assertEqual(ps.slot_at(1).label, "자리 2/20 (앞에서 4줄 · 왼쪽에서 5칸)")
 
 
 class PlacementTest(unittest.TestCase):
