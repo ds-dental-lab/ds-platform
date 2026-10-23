@@ -121,7 +121,7 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
   if (!job) return null;
 
   const session = await getSession();
-  const { designNote, ...rest } = job;
+  const { designNote, dismissed, ...rest } = job;
   const isCenter = session?.orgType === 'design_center';
 
   /*
@@ -145,7 +145,9 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
     return ((data ?? []) as { last_seen_at: string | null }[])[0]?.last_seen_at ?? null;
   };
   const clinicOnline = deviceOnline(await lastSeen(o?.clinic_org_id), now);
-  const board = withClinicPc(boardRow(rest, now), rest, clinicOnline);
+  const shown = withClinicPc(boardRow(rest, now), rest, clinicOnline);
+  // ★ 이미 책갈피에서 치운 다 나온 건 — 상세에는 「다시 뽑기」만, 「치우기」는 또 안 띄움 (2026-10-23)
+  const board = dismissed ? { ...shown, canDismiss: false } : shown;
 
   let note = isCenter && job.designStage === 'stalled' ? designNote : null;
   if (isCenter && job.step === 'waiting_design' && job.designStage !== 'stalled') {

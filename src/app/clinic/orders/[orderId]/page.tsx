@@ -171,7 +171,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         order.order_type === 'temp' ? (
           /* ★ 임시치아만 주문 — 리메이크·리페어 대상이 아닙니다. 다시 뽑기는 책갈피 (2026-10-22) */
           <p className="text-[12.5px] text-[#7C8595]">
-            임시치아만 있는 주문입니다. 다시 뽑으려면 오른쪽 FlowTemp 책갈피의 「↻ 다시 뽑기」를 눌러 주세요.
+            임시치아만 있는 주문입니다. 다시 뽑으려면 위 FlowTemp 칸의 「↻ 다시 뽑기」를 눌러 주세요.
           </p>
         ) : (
         <>

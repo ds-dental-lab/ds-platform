@@ -87,14 +87,16 @@ const COLUMNS =
 /** 주문 하나의 작업. 없으면 null */
 export async function jobOfOrder(
   orderId: string,
-): Promise<(AutoJob & { id: string; designNote: string | null }) | null> {
+): Promise<(AutoJob & { id: string; designNote: string | null; dismissed: boolean }) | null> {
   const admin = createAdminClient();
   const { data } = await admin.from('auto_jobs').select(COLUMNS).eq('order_id', orderId).maybeSingle();
   const row = data as JobRow | null;
   // ★ 그만둔 건은 없는 건입니다 (2026-10-21) — 책갈피와 같은 눈. 그만둔 뒤에도 주문 상세에
   //   '디자인 다시 걸기' 가 남아 있어, 눌렀더니 치식 0개로 또 멈췄습니다(zzz 건).
-  if (!row || row.dismissed_at) return null;
-  return { id: row.id, designNote: row.design_note, ...asJob(row) };
+  // ★★ 단, **다 나온 뒤 치운 것(done)은 남깁니다** (사용자 2026-10-23 "재출력 버튼이 없다").
+  //   책갈피에서 치우면 상세에서도 사라져, 다시 뽑을 단추가 어디에도 없었습니다.
+  if (!row || (row.dismissed_at && row.step !== 'done')) return null;
+  return { id: row.id, designNote: row.design_note, dismissed: !!row.dismissed_at, ...asJob(row) };
 }
 
 /**
