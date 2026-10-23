@@ -42,6 +42,8 @@ POLL_SECONDS = 10
 #:   노즐은 안 데웁니다: A1 mini 는 시작할 때 노즐을 170·140 으로 **식히며 기다려서**
 #:   미리 데우면 오히려 2분을 잃었습니다(2026-10-10 실측, printer_send.warm 참고).
 WARM_BED = 55
+#: 이 PC 에 남겨 둘 내려받은 출력 파일 수 (2026-10-23)
+LOCAL_KEEP = 5
 #: 판 온도 명령을 다시 보내는 간격 — 프린터가 꺼졌다 켜졌어도 다시 데우게
 WARM_REPEAT_SECONDS = 120
 #: 이만큼 데웠는데도 출력이 안 시작되면 끕니다 — 사람이 없는 밤에 판이 혼자 서 있지 않게
@@ -261,7 +263,30 @@ class PrintWorker:
         out = self.work_dir / job["fileName"]
         with urllib.request.urlopen(job["downloadUrl"], timeout=DOWNLOAD_TIMEOUT) as r:
             out.write_bytes(r.read())
+        self.prune_downloads(keep=LOCAL_KEEP)
         return out
+
+    def prune_downloads(self, keep: int) -> int:
+        """
+        ★ 내려받은 출력 파일을 최근 몇 개만 남깁니다 (사용자 2026-10-23 "용량은 어느 정도").
+          보낸 뒤에도 안 지워 한 개 1.3MB 씩 쌓였습니다(하루 시험에 31개). 우리가 내려받는
+          이름 모양(…_auto.gcode.3mf)만 지웁니다. 못 지워도 출력은 계속합니다.
+        """
+        try:
+            files = sorted(
+                (f for f in self.work_dir.glob("*_auto.gcode.3mf") if f.is_file()),
+                key=lambda f: f.stat().st_mtime,
+            )
+        except OSError:
+            return 0
+        gone = 0
+        for f in files[: max(0, len(files) - keep)]:
+            try:
+                f.unlink()
+                gone += 1
+            except OSError:
+                pass
+        return gone
 
     def run_one(self, job: dict) -> None:
         job_id = job["jobId"]

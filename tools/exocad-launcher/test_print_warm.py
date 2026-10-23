@@ -73,3 +73,21 @@ class Warm(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Prune(unittest.TestCase):
+    def test_keeps_recent_and_only_ours(self):
+        import os
+        import tempfile
+        d = Path(tempfile.mkdtemp())
+        for i in range(8):
+            f = d / f"{i:08d}-0000-0000-0000-000000000000_auto.gcode.3mf"
+            f.write_bytes(b"x")
+            os.utime(f, (1000 + i, 1000 + i))
+        (d / "사람이 둔 것.gcode.3mf").write_bytes(b"x")
+        w = pl.PrintWorker("t", {"printer_kind": "mock"}, d, say=lambda m: None)
+        self.assertEqual(w.prune_downloads(keep=5), 3)
+        left = sorted(p.name for p in d.iterdir())
+        self.assertIn("사람이 둔 것.gcode.3mf", left)
+        self.assertEqual(len([n for n in left if n.endswith("_auto.gcode.3mf")]), 5)
+        self.assertNotIn("00000000-0000-0000-0000-000000000000_auto.gcode.3mf", left)
