@@ -19,6 +19,7 @@ import {
   SHOWN_STEPS,
   MAX_TRIES,
   alertOnMove,
+  alertPushes,
   autoAlert,
   autoNotice,
   boardRow,
@@ -697,5 +698,14 @@ describe('센터 손 없이 — 멈춤을 기계가 가릅니다 (사용자 결�
   it('스캔 멈춤은 치과에 다시 올리라고, 일시적 멈춤은 잠시 뒤 다시 한다고 말합니다', () => {
     expect(stallAdvice('하악 스캔을 못 찾았습니다').todo).toContain('다시 올리면');
     expect(stallAdvice('도구 막대가 안 뜹니다').todo).toContain('다시 합니다');
+  });
+});
+
+describe('폰 푸시는 손댈 일만 (2026-10-23)', () => {
+  it("'다 나왔다' 는 폰으로 안 보냅니다 — 종 알림·책갈피만", () => {
+    expect(alertPushes('done')).toBe(false);
+  });
+  it('판 비우기·멈춤·스캔·자동 설계 포기는 폰까지', () => {
+    for (const k of ['bed', 'failed', 'design_scan', 'design_ended'] as const) expect(alertPushes(k)).toBe(true);
   });
 });

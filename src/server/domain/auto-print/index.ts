@@ -598,6 +598,16 @@ export function autoAlert(
   };
 }
 
+/**
+ * 폰 푸시까지 보낼 알림인가 (사용자 2026-10-23 — "FlowTemp 다 나왔습니다 핸드폰 크롬 알림 없애고 싶네").
+ * ★ '다 나왔다' 는 **종 알림·책갈피만** — 치과가 지금 해야 할 일이 아니라 다음에 볼 일입니다.
+ *   출력이 끝날 때마다 폰이 울리면 결국 알림을 통째로 꺼 버립니다.
+ * ★ 나머지(판 비우기·멈춤·스캔 다시·자동 설계 포기)는 손을 대야 진행되니 폰까지 보냅니다.
+ */
+export function alertPushes(kind: AutoAlertKind): boolean {
+  return kind !== 'done';
+}
+
 /** 단계가 이렇게 넘어가면 알릴 것. 없으면 null */
 export function alertOnMove(from: AutoStep, to: AutoStep): AutoAlertKind | null {
   if (to === 'queued' && from !== 'queued') return 'bed';

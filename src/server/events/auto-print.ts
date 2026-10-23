@@ -13,7 +13,7 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { autoAlert, type AutoAlertKind } from '@/server/domain/auto-print';
+import { alertPushes, autoAlert, type AutoAlertKind } from '@/server/domain/auto-print';
 import { sendPushToOrgs } from '@/server/events/push';
 
 export async function publishAutoAlert(
@@ -61,6 +61,9 @@ export async function publishAutoAlert(
       link,
       payload: { orderId, kind },
     });
+
+    // ★ '다 나왔다' 는 폰으로 안 보냅니다 — 종 알림·책갈피만 (사용자 2026-10-23)
+    if (!alertPushes(kind)) return;
 
     await sendPushToOrgs(
       new Map([
