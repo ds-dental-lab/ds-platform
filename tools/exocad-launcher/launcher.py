@@ -85,6 +85,7 @@ def _step(name: str) -> None:
 
 
 import datetime as dt
+import filecmp
 import json
 import logging
 import os
@@ -609,7 +610,15 @@ class Job:
         tmp = Path(tempfile.mkdtemp(prefix="denflow-"))
         got: list[Path] = []
         for f in files:
+            # ★★ 같은 이름이 두 번 올라오기도 합니다 (2026-10-24 김옥두 — 같은 zip 두 번).
+            #   같은 자리에 받으면 같은 파일을 두 번 풀고, 두 번째 옮기기에서
+            #   "[WinError 2] 지정된 파일을 찾을 수 없습니다" 로 멈췄습니다.
+            #   이름을 비켜 받고, 내용까지 같으면 하나만 씁니다.
             dest = tmp / f["name"]
+            n = 2
+            while dest.exists():
+                dest = tmp / f"{Path(f['name']).stem}_{n}{Path(f['name']).suffix}"
+                n += 1
             if self.mock and not f["url"].startswith("http"):
                 shutil.copyfile(f["url"], dest)
             else:
@@ -618,6 +627,11 @@ class Job:
                     with open(dest, "wb") as out:
                         for chunk in r.iter_content(1 << 20):
                             out.write(chunk)
+            twin = next((g for g in got if filecmp.cmp(g, dest, shallow=False)), None)
+            if twin is not None:
+                dest.unlink()
+                self.note(f"{f['name']} — 똑같은 파일이 또 올라와 있어 하나만 씁니다")
+                continue
             got.append(dest)
             self.note(f"{f['name']} ({dest.stat().st_size / 1e6:.1f} MB)")
 
@@ -657,8 +671,11 @@ class Job:
         for p in list(got):
             if p.suffix.lower() != ".zip":
                 continue
+            # ★ zip 마다 따로 풉니다 — 안의 이름이 같은 zip 둘이 서로 덮지 않게
             try:
-                inner = unzip_scans(p, p.parent)
+                into = p.parent / f"{p.stem}.unzip"
+                into.mkdir(exist_ok=True)
+                inner = unzip_scans(p, into)
             except Exception as e:  # noqa: BLE001
                 self.note(f"★ {p.name} 을 풀지 못했습니다 ({e}) — 그대로 넣습니다")
                 continue
