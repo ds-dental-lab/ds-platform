@@ -21,7 +21,7 @@
  *   올리고 배포하면 치과 에이전트에 "새 판이 있습니다" 가 뜹니다.
  *   scan_agent.py 의 AGENT_VERSION 과 같아야 합니다.
  */
-export const AGENT_VERSION = '1.3.17';
+export const AGENT_VERSION = '1.3.18';
 
 /** 무엇이 바뀌었는지 한 줄. 에이전트 알림에 그대로 뜹니다 */
 export const AGENT_NOTE = '판마다 새 폴더에 풀면 됩니다 — 옛 판은 스스로 물러나고 옛 폴더도 치웁니다';
@@ -39,6 +39,36 @@ export const AGENT_DOWNLOAD_URL = 'https://denflow.kr/agent';
 export const AGENT_BUCKET = 'agent-release';
 export const AGENT_ZIP_NAME = 'latest.zip';
 export const AGENT_ZIP_PATH = `${AGENT_BUCKET}/${AGENT_ZIP_NAME}`;
+
+/**
+ * 스스로 업데이트 (사용자 2026-10-24 — "계속 다운로드 말고 최신 버전 있으면 자동 업데이트").
+ *
+ * ★ 안내 파일 둘 — release.py 가 올립니다.
+ *   · beta.json   — 올릴 때마다 바뀜. **시험 PC 만** 받습니다
+ *   · stable.json — 사장님이 시험 PC 에서 확인하고 `release.py --promote` 로 올린 판. 치과가 받습니다
+ *   잘못 만든 판이 모든 치과에 한꺼번에 퍼져 같이 멈추는 것을 막는 문입니다.
+ * ★ 시험 PC 는 기기 id 로 정합니다(사장님 PC 의 치ㅣ 에이전트).
+ */
+export const AGENT_BETA_DEVICE_IDS: readonly string[] = ['4a00a20d-4bc8-42a9-b5e0-c2e1e0aa7285'];
+
+export interface AgentManifest {
+  version: string;
+  sha256: string;
+  file: string;
+}
+
+export function manifestFor(deviceId: string): 'beta.json' | 'stable.json' {
+  return AGENT_BETA_DEVICE_IDS.includes(deviceId) ? 'beta.json' : 'stable.json';
+}
+
+/** 안내 파일을 믿을 만한 모양인지 — 판 번호·sha256(64자)·같은 버킷 안 zip 이름 */
+export function parseManifest(raw: unknown): AgentManifest | null {
+  const m = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const version = cleanVersion(m.version);
+  const sha256 = typeof m.sha256 === 'string' && /^[0-9a-f]{64}$/i.test(m.sha256) ? m.sha256.toLowerCase() : null;
+  const file = typeof m.file === 'string' && /^\d+(\.\d+){1,3}\.zip$/.test(m.file) ? m.file : null;
+  return version && sha256 && file ? { version, sha256, file } : null;
+}
 
 /**
  * 내려받기 번호 — 여섯 자리 고정 비밀번호 (사용자 결정 2026-10-19).

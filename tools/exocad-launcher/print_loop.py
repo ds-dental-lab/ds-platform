@@ -111,6 +111,8 @@ class PrintWorker:
         self.printer = build_printer(settings, work_dir / "보낸것")
         #: 못 보낸 단계 보고 — 연결이 돌아오면 다시 보냅니다 (2026-10-16 점검)
         self.pending: list[tuple[str, dict]] = []
+        #: 한 건을 들고 있는가 — 스스로 업데이트가 이때는 기다립니다 (2026-10-24)
+        self.busy = False
         #: 미리 데우기 (2026-10-23) — 서버가 '곧 뽑을 것이 있다' 고 했는가
         self.warm_hint = False
         self.warm_since: float | None = None
@@ -390,7 +392,11 @@ class PrintWorker:
             return False
         # ★ 출력이 시작되면 데우기는 출력 파일이 이어받습니다 — 끄지 않고 표시만 지웁니다
         self.warm_reset()
-        self.run_one(job)
+        self.busy = True
+        try:
+            self.run_one(job)
+        finally:
+            self.busy = False
         self.remember_host()
         return True
 

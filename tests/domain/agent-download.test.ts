@@ -26,3 +26,20 @@ describe('내려받기 번호', () => {
     expect(AGENT_ZIP_PATH).toBe('agent-release/latest.zip');
   });
 });
+
+import { manifestFor, parseManifest, AGENT_BETA_DEVICE_IDS } from '@/server/domain/agent';
+
+describe('스스로 업데이트 안내 파일 (2026-10-24)', () => {
+  const sha = 'a'.repeat(64);
+  it('시험 PC 는 베타, 나머지는 안정판', () => {
+    expect(manifestFor(AGENT_BETA_DEVICE_IDS[0])).toBe('beta.json');
+    expect(manifestFor('00000000-0000-0000-0000-000000000000')).toBe('stable.json');
+  });
+  it('모양이 맞을 때만 믿습니다', () => {
+    expect(parseManifest({ version: '1.3.18', sha256: sha, file: '1.3.18.zip' })).toEqual({ version: '1.3.18', sha256: sha, file: '1.3.18.zip' });
+    expect(parseManifest({ version: '1.3.18', sha256: 'xyz', file: '1.3.18.zip' })).toBeNull();
+    expect(parseManifest({ version: '1.3.18', sha256: sha, file: '../secret.zip' })).toBeNull();
+    expect(parseManifest({ version: '1.3.18', sha256: sha, file: 'latest.zip' })).toBeNull();
+    expect(parseManifest(null)).toBeNull();
+  });
+});

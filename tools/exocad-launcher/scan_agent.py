@@ -80,7 +80,7 @@ takeover.configure(SETTINGS_DIR)
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.17"
+AGENT_VERSION = "1.3.18"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -409,6 +409,8 @@ class Agent:
         self.notify = notify or (lambda _m: None)
         #: 올리기 전에 "덴플로우로 보낼까요?" 를 사람에게 묻는 함수 (없으면 늘 예)
         self.ask = ask or (lambda _name, _label: True)
+        #: 마지막으로 스캔을 올리거나 물어본 때 — 스스로 업데이트가 그 뒤 10분은 기다립니다 (2026-10-24)
+        self.last_activity = 0.0
         self.cfg = load_settings()
         self.stop = threading.Event()
         #: 연결이 끝나면 창이 자기 모습을 고칠 수 있게
@@ -445,6 +447,7 @@ class Agent:
         # ★ 같은 케이스인지는 **서버가** 압니다 (2026-10-05).
         #   여기서 혼자 막으면, 재스캔해서 다시 내보낸 것까지 막힙니다.
         #   서버는 아직 주문에 안 붙은 줄만 '이미 올라감' 으로 봅니다.
+        self.last_activity = time.time()
         name = meta.get("patientName") or "이름 모름"
         # ★★ 올리기 **전에** 묻습니다 (사용자 결정 2026-10-19). 내보내기는 다른 기공소로
         #   보낼 때도 똑같이 생기는데, 전에는 그때도 주문서가 열리고 **스캔이 우리 서버에
@@ -653,6 +656,19 @@ class App:
     def __init__(self) -> None:
         self.agent = Agent(self.say, on_link=self.refresh, notify=self.balloon, ask=self.ask_send)
         self.watching = False
+        #: 출력 일꾼 — 스스로 업데이트가 '한 건 들고 있나' 를 봅니다
+        self.print_worker = None
+        # ★ 스스로 업데이트 (2026-10-24, auto_update) — 설정 auto_update 가 False 면 끕니다
+        import auto_update
+
+        self.updater = auto_update.Updater(
+            AGENT_VERSION,
+            HERE,
+            ask=self._ask_auto_update,
+            idle=self._idle_for_update,
+            say=lambda m: self.root.after(0, lambda t=m: self.say(t)),
+            enabled=lambda: self.agent.cfg.get("auto_update", True) is not False,
+        )
 
         self.root = tk.Tk()
         self.root.title("덴플로우 에이전트")
@@ -774,6 +790,7 @@ class App:
         # pack 은 새 판이 있을 때만 합니다 (check_update)
         self.up_url = SITE
         threading.Thread(target=self.check_update, daemon=True).start()
+        threading.Thread(target=self._auto_update_loop, daemon=True).start()
 
         # ★ 1분마다 상태를 센터에 (2026-10-16) — 꺼진 것을 아무도 모르는 일이 없게.
         #   못 보내도 본업(스캔 올리기·출력)을 막지 않습니다.
@@ -831,6 +848,30 @@ class App:
                 pass
             time.sleep(6 * 60 * 60)
 
+    # --- 스스로 업데이트 (2026-10-24) ---
+
+    def _ask_auto_update(self) -> dict | None:
+        got = post_json(f"{SITE}/api/device/agent/update", {"version": AGENT_VERSION}, self.agent.cfg.get("token"))
+        return got if got.get("ok") else None
+
+    def _idle_for_update(self) -> bool:
+        w = self.print_worker
+        if w is not None and getattr(w, "busy", False):
+            return False
+        return time.time() - self.agent.last_activity > 10 * 60
+
+    def _auto_update_loop(self) -> None:
+        """켜고 3분 뒤 한 번, 그 뒤 6시간마다. 바빠서 미뤘으면 10분 뒤 다시"""
+        time.sleep(180)
+        while True:
+            try:
+                r = self.updater.try_once()
+            except Exception:  # noqa: BLE001
+                r = "failed"
+            if r == "started":
+                return
+            time.sleep(10 * 60 if r == "busy" else 6 * 60 * 60)
+
     def check_update_now(self) -> None:
         """"새 판 확인" 을 눌렀을 때 — 결과를 **말로** 돌려줍니다 (최신이어도 조용하면 눌렀는지 모릅니다)"""
         try:
@@ -841,6 +882,16 @@ class App:
             self.root.after(0, lambda: self.say("판을 확인하지 못했습니다 — 인터넷이나 덴플로우 연결을 봐 주세요"))
         elif r[0]:
             self.root.after(0, lambda t=r[1]: self._show_update(t))
+            # ★ 눌렀을 때도 스스로 바꿔 봅니다 — 받을 판이 없거나 바쁘면 그 말을 남깁니다
+            try:
+                res = self.updater.try_once()
+            except Exception:  # noqa: BLE001
+                res = "failed"
+            words = {"busy": "지금 출력·스캔 중이라 끝난 뒤 저절로 바꿉니다",
+                     "off": "스스로 업데이트가 꺼져 있습니다 — 위 띠에서 받아 주세요",
+                     "none": "이 PC 가 받을 판은 아직 준비 중입니다"}
+            if res in words:
+                self.root.after(0, lambda t=words[res]: self.say(t))
         else:
             self.root.after(0, lambda: self.say(f"지금 판({AGENT_VERSION})이 최신입니다."))
 
@@ -1377,6 +1428,7 @@ class App:
             # 프린터 주소가 바뀌면 적어 둡니다 (방화벽이 방송을 막는 날의 보조 바퀴)
             save=save_settings,
         )
+        self.print_worker = worker
         self.print_thread = threading.Thread(
             target=lambda: worker.loop(stop=lambda: self.agent.stop.is_set()),
             daemon=True,

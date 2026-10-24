@@ -88,6 +88,36 @@ def make_zip(out: Path, version: str) -> Path:
     return out
 
 
+def upload_json(data: dict, name: str) -> None:
+    """안내 파일(beta.json·stable.json)을 올립니다 — 스스로 업데이트가 읽습니다 (2026-10-24)"""
+    import json as _json
+
+    body = _json.dumps(data, ensure_ascii=False).encode("utf-8")
+    url = f"{env('NEXT_PUBLIC_SUPABASE_URL')}/storage/v1/object/{BUCKET}/{name}"
+    req = urllib.request.Request(url, data=body, method="POST")
+    req.add_header("authorization", f"Bearer {env('SUPABASE_SERVICE_ROLE_KEY')}")
+    req.add_header("content-type", "application/json")
+    req.add_header("x-upsert", "true")
+    req.add_header("cache-control", "no-cache")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as res:
+            if res.status not in (200, 201):
+                raise SystemExit(f"{name}: 서버가 {res.status}")
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f"{name}: {e.code} {e.read().decode('utf-8', 'replace')[:200]}") from None
+    print(f"  올림  {name} → {data['version']}")
+
+
+def manifest(zip_path: Path, version: str) -> dict:
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(zip_path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return {"version": version, "sha256": h.hexdigest(), "file": f"{version}.zip"}
+
+
 def upload(zip_path: Path, name: str) -> None:
     url = f"{env('NEXT_PUBLIC_SUPABASE_URL')}/storage/v1/object/{BUCKET}/{name}"
     key = env("SUPABASE_SERVICE_ROLE_KEY")
@@ -110,7 +140,11 @@ def upload(zip_path: Path, name: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="에이전트 올리기")
-    ap.add_argument("--upload", action="store_true", help="실제로 올립니다")
+    ap.add_argument("--upload", action="store_true", help="실제로 올립니다 (시험 PC 가 받는 beta.json 도)")
+    ap.add_argument(
+        "--promote", action="store_true",
+        help="지금 판을 치과용(stable.json)으로 — 시험 PC 에서 확인한 뒤에만. 이미 올린 zip 을 가리킵니다",
+    )
     args = ap.parse_args(argv)
 
     agent_v, server_v = versions()
@@ -123,6 +157,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     staged = HERE / "dist" / f"덴플로우 에이전트 {agent_v}.zip"
+    if args.promote:
+        # ★ 다시 묶지 않습니다 — 묶을 때마다 zip 지문이 달라져, 올려 둔 것과 안 맞습니다
+        if not staged.is_file():
+            raise SystemExit(f"올린 zip 이 없습니다: {staged}")
+        upload_json(manifest(staged, agent_v), "stable.json")
+        print("치과가 다음 확인 때(켜고 3분 뒤·6시간마다) 이 판으로 바뀝니다")
+        return 0
     make_zip(staged, agent_v)
     size = staged.stat().st_size
 
@@ -136,6 +177,8 @@ def main(argv: list[str] | None = None) -> int:
     print("\n올리는 중…")
     upload(staged, "latest.zip")
     upload(staged, f"{agent_v}.zip")
+    # ★ 시험 PC 만 바로 받습니다. 치과는 --promote 한 판만 (2026-10-24)
+    upload_json(manifest(staged, agent_v), "beta.json")
 
     base = env("NEXT_PUBLIC_SUPABASE_URL")
     # ★ 버킷은 비공개입니다 (2026-10-19) — 공개 주소는 닫혔고, 치과는 /agent 에서 번호로 받습니다

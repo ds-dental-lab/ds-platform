@@ -65,7 +65,7 @@ PY_URL = f"https://www.python.org/ftp/python/{PY_VER}/python-{PY_VER}-embed-amd6
 #: ★ scan_agent 가 medit_case 를, medit_case 가 dxd_case 를 부릅니다.
 #:   하나라도 빠지면 **창이 아예 안 뜹니다** — 치과에서 그게 제일 나쁩니다.
 #:   빠진 것이 있는지는 아래 check_imports() 가 빌드할 때 봅니다.
-SOURCES = ["scan_agent.py", "medit_case.py", "dxd_case.py", "heartbeat.py", "shell_link.py", "takeover.py", "install_check.py", "shared_runtime.py", "denflow.ico"]
+SOURCES = ["scan_agent.py", "medit_case.py", "dxd_case.py", "heartbeat.py", "shell_link.py", "takeover.py", "install_check.py", "shared_runtime.py", "auto_update.py", "denflow.ico"]
 
 #: 자동 출력까지 쓰려면 함께 가야 하는 것들 (치과 PC 가 프린터에 보냅니다)
 PRINT_SOURCES = ["print_loop.py", "printer_send.py", "printer_find.py", "printer_sweep.py"]
