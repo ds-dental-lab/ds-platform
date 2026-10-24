@@ -65,7 +65,7 @@ PY_URL = f"https://www.python.org/ftp/python/{PY_VER}/python-{PY_VER}-embed-amd6
 #: ★ scan_agent 가 medit_case 를, medit_case 가 dxd_case 를 부릅니다.
 #:   하나라도 빠지면 **창이 아예 안 뜹니다** — 치과에서 그게 제일 나쁩니다.
 #:   빠진 것이 있는지는 아래 check_imports() 가 빌드할 때 봅니다.
-SOURCES = ["scan_agent.py", "medit_case.py", "dxd_case.py", "heartbeat.py", "shell_link.py", "takeover.py", "install_check.py", "denflow.ico"]
+SOURCES = ["scan_agent.py", "medit_case.py", "dxd_case.py", "heartbeat.py", "shell_link.py", "takeover.py", "install_check.py", "shared_runtime.py", "denflow.ico"]
 
 #: 자동 출력까지 쓰려면 함께 가야 하는 것들 (치과 PC 가 프린터에 보냅니다)
 PRINT_SOURCES = ["print_loop.py", "printer_send.py", "printer_find.py", "printer_sweep.py"]
@@ -255,6 +255,24 @@ def check_imports(runtime: Path) -> bool:
     return True
 
 
+def write_runtime_id(runtime: Path) -> str:
+    """
+    런타임 **내용의 지문**을 적습니다 (2026-10-24, shared_runtime 참고).
+    ★ 파일 이름·크기로 만듭니다 — 파이썬·꾸러미가 같으면 판이 달라도 같은 지문이라,
+      치과 PC 에서 같은 고정 자리를 쓰고 방화벽이 다시 묻지 않습니다.
+    """
+    import hashlib
+
+    h = hashlib.sha1()
+    for f in sorted(runtime.rglob("*")):
+        if f.is_file() and "__pycache__" not in f.parts and f.name != "RUNTIME_ID":
+            h.update(f"{f.relative_to(runtime).as_posix()}:{f.stat().st_size};".encode("utf-8"))
+    rid = h.hexdigest()[:12]
+    (runtime / "RUNTIME_ID").write_text(rid, encoding="utf-8")
+    say("런타임 지문", rid)
+    return rid
+
+
 def main() -> int:
     if OUT.exists():
         shutil.rmtree(OUT)
@@ -264,6 +282,7 @@ def main() -> int:
     if not add_tkinter(runtime):
         return 1
     add_packages(runtime)
+    write_runtime_id(runtime)
 
     for name in SOURCES + PRINT_SOURCES:
         src = HERE / name

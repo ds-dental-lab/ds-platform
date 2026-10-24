@@ -33,6 +33,11 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
+# ★★ 내 폴더를 모듈 길에 넣습니다 (2026-10-24). 파이썬을 고정 자리(shared_runtime)에서 돌리면
+#   임베디드 파이썬의 ._pth 가 가리키는 '..' 이 판 폴더가 아니게 되고, ._pth 가 있으면 스크립트
+#   폴더도 저절로 안 들어갑니다 — 실측: heartbeat 를 못 찾아 아예 안 떴습니다.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import tkinter as tk
 from tkinter import filedialog
 
@@ -75,7 +80,7 @@ takeover.configure(SETTINGS_DIR)
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.16"
+AGENT_VERSION = "1.3.17"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -252,17 +257,16 @@ def heal_links() -> None:
     ★ 치과가 일부러 지운 바탕화면 아이콘을 되살리지는 않습니다 —
       **깨진 것만** 고치고, 없으면 그때만 새로 만듭니다.
     """
+    # ★★ 켤 때마다 **지금 내 자리로 다시 씁니다** (2026-10-24). 파이썬을 고정 자리로 옮긴 뒤로는
+    #   바로가기가 가리키는 파일(고정 파이썬)은 늘 있어서 '깨졌나' 로는 못 가립니다 — 인자에 든
+    #   옛 판의 scan_agent.py 가 지워져도 자동 시작이 조용히 죽습니다. 그래서 있으면 새로 씁니다.
     start = startup_link()
     if start.exists():
-        target = link_target(start)
-        if not target or not Path(target).exists():
-            set_autostart(True)
+        set_autostart(True)
 
     desk = desktop_link()
     if desk.exists():
-        target = link_target(desk)
-        if not target or not Path(target).exists():
-            desk.unlink(missing_ok=True)
+        desk.unlink(missing_ok=True)
 
     make_desktop_link()
 
@@ -690,6 +694,16 @@ class App:
 
         # ★ 바탕화면 아이콘을 만들고, 옛 판이 남긴 깨진 바로가기를 고칩니다.
         threading.Thread(target=heal_links, daemon=True).start()
+        # ★ 고정 자리의 옛 런타임(다른 지문)을 치웁니다 — 쓰는 중이면 그냥 지나갑니다 (2026-10-24)
+        def _prune_runtimes():
+            try:
+                import shared_runtime
+
+                if shared_runtime.running_shared():
+                    shared_runtime.prune(Path(sys.executable).resolve().parent)
+            except Exception:  # noqa: BLE001
+                pass
+        threading.Thread(target=_prune_runtimes, daemon=True).start()
 
         # ★★ X 를 누르면 **끄지 않고 숨깁니다** (사용자 요청 2026-10-06).
         #   전에는 X 가 곧 종료라, 직원이 창을 닫으면 그 뒤 스캔이 안 올라갔습니다.
@@ -1430,6 +1444,16 @@ if __name__ == "__main__":
         _rep = run_all(load_settings(), site=SITE, storage_url=SUPABASE_URL, settings_dir=SETTINGS_DIR, autostart=autostart_on())
         print(_rep.text())
         raise SystemExit(0 if _rep.ok else 1)
+
+    # ★★ 고정 자리 파이썬으로 다시 뜹니다 (2026-10-24) — 판마다 방화벽이 "python 허용?" 을
+    #   다시 묻던 것. 표(뮤텍스)·소켓을 잡기 **전에** 해야 합니다. 실패하면 그냥 이대로 뜹니다.
+    try:
+        import shared_runtime
+
+        if not FROZEN and shared_runtime.relaunch_if_needed(Path(__file__).resolve(), sys.argv[1:]):
+            raise SystemExit(0)
+    except ImportError:
+        pass
 
     # ★ 두 번째로 켜면 떠 있는 창만 앞으로 올리고 조용히 물러납니다.
     #   "이미 켜져 있습니다" 같은 알림창을 띄우지 않습니다 — 치과는
