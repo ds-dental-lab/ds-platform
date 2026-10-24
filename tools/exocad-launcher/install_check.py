@@ -94,6 +94,10 @@ def parse_sleep_minutes(powercfg_text: str) -> int | None:
     return int(m.group(1), 16) // 60
 
 
+#: 이 에이전트로 출력까지 끝까지 돌려 보고 막힘이 없던 백신 (이름에 들어 있는 낱말, 소문자)
+TESTED_ANTIVIRUS = ("v3 365 clinic",)
+
+
 def judge_antivirus(names: list[str]) -> Item:
     """백신 이름들 → 디펜더만이면 괜찮고, 남의 백신이면 흰 목록에 넣으라고 합니다"""
     clean = [n.strip() for n in names if n.strip()]
@@ -102,9 +106,15 @@ def judge_antivirus(names: list[str]) -> Item:
         return Item("백신", None, "백신 정보를 못 읽었습니다")
     if not others:
         return Item("백신", True, "Windows Defender 만 있습니다")
+    # ★ 실제로 출력까지 돌려 본 백신은 통과 (2026-10-24 — V3 365 Clinic 아래에서 다시 자르기·내려받기·
+    #   프린터 보내기·완료 보고까지 막힘 없음). 빨간 줄은 치과에 괜한 걱정만 줍니다.
+    untested = [n for n in others if not any(t in n.lower() for t in TESTED_ANTIVIRUS)]
+    if not untested:
+        return Item("백신", True, "시험해 본 백신입니다: " + ", ".join(others))
+    # 안 겪어 본 백신은 '확인 필요'(노랑) — 막는다고 단정하지 않습니다
     return Item(
-        "백신", False, "다른 백신이 있습니다: " + ", ".join(others),
-        "그 백신의 예외(허용) 목록에 에이전트 폴더와 pythonw.exe 를 넣어 주세요. 안 넣으면 어느 날 조용히 막힙니다",
+        "백신", None, "처음 보는 백신이 있습니다: " + ", ".join(untested),
+        "출력을 한 번 끝까지 돌려 보세요. 막히면 그 백신의 예외(허용) 목록에 에이전트 폴더와 pythonw.exe 를 넣어 주세요",
     )
 
 

@@ -21,11 +21,16 @@ class ParseTest(unittest.TestCase):
         self.assertTrue(ic.judge_antivirus(["Windows Defender"]).ok)
         self.assertTrue(ic.judge_antivirus(["Microsoft Defender Antivirus", ""]).ok)
 
-    def test_antivirus_other_needs_whitelist(self):
+    def test_antivirus_untested_is_check_needed(self):
         it = ic.judge_antivirus(["Windows Defender", "AhnLab V3 Lite"])
-        self.assertFalse(it.ok)
+        self.assertIsNone(it.ok)
         self.assertIn("V3", it.detail)
         self.assertIn("예외", it.fix)
+
+    def test_antivirus_tested_passes(self):
+        # 2026-10-24 V3 365 Clinic 아래 출력 끝까지 확인
+        it = ic.judge_antivirus(["AhnLab V3 365 Clinic"])
+        self.assertTrue(it.ok)
 
     def test_antivirus_unknown_is_info(self):
         self.assertIsNone(ic.judge_antivirus([]).ok)
