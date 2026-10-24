@@ -104,7 +104,13 @@ def upload_json(data: dict, name: str) -> None:
             if res.status not in (200, 201):
                 raise SystemExit(f"{name}: 서버가 {res.status}")
     except urllib.error.HTTPError as e:
-        raise SystemExit(f"{name}: {e.code} {e.read().decode('utf-8', 'replace')[:200]}") from None
+        text = e.read().decode("utf-8", "replace")[:200]
+        if "invalid_mime_type" in text:
+            raise SystemExit(
+                f"{name}: 저장소가 JSON 을 안 받습니다 — 마이그레이션 20261024120000_agent_release_manifest 를 "
+                "적용한 뒤(npx supabase db push) 다시 올려 주세요"
+            ) from None
+        raise SystemExit(f"{name}: {e.code} {text}") from None
     print(f"  올림  {name} → {data['version']}")
 
 
