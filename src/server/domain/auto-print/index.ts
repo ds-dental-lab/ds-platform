@@ -319,8 +319,9 @@ export function stallAdvice(note: string | null | undefined): StallAdvice {
   if (/치식을 못 읽|프렙|지대치|깎은/.test(n)) {
     return { what: '자연치가 아닙니다', todo: '임플란트는 추후 업데이트 됩니다' };
   }
+  // ★ '건수' 를 치과에 말하지 않습니다 (사용자 2026-10-25) — 설계를 바깥 도구에 건수로 맡긴다는 게 드러납니다
   if (/건수|횟수|차감|credit/i.test(n)) {
-    return { what: '이번 달 설계 건수를 다 썼습니다', todo: '센터가 처리합니다' };
+    return { what: '설계 PC 점검 중입니다', todo: '센터가 처리합니다' };
   }
   if (/다운로드|download/i.test(n)) {
     return { what: '설계 PC 설정이 필요합니다', todo: '센터가 처리합니다' };
