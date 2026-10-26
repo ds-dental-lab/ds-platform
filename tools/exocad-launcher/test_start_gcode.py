@@ -35,6 +35,19 @@ class StartGcodeTest(unittest.TestCase):
             self.assertIn(o.LEVELING_OFF[1], g)
             for line in o.VIBRATION_LINES:
                 self.assertNotIn(line, g)
+            end = json.loads(prof.machine.read_text(encoding="utf-8"))["machine_end_gcode"]
+            self.assertNotIn("M1006", g)
+            self.assertNotIn("M1006", end)
+
+    def test_music_lines_only(self):
+        # ★ 음악 줄만 빠지고 나머지는 그대로 (2026-10-26)
+        m = o.flatten("BBL", o.VERIFIED["machine"])
+        before = {k: m[k].split("\n") for k in ("machine_start_gcode", "machine_end_gcode")}
+        gone = o.skip_music(m)
+        self.assertGreater(gone, 0, "밤부 G코드에 음악 줄이 있어야 합니다")
+        for k, lines in before.items():
+            self.assertEqual(m[k].split("\n"), [x for x in lines if not x.strip().startswith("M1006")])
+        self.assertEqual(o.skip_music(m), 0)
 
 
 if __name__ == "__main__":

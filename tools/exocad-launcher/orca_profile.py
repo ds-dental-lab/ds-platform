@@ -261,6 +261,28 @@ def skip_vibration(machine: dict) -> int:
     return gone
 
 
+#: 시작·끝 음악 (2026-10-26 사용자 "띠리리리 띠띠띠 소리 줄일 수 있어?").
+#:
+#: ★ 밤부 시작·끝 G코드의 `M1006` 줄이 모터로 곡을 칩니다(시작 한 번, 끝 한 번 — 38줄).
+#:   소리만 내는 명령이라 빼도 움직임·온도와 상관이 없습니다. 치과 진료실 옆에서 울립니다.
+#: ★ 다 됐다는 신호는 프린터 화면·덴플로우 독이 대신합니다.
+SKIP_MUSIC = True
+
+
+def skip_music(machine: dict) -> int:
+    """시작·끝 G코드에서 음악(M1006) 줄을 뺍니다. 뺀 줄 수를 돌려줍니다"""
+    gone = 0
+    for key in ("machine_start_gcode", "machine_end_gcode"):
+        gcode = machine.get(key)
+        if not isinstance(gcode, str):
+            continue
+        lines = gcode.split(chr(10))
+        keep = [line for line in lines if not line.strip().startswith("M1006")]
+        gone += len(lines) - len(keep)
+        machine[key] = chr(10).join(keep)
+    return gone
+
+
 #: 공진 측정을 건너뛸 것인가. 품질에 닿는 값이라 **따로 둡니다** —
 #: 토출 보정과 달리 되돌릴 일이 생길 수 있습니다.
 SKIP_VIBRATION = True
@@ -448,6 +470,8 @@ def spread(
                 skip_vibration(data)
             if SKIP_LEVELING:
                 skip_leveling(data)
+            if SKIP_MUSIC:
+                skip_music(data)
             # ★ 압출선 코스 (2026-10-23) — purge 가 있으면 그것, 없으면 옛 purge_dx
             if purge is not None:
                 move_purge_line(data, *purge)
