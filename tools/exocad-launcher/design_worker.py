@@ -54,7 +54,8 @@ LOG = STATE / "launcher" / "설계-일꾼.txt"
 #:   묻기(peek)는 덴플로우에만 가고 덴트버드 창은 안 건드리니 자주 물어도 됩니다
 POLL_SECONDS = 5
 #: 덴트버드 창이 못 쓰는 상태(로그인 풀림 등)일 때 쉬는 시간
-SESSION_PAUSE_SECONDS = 300
+#: ★ 300 → 60 (2026-10-26 리허설 — 다시 로그인하고도 4분 넘게 기다렸습니다)
+SESSION_PAUSE_SECONDS = 60
 #: 내보낸 STL 이 주문에 올라오기를 기다리는 한도
 DELIVER_WAIT_SECONDS = 600
 NAME = "design_worker"
@@ -273,6 +274,7 @@ def _health() -> dict:
 
 #: 쉬는 동안 로그인 확인 — 글자만 읽기 / 새로 고쳐서 확인 (2026-10-23)
 LOGIN_PROBE_SECONDS = 120
+LOGIN_LOST_PROBE_SECONDS = 20
 LOGIN_RELOAD_SECONDS = 30 * 60
 #: 확인할 때 새로 고치나 — 끔 (새로 고침마다 덴트버드가 '새 로그인' 메일을 보냈습니다)
 RELOAD_ON_PROBE = False
@@ -294,7 +296,8 @@ def _probe_login() -> None:
     now = time.time()
     if now < _next_probe:
         return
-    _next_probe = now + LOGIN_PROBE_SECONDS
+    # ★ 풀려 있는 동안은 20초마다 — 다시 로그인하면 곧바로 일감을 받게 (2026-10-26)
+    _next_probe = now + (LOGIN_LOST_PROBE_SECONDS if _login_lost else LOGIN_PROBE_SECONDS)
     # ★★ 새로 고침은 **안 합니다** (2026-10-23 같은 날 뺌). 넣자마자 아무도 로그인 안 했는데
     #   덴트버드가 "New login detected" 메일을 보냈습니다 — 일꾼이 다시 뜰 때마다 첫 확인에서
     #   새로 고쳤고, 시각이 맞았습니다. 글자만 읽는 것은 덴트버드에 요청을 안 보냅니다.
