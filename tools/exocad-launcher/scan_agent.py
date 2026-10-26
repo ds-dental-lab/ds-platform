@@ -80,7 +80,7 @@ takeover.configure(SETTINGS_DIR)
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.20"
+AGENT_VERSION = "1.3.21"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"
@@ -670,13 +670,22 @@ class App:
             enabled=lambda: self.agent.cfg.get("auto_update", True) is not False,
         )
 
+        # ★ 작업표시줄에 **파이썬 아이콘**이 떴습니다 (사용자 2026-10-26 "너무 위협적이다").
+        #   윈도우가 pythonw 로 묶어 그 아이콘을 씁니다 — 우리 앱 이름표를 따로 달아야
+        #   창 아이콘(로고)을 씁니다. 창을 만들기 **전에** 달아야 합니다.
+        try:
+            import ctypes  # noqa: PLC0415
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("DenFlow.Agent")
+        except Exception:  # noqa: BLE001 — 아이콘이 파이썬으로 남을 뿐입니다
+            pass
+
         self.root = tk.Tk()
         self.root.title("덴플로우 에이전트")
         self.root.geometry("620x740")
         self.root.minsize(560, 640)
         self.root.configure(bg=BG)
         try:
-            self.root.iconbitmap(str(asset("denflow.ico")))
+            self.root.iconbitmap(default=str(asset("denflow.ico")))
         except Exception:  # noqa: BLE001
             pass
 
