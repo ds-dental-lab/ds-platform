@@ -148,9 +148,21 @@ describe('베드 잠금 — 사람이 없는 곳에서 덮어 뽑지 않게', ()
     expect(claimable(job({ step: 'queued', bedClearedAt: '2026-10-06T01:00:00Z' }))).toBe(true);
   });
 
-  it('출력 파일이 준비되기 전에는 누를 수도 없습니다', () => {
-    expect(canClearBed(job({ step: 'slicing' }))).toBe(false);
+  it('디자인·자르는 중에도 미리 누릅니다 (2026-10-26) — 멈춘·접은 설계는 빼고', () => {
+    expect(canClearBed(job({ step: 'waiting_design' }))).toBe(true);
+    expect(canClearBed(job({ step: 'waiting_design', designStage: 'generating' }))).toBe(true);
+    expect(canClearBed(job({ step: 'waiting_design', designStage: 'stalled' }))).toBe(false);
+    expect(canClearBed(job({ step: 'waiting_design', designStage: 'ended' }))).toBe(false);
+    expect(canClearBed(job({ step: 'slicing' }))).toBe(true);
     expect(canClearBed(job({ step: 'queued' }))).toBe(true);
+    expect(canClearBed(job({ step: 'printing' }))).toBe(false);
+    expect(canClearBed(job({ step: 'done' }))).toBe(false);
+  });
+
+  it('미리 눌러도 출력 파일이 생기기 전에는 집어가지 않습니다', () => {
+    const t = '2026-10-26T02:00:00Z';
+    expect(claimable(job({ step: 'waiting_design', bedClearedAt: t }))).toBe(false);
+    expect(claimable(job({ step: 'slicing', bedClearedAt: t }))).toBe(false);
   });
 
   it('한 번 누르면 또 누를 일이 없습니다', () => {

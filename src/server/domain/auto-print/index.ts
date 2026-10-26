@@ -285,9 +285,17 @@ export function claimable(job: AutoJob): boolean {
   return job.step === 'queued' && job.bedClearedAt !== null;
 }
 
-/** 치과가 '베드 비움' 을 누를 수 있는 때인가 */
+/**
+ * 치과가 '베드 비움' 을 누를 수 있는 때인가
+ *
+ * ★ 디자인·자르는 중에도 **미리** 누릅니다 (사용자 2026-10-26 "디자인 설계까지 기다려야 되네").
+ *   설계 3분 동안 기다렸다 누르면 그만큼 늦습니다. 미리 눌러 두면 파일이 되는 대로 바로 뽑습니다.
+ *   멈춘·접은 설계는 언제 뽑을지 모르니 빼 둡니다.
+ */
 export function canClearBed(job: AutoJob): boolean {
-  return job.step === 'queued' && job.bedClearedAt === null;
+  if (job.bedClearedAt !== null) return false;
+  if (job.step === 'waiting_design') return job.designStage !== 'stalled' && job.designStage !== 'ended';
+  return job.step === 'slicing' || job.step === 'queued';
 }
 
 /**
@@ -816,6 +824,7 @@ export function boardRow(job: AutoJob, now: number = Date.now(), typicalSec: num
       tone: 'progress',
       status: '디자인 중',
       detail: job.designStage ? DESIGN_STAGE_LABEL[job.designStage] : '차례를 기다립니다',
+      canClearBed: canClearBed(job),
     };
   }
   if (job.step === 'queued' && job.bedClearedAt === null) {
@@ -858,7 +867,7 @@ export function boardRow(job: AutoJob, now: number = Date.now(), typicalSec: num
     queued: '곧 프린터로 보냅니다',
     sending: '프린터로 보내고 있습니다',
   };
-  return { ...base, tone: 'progress', status: '출력 준비', detail: detail[job.step] ?? LABEL[job.step] };
+  return { ...base, tone: 'progress', status: '출력 준비', detail: detail[job.step] ?? LABEL[job.step], canClearBed: canClearBed(job) };
 }
 
 /** 접힌 탭의 색 — 가장 급한 줄을 따릅니다 (오류 > 할 일 > 지연 > 진행 > 완료) */

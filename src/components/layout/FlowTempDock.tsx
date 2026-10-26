@@ -438,7 +438,11 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
             disabled={pending}
             className="w-full rounded-lg bg-[#1279E8] py-2 text-[13px] font-bold text-white hover:bg-[#0F6AD0] disabled:opacity-50"
           >
-            {pending ? '확인하는 중…' : '출력판 비웠습니다 — 출력 시작'}
+            {pending
+              ? '확인하는 중…'
+              : item.status === '출력 준비됨'
+                ? '출력판 비웠습니다 — 출력 시작'
+                : '출력판 비웠습니다 — 준비되면 바로 출력'}
           </button>
           {error ? <p className="mt-1.5 text-[11.5px] text-[#D64545]">{error}</p> : null}
         </div>

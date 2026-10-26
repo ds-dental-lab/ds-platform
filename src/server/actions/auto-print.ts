@@ -29,6 +29,7 @@ import {
   autoProgress,
   autoNotice,
   boardRow,
+  canClearBed,
   BOARD_DONE_HOURS,
   deviceOnline,
   withClinicPc,
@@ -169,7 +170,7 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
     steps: autoProgress(rest),
     // ★ 치과 PC 가 꺼져서 막힌 것이면 그 말이 먼저입니다
     notice: board.status === '치과 PC 꺼짐' ? board.detail : autoNotice(rest),
-    needsBed: job.step === 'queued' && job.bedClearedAt === null,
+    needsBed: canClearBed(job),
     board,
     designNote: note,
   };

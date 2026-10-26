@@ -19,6 +19,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   alertOnMove,
   canHandDesign,
+  canClearBed,
   canDismiss,
   designVerdict,
   stallAdvice,
@@ -590,10 +591,9 @@ export async function clearBed(
   const { data } = await admin.from('auto_jobs').select(COLUMNS).eq('order_id', orderId).maybeSingle();
   const row = data as JobRow | null;
   if (!row) return { ok: false, error: '자동 진행 중인 주문이 아닙니다' };
-  // ★ 다시 뽑기로 '출력 준비(slicing)' 인 동안에도 미리 눌러 둡니다 (2026-10-23 확인 창)
-  const reslicing = row.step === 'slicing' && !!row.print_file_path;
-  if (row.step !== 'queued' && !reslicing) return { ok: false, error: '아직 출력할 차례가 아닙니다' };
   if (row.bed_cleared_at) return { ok: true };
+  // ★ 다시 뽑기(2026-10-23)·디자인 중(2026-10-26)에도 미리 눌러 둡니다 — 규칙은 canClearBed 한 곳
+  if (!canClearBed(asJob(row))) return { ok: false, error: '지금은 출력판 확인을 받을 때가 아닙니다' };
 
   const { error } = await admin
     .from('auto_jobs')
