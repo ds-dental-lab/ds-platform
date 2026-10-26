@@ -734,6 +734,33 @@ export async function claimPrintJob(
   if (!row.print_file_path) return { ok: false, error: '출력 파일이 없습니다' };
 
   /*
+    ★★ 「비웠습니다」 **뒤에 다른 것이 나왔으면** 그 확인은 낡았습니다 (2026-10-26 겹침 시험).
+      미리 누르기가 생기면서 둘을 다 눌러 두면, 앞 건이 다 나온 판 위에 뒷 건이 바로
+      뽑혔습니다. 마지막으로 끝난(또는 출력 중 멈춘) 때보다 먼저 누른 것은 지우고
+      치과가 다시 누르게 합니다.
+  */
+  // ★ failed_at 은 시각이 아니라 **멈춘 단계** 입니다 — 출력 중 멈춘 건은 updated_at 을 끝난 때로 봅니다
+  const { data: lastOut } = await admin
+    .from('auto_jobs')
+    .select('finished_at, failed_at, updated_at')
+    .eq('clinic_org_id', device.clinicOrgId)
+    .neq('id', row.id)
+    .or('finished_at.not.is.null,failed_at.eq.printing')
+    .order('updated_at', { ascending: false })
+    .limit(20);
+  const lastEnd = ((lastOut ?? []) as { finished_at: string | null; failed_at: string | null; updated_at: string }[])
+    .map((r) => r.finished_at ?? (r.failed_at === 'printing' ? r.updated_at : null))
+    .filter((t): t is string => !!t)
+    .reduce((a, b) => (new Date(a) > new Date(b) ? a : b), '');
+  if (lastEnd && row.bed_cleared_at && new Date(row.bed_cleared_at) < new Date(lastEnd)) {
+    await admin
+      .from('auto_jobs')
+      .update({ bed_cleared_at: null, bed_cleared_by: null, updated_at: new Date().toISOString() })
+      .eq('id', row.id);
+    return idle();
+  }
+
+  /*
     ★★ **집어가는 것은 한 번만 됩니다.** 전에는 moveStep 을 거쳤는데, 그 안에
       "이미 그 단계면 그냥 ok" 하는 길이 있어서 **둘이 동시에 물어보면 둘 다
       가져갔습니다.** 치과 PC 에 에이전트가 두 번 떠 있거나, 치과가 PC 를
