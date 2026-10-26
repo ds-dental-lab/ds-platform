@@ -157,14 +157,24 @@ _missing_seen: list[str] = []
 
 
 def _handle(job: dict, spend: bool) -> None:
-    order_id, teeth = job["orderId"], job["teeth"]
+    order_id = job["orderId"]
+    # ★ 묶음 단위 (2026-10-26) — 싱글은 치아 하나, 브릿지는 지대치+폰틱. 옛 서버가 groups 를
+    #   안 주면 치식 목록을 싱글 하나로 봅니다.
+    groups = job.get("groups") or [{"teeth": list(job.get("teeth") or []), "pontics": []}]
     mark = Reporter(order_id, say=say)
-    say(f"일감 {job['orderNo']} — 치식 {teeth}, 스캔 {len(job['files'])}개")
+    say(f"일감 {job['orderNo']} — 묶음 {[g['teeth'] for g in groups]}, 스캔 {len(job['files'])}개")
 
     try:
-        # ★ 지금은 싱글 크라운만 (사용자 목표 — 싱글 하나 완벽하게, 그다음 브릿지)
+        # ★ 한 주문에 묶음 하나까지 — 묶음마다 내보낸 STL 을 한 판에 모으는 길이 아직 없습니다
+        if len(groups) != 1:
+            raise Stop(f"한 주문에 설계 묶음이 {len(groups)}개입니다 — 지금은 한 주문에 하나(싱글 또는 브릿지 하나)만 자동으로 합니다")
+        teeth = sorted(int(t) for t in groups[0]["teeth"])
+        pontics = sorted(int(t) for t in groups[0].get("pontics") or [])
+        if pontics and len(pontics) >= len(teeth):
+            raise Stop(f"폰틱만 있고 지대치가 없습니다 — 치식 {teeth}")
+        # ★ 브릿지 매크로는 준비 중 (다서울 약속 2026-11-02~08) — 덴트버드 브릿지 화면을 본 뒤 붙입니다
         if len(teeth) != 1:
-            raise Stop(f"치식이 {len(teeth)}개입니다 — 지금은 싱글 크라운만 자동으로 합니다")
+            raise Stop(f"브릿지 {teeth} (폰틱 {pontics}) — 브릿지 자동 설계는 준비 중입니다")
 
         folder = WORK / order_id
         download(job["files"], folder)

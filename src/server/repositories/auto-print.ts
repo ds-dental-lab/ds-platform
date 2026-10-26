@@ -34,6 +34,8 @@ import {
   type AutoJob,
   type AutoStep,
   type DesignStage,
+  designGroups,
+  type DesignGroup,
 } from '@/server/domain/auto-print';
 import { publishAutoAlert, publishDesignStall } from '@/server/events/auto-print';
 import type { LinkedDevice } from '@/server/repositories/device-link';
@@ -1288,8 +1290,10 @@ export async function matchWaitingJob(
 export interface DesignJob {
   orderId: string;
   orderNo: string;
-  /** FlowTemp 가 놓인 치식 — 덴트버드가 잡은 치식과 견줄 것 */
+  /** FlowTemp 가 놓인 치식 전부 — 덴트버드가 잡은 치식과 견줄 것 (옛 일꾼용, groups 를 편 것) */
   teeth: number[];
+  /** 설계 묶음 — 싱글은 치아 하나, 브릿지는 지대치+폰틱 (2026-10-26). 일꾼은 묶음마다 한 번 설계합니다 */
+  groups: DesignGroup[];
   /** 스캔 파일 — 바로 받는 주소 (우리 서버를 안 지나갑니다) */
   files: { name: string; url: string; size: number | null }[];
   /**
@@ -1453,7 +1457,8 @@ export async function claimNextDesign(
     .from('auto_jobs')
     .select(
       'id, order_id, step, design_stage, design_note, design_tries, updated_at, created_at, ' +
-        'orders!inner(order_no, status, deleted_at, order_items(tooth_number, type_code), ' +
+        'orders!inner(order_no, status, deleted_at, order_items(id, tooth_number, type_code, is_pontic), ' +
+        'order_bridges(order_bridge_members(order_item_id)), ' +
         'order_files(kind, upload_status, deleted_at, file_name, storage_path, file_size))',
     )
     .eq('step', 'waiting_design')
@@ -1471,7 +1476,13 @@ export async function claimNextDesign(
     design_note: string | null;
     design_tries: number | null;
     updated_at: string;
-    orders: { order_no: string; status: string; order_items: { tooth_number: number; type_code: string }[] | null; order_files: File[] | null };
+    orders: {
+      order_no: string;
+      status: string;
+      order_items: { id: string; tooth_number: number; type_code: string; is_pontic: boolean }[] | null;
+      order_bridges: { order_bridge_members: { order_item_id: string }[] | null }[] | null;
+      order_files: File[] | null;
+    };
   };
 
   const now = Date.now();
@@ -1512,16 +1523,19 @@ export async function claimNextDesign(
     }
 
     const autoCodes = await autoTypeCodes();
+    const autoItems = (r.orders.order_items ?? []).filter((i) => autoCodes.has(i.type_code));
+    // ★ 브릿지·폰틱은 묶음으로 (2026-10-26) — 치식도의 「연결」 띠(order_bridges)가 사실입니다
+    const groups = designGroups(
+      autoItems.map((i) => ({ itemId: i.id, tooth: i.tooth_number, isPontic: i.is_pontic })),
+      (r.orders.order_bridges ?? []).map((b) => (b.order_bridge_members ?? []).map((m) => m.order_item_id)),
+    );
     return {
       ok: true,
       job: {
         orderId: r.order_id,
         orderNo: r.orders.order_no,
-        teeth: [
-          ...new Set(
-            (r.orders.order_items ?? []).filter((i) => autoCodes.has(i.type_code)).map((i) => i.tooth_number),
-          ),
-        ].sort((a, b) => a - b),
+        teeth: [...new Set(autoItems.map((i) => i.tooth_number))].sort((a, b) => a - b),
+        groups,
         files,
         token: issueExocadToken(r.order_id) ?? '',
       },

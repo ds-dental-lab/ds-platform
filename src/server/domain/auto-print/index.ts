@@ -156,11 +156,69 @@ export const DESIGN_RETRY_AFTER_MINUTES = 5;
  *   생기면 기본은 transient 라 한 번 더 해 보고 포기합니다. 사람이 영원히 기다리는
  *   자리는 없습니다.
  */
+// ---------------------------------------------------------------- 설계 묶음 (브릿지, 2026-10-26)
+
+/** FlowTemp 가 놓인 치아 하나 — 주문서 줄(order_items) 에서 온 것 */
+export interface DesignTooth {
+  itemId: string;
+  tooth: number;
+  isPontic: boolean;
+}
+
+/**
+ * 설계 일꾼이 덴트버드에 **한 번에 올리는 단위**. 싱글이면 치아 하나, 브릿지면 지대치+폰틱.
+ *
+ * ★ 사용자 2026-10-26 "브릿지는 연결 표시가 되어 있어, 폰틱도 고려해야 한다" — 다서울에
+ *   다음 주 브릿지를 약속함. 묶음은 주문서의 order_bridges(치식도 「연결」 띠)가 사실입니다.
+ */
+export interface DesignGroup {
+  /** 치식 오름차순 */
+  teeth: number[];
+  /** 그중 폰틱 */
+  pontics: number[];
+}
+
+/**
+ * 주문서의 FlowTemp 줄과 브릿지 묶음에서 설계 묶음을 만듭니다.
+ *
+ * @param items    FlowTemp(auto_pipeline) 줄만
+ * @param bridges  order_bridges 의 멤버 줄 id 묶음 (크라운 줄도 섞여 올 수 있음 — 모르는 id 는 버림)
+ *
+ * ★ 브릿지에 안 든 치아는 각각 싱글 묶음. 묶음 순서는 첫 치아 번호순.
+ * ★ 폰틱만 있고 지대치가 없는 묶음은 설계할 수 없어 **그대로 돌려주되** 일꾼이 멈춥니다 — 여기서
+ *   조용히 빼면 치과는 왜 안 나오는지 모릅니다.
+ */
+export function designGroups(items: DesignTooth[], bridges: string[][]): DesignGroup[] {
+  const byId = new Map(items.map((i) => [i.itemId, i]));
+  const used = new Set<string>();
+  const groups: DesignGroup[] = [];
+
+  for (const memberIds of bridges) {
+    const members = memberIds.map((id) => byId.get(id)).filter((i): i is DesignTooth => !!i && !used.has(i.itemId));
+    if (members.length === 0) continue;
+    for (const m of members) used.add(m.itemId);
+    groups.push(toGroup(members));
+  }
+  for (const i of items) {
+    if (used.has(i.itemId)) continue;
+    used.add(i.itemId);
+    groups.push(toGroup([i]));
+  }
+  return groups.sort((a, b) => a.teeth[0] - b.teeth[0]);
+}
+
+function toGroup(members: DesignTooth[]): DesignGroup {
+  const teeth = [...new Set(members.map((m) => m.tooth))].sort((a, b) => a - b);
+  const pontics = [...new Set(members.filter((m) => m.isPontic).map((m) => m.tooth))].sort((a, b) => a - b);
+  return { teeth, pontics };
+}
+
 export type StallKind = 'unsupported' | 'unreadable' | 'scan' | 'credits' | 'setup' | 'transient';
 
 export function stallKind(note: string | null | undefined): StallKind {
   const n = (note ?? '').trim();
-  if (/치식이 \d+개|임플란트|자연치|프렙|지대치|깎은/.test(n)) return 'unsupported';
+  // ★ 브릿지·묶음 여럿은 아직 자동으로 못 하는 것 — 다시 걸어 봐야 같은 자리 (2026-10-26)
+  if (/치식이 \d+개|임플란트|자연치|프렙|지대치|깎은|브릿지 자동 설계는 준비 중|설계 묶음이 \d+개/.test(n)) return 'unsupported';
   if (/치식을 못 읽|치식이 주문서와 다릅|치식이 다릅|크라운이 주문서와 다릅/.test(n)) return 'unreadable';
   if (/스캔을 못 찾|스캔 후보가|파일을 내려놓|스캔을 봐 주세요|두 번 실패/.test(n)) return 'scan';
   if (/건수|횟수|차감|credit/i.test(n)) return 'credits';
