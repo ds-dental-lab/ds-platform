@@ -49,7 +49,8 @@ export const AGENT_ZIP_PATH = `${AGENT_BUCKET}/${AGENT_ZIP_NAME}`;
  *   잘못 만든 판이 모든 치과에 한꺼번에 퍼져 같이 멈추는 것을 막는 문입니다.
  * ★ 시험 PC 는 기기 id 로 정합니다(사장님 PC 의 치ㅣ 에이전트).
  */
-export const AGENT_BETA_DEVICE_IDS: readonly string[] = ['4a00a20d-4bc8-42a9-b5e0-c2e1e0aa7285'];
+// ★ 2026-10-27 다시 연결하며 번호가 바뀜(옛 4a00a20d… 은 해제됨)
+export const AGENT_BETA_DEVICE_IDS: readonly string[] = ['f31e4dff-3cc7-4fd9-a9f7-bb0e2a60842c'];
 
 export interface AgentManifest {
   version: string;
