@@ -31,18 +31,33 @@ INTERVAL_SECONDS = 300
 #:   치과는 밤·새벽에 스캔을 안 보냅니다. 낮 5초, 밤 60초면 하루 요청이 절반 아래로 줍니다.
 BUSY_HOUR_START = 8
 BUSY_HOUR_END = 21
+#: 밤 11시부터 아침 8시까지는 더 길게 (사용자 2026-10-27 "새벽에 쓰시는 분은 아직 없을 듯")
+NIGHT_HOUR_START = 23
+NIGHT_FACTOR = 5
+
+
+def _kst_hour(now=None) -> int:
+    import datetime as _dt
+    t = now or _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=9)))
+    return t.hour
 
 
 def busy_hours(now=None) -> bool:
     """지금이 진료 시간(KST 08:00~21:00)인가 — PC 시계가 어느 시간대든 KST 로 봅니다"""
-    import datetime as _dt
-    t = now or _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=9)))
-    return BUSY_HOUR_START <= t.hour < BUSY_HOUR_END
+    return BUSY_HOUR_START <= _kst_hour(now) < BUSY_HOUR_END
 
 
-def poll_seconds(busy: float, idle: float) -> float:
-    """진료 시간이면 busy, 아니면 idle"""
-    return busy if busy_hours() else idle
+def night_hours(now=None) -> bool:
+    """깊은 밤(KST 23:00~08:00)인가"""
+    h = _kst_hour(now)
+    return h >= NIGHT_HOUR_START or h < BUSY_HOUR_START
+
+
+def poll_seconds(busy: float, idle: float, now=None) -> float:
+    """진료 시간이면 busy, 저녁(21~23)이면 idle, 깊은 밤(23~08)이면 idle 의 다섯 배"""
+    if busy_hours(now):
+        return busy
+    return idle * NIGHT_FACTOR if night_hours(now) else idle
 SAME_ERROR_SECONDS = 600
 MAX_PENDING = 50
 
