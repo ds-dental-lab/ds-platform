@@ -381,6 +381,8 @@ def main(argv: list[str] | None = None) -> int:
         say("설정에 기기 열쇠가 없습니다")
         return 1
     _CTX.update(base=base, token=token)
+    from probe import Gate  # noqa: PLC0415
+    _gate = Gate("design")
 
     # ★ 매크로가 7분씩 도는 동안에도 살아 있다는 표시를 남깁니다
     stop = threading.Event()
@@ -443,7 +445,13 @@ def main(argv: list[str] | None = None) -> int:
                 #   덴트버드 창을 끌어왔습니다 ("왜 자꾸 활성화되는 거야").
                 # ★★ 창이 닫혀 있어도 **다시 띄우지 않습니다** — 일감이 올 때만 띄웁니다
                 #   (사용자 2026-10-19 "크롬창이 계속 뜨네": 닫으면 5분 뒤 또 떴습니다).
-                got = post(f"{base}/api/device/auto-print/next-design", {"peek": True}, token)
+                # ★★ 묻기 전에 DB 에 먼저 (2026-10-27, Vercel Hobby CPU 한도) — DB 가 '없다' 면
+                #   버셀에 안 갑니다. 1분에 한 번은 그래도 묻습니다 (probe.py)
+                if not _gate.should_ask(cfg.get("probe_secret")):
+                    got = {"ok": True}
+                else:
+                    _gate.asked()
+                    got = post(f"{base}/api/device/auto-print/next-design", {"peek": True}, token)
                 if got.get("ok") and not got.get("job") and got.get("available"):
                     if not alive():
                         open_window("일감이 와서")

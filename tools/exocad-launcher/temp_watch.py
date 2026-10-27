@@ -255,6 +255,17 @@ def take_oneshot() -> dict | None:
     return {str(k): v for k, v in extra.items()}
 
 
+_PROBE_SECRET: dict = {}
+
+
+def _reslice_gate():
+    from probe import Gate  # noqa: PLC0415
+    return Gate("reslice")
+
+
+_RESLICE_GATE = _reslice_gate()
+
+
 def reslice_once(base: str, token: str) -> bool:
     """
     다시 뽑기를 **다음 자리로 다시 자릅니다** (사용자 2026-10-23 "다시 뽑을 때도 자리 바꿔서").
@@ -265,6 +276,10 @@ def reslice_once(base: str, token: str) -> bool:
       **옛 출력 파일(같은 자리)** 로 되돌려 출력은 나갑니다. 자리가 같을 뿐 멈추지 않습니다.
     돌려주는 것: 일감이 있었는가
     """
+    # ★★ 묻기 전에 DB 에 먼저 (2026-10-27, Vercel Hobby CPU 한도) — probe.py
+    if not _RESLICE_GATE.should_ask(_PROBE_SECRET.get("v")):
+        return False
+    _RESLICE_GATE.asked()
     got = post(f"{base}/api/device/auto-print/next-reslice", {}, token)
     if not got.get("ok"):
         say(f"다시 자르기 묻기 실패: {got.get('error')}")
@@ -317,6 +332,7 @@ def main() -> int:
     base = cfg.get("base_url", "https://denflow.kr").rstrip("/")
     token = cfg.get("token")
     watch = Path(cfg.get("watch") or (Path.home() / "Downloads"))
+    _PROBE_SECRET["v"] = cfg.get("probe_secret")
     words = tuple(cfg.get("design_names") or DESIGN_WORDS)
 
     if not token:
