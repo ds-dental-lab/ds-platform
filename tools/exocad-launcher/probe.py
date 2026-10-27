@@ -75,3 +75,25 @@ def decide(kind: str, got: dict | None, last_ask: float, now: float, force_every
     if got is None:
         return True
     return bool(got.get(kind))
+
+
+if __name__ == "__main__":
+    # 자가 점검 — 서버 PC 에서  python probe.py  : 열쇠가 맞는지, 지금 일이 있는지
+    import os
+    from pathlib import Path
+
+    cfg_path = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow" / "design_agent.json"
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        print(f"설정을 못 읽었습니다 — {cfg_path} ({e})")
+        raise SystemExit(1)
+    secret = cfg.get("probe_secret")
+    if not secret:
+        print("probe_secret 이 설정에 없습니다 — 옛길(버셀만 묻기)로 돕니다")
+        raise SystemExit(2)
+    got = probe(secret)
+    if got is None:
+        print("DB 가 답하지 않았습니다 — 열쇠가 다르거나 망이 막혔습니다 (옛길로 돕니다)")
+        raise SystemExit(3)
+    print(f"열쇠 맞음 · 설계 일감 {'있음' if got.get('design') else '없음'} · 다시 자르기 {'있음' if got.get('reslice') else '없음'}")
