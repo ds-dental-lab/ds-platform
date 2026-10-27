@@ -80,7 +80,7 @@ takeover.configure(SETTINGS_DIR)
 # ★★ **고쳐서 새로 빌드할 때마다 올립니다.** 서버의
 #   src/server/domain/agent/index.ts 의 AGENT_VERSION 과 **같아야** 합니다
 #   (어긋나면 모든 치과에 "새 판이 있습니다" 가 영원히 뜹니다 — 시험이 봅니다).
-AGENT_VERSION = "1.3.21"
+AGENT_VERSION = "1.3.22"
 
 SITE = "https://denflow.kr"
 SUPABASE_URL = "https://dzliwedyqkondvcwnvbh.supabase.co"

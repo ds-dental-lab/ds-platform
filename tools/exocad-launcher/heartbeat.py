@@ -23,7 +23,8 @@ import time
 import urllib.error
 import urllib.request
 
-INTERVAL_SECONDS = 60
+#: ★ 60 → 120 (2026-10-27, Vercel 요청 한도) — 기기 넷이면 하루 5,760 → 2,880
+INTERVAL_SECONDS = 120
 SAME_ERROR_SECONDS = 600
 MAX_PENDING = 50
 

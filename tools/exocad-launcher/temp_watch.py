@@ -221,7 +221,7 @@ def _deliver_once(stl: Path, got: dict) -> bool:
 
 #: 다시 뽑기 다시 자르기를 몇 초마다 묻나 (2026-10-23). 폴더 보기(5초)보다 느슨하게
 #: ★ 15 → 30 (2026-10-27, Vercel 요청 한도) — 다시 뽑기는 드문 일이라 30초면 충분합니다
-RESLICE_POLL_SECONDS = 30
+RESLICE_POLL_SECONDS = 60
 
 
 #: 한 번만 바꿔 자를 값 (사용자 2026-10-23 "한 번만 0.2mm 로 출력해 줘").
