@@ -36,9 +36,10 @@ BASE = __import__("os").environ.get("DENFLOW_BASE", "https://denflow.kr")  # 시
 
 #: 얼마에 한 번 물어볼지. 사람이 베드를 비우고 누르는 것을 기다리는 길이라
 #: 급하지 않습니다. 너무 잦으면 서버만 시끄럽습니다.
-#: ★ 10 → 20 (2026-10-27, Vercel 요청 한도) — 치과 PC 하나가 하루 8,640 → 4,320. 「비웠습니다」 뒤
-#:   기다림은 최대 20초
-POLL_SECONDS = 20
+#: ★ 낮(KST 08~21) 10초 · 밤 60초 (2026-10-27, 사용자 "출력은 최대한 빨라야" + Vercel 요청 한도)
+#:   — 치과 PC 하나가 하루 약 4,900. 「비웠습니다」 뒤 기다림은 낮에 최대 10초
+POLL_SECONDS = 10
+POLL_IDLE_SECONDS = 60
 
 #: ★ 미리 데우기 (사용자 2026-10-23 "미리 데우기도 넣어줘") — **판만**, 55도(텍스처 PEI 첫 층).
 #:   노즐은 안 데웁니다: A1 mini 는 시작할 때 노즐을 170·140 으로 **식히며 기다려서**
@@ -408,7 +409,8 @@ class PrintWorker:
                 self.tick()
             except Exception as e:  # noqa: BLE001 — 돌기는 멈추지 않습니다
                 self.say(f"알 수 없는 문제: {e}")
-            for _ in range(POLL_SECONDS):
+            from heartbeat import poll_seconds  # noqa: PLC0415
+            for _ in range(int(poll_seconds(POLL_SECONDS, POLL_IDLE_SECONDS))):
                 if stop():
                     return
                 time.sleep(1)

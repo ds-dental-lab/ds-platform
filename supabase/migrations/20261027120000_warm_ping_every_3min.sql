@@ -6,7 +6,8 @@
 --   그 전까지는 한도 안에 맞춥니다.
 -- ★ 3분이면 콜드 스타트(7분 쉬면 식음, ds-flow-performance)는 안 생깁니다.
 -- ★ /lab 은 아직 쓰는 기공소가 없어 뺍니다. 거래 기공소가 생기면 다시 넣습니다.
---   3분에 네 번 → 하루 1,920번, 달 5.8만.
+--   3분에 네 번, 진료 시간(KST 08~21 = UTC 23~12)만 → 하루 1,040번, 달 3.2만.
+-- ★ 밤에는 안 깨웁니다 — 밤 첫 손님만 2~3초 기다립니다(사용자 2026-10-27, FlowTemp 길만 빠르게).
 -- =========================================================
 
 do $$
@@ -19,7 +20,7 @@ $$;
 
 select cron.schedule(
   'warm-denflow',
-  '*/3 * * * *',
+  '*/3 23,0-11 * * *',
   $$
     select net.http_get(url := 'https://denflow.kr/clinic', headers := '{"x-denflow-warm":"1"}'::jsonb, timeout_milliseconds := 8000);
     select net.http_get(url := 'https://denflow.kr/design', headers := '{"x-denflow-warm":"1"}'::jsonb, timeout_milliseconds := 8000);

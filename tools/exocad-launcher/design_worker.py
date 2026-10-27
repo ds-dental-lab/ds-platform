@@ -53,8 +53,10 @@ LOG = STATE / "launcher" / "설계-일꾼.txt"
 #: ★ 30 → 5 (사용자 2026-10-25 "3분 25초면 오래 걸린다") — 등록하고 잡기까지 33초를 기다렸습니다.
 #:   묻기(peek)는 덴플로우에만 가고 덴트버드 창은 안 건드리니 자주 물어도 됩니다
 #: ★ 5 → 12 (2026-10-27) — Vercel 무료 한도(CDN 요청 100만/월)의 75% 경고. 5초면 이 묻기 하나가
-#:   달 52만 건입니다. 20초면 13만 건, 등록 뒤 기다림은 최대 20초 (거래처 생기면 Pro 로 올리고 되돌릴 것)
-POLL_SECONDS = 20
+#:   달 52만 건입니다.
+#: ★ 낮(KST 08~21) 5초 · 밤 60초 (2026-10-27, 사용자 "등록 뒤 설계는 최대한 빨라야") — 하루 약 9,500
+POLL_SECONDS = 5
+POLL_IDLE_SECONDS = 60
 #: 덴트버드 창이 못 쓰는 상태(로그인 풀림 등)일 때 쉬는 시간
 #: ★ 300 → 60 (2026-10-26 리허설 — 다시 로그인하고도 4분 넘게 기다렸습니다)
 SESSION_PAUSE_SECONDS = 60
@@ -465,7 +467,8 @@ def main(argv: list[str] | None = None) -> int:
                 elif args.once:
                     say("일감 없음")
                     return 0
-            time.sleep(POLL_SECONDS)
+            from heartbeat import poll_seconds  # noqa: PLC0415
+            time.sleep(poll_seconds(POLL_SECONDS, POLL_IDLE_SECONDS))
     except KeyboardInterrupt:
         return 0
     finally:

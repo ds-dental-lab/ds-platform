@@ -23,8 +23,26 @@ import time
 import urllib.error
 import urllib.request
 
-#: ★ 60 → 120 (2026-10-27, Vercel 요청 한도) — 기기 넷이면 하루 5,760 → 2,880
-INTERVAL_SECONDS = 120
+#: ★ 60 → 300 (2026-10-27, 사용자 "생존 신고 같은 건 긴 텀") — 기기 셋이면 하루 864
+INTERVAL_SECONDS = 300
+
+#: 진료 시간 (KST) — 이 안에서만 FlowTemp 묻기를 빠르게 합니다 (2026-10-27).
+#: ★ 왜 — Vercel 무료 한도(요청 100만/월) 안에서 "등록 뒤 설계·출력은 최대한 빨리"(사용자).
+#:   치과는 밤·새벽에 스캔을 안 보냅니다. 낮 5초, 밤 60초면 하루 요청이 절반 아래로 줍니다.
+BUSY_HOUR_START = 8
+BUSY_HOUR_END = 21
+
+
+def busy_hours(now=None) -> bool:
+    """지금이 진료 시간(KST 08:00~21:00)인가 — PC 시계가 어느 시간대든 KST 로 봅니다"""
+    import datetime as _dt
+    t = now or _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=9)))
+    return BUSY_HOUR_START <= t.hour < BUSY_HOUR_END
+
+
+def poll_seconds(busy: float, idle: float) -> float:
+    """진료 시간이면 busy, 아니면 idle"""
+    return busy if busy_hours() else idle
 SAME_ERROR_SECONDS = 600
 MAX_PENDING = 50
 
