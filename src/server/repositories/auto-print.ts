@@ -44,6 +44,8 @@ import { olderThan } from '@/server/domain/agent';
 
 /** 하던 출력을 이어서 지켜볼 줄 아는 에이전트 판 (2026-10-23) */
 const RESUME_SINCE = '1.3.15';
+/** 집어 간 지 이만큼 지나야 '다시 켜져 놓친 것' 으로 봅니다 (2026-10-27) */
+const RESUME_AFTER_SECONDS = 90;
 
 const BUCKET = 'order-files';
 
@@ -692,14 +694,23 @@ export async function claimPrintJob(
   */
   const { data: mine } = await admin
     .from('auto_jobs')
-    .select('id, order_id, step, print_file_path')
+    .select('id, order_id, step, print_file_path, claimed_at')
     .eq('clinic_org_id', device.clinicOrgId)
     .eq('claimed_device_id', device.id)
     .in('step', ['sending', 'printing'])
     .order('claimed_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  const inflight = mine as { id: string; order_id: string; step: 'sending' | 'printing'; print_file_path: string | null } | null;
+  const inflightRow = mine as { id: string; order_id: string; step: 'sending' | 'printing'; print_file_path: string | null; claimed_at: string | null } | null;
+  /*
+    ★ 방금 집어 간 것은 '놓친 것' 이 아닙니다 (2026-10-27, ORD-261027-001). 같은 기기가 집어 가고 8초 뒤에
+      또 물었는데(에이전트 안에 출력 루프가 둘 뜬 사고) 이어서 보기를 내줘, 아직 보내는 중인 것을 '확인 못 함'
+      으로 실패 처리했습니다. 집어 간 지 RESUME_AFTER_SECONDS 가 안 됐으면 그 에이전트가 아직 보내는 중인
+      것으로 보고 아무것도 안 줍니다.
+  */
+  const claimedAgo = inflightRow?.claimed_at ? (Date.now() - new Date(inflightRow.claimed_at).getTime()) / 1000 : Infinity;
+  if (inflightRow && claimedAgo < RESUME_AFTER_SECONDS) return idle();
+  const inflight = inflightRow;
   // 이어서 지켜보기를 아는 판(1.3.15+)에게만 — 옛 판은 내려받을 주소가 비어 실패로 끝냅니다
   let canResume = false;
   if (inflight?.print_file_path) {

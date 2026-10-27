@@ -1376,9 +1376,8 @@ class App:
             return
         self.agent.stop.set()
         self.watching = False
-        # ★ 출력 가져오기도 그 신호를 보고 끝납니다. 손잡이를 놓아 둬야
-        #   다시 켤 때 "아직 돌고 있다" 고 잘못 보지 않습니다.
-        self.print_thread = None
+        # ★ 출력 가져오기도 그 신호를 보고 끝납니다. 손잡이는 **둡니다** (2026-10-27) — 다시 켤 때
+        #   옛 루프가 아직 보내는 중이면 끝나길 기다렸다 새 루프를 띄웁니다 (start_printing)
         self.say("지켜보기를 멈췄습니다. 지금 내보낸 것은 안 올라갑니다.")
         self.refresh()
 
@@ -1438,10 +1437,21 @@ class App:
             save=save_settings,
         )
         self.print_worker = worker
-        self.print_thread = threading.Thread(
-            target=lambda: worker.loop(stop=lambda: self.agent.stop.is_set()),
-            daemon=True,
-        )
+        # ★★ 멈춤 신호는 **지금 것을 붙잡아** 둡니다 (2026-10-27). 전에는 self.agent.stop 을 매번 읽어서,
+        #   멈췄다 다시 켤 때 start() 가 새 Event 를 달면 옛 루프는 영영 '안 멈춤' 으로 읽고 계속 돌았습니다.
+        #   그래서 루프가 둘이 되어, 하나가 프린터로 보내는 8초 사이 다른 하나가 또 물어 '이어서 보기' 를
+        #   받고는 "출력 결과를 확인하지 못했습니다" 로 실패 처리했습니다 (ORD-261027-001).
+        stop_event = self.agent.stop
+        old = getattr(self, "print_thread", None)
+
+        def run() -> None:
+            # ★ 옛 루프가 아직 보내는 중이면 끝날 때까지 기다렸다 시작 — 둘이 같이 돌지 않게
+            if old is not None and old.is_alive():
+                self.say("이전 출력 작업이 끝나길 기다립니다…")
+                old.join()
+            worker.loop(stop=lambda: stop_event.is_set())
+
+        self.print_thread = threading.Thread(target=run, daemon=True)
         self.print_thread.start()
         self.say("출력 작업도 지켜봅니다.")
 
