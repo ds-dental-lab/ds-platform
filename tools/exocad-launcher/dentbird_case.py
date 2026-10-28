@@ -150,23 +150,41 @@ def beside(stl: Path) -> Path | None:
     return best
 
 
-#: 덴트버드 크라운 이름 — `…_16-16-crown`. 앞뒤 번호가 같으면 싱글입니다
-_NAME_TEETH = re.compile(r"_([1-4][1-8])-([1-4][1-8])-crown$", re.IGNORECASE)
+#: 덴트버드 크라운 이름 — `…_16-16-crown`. 앞뒤 번호가 같으면 싱글, 다르면 브릿지(꼬리는 crown 또는 bridge 로 짐작)
+_NAME_TEETH = re.compile(r"_([1-4][1-8])-([1-4][1-8])-(?:crown|bridge)$", re.IGNORECASE)
 
 
 def teeth_from_name(stl: Path) -> list[int]:
     """
-    파일 이름에 적힌 치식. 못 읽거나 **싱글이 아니면** 빈 목록.
+    파일 이름에 적힌 치식. 못 읽으면 빈 목록.
 
     ★ 덴트버드가 크라운 이름에 치식을 적어 줍니다 (`…_16-16-crown.stl`).
       정보 파일이 같이 안 오는 날(크라운만 골라 내보낼 때)에도 이것은 남습니다.
-    ★ 앞뒤 번호가 다르면(브릿지 같은 것) **짐작하지 않습니다.** 지금은 싱글
-      크라운부터 완벽하게 — 여러 개짜리는 그때 이름 규칙을 보고 정합니다.
+    ★ 앞뒤 번호가 다르면 브릿지입니다 — 덴트버드 화면이 "브릿지 25-27" 로 부르는 범위
+      (2026-10-28 실측). 그 사이 이를 FDI 순서로 **전부** 폅니다 (25-27 → 25·26·27,
+      13-23 → 13·12·11·21·22·23). 내보낸 파일의 꼬리(crown/bridge)는 아직 못 봐서 둘 다 받습니다.
     """
     m = _NAME_TEETH.search(_bare(stl.stem))
-    if not m or m.group(1) != m.group(2):
+    if not m:
         return []
-    return [int(m.group(1))]
+    return fdi_range(int(m.group(1)), int(m.group(2)))
+
+
+def fdi_range(a: int, b: int) -> list[int]:
+    """FDI 번호 a 에서 b 까지 이가 놓인 순서대로 — 같은 사분면이면 번호 차례, 정중선을 넘으면
+    1번끼리 맞닿습니다(13 → 12 → 11 → 21 → 22 → 23). 위아래를 넘는 범위는 브릿지가 아니라 빈 목록."""
+    if a == b:
+        return [a]
+    qa, qb = a // 10, b // 10
+    if qa == qb:
+        lo, hi = sorted((a, b))
+        return list(range(lo, hi + 1))
+    # 정중선을 넘는 짝은 (1,2) 또는 (3,4) 뿐
+    if {qa, qb} not in ({1, 2}, {3, 4}):
+        return []
+    left, right = (a, b) if qa in (1, 3) else (b, a)   # 1·3 사분면 쪽이 '왼쪽' (환자 기준 오른쪽)
+    lq, rq = left // 10, right // 10
+    return list(range(left, lq * 10, -1)) + list(range(rq * 10 + 1, right + 1))
 
 
 @dataclass

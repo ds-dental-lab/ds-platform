@@ -217,9 +217,11 @@ export type StallKind = 'unsupported' | 'unreadable' | 'scan' | 'credits' | 'set
 
 export function stallKind(note: string | null | undefined): StallKind {
   const n = (note ?? '').trim();
-  // ★ 브릿지·묶음 여럿은 아직 자동으로 못 하는 것 — 다시 걸어 봐야 같은 자리 (2026-10-26)
-  if (/치식이 \d+개|임플란트|자연치|프렙|지대치|깎은|브릿지 자동 설계는 준비 중|설계 묶음이 \d+개/.test(n)) return 'unsupported';
-  if (/치식을 못 읽|치식이 주문서와 다릅|치식이 다릅|크라운이 주문서와 다릅/.test(n)) return 'unreadable';
+  // ★ 묶음 여럿은 아직 자동으로 못 하는 것 — 다시 걸어 봐야 같은 자리 (2026-10-26)
+  // ★ 브릿지는 2026-10-28 부터 자동 — 남는 것은 결손 자리에 이름표가 없을 때(사람이 폰틱을 찍어야)와
+  //   의뢰서가 이상할 때(떨어진 크라운 둘인데 연결 표시) 뿐. 둘 다 다시 걸어도 같습니다
+  if (/치식이 \d+개|임플란트|자연치|프렙|지대치|깎은|브릿지 자동 설계는 준비 중|설계 묶음이 \d+개|이름표가 화면에 없|폰틱이 없습니다/.test(n)) return 'unsupported';
+  if (/치식을 못 읽|치식이 주문서와 다릅|치식이 다릅|크라운이 주문서와 다릅|브릿지가 주문서와 다릅/.test(n)) return 'unreadable';
   if (/스캔을 못 찾|스캔 후보가|파일을 내려놓|스캔을 봐 주세요|두 번 실패/.test(n)) return 'scan';
   if (/건수|횟수|차감|credit/i.test(n)) return 'credits';
   if (/다운로드|download|로그인|session|세션|창이 안 떠|CAM 축|ZIP으로 압축|올라오지|올라왔|내보낸 뒤|배달|deliver/i.test(n)) {

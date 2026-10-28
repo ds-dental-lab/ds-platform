@@ -291,3 +291,43 @@ def apply_all(d, say=print) -> None:
     set_inner(d, say)
     set_adapt(d, say)
     fix_thickness(d, say)
+
+
+#: 이름표를 누른 뒤 그 치아의 도구 막대가 뜰 때까지
+SELECT_SECONDS = 20.0
+
+
+def select_tooth(d, number: int, wait_s: float = SELECT_SECONDS) -> None:
+    """3D 화면의 이름표(글이 치식)를 눌러 **그 치아**를 고릅니다 — 브릿지에서 크라운마다 값을 넣을 때.
+
+    ★ `_crown_toolbar` 는 '아무 이름표나' 눌러 막대만 띄웁니다. 브릿지는 어느 크라운의 막대인지가
+      중요해서 번호로 고릅니다. 막대가 이미 떠 있어도 **다시** 누릅니다 — 다른 크라운 것일 수 있습니다.
+    """
+    deadline = time.time() + wait_s
+    while time.time() < deadline:
+        hit = d.execute_script(
+            "const l=[...document.querySelectorAll('[data-testid=component-floating-label-button]')]"
+            ".find(e=>(e.innerText||'').trim()===String(arguments[0]));"
+            "if(!l) return false; l.click(); return true;", number)
+        if not hit:
+            time.sleep(1)
+            continue
+        for _ in range(6):
+            time.sleep(0.5)
+            if d.find_elements("css selector", '[data-testid="toolbar-tool-inner"]'):
+                return
+    raise ParamError(f"치아 {number} 의 이름표를 눌러도 도구 막대가 안 뜹니다 — 화면을 봐 주세요")
+
+
+def apply_each(d, teeth: list[int], say=print) -> None:
+    """지대치마다 골라서 apply_all. 하나면 전처럼(아무 이름표나).
+
+    ★ 브릿지는 **합치기 전**에 불러야 합니다 — 합치면 내면·교합 패널이 잠깁니다 (2026-10-28 실측).
+    """
+    if len(teeth) <= 1:
+        apply_all(d, say)
+        return
+    for n in sorted(teeth):
+        say(f"크라운 {n} 의 설계값")
+        select_tooth(d, n)
+        apply_all(d, say)

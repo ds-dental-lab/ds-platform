@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from dentbird_case import beside, teeth_from_name  # noqa: E402
+from dentbird_case import beside, fdi_range, teeth_from_name  # noqa: E402
 
 ok = bad = 0
 
@@ -54,8 +54,14 @@ with tempfile.TemporaryDirectory() as tmp:
 # 이름에서 읽는 치식
 eq(teeth_from_name(Path("restoration_upper_16-16-crown.stl")), [16], "싱글")
 eq(teeth_from_name(Path("a_27-27-crown (2).stl")), [27], "복사 꼬리")
-eq(teeth_from_name(Path("a_24-26-crown.stl")), [], "브릿지는 짐작하지 않음")
+eq(teeth_from_name(Path("a_24-26-crown.stl")), [24, 25, 26], "브릿지 — 범위를 폄 (2026-10-28)")
+eq(teeth_from_name(Path("a_25-27-bridge.stl")), [25, 26, 27], "브릿지 — bridge 꼬리도")
 eq(teeth_from_name(Path("PreparationScan.stl")), [], "크라운 이름이 아님")
+eq(fdi_range(13, 23), [13, 12, 11, 21, 22, 23], "정중선을 넘는 범위")
+eq(fdi_range(23, 13), [13, 12, 11, 21, 22, 23], "거꾸로 줘도 같음")
+eq(fdi_range(33, 43), [33, 32, 31, 41, 42, 43], "아래턱 정중선")
+eq(fdi_range(16, 46), [], "위아래를 넘는 건 브릿지가 아님")
+eq(fdi_range(27, 27), [27], "싱글")
 
 print(f"통과 {ok} · 실패 {bad}")
 raise SystemExit(1 if bad else 0)

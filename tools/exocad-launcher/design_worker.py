@@ -38,8 +38,8 @@ import urllib.request
 from pathlib import Path
 
 import export_tag
-from dentbird_macro import Reporter, SessionLost, Stop, export, run, session_problem
-from dentbird_params import ParamError, apply_all
+from dentbird_macro import Reporter, SessionLost, Stop, assemble, export, run, session_problem
+from dentbird_params import ParamError, apply_each
 from dentbird_web import alive, attach, open_browser, reap_drivers
 from design_scans import PickError, candidates, ensure_meshes, pick, to_stl, unzip_all
 from watch_common import beat, revive, single_instance
@@ -176,9 +176,11 @@ def _handle(job: dict, spend: bool) -> None:
         pontics = sorted(int(t) for t in groups[0].get("pontics") or [])
         if pontics and len(pontics) >= len(teeth):
             raise Stop(f"폰틱만 있고 지대치가 없습니다 — 치식 {teeth}")
-        # ★ 브릿지 매크로는 준비 중 (다서울 약속 2026-11-02~08) — 덴트버드 브릿지 화면을 본 뒤 붙입니다
-        if len(teeth) != 1:
-            raise Stop(f"브릿지 {teeth} (폰틱 {pontics}) — 브릿지 자동 설계는 준비 중입니다")
+        # ★ 지대치 = 덴트버드가 크라운으로 잡는 이. 폰틱은 따로 찍습니다 (브릿지 가지 2026-10-28).
+        abutments = [t for t in teeth if t not in pontics]
+        if len(abutments) > 1 and not pontics and any(b - a > 1 for a, b in zip(abutments, abutments[1:])):
+            # 떨어진 크라운 둘(예: 24·26)은 브릿지가 아닙니다 — 묶음 하나로 왔다면 의뢰서가 이상한 것
+            raise Stop(f"치식이 {abutments} 로 떨어져 있는데 폰틱이 없습니다 — 의뢰서의 연결 표시를 봐 주세요")
 
         folder = WORK / order_id
         download(job["files"], folder)
@@ -194,23 +196,27 @@ def _handle(job: dict, spend: bool) -> None:
 
             fresh = _fresh_order_token(order_id, teeth) or job.get("token", "")
             upload_scans(order_id, fresh, [p for p in converted if p.suffix.lower() == ".ply"], say=say)
-        prep, anta = pick(candidates(folder), teeth[0])
+        prep, anta = pick(candidates(folder), abutments[0])
         say(f"작업치 {prep.name} · 대합치 {anta.name}")
         # ★ obj(메딧 기본)는 STL 로 바꿔 올립니다 (2026-10-22)
         prep, anta = to_stl(prep), to_stl(anta)
 
-        run([prep, anta], teeth, say=say, mark=mark)
+        run([prep, anta], abutments, say=say, mark=mark, pontics=pontics)
+        # ★ 브릿지는 지대치마다 값을 넣고 **그 뒤에** 합칩니다 — 합치면 패널이 잠깁니다 (2026-10-28 실측)
         say("설계값을 맞춥니다 — 내면 · 교합/인접 · 최소 두께")
         try:
-            apply_all(attach(), say=say)
+            apply_each(attach(), abutments, say=say)
         except ParamError as e:
             raise Stop(f"설계값을 못 맞췄습니다 — {e}") from e
+        if len(teeth) > 1:
+            assemble(attach(), abutments, teeth, say=say)
 
         if spend:
             mark("exporting")
-            # ★ 이름표 — 지켜보기가 이 크라운을 이 주문에 붙입니다 (2026-10-16 점검)
+            # ★ 이름표 — 지켜보기가 이 크라운을 이 주문에 붙입니다 (2026-10-16 점검).
+            #   브릿지는 유닛 전부(지대치+폰틱) — 내보낸 파일 이름의 범위(25-27)와 맞춥니다
             export_tag.write(order_id, teeth)
-        clicked = export(attach(), teeth, spend, say=say)
+        clicked = export(attach(), abutments, spend, say=say, units=teeth)
         if not clicked:
             mark("stalled", "시험으로 돌렸습니다 — 내보내기 직전에서 멈췄습니다 (--no-export)")
             return

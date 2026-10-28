@@ -46,7 +46,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from dentbird_web import attach, alive  # noqa: E402
-from dentbird_params import ParamError, apply_all  # noqa: E402
+from dentbird_params import ParamError, apply_each  # noqa: E402
 
 CROWN_URL = "https://ai.dentbird.com/crown/new-crown"
 
@@ -262,7 +262,134 @@ def detected_teeth(d) -> list[int]:
     return sorted({int(n) for n in re.findall(r"크라운\s*([1-4][1-8])\b", text(d))})
 
 
-def run(scans: list[Path], want: list[int], say=print, mark=lambda stage, note=None: None) -> bool:
+# ---------------------------------------------------------------- 브릿지 (2026-10-28 실측)
+#
+# 덴트버드에 'Bridge' 유형은 없습니다. Crown 케이스 안에서
+#   ① 결손 자리 이름표 → 유형 '폰틱' → 적용
+#   ② 이웃한 보철 사이의 링크 단추 → 적용   (setter 글이 "브릿지 25-27" 로 바뀜)
+#   ③ 생성 → 크라운마다 설계값 → 합치기(assemble) → 내보내기(항목이 "브릿지 25-27" 하나)
+# 순서로 만듭니다. 화면 이름은 memory/ds-flow-dentbird-bridge.md 에 실측 그대로.
+
+#: 합치기가 끝나 '조립됨' 이 뜰 때까지 기다리는 한도 (실측 10초)
+ASSEMBLE_SECONDS = 90
+#: 내보내기 창이 뜰 때까지 — 브릿지는 '내보내기 처리 중...' 이 20초를 넘겼습니다
+EXPORT_OPEN_SECONDS = 75
+
+
+def bridge_span(units: list[int]) -> str:
+    """덴트버드가 붙이는 브릿지 이름의 숫자 — '25-27' (가장 작은 번호-가장 큰 번호)"""
+    return f"{min(units)}-{max(units)}"
+
+
+def generation_done(body: str, units: int) -> bool:
+    """생성이 **다** 끝났는가.
+
+    ★★ '생성됨' 하나만 보면 안 됩니다 (2026-10-28 실측). 크라운 둘을 생성할 때 "크라운 26
+      생성됨 · 크라운 27 생성됨" 이 적힌 채로 아직 "생성 중... 95%" 가 돌고 있었습니다.
+      유닛 수만큼 '생성됨' 이 있고, '준비 중/생성 중' 이 사라져야 끝입니다.
+    """
+    if "생성 완료" in body:
+        return True
+    if re.search(r"준비 중|생성 중", body):
+        return False
+    return len(re.findall(r"생성됨", body)) >= max(1, units)
+
+
+def _click_label(d, number: int) -> bool:
+    """3D 화면의 치아 이름표(글이 치식)를 누릅니다. 없으면 False"""
+    return bool(d.execute_script(
+        "const l=[...document.querySelectorAll('[data-testid=component-floating-label-button]')]"
+        ".find(e=>(e.innerText||'').trim()===String(arguments[0]));"
+        "if(!l) return false; l.click(); return true;", number))
+
+
+def mark_pontics(d, pontics: list[int], say=print) -> None:
+    """결손 자리를 폰틱으로 찍습니다 — 이름표 → '폰틱' → 적용.
+
+    ★ 찍으면 "폰틱 기준점 설정"(빨간 점을 결손 부위로 옮기라는 안내) 이 뜹니다. 3D 드래그라
+      기계는 못 옮기고 닫기만 합니다 — 덴트버드가 놓은 기본 자리로 갑니다. 이 자리가 틀리면
+      폰틱이 엉뚱한 데 섭니다. 첫 실전 케이스들은 사람이 결과를 봐야 합니다.
+    ★ 이름표가 없는 자리(AI 가 결손치로 잡아 이름표를 안 단 경우)는 멈춥니다 — 아직 못 본 경우.
+    """
+    for n in pontics:
+        if not _click_label(d, n):
+            raise Stop(f"폰틱 자리 {n} 의 이름표가 화면에 없습니다 — 결손 자리는 사람이 찍어 주세요")
+        time.sleep(1.5)
+        click(d, "tooth-planning-type-pontic")
+        time.sleep(0.8)
+        click(d, "tooth-planning-apply-btn")
+        time.sleep(3)
+        d.execute_script(
+            "document.querySelector('[data-testid=pontic-guide-close-btn]')?.click();"
+            "document.querySelector('[data-testid=tooth-planning-close-btn]')?.click();")
+        time.sleep(0.8)
+        if f"폰틱 {n}" not in text(d):
+            raise Stop(f"폰틱 {n} 이 안 찍혔습니다 — 화면을 봐 주세요")
+        say(f"폰틱 {n} 으로 찍었습니다")
+
+
+def link_bridge(d, units: list[int], say=print) -> None:
+    """이웃한 보철을 전부 잇고, setter 글이 '브릿지 a-b' 인지 확인합니다.
+
+    ★ 링크 단추는 **'적용' 까지** 눌러야 반영됩니다 (토글만 누르면 패널만 뜸).
+    ★ 유닛이 n 개면 단추는 n-1 개. 그보다 많으면 주문에 없는 보철이 화면에 있는 것이라
+      setter 글이 달라져 멈춥니다.
+    """
+    span = bridge_span(units)
+    for _ in range(len(units)):
+        classes = d.execute_script(
+            "return [...document.querySelectorAll('[data-testid=bridge-link-toggle-btn]')]"
+            ".map(b=>b.querySelector('svg')?.className.baseVal||'')")
+        idx = next((i for i, c in enumerate(classes) if "unlink" in c), None)
+        if idx is None:
+            break
+        d.execute_script(
+            "document.querySelectorAll('[data-testid=bridge-link-toggle-btn]')[arguments[0]].click()", idx)
+        time.sleep(1.5)
+        click(d, "bridge-link-panel-apply-btn")
+        time.sleep(2.5)
+    setter = d.execute_script(
+        "return document.querySelector('[data-testid=workspace-preparation-tooth-info-setter]')?.innerText||''")
+    if f"브릿지 {span}" not in setter:
+        raise Stop(f"브릿지 {span} 로 안 묶였습니다 — 화면: {' '.join(setter.split())[:80]}")
+    say(f"브릿지 {span} 로 묶었습니다")
+
+
+def assemble(d, abutments: list[int], units: list[int], say=print) -> None:
+    """생성된 크라운·폰틱을 한 덩어리로 합칩니다 — 툴바의 '합치기'.
+
+    ★ 합치기 단추는 **크라운을 하나 고른 뒤에만** 툴바에 뜹니다.
+    ★ 합친 뒤에는 내면·교합 조정이 잠깁니다 — 설계값은 이 **앞에서** 넣습니다.
+    """
+    from dentbird_params import ParamError, select_tooth  # noqa: PLC0415
+
+    span = bridge_span(units)
+    for attempt in range(3):
+        try:
+            select_tooth(d, abutments[0])
+            click(d, "toolbar-assemble-btn")
+        except (Stop, ParamError) as e:
+            if attempt == 2:
+                raise Stop(f"합치기 단추를 못 눌렀습니다 — {e}") from e
+            time.sleep(3)
+            continue
+        for _ in range(ASSEMBLE_SECONDS // 2):
+            time.sleep(2)
+            if "조립됨" in text(d):
+                say(f"브릿지 {span} 를 합쳤습니다")
+                return
+        raise Stop(f"합치기를 눌렀는데 {ASSEMBLE_SECONDS}초 안에 '조립됨' 이 안 뜹니다")
+
+
+def run(scans: list[Path], want: list[int], say=print, mark=lambda stage, note=None: None,
+        pontics: list[int] | None = None) -> bool:
+    """올리기 → 분석 → 치식 대조 → (폰틱·링크) → 생성.
+
+    want 는 **지대치(덴트버드가 크라운으로 잡는 이)** 만. 폰틱은 pontics 로 따로 —
+    AI 는 결손 자리를 크라운으로 잡지 않으므로 대조에 넣으면 늘 틀립니다.
+    """
+    pontics = sorted(pontics or [])
+    units = sorted(set(want) | set(pontics))
     if not alive():
         raise Stop("덴트버드 창이 안 떠 있습니다 — dentbird_web.py 로 띄우고 로그인해 주세요")
 
@@ -292,6 +419,14 @@ def run(scans: list[Path], want: list[int], say=print, mark=lambda stage, note=N
         raise Stop("치식을 못 읽었습니다 — 화면을 보고 사람이 확인해 주세요")
     if sorted(got) != sorted(want):
         raise Stop(f"치식이 주문서와 다릅니다 — 주문서 {want} · 덴트버드 {got}")
+
+    # ★ 브릿지 — 폰틱을 찍고 이웃을 잇습니다. 싱글 하나면 아무것도 안 합니다.
+    #   ★ 이 화면에서 '뒤로가기(Smart order)' 로 돌아오면 묶음이 풀립니다 (실측) —
+    #     돌아올 일이 생기면 여기부터 다시 해야 합니다.
+    if len(units) > 1:
+        # (서버의 단계 이름은 uploading·analyzing·generating·exporting 뿐 — 여기는 analyzing 그대로)
+        mark_pontics(d, pontics, say)
+        link_bridge(d, units, say)
 
     retried = False
 
@@ -325,9 +460,10 @@ def run(scans: list[Path], want: list[int], say=print, mark=lambda stage, note=N
     # ★ 끝났다는 말은 '생성됨'(한 개) 또는 'AI 디자인 생성 완료' 입니다.
     #   도는 동안은 '디자인 준비 중 … %' 가 떠 있습니다 (실측 2026-10-14).
     #   싱글 크라운 하나에 **2분 40초**, 셋에 3분이었습니다.
+    # ★ 유닛(지대치+폰틱)이 여럿이면 **전부** '생성됨' 이고 '생성 중' 이 없어야 끝입니다
     for _ in range(WAIT_SECONDS // STEP):
         body = text(d)
-        if "생성 완료" in body or "생성됨" in body:
+        if generation_done(body, len(units)):
             say("생성 끝났습니다")
             return True
         # ★★ 덴트버드가 **그냥 실패하는 날이 있습니다.** "알 수 없는 오류" 라고만
@@ -383,6 +519,8 @@ const near = label => {
 const cam = near('CAM 축에 좌표 정렬');
 const zip = near('ZIP으로 압축');
 const crowns = (t(document.body.innerText).match(/크라운 ([1-4][1-8])/g) || []).map(s => +s.slice(-2));
+// ★ 브릿지는 항목이 "브릿지 25-27" 하나입니다 (2026-10-28 실측) — 크라운 글이 없습니다
+const bridges = (t(document.body.innerText).match(/브릿지 ([1-4][1-8])-([1-4][1-8])/g) || []).map(s => s.replace('브릿지 ', ''));
 const btn = [...document.querySelectorAll('button')]
   .filter(b => t(b.innerText).includes('내보내기') && !t(b.innerText).includes('소프트웨어'))
   .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0];
@@ -395,11 +533,11 @@ const total = quota[2];
 const cost = (t(document.body.innerText).match(/차감\\s*(\\d+)/) || [])[1];
 const room = (cost !== undefined && +cost === 0) || left === null || left === undefined || +left > 0;
 if (arguments[0] && cam === true && zip === false && btn && room) btn.click();
-return { cam, zip, crowns: [...new Set(crowns)], left: left !== undefined ? +left : null, total: total !== undefined ? +total : null, cost: cost !== undefined ? +cost : null, clicked: !!(arguments[0] && cam === true && zip === false && btn && room) };
+return { cam, zip, crowns: [...new Set(crowns)], bridges: [...new Set(bridges)], left: left !== undefined ? +left : null, total: total !== undefined ? +total : null, cost: cost !== undefined ? +cost : null, clicked: !!(arguments[0] && cam === true && zip === false && btn && room) };
 """
 
 
-def export(d, want: list[int], spend: bool, say=print) -> bool:
+def export(d, want: list[int], spend: bool, say=print, units: list[int] | None = None) -> bool:
     """내보내기 창을 열고, 설정을 확인하고, spend 면 누릅니다
 
     ★★ **이 한 번이 돈입니다** (Free 월 3건). 그래서 `spend` 를 따로 받습니다 —
@@ -407,7 +545,10 @@ def export(d, want: list[int], spend: bool, say=print) -> bool:
     ★★ 창이 **iframe 안**에 있습니다. 바깥 문서에서는 '데이터 선택' 이 안
       보이고, 위쪽 '내보내기' 단추가 iframe 에 가려 눌리지도 않습니다
       (2026-10-15, 이걸 모르고 위쪽 단추를 눌러 창을 닫아 버렸습니다).
+    ★ units 를 주면(지대치+폰틱, 둘 이상) 브릿지로 봅니다 — 창의 항목이 "브릿지 a-b" 하나여야
+      하고, 차감은 유닛 수만큼입니다 (3유닛 = 3건, 2026-10-28 실측).
     """
+    span = bridge_span(units) if units and len(units) > 1 else None
     if spend and not downloads_allowed():
         raise Stop("전용 크롬에서 ai.dentbird.com 의 '여러 파일 다운로드' 를 허용해 주세요 "
                    "— 안 하면 크라운만 오고 정보 파일이 막힙니다")
@@ -424,17 +565,22 @@ def export(d, want: list[int], spend: bool, say=print) -> bool:
     else:
         raise Stop(f"내보내기 단추가 {EXPORT_UNLOCK_SECONDS}초 동안 잠겨 있습니다 — 덴트버드 화면을 봐 주세요")
 
-    for _ in range(5):
-        try:
-            click(d, "appbar-export-btn")
-        except Exception:  # noqa: BLE001 — 가려져 있으면 다시
-            pass
+    # ★ 창은 '내보내기 처리 중...' 을 거쳐 뜹니다 — 브릿지는 20초를 넘겼습니다 (2026-10-28).
+    #   처리 중일 때는 다시 누르지 않고 기다립니다.
+    deadline = time.time() + EXPORT_OPEN_SECONDS
+    frame = None
+    while time.time() < deadline:
+        if "처리 중" not in text(d):
+            try:
+                click(d, "appbar-export-btn")
+            except Exception:  # noqa: BLE001 — 가려져 있으면 다시
+                pass
         time.sleep(4)
         frame = _export_frame(d)
         if frame is not None:
             break
-    else:
-        raise Stop("내보내기 창이 안 열립니다")
+    if frame is None:
+        raise Stop(f"내보내기 창이 {EXPORT_OPEN_SECONDS}초 안에 안 열립니다")
 
     d.switch_to.frame(frame)
     try:
@@ -443,13 +589,16 @@ def export(d, want: list[int], spend: bool, say=print) -> bool:
         d.switch_to.default_content()
 
     say(f"내보내기 창 — CAM 정렬 {got['cam']} · ZIP {got['zip']} · "
-        f"치식 {got['crowns']} · 남은 횟수 {got['left']}/{got.get('total')} · 이번 차감 {got.get('cost')}")
+        f"치식 {got['crowns']} · 브릿지 {got.get('bridges')} · 남은 횟수 {got['left']}/{got.get('total')} · 이번 차감 {got.get('cost')}")
 
     if got["cam"] is not True:
         raise Stop("「CAM 축에 좌표 정렬」 이 꺼져 있거나 못 읽었습니다 — 켜야 고정 각도가 통합니다")
     if got["zip"] is not False:
         raise Stop("「ZIP으로 압축」 이 켜져 있거나 못 읽었습니다 — 지켜보기는 낱개 파일을 봅니다")
-    if got["crowns"] and sorted(got["crowns"]) != sorted(want):
+    if span:
+        if got.get("bridges") != [span]:
+            raise Stop(f"내보낼 브릿지가 주문서와 다릅니다 — 주문서 브릿지 {span} · 창 {got.get('bridges')} / 크라운 {got['crowns']}")
+    elif got["crowns"] and sorted(got["crowns"]) != sorted(want):
         raise Stop(f"내보낼 크라운이 주문서와 다릅니다 — 주문서 {want} · 창 {got['crowns']}")
 
     if not spend:
@@ -482,13 +631,16 @@ def _export_frame(d):
 def main() -> int:
     ap = argparse.ArgumentParser(description="덴트버드에 스캔을 올리고 설계·내보내기까지 합니다")
     ap.add_argument("scans", nargs="+", type=Path)
-    ap.add_argument("--teeth", required=True, help="주문서 치식 (예: 27 또는 24,25)")
+    ap.add_argument("--teeth", required=True, help="주문서 치식 — 지대치만 (예: 27 또는 24,26)")
+    ap.add_argument("--pontics", default="", help="폰틱 치식 (예: 25) — 주면 브릿지로 만듭니다")
     ap.add_argument("--order", help="주문 id — 주면 진행을 주문 화면에 적습니다")
     ap.add_argument("--export", action="store_true",
                     help="내보내기를 실제로 누릅니다 — 덴트버드 건수를 하나 씁니다")
     args = ap.parse_args()
 
     want = [int(x) for x in re.findall(r"\d+", args.teeth)]
+    pontics = [int(x) for x in re.findall(r"\d+", args.pontics)]
+    units = sorted(set(want) | set(pontics))
     missing = [p for p in args.scans if not p.is_file()]
     if missing:
         print("없는 파일:", ", ".join(str(p) for p in missing))
@@ -497,18 +649,21 @@ def main() -> int:
     mark = Reporter(args.order)
     t0 = time.time()
     try:
-        run(args.scans, want, mark=mark)
+        run(args.scans, want, mark=mark, pontics=pontics)
         # ★ 설계값 고정 — 내면 · 교합/인접(모양 유지) · 최소 두께 (사용자 결정 2026-10-15).
         #   못 넣으면 **내보내지 않습니다.** 값이 빠진 크라운이 치과에서 뽑히면 안 됩니다.
+        #   브릿지는 지대치마다 — 합치기 전에 (합치면 패널이 잠깁니다).
         print("설계값을 맞춥니다 — 내면 · 교합/인접 · 최소 두께")
         try:
-            apply_all(attach())
+            apply_each(attach(), want)
         except ParamError as e:
             raise Stop(f"설계값을 못 맞췄습니다 — {e}") from e
+        if len(units) > 1:
+            assemble(attach(), want, units)
         # ★ 내보내기를 실제로 누를 때만 '마무리' — 설정만 보고 멈추는 시험은 아직 설계 중입니다
         if args.export:
             mark("exporting")
-        export(attach(), want, args.export)
+        export(attach(), want, args.export, units=units)
     except Stop as e:
         print(f"멈춤: {e}  (+{int(time.time() - t0)}초)")
         mark("stalled", str(e))
