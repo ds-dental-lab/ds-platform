@@ -13,6 +13,11 @@ import { createClient } from '@/lib/supabase/server';
 import { hasAuthCookie } from '@/server/domain/login';
 import { canSeeMoney, type MemberRole } from '@/server/domain/member';
 
+/** "미래에 발급된 토큰" — 시계가 1초 어긋나면 한 번만 거절되는 코드. 이것만 다시 묻습니다 (2026-10-28) */
+const RETRY_ONCE_CODE = 'PGRST303';
+/** 다시 묻기 전에 기다리는 시간 — 어긋난 1초를 넘기면 됩니다 */
+const RETRY_AFTER_MS = 1500;
+
 export type Sector = 'clinic' | 'design_center' | 'lab';
 
 /**
@@ -97,17 +102,35 @@ export const getSession = cache(async function getSession() {
       순서대로 두면 왕복이 두 번입니다 — 서버와 DB가 멀수록 그 차이가
       그대로 화면 뜨는 시간이 됩니다.
   */
-  const [{ data, error }, { data: profile }] = await Promise.all([
+  const askMembership = () =>
     supabase
       .from('memberships')
       .select('role, org_id, organizations(name, org_type, sees_internal)')
       .eq('user_id', userId)
       .eq('is_active', true)
-      .maybeSingle(),
+      .maybeSingle();
+
+  const [first, { data: profile }] = await Promise.all([
+    askMembership(),
 
     // 상단바에 조직명과 나란히 찍습니다
     supabase.from('user_profiles').select('name').eq('id', userId).maybeSingle(),
   ]);
+  let { data, error } = first;
+
+  /*
+    ★ "미래에 발급된 토큰"(PGRST303) 은 **1초짜리**일 때가 있습니다 (2026-10-28 06:59:57).
+      토큰을 찍는 서버와 검사하는 서버의 시계가 1초쯤 어긋나면, 방금 찍은 토큰이 딱 한 번
+      거절되고 다음 초부터는 통과합니다. 그날은 거절된 같은 초에 경보 메일이 나갔고,
+      사람은 바로 다음 요청에서 들어와 있었습니다. 그래서 이 코드만은 잠깐 기다렸다
+      **한 번 더 묻고**, 그래도 막혀 있을 때만 고장으로 봅니다 — 10/10 같은 진짜 고장은
+      몇 초 늦게 알 뿐이고, 1초 어긋남엔 화면도 경보도 평소대로입니다.
+  */
+  if (error?.code === RETRY_ONCE_CODE) {
+    console.warn('[session] 소속 조회 거절(PGRST303) — 잠시 뒤 한 번 더 묻습니다');
+    await new Promise((r) => setTimeout(r, RETRY_AFTER_MS));
+    ({ data, error } = await askMembership());
+  }
 
   const org = (data?.organizations ?? null) as {
     name: string;
