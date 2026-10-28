@@ -23,7 +23,10 @@ import time
 
 #: 내면 (inner-input-*) — 3D 프린팅 · 블록 아웃 켬
 INNER: dict[str, float] = {
-    "minimalThickness": 0.450,      # 최소 두께 — 0.8 과 뽑아 비교해 0.45 로 확정 (사용자 2026-10-19)
+    # ★ 최소 두께 — 0.45 는 0.4 노즐 선폭(0.42) 바로 위라 PLA 출력품에 구멍이 났습니다
+    #   (2026-10-28, 27번: 메쉬는 닫혀 있는데 0.6mm 아래가 3.6%). 벽 두 줄(wall_loops 2)에
+    #   0.84mm 가 필요해 0.8 로 올림 (사용자 결정 2026-10-28). 2026-10-19 의 0.45 결정을 뒤집음.
+    "minimalThickness": 0.800,
     "cementGap": 0.040,             # 시멘트 갭
     "adaptiveExtraGap": 0.000,      # 적응형 추가 간격
     "minimalCementGap": 0.000,      # 마진 씰 갭

@@ -160,6 +160,18 @@ def deliver(
         say(looked.message)
         teeth = looked.teeth
 
+        # --- 벽 두께 (2026-10-28) ---
+        # ★ 27번 PLA 출력품에 구멍이 났는데 메쉬는 닫혀 있었습니다 — 벽이 노즐 선폭보다
+        #   얇았던 것입니다. 자르기 전에 재서 기록에 남깁니다. **막지는 않습니다** —
+        #   몇 건 쌓인 뒤 막을지 정합니다. 2천 점에 몇 초(60k 면 STL 에 8초).
+        try:
+            from thickness import measure_file  # noqa: PLC0415
+
+            th = measure_file(stl)
+            say(("★ " if th.risky() else "") + th.describe())
+        except Exception as e:  # noqa: BLE001 — 재기가 실패해도 자르기는 갑니다
+            say(f"(두께를 못 쟀습니다 — {e})")
+
     # --- 올릴 자리 받기 (치식 대조가 여기서 일어납니다) ---
     #
     # ★ **자르기보다 먼저** 부릅니다. 서버가 주문서 치식과 견줘 막아 주는데,
