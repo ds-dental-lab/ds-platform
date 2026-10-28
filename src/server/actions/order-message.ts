@@ -166,19 +166,32 @@ export async function submitEditOrderMessage(
 export async function submitDeleteOrderMessage(messageId: string): Promise<MessageResult> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  /*
+    ★ 주문 id 는 **지우기 전에** 읽습니다 (2026-10-28 "대화내용 삭제가 안되네").
+      전에는 update 뒤에 .select() 로 되돌려 받았는데, 그러면 DB 가 **바뀐 줄을 다시 읽어
+      보여 줘도 되는지** 읽기 규칙으로 검사합니다. 읽기 규칙이 "deleted_at is null" 이라
+      방금 숨긴 줄은 통과를 못 해 "new row violates row-level security policy" 로
+      거절됐습니다. 그래서 먼저 읽고, 고칠 때는 되돌려 받지 않고 **바뀐 줄 수만** 셉니다.
+  */
+  const { data: row, error: readError } = await supabase
     .from('order_messages')
-    .update({ deleted_at: new Date().toISOString() })
+    .select('order_id')
     .eq('id', messageId)
     .is('deleted_at', null)
-    .select('id, order_id');
+    .maybeSingle();
+  if (readError) return { ok: false, error: `지우지 못했습니다: ${readError.message}` };
+  if (!row) return { ok: false, error: '지울 수 있는 글이 아닙니다' };
+
+  const { error, count } = await supabase
+    .from('order_messages')
+    .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
+    .eq('id', messageId)
+    .is('deleted_at', null);
 
   if (error) return { ok: false, error: `지우지 못했습니다: ${error.message}` };
-  if (!data || data.length === 0) {
-    return { ok: false, error: '지울 수 있는 글이 아닙니다' };
-  }
+  if (!count) return { ok: false, error: '지울 수 있는 글이 아닙니다' };
 
-  const orderId = (data[0] as { order_id: string }).order_id;
+  const orderId = (row as { order_id: string }).order_id;
   after(() => signalOrderChanged(orderId));
 
   refreshAll();
