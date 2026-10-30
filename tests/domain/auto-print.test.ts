@@ -34,6 +34,7 @@ import {
   designVerdict,
   GIVE_UP_MESSAGE,
   endedMessage,
+  toothMismatch,
   DESIGN_AUTO_RETRIES,
   DESIGN_RETRY_AFTER_MINUTES,
   remainingLabel,
@@ -789,5 +790,29 @@ describe('치식이 어긋나 그만둔 건의 안내 (2026-10-30)', () => {
   it('다른 까닭은 평소대로', () => {
     expect(endedMessage('임플란트입니다')).toBe(GIVE_UP_MESSAGE);
     expect(endedMessage(null)).toBe(GIVE_UP_MESSAGE);
+  });
+});
+
+describe('치식이 어긋나면 치과가 고릅니다 (2026-10-30)', () => {
+  const note = '치식이 주문서와 다릅니다 — 주문서 [16] · 덴트버드 [15]';
+
+  it('한 개끼리면 번호 둘을 꺼냅니다', () => {
+    expect(toothMismatch(note)).toEqual({ from: 16, to: 15 });
+    expect(designVerdict(note, 0)).toBe('fix_tooth');
+  });
+  it('스캔에 둘이 잡히면 못 고릅니다 — 전처럼 그만둡니다', () => {
+    const two = '치식이 주문서와 다릅니다 — 주문서 [27] · 덴트버드 [26, 27]';
+    expect(toothMismatch(two)).toBeNull();
+    expect(designVerdict(two, 0)).toBe('give_up');
+  });
+  it('치과 화면 글에 설계 도구 이름이 없습니다', () => {
+    const j = { step: 'waiting_design', designStage: 'stalled', designNote: note } as Parameters<typeof boardRow>[0];
+    const r = boardRow(j);
+    expect(r.toothFix).toEqual({ from: 16, to: 15 });
+    expect(r.status).toBe('치식 확인');
+    expect(r.status + r.detail + autoNotice(j)).not.toContain('덴트버드');
+  });
+  it('다시 걸 때 일꾼이 저절로 안 집어 갑니다 — 치과를 기다립니다', () => {
+    expect(stallKind(note)).toBe('unreadable');
   });
 });

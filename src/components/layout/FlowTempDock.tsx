@@ -29,6 +29,7 @@ import {
 } from '@/server/actions/auto-print';
 import { boardTone, type BoardTone } from '@/server/domain/auto-print';
 import ReprintDialog from '@/components/order/ReprintDialog';
+import ToothFixCard from '@/components/order/ToothFixCard';
 
 const BUSY_MS = 6_000;
 const IDLE_MS = 30_000;
@@ -428,6 +429,12 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
           onClose={() => setAsking(false)}
           onDone={onChanged}
         />
+      ) : null}
+
+      {item.toothFix ? (
+        <div className="border-t border-[#EAF3FE] px-2.5 py-2.5">
+          <ToothFixCard orderId={item.orderId} fix={item.toothFix} onChanged={onChanged} />
+        </div>
       ) : null}
 
       {item.canClearBed ? (

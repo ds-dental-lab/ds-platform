@@ -19,6 +19,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/server/policies/session';
 import {
   clearBed,
+  applyToothFix,
   clinicTypicalPrintSeconds,
   dismissJob,
   jobOfOrder,
@@ -155,7 +156,8 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
   const clinicOnline = deviceOnline(await lastSeen(o?.clinic_org_id), now);
   // ★ 준비 구간 남은 시간은 이 치과의 실제 출력 시간으로 (2026-10-23)
   const typical = rest.step === 'printing' && o?.clinic_org_id ? await clinicTypicalPrintSeconds(o.clinic_org_id) : null;
-  const shown = withClinicPc(boardRow(rest, now, typical), rest, clinicOnline);
+  // ★ 까닭 글은 화면으로 안 나갑니다 — boardRow 가 치과 말과 번호로만 바꿉니다 (2026-10-30)
+  const shown = withClinicPc(boardRow({ ...rest, designNote }, now, typical), rest, clinicOnline);
   // ★ 이미 책갈피에서 치운 다 나온 건 — 상세에는 「다시 뽑기」만, 「치우기」는 또 안 띄움 (2026-10-23)
   const board = dismissed ? { ...shown, canDismiss: false } : shown;
 
@@ -169,7 +171,7 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
     job: rest,
     steps: autoProgress(rest),
     // ★ 치과 PC 가 꺼져서 막힌 것이면 그 말이 먼저입니다
-    notice: board.status === '치과 PC 꺼짐' ? board.detail : autoNotice(rest),
+    notice: board.status === '치과 PC 꺼짐' ? board.detail : autoNotice({ ...rest, designNote }),
     needsBed: canClearBed(job),
     board,
     designNote: note,
@@ -373,6 +375,27 @@ export async function submitDismissAutoJob(orderId: string): Promise<ClearBedRes
   if (!data) return { ok: false, error: '주문을 찾을 수 없습니다' };
 
   return dismissJob(orderId, session.user.id);
+}
+
+/**
+ * 스캔에서 읽은 치식으로 주문서를 바꾸고 설계를 이어 갑니다 (사용자 2026-10-30).
+ * ★ 치과만 — 환자 입을 아는 것은 치과입니다. 번호는 서버가 저장된 값에서 읽습니다.
+ */
+export async function submitToothFix(orderId: string): Promise<ClearBedResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: '로그인이 필요합니다' };
+  if (session.orgType !== 'clinic') return { ok: false, error: '치과에서만 바꿀 수 있습니다' };
+
+  const supabase = await createClient();
+  const { data } = await supabase.from('orders').select('id').eq('id', orderId).maybeSingle();
+  if (!data) return { ok: false, error: '주문을 찾을 수 없습니다' };
+
+  const result = await applyToothFix(orderId);
+  if (result.ok) {
+    revalidatePath(`/clinic/orders/${orderId}`);
+    revalidatePath(`/design/orders/${orderId}`);
+  }
+  return result;
 }
 
 /**

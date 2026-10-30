@@ -25,6 +25,7 @@ import {
   submitRetryAutoPrint,
 } from '@/server/actions/auto-print';
 import ReprintDialog from '@/components/order/ReprintDialog';
+import ToothFixCard from '@/components/order/ToothFixCard';
 import { remainingLabel, type AutoProgressStep, type BoardRow } from '@/server/domain/auto-print';
 
 
@@ -40,6 +41,7 @@ export default function AutoPrintPanel({
   canReprint = false,
   canDismiss = false,
   printing = null,
+  toothFix = null,
 }: {
   orderId: string;
   steps: AutoProgressStep[];
@@ -59,6 +61,8 @@ export default function AutoPrintPanel({
   canDismiss?: boolean;
   /** 출력 중이면 그 줄 (퍼센트·남은 시간·층) */
   printing?: BoardRow | null;
+  /** 스캔과 주문서의 치식이 다름 — 치과만 넘어옵니다 (2026-10-30) */
+  toothFix?: { from: number; to: number } | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -181,6 +185,12 @@ export default function AutoPrintPanel({
       </ol>
 
       {printing ? <PrintingCard row={printing} /> : null}
+
+      {toothFix ? (
+        <div className="mt-3 max-w-[420px]">
+          <ToothFixCard orderId={orderId} fix={toothFix} onChanged={() => router.refresh()} />
+        </div>
+      ) : null}
 
       {/*
         ★ 다 나왔으면 크게 (2026-10-15 — "출력 완료도 가시성이 떨어져").

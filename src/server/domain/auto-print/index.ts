@@ -145,9 +145,23 @@ export const GIVE_UP_MESSAGE = '이번 건은 임시치아를 미리 준비해 �
  *   못 정하니 번호 둘을 보여 주고 확인을 부탁합니다. 설계 도구 이름은 치과에 안 보입니다.
  */
 export function endedMessage(note: string | null | undefined): string {
-  const m = (note ?? '').match(/주문서 \[([\d, ]+)\] · \S+ \[([\d, ]+)\]/);
+  const m = (note ?? '').match(TOOTH_MISMATCH);
   if (!m) return GIVE_UP_MESSAGE;
   return `스캔에서는 ${m[2]}번으로 보이는데 주문서는 ${m[1]}번입니다. 치식을 확인해 새로 주문해 주세요.`;
+}
+
+const TOOTH_MISMATCH = /주문서 \[([\d, ]+)\] · \S+ \[([\d, ]+)\]/;
+
+/**
+ * 치과가 단추 하나로 고칠 수 있는 어긋남 — 주문서 한 개, 스캔 한 개일 때만 (사용자 2026-10-30).
+ *
+ * ★ 스캔에 둘이 잡히면(26·27) 어느 것인지 기계가 못 고릅니다 — 이때는 null, 전처럼 그만둡니다.
+ * ★ 설계가 알아서 바꾸지 않습니다. 스캔을 잘못 읽은 것일 수 있어 사람이 한 번 봅니다.
+ */
+export function toothMismatch(note: string | null | undefined): { from: number; to: number } | null {
+  const m = (note ?? '').match(TOOTH_MISMATCH);
+  if (!m || !/^\d+$/.test(m[1]) || !/^\d+$/.test(m[2])) return null;
+  return { from: Number(m[1]), to: Number(m[2]) };
 }
 
 /** 스스로 다시 걸어 보는 횟수 (일시적 멈춤만) */
@@ -243,7 +257,7 @@ export function stallKind(note: string | null | undefined): StallKind {
   return 'transient';
 }
 
-export type DesignVerdict = 'retry' | 'wait_scan' | 'give_up' | 'hold';
+export type DesignVerdict = 'retry' | 'wait_scan' | 'fix_tooth' | 'give_up' | 'hold';
 
 /**
  * 멈췄을 때 기계가 할 일. tries 는 **이미 스스로 다시 건 횟수**입니다.
@@ -251,6 +265,8 @@ export type DesignVerdict = 'retry' | 'wait_scan' | 'give_up' | 'hold';
  * ★ hold 만 사람(센터) 몫입니다 — 장비·계정 문제라 한 번 고치면 다 풀리는 것들.
  */
 export function designVerdict(note: string | null | undefined, tries: number): DesignVerdict {
+  // ★ 치식 어긋남은 치과가 고릅니다 — 취소하지 않고 기다립니다 (2026-10-30)
+  if (toothMismatch(note)) return 'fix_tooth';
   const kind = stallKind(note);
   if (kind === 'unsupported' || kind === 'unreadable') return 'give_up';
   if (kind === 'scan') return 'wait_scan';
@@ -397,6 +413,8 @@ export interface StallAdvice {
 export function stallAdvice(note: string | null | undefined): StallAdvice {
   // ★ 짧게 — 책갈피 한 줄에 들어가야 합니다 (사용자 2026-10-19 "설명이 너무 길어")
   const n = (note ?? '').trim();
+  const fix = toothMismatch(n);
+  if (fix) return { what: `스캔은 ${fix.to}번, 주문서는 ${fix.from}번입니다`, todo: '치식을 확인해 주세요' };
   if (/치식을 못 읽|프렙|지대치|깎은/.test(n)) {
     return { what: '자연치가 아닙니다', todo: '임플란트는 추후 업데이트 됩니다' };
   }
@@ -639,7 +657,7 @@ export function matchWaiting(jobs: WaitingJob[], designTeeth: number[]): Matched
 // ★ 'failed' 를 더했습니다 (2026-10-16 점검) — 출력이 멈추면 치과가 손댈 일입니다.
 //   책갈피가 빨개지는 것만으로는 화면을 안 보고 있는 치과가 모릅니다.
 // ★ 'paused' (2026-10-23) — 필라멘트가 끊기거나 떨어져 프린터가 일시 정지. 실패가 아닙니다.
-export type AutoAlertKind = 'bed' | 'done' | 'failed' | 'design_ended' | 'design_scan' | 'paused';
+export type AutoAlertKind = 'bed' | 'done' | 'failed' | 'design_ended' | 'design_scan' | 'design_tooth' | 'paused';
 
 /**
  * 출력 중 **일시 정지** 표시 (사용자 2026-10-23 — "출력하다 오류 났을 때가 문제").
@@ -673,6 +691,13 @@ export function autoAlert(
     return {
       title: `${input.productName} — 이번 건은 평소대로 진행해 주세요`,
       body: `${who} — ${input.reason?.trim() || GIVE_UP_MESSAGE}`,
+    };
+  }
+  // ★ 치식 어긋남 — 단추 하나면 이어집니다 (2026-10-30)
+  if (kind === 'design_tooth') {
+    return {
+      title: `${input.productName} — 치식을 확인해 주세요`,
+      body: `${who} — ${input.reason?.trim() || '스캔과 주문서의 치식이 다릅니다'}`,
     };
   }
   // ★ 스캔 파일 문제 — 치과가 고칠 수 있는 것만 치과에 (2026-10-21)
@@ -765,6 +790,8 @@ export interface BoardRow {
   remainingMin: number | null;
   /** 출력 중 — 끝날 때 (ISO). 모르면 null */
   etaAt: string | null;
+  /** 스캔과 주문서의 치식이 달라 치과의 선택을 기다리는 중 — 번호 둘 (2026-10-30). 아니면 null */
+  toothFix: { from: number; to: number } | null;
   /** 출력 중 — 층 */
   layerNow: number | null;
   layerTotal: number | null;
@@ -867,6 +894,7 @@ export function boardRow(job: AutoJob, now: number = Date.now(), typicalSec: num
     canClearBed: false,
     canReprint: canReprint(job),
     canDismiss: canDismiss(job),
+    toothFix: null as { from: number; to: number } | null,
     finishedAt: job.step === 'done' ? (job.finishedAt ?? null) : null,
     remainingMin: remaining,
     etaAt: remaining === null ? null : new Date(now + remaining * 60000).toISOString(),
@@ -890,6 +918,8 @@ export function boardRow(job: AutoJob, now: number = Date.now(), typicalSec: num
     if (job.designStage === 'stalled') {
       // ★ 까닭과 할 일을 치과 말로 (2026-10-19 — "어떤 오류인지도 뭘 해야 할지도 안 알려준다")
       const a = stallAdvice(job.designNote);
+      const fix = toothMismatch(job.designNote);
+      if (fix) return { ...base, tone: 'action', status: '치식 확인', detail: a.what, toothFix: fix };
       return { ...base, tone: 'delay', status: '디자인 멈춤', detail: `${a.what}. ${a.todo}` };
     }
     return {

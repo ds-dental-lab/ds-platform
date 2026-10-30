@@ -23,6 +23,7 @@ import {
   canDismiss,
   designVerdict,
   endedMessage,
+  toothMismatch,
   stallAdvice,
   canMove,
   claimable,
@@ -349,8 +350,11 @@ export async function setDesignStage(
   if (!row) return { ok: false, error: '디자인 차례인 주문이 아닙니다' };
   const tries = row.design_tries ?? 0;
   const clean = (note ?? '').slice(0, 500) || null;
-  const verdict = designVerdict(clean, tries);
+  let verdict = designVerdict(clean, tries);
   const stamp = new Date().toISOString();
+
+  // ★ 크라운이 같이 있는 주문은 FlowTemp 만 번호를 바꾸면 둘이 어긋납니다 — 전처럼 그만둡니다
+  if (verdict === 'fix_tooth' && !(await onlyAutoItem(admin, orderId))) verdict = 'give_up';
 
   if (verdict === 'give_up') {
     const { error } = await admin
@@ -371,9 +375,56 @@ export async function setDesignStage(
   if (error) return { ok: false, error: error.message };
 
   if (verdict === 'wait_scan') await publishAutoAlert(orderId, 'design_scan', stallAdvice(clean).what);
+  if (verdict === 'fix_tooth') await publishAutoAlert(orderId, 'design_tooth', stallAdvice(clean).what);
   // ★ 센터에 알리는 건 센터만 고칠 수 있는 것뿐 (2026-10-16 점검 → 2026-10-21 좁힘)
   if (verdict === 'hold') await publishDesignStall(orderId, clean);
   return { ok: true };
+}
+
+/** 이 주문의 줄이 FlowTemp 하나뿐인가. 맞으면 그 줄 */
+async function onlyAutoItem(
+  admin: ReturnType<typeof createAdminClient>,
+  orderId: string,
+): Promise<{ id: string; tooth_number: number } | null> {
+  const { data: types } = await admin.from('prosthesis_types').select('code').eq('auto_pipeline', true);
+  const codes = (types ?? []).map((t: { code: string }) => t.code);
+  const { data: items } = await admin.from('order_items').select('id, type_code, tooth_number').eq('order_id', orderId);
+  const rows = (items ?? []) as { id: string; type_code: string; tooth_number: number }[];
+  return rows.length === 1 && codes.includes(rows[0].type_code) ? rows[0] : null;
+}
+
+/**
+ * 치과가 「N번으로 바꿔서 진행」 을 눌렀습니다 (사용자 2026-10-30).
+ *
+ * ★ 번호는 화면에서 받지 않고 **저장된 까닭(design_note)** 에서 읽습니다 — 다른 번호로 못 바꾸게.
+ * ★ 잔걸음을 비우면 설계 일꾼이 다시 집어 갑니다. 내보내기 전에 멈춘 건이라 설계 건수는 안 나갔습니다.
+ */
+export async function applyToothFix(orderId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+  const { data: cur } = await admin
+    .from('auto_jobs')
+    .select('id, step, design_stage, design_note')
+    .eq('order_id', orderId)
+    .is('dismissed_at', null)
+    .maybeSingle();
+  const job = cur as { id: string; step: string; design_stage: string | null; design_note: string | null } | null;
+  const fix = job?.step === 'waiting_design' && job.design_stage === 'stalled' ? toothMismatch(job.design_note) : null;
+  if (!job || !fix) return { ok: false, error: '치식을 바꿀 수 있는 상태가 아닙니다' };
+
+  const item = await onlyAutoItem(admin, orderId);
+  if (!item || item.tooth_number !== fix.from) {
+    return { ok: false, error: '주문서가 그사이 바뀌었습니다 — 새로고침해 주세요' };
+  }
+
+  const { error: itemError } = await admin.from('order_items').update({ tooth_number: fix.to }).eq('id', item.id);
+  if (itemError) return { ok: false, error: itemError.message };
+
+  const { error } = await admin
+    .from('auto_jobs')
+    .update({ design_stage: null, design_note: null, updated_at: new Date().toISOString() })
+    .eq('id', job.id)
+    .eq('design_stage', 'stalled');
+  return error ? { ok: false, error: error.message } : { ok: true };
 }
 
 /** 주문서에서 FlowTemp 줄을 뺍니다 — 그만두기·포기가 같이 씁니다. 어떤 줄이 FlowTemp 인지는 제품 표(auto_pipeline)가 말합니다 */
