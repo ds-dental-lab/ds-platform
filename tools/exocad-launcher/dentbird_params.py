@@ -52,10 +52,18 @@ ADAPT: list[tuple[str, float, str]] = [
 #:   (사용자 2026-10-30 "연결부분이 너무 어색하지 않니"). 실측: 26-27 은 7·7 에서 18.9mm², 10·10 에서 29.0mm².
 #:   폰틱 쪽은 10·10 이어도 12.5mm² — 단면은 슬라이더만이 아니라 두 크라운이 겹치는 자리에 달렸습니다.
 #: ★ 값은 여기 한 곳. 나온 단면은 기록 창에 적으니, 몇 건 뽑아 보고 고칩니다.
+#: ★ 사용자 결정 2026-10-30 — "커넥터 두께가 최대한 얇게, 크라운 사이가 거의 붙어 있으면 좋겠어. 4mm 정도면
+#:   안정감 있고, 교합면이나 마진 범위를 넘어서면 어쩔 수 없고". 치아 분리감이 제일 우선. 4·4 로 합쳐 보여 드리고 허락.
+#:   덴트버드는 9.5mm² 를 '약함' 이라 하지만 의도한 값이라 참고만.
 CONNECTOR: dict[str, float] = {
-    "횡단": 8.0,
-    "수직": 8.0,
+    "횡단": 4.0,
+    "수직": 4.0,
 }
+#: 단면 모양 — 네 단추 중 몇 번째(0부터). 3 = '+' (사용자: "저거 + 가 제일 깔끔하긴 해"). 무료 계정에서는 잠겨
+#: 있었고(Mui-disabled) 서버 계정에서는 열려 있었습니다 — 잠겨 있으면 기본(1) 그대로 두고 기록에 적습니다.
+CONNECTOR_SHAPE = 3
+#: 이 아래면 사실상 안 이어진 것입니다 (폰틱이 떠서 아래 모서리만 스치면 0.1mm²) — 두 조각으로 뽑히니 멈춥니다
+CONNECTOR_MIN_AREA = 1.0
 
 #: 한 번 적용하고 덴트버드가 계산을 끝낼 때까지 기다리는 한도
 SETTLE_SECONDS = 60
@@ -419,11 +427,38 @@ def set_connectors(d, say=print) -> list[str]:
         name = (chip.text or "").strip()
         d.execute_script("arguments[0].click()", chip)
         time.sleep(1.0)
+        shape = _pick_shape(d)
         for axis, value in CONNECTOR.items():
             _set_slider(d, f"connect-size-slider-{axis}", value)
         time.sleep(1.5)
         info = " ".join((_q(d, "connect-size-info").text or "").split())
         got.append(f"{name} {info}")
-        say(f"커넥터 {name} — {CONNECTOR['횡단']}·{CONNECTOR['수직']}mm → {info}")
+        say(f"커넥터 {name} — {CONNECTOR['횡단']}·{CONNECTOR['수직']}mm · 모양 {shape} → {info}")
+        area = connector_area(info)
+        if area is not None and area < CONNECTOR_MIN_AREA:
+            raise ParamError(
+                f"커넥터 {name} 단면이 {area}mm² 라 사실상 안 이어집니다 — 폰틱이 옆 이보다 떠 있는지 보세요"
+            )
     close_panels(d)
     return got
+
+
+def connector_area(info: str) -> float | None:
+    """'약함 0.1mm²' → 0.1. 숫자가 없으면 None"""
+    import re  # noqa: PLC0415
+
+    m = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*mm", info)
+    return float(m.group(1)) if m else None
+
+
+def _pick_shape(d) -> str:
+    """단면 모양 단추를 CONNECTOR_SHAPE 번째로. 잠겨 있으면 안 건드리고 '기본' 을 돌려줍니다"""
+    buttons = d.find_elements("css selector", '[data-testid="connect-cross-sectional-shape"] button')
+    if len(buttons) <= CONNECTOR_SHAPE:
+        return "기본(단추 부족)"
+    btn = buttons[CONNECTOR_SHAPE]
+    if btn.get_attribute("disabled") is not None or "Mui-disabled" in (btn.get_attribute("class") or ""):
+        return "기본(+ 잠김)"
+    d.execute_script("arguments[0].click()", btn)
+    time.sleep(0.8)
+    return "+"

@@ -55,3 +55,12 @@ class SliderStepsTest(unittest.TestCase):
         self.assertEqual(slider_steps(10.0, 8.0), -20)
         self.assertEqual(slider_steps(8.0, 8.0), 0)
         self.assertEqual(slider_steps(7.96, 8.0), 0)
+
+
+class ConnectorAreaTest(unittest.TestCase):
+    def test_area(self):
+        from dentbird_params import connector_area
+        self.assertEqual(connector_area("약함 0.1mm²"), 0.1)
+        self.assertEqual(connector_area("최적 12.5mm²"), 12.5)
+        self.assertEqual(connector_area("크기 초과 29.0mm²"), 29.0)
+        self.assertIsNone(connector_area(""))
