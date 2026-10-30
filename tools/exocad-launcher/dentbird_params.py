@@ -300,12 +300,30 @@ def apply_all(d, say=print) -> None:
 SELECT_SECONDS = 20.0
 
 
+def close_panels(d) -> None:
+    """열려 있는 도구 패널(내면·다듬기)을 닫습니다.
+
+    ★★ 패널이 열려 있는 동안은 **다른 치아의 이름표가 화면에서 아예 빠집니다** (2026-10-30 실측 —
+      다듬기 패널을 연 채로는 이름표가 0개, 닫으면 0.6초 뒤에 돌아옴). fix_thickness 가 다듬기
+      외형 탭을 연 채로 끝나므로, 다음 크라운을 고르기 전에 반드시 닫아야 합니다. 안 닫으면
+      select_tooth 가 20초를 기다리다 멈춥니다.
+    """
+    for tool, marker in (("toolbar-tool-refine", "refine-process"), ("toolbar-tool-inner", "inner-apply-btn")):
+        if d.find_elements("css selector", f'[data-testid="{marker}"]'):
+            _click(d, tool)
+            time.sleep(0.8)
+
+
 def select_tooth(d, number: int, wait_s: float = SELECT_SECONDS) -> None:
     """3D 화면의 이름표(글이 치식)를 눌러 **그 치아**를 고릅니다 — 브릿지에서 크라운마다 값을 넣을 때.
 
     ★ `_crown_toolbar` 는 '아무 이름표나' 눌러 막대만 띄웁니다. 브릿지는 어느 크라운의 막대인지가
       중요해서 번호로 고릅니다. 막대가 이미 떠 있어도 **다시** 누릅니다 — 다른 크라운 것일 수 있습니다.
+    ★ 다른 크라운이 골라져 있으면 나머지 이름표는 **숨겨져** 있지만(offsetParent 없음) JS click 은
+      먹습니다 (2026-10-30 실측). 패널이 열려 있으면 이름표가 DOM 에서 빠지므로 먼저 닫습니다.
+    ★ 막대가 떴다는 것만으로는 모자랍니다 — 전 크라운의 막대일 수 있어, 막대 글에 번호가 있어야 합니다.
     """
+    close_panels(d)
     deadline = time.time() + wait_s
     while time.time() < deadline:
         hit = d.execute_script(
@@ -317,9 +335,11 @@ def select_tooth(d, number: int, wait_s: float = SELECT_SECONDS) -> None:
             continue
         for _ in range(6):
             time.sleep(0.5)
-            if d.find_elements("css selector", '[data-testid="toolbar-tool-inner"]'):
+            bar = d.execute_script(
+                "return (document.querySelector('[data-testid=crown-toolbar]')||{}).innerText||''")
+            if d.find_elements("css selector", '[data-testid="toolbar-tool-inner"]') and str(number) in bar:
                 return
-    raise ParamError(f"치아 {number} 의 이름표를 눌러도 도구 막대가 안 뜹니다 — 화면을 봐 주세요")
+    raise ParamError(f"치아 {number} 의 이름표를 눌러도 그 치아의 도구 막대가 안 뜹니다 — 화면을 봐 주세요")
 
 
 def apply_each(d, teeth: list[int], say=print) -> None:
