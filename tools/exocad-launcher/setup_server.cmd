@@ -16,7 +16,9 @@ winget install -e --id Google.Chrome --accept-source-agreements --accept-package
 winget install -e --id SoftFever.OrcaSlicer --accept-source-agreements --accept-package-agreements
 
 rem winget installs do not update PATH of this window - reopen by hand if commands are missing
-set "PATH=%PATH%;%ProgramFiles%\Git\cmd;%LOCALAPPDATA%\Programs\Python\Python313;%LOCALAPPDATA%\Programs\Python\Python313\Scripts"
+rem Python goes FIRST: the Microsoft Store alias (WindowsApps\python.exe) is already on PATH
+rem and answers "Python was not found" (2026-10-30, server PC rebuild)
+set "PATH=%LOCALAPPDATA%\Programs\Python\Python313;%LOCALAPPDATA%\Programs\Python\Python313\Scripts;%ProgramFiles%\Git\cmd;%PATH%"
 
 echo [2/4] Cloning the repository to %REPO% (a GitHub sign-in window may open)...
 if not exist "%ROOT%" mkdir "%ROOT%"
