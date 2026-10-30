@@ -22,6 +22,7 @@ import {
   canClearBed,
   canDismiss,
   designVerdict,
+  endedMessage,
   stallAdvice,
   canMove,
   claimable,
@@ -358,7 +359,7 @@ export async function setDesignStage(
       .eq('id', row.id);
     if (error) return { ok: false, error: error.message };
     await removeAutoItems(admin, orderId);
-    await publishAutoAlert(orderId, 'design_ended');
+    await publishAutoAlert(orderId, 'design_ended', endedMessage(clean));
     await publishDesignStreak(orderId);
     return { ok: true };
   }

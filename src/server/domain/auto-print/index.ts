@@ -137,6 +137,19 @@ export function isDesignStage(v: unknown): v is DesignStage {
  */
 export const GIVE_UP_MESSAGE = '이번 건은 임시치아를 미리 준비해 드리기 어렵습니다. 평소대로 진행해 주세요.';
 
+/**
+ * 자동 설계를 그만둘 때 치과가 읽는 말.
+ *
+ * ★ 치식이 어긋난 건은 치과가 고칠 수 있습니다 (사용자 2026-10-30 — "치식을 15번으로 바꿔 주세요 라고
+ *   안내를 해야 하지 않겠어"). '평소대로' 만 말하면 왜 안 됐는지 모릅니다. 어느 쪽이 틀렸는지는 기계가
+ *   못 정하니 번호 둘을 보여 주고 확인을 부탁합니다. 설계 도구 이름은 치과에 안 보입니다.
+ */
+export function endedMessage(note: string | null | undefined): string {
+  const m = (note ?? '').match(/주문서 \[([\d, ]+)\] · \S+ \[([\d, ]+)\]/);
+  if (!m) return GIVE_UP_MESSAGE;
+  return `스캔에서는 ${m[2]}번으로 보이는데 주문서는 ${m[1]}번입니다. 치식을 확인해 새로 주문해 주세요.`;
+}
+
 /** 스스로 다시 걸어 보는 횟수 (일시적 멈춤만) */
 export const DESIGN_AUTO_RETRIES = 1;
 /** 멈춘 뒤 이만큼 지나야 다시 걸어 봅니다 — 화면 타이밍·잠깐의 끊김이 가라앉게 */
@@ -496,7 +509,7 @@ export function autoNotice(job: AutoJob): string {
     return `출력 중 ${Math.round(job.percent)}%`;
   }
   if (job.step === 'waiting_design') {
-    if (job.designStage === 'ended') return GIVE_UP_MESSAGE;
+    if (job.designStage === 'ended') return endedMessage(job.designNote);
     if (job.designStage === 'stalled') {
       const a = stallAdvice(job.designNote);
       return `디자인 멈춤 — ${a.what}. ${a.todo}`;
@@ -659,7 +672,7 @@ export function autoAlert(
   if (kind === 'design_ended') {
     return {
       title: `${input.productName} — 이번 건은 평소대로 진행해 주세요`,
-      body: `${who} — ${GIVE_UP_MESSAGE}`,
+      body: `${who} — ${input.reason?.trim() || GIVE_UP_MESSAGE}`,
     };
   }
   // ★ 스캔 파일 문제 — 치과가 고칠 수 있는 것만 치과에 (2026-10-21)
@@ -872,7 +885,7 @@ export function boardRow(job: AutoJob, now: number = Date.now(), typicalSec: num
   if (job.step === 'waiting_design') {
     if (job.designStage === 'ended') {
       // ★ 포기한 건 — 회색으로, 치과가 ✕ 로 치웁니다 (2026-10-21)
-      return { ...base, tone: 'info', status: '평소대로', detail: GIVE_UP_MESSAGE };
+      return { ...base, tone: 'info', status: '평소대로', detail: endedMessage(job.designNote) };
     }
     if (job.designStage === 'stalled') {
       // ★ 까닭과 할 일을 치과 말로 (2026-10-19 — "어떤 오류인지도 뭘 해야 할지도 안 알려준다")

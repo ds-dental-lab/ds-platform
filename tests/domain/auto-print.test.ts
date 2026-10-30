@@ -33,6 +33,7 @@ import {
   stallKind,
   designVerdict,
   GIVE_UP_MESSAGE,
+  endedMessage,
   DESIGN_AUTO_RETRIES,
   DESIGN_RETRY_AFTER_MINUTES,
   remainingLabel,
@@ -773,5 +774,20 @@ describe('출력 중 일시 정지 (2026-10-23)', () => {
   });
   it('주문 상세 문구', () => {
     expect(autoNotice(printing(PAUSE_MARK + '필라멘트'))).toContain('이어 하기');
+  });
+});
+
+describe('치식이 어긋나 그만둔 건의 안내 (2026-10-30)', () => {
+  it('번호 둘을 보여 주고 설계 도구 이름은 안 보입니다', () => {
+    const m = endedMessage('치식이 주문서와 다릅니다 — 주문서 [16] · 덴트버드 [15]');
+    expect(m).toBe('스캔에서는 15번으로 보이는데 주문서는 16번입니다. 치식을 확인해 새로 주문해 주세요.');
+    expect(m).not.toContain('덴트버드');
+  });
+  it('스캔에 둘이 잡혀도', () => {
+    expect(endedMessage('치식이 주문서와 다릅니다 — 주문서 [27] · 덴트버드 [26, 27]')).toContain('26, 27번');
+  });
+  it('다른 까닭은 평소대로', () => {
+    expect(endedMessage('임플란트입니다')).toBe(GIVE_UP_MESSAGE);
+    expect(endedMessage(null)).toBe(GIVE_UP_MESSAGE);
   });
 });
