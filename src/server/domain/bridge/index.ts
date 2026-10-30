@@ -99,6 +99,13 @@ export function isForcedLink(
 export function computeBridges(
   placements: ToothPlacement[],
   severedKeys: string[] = [],
+  /**
+   * 제품 목록 — 어떤 제품이 이어지는지(폰틱 가능)는 표가 정합니다.
+   *
+   * ★★ 안 넘기면 최소 목록이라 표에서 켠 제품(FlowTemp 등)은 **안 이어집니다**
+   *   (2026-10-30 — FlowTemp 26·27 이 화면에도 저장에도 브릿지가 안 됐음).
+   */
+  catalog: ProsthesisCatalog = FALLBACK_TYPES,
 ): Bridge[] {
   const severed = new Set(severedKeys);
   const bridges: Bridge[] = [];
@@ -132,12 +139,12 @@ export function computeBridges(
 
       const prev = current[current.length - 1];
       const key = linkKey(prev.tooth, placement.tooth);
-      const forced = isForcedLink(prev, placement);
+      const forced = isForcedLink(prev, placement, catalog);
 
       // 폰틱 연결은 사용자가 끊어 뒀더라도 무시하고 이어 붙입니다
       const isSevered = severed.has(key) && !forced;
 
-      if (canLink(prev, placement) && !isSevered) {
+      if (canLink(prev, placement, catalog) && !isSevered) {
         current.push(placement);
         links.push({ key, from: prev.tooth, to: placement.tooth, forced });
       } else {

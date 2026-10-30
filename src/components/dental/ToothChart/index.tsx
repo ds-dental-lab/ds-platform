@@ -61,7 +61,7 @@ export default function ToothChart({
   catalog = FALLBACK_TYPES,
 }: ToothChartProps) {
   const { upper, lower } = getAllTeeth();
-  const bridges = computeBridges(placements, severedKeys);
+  const bridges = computeBridges(placements, severedKeys, catalog);
 
   return (
     <div className="w-full overflow-x-auto px-2.5 pb-1.5 pt-1.5">

@@ -15,6 +15,7 @@ import {
   type ToothPlacement,
   severedFromBridges,
 } from '@/server/domain/bridge';
+import { FALLBACK_TYPES, type ProsthesisCatalog } from '@/server/domain/prosthesis';
 
 /** 짧게 쓰기 위한 도우미 */
 const zir = (tooth: number, isPontic = false): ToothPlacement => ({
@@ -284,3 +285,42 @@ describe('저장된 묶음에서 끊어 둔 자리 되읽기', () => {
   });
 });
 
+
+describe('표에서 켠 제품도 이어집니다 (2026-10-30 FlowTemp 브릿지)', () => {
+  const auto = (tooth: number, isPontic = false): ToothPlacement => ({
+    tooth,
+    typeCode: 'auto_temp',
+    materialCode: 'pmma',
+    isPontic,
+  });
+  const catalog: ProsthesisCatalog = [
+    ...FALLBACK_TYPES,
+    {
+      code: 'auto_temp',
+      name: 'FlowTemp',
+      abbr: 'FT',
+      needsImplantModel: false,
+      abbrMaterialOnly: false,
+      color: '#12A08A',
+      colorSoft: '#E6F6F3',
+      materials: [{ ...FALLBACK_TYPES[0].materials[1], code: 'pmma', hasPontic: true }],
+    },
+  ];
+
+  it('표를 넘기면 FlowTemp 26·27 이 한 브릿지가 됩니다', () => {
+    const bridges = computeBridges([auto(26), auto(27)], [], catalog);
+    expect(bridges).toHaveLength(1);
+    expect(bridges[0].teeth).toEqual([26, 27]);
+  });
+
+  it('폰틱이 낀 FlowTemp 브릿지는 끊을 수 없는 연결입니다', () => {
+    const bridges = computeBridges([auto(25, true), auto(26), auto(27)], ['25-26'], catalog);
+    expect(bridges).toHaveLength(1);
+    expect(bridges[0].teeth).toEqual([25, 26, 27]);
+    expect(bridges[0].hasPontic).toBe(true);
+  });
+
+  it('표를 안 넘기면 최소 목록이라 안 이어집니다 — 그래서 저장할 때 꼭 넘깁니다', () => {
+    expect(computeBridges([auto(26), auto(27)])).toHaveLength(0);
+  });
+});

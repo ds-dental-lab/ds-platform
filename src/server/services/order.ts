@@ -390,7 +390,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   }
 
   // 브릿지 묶음 저장
-  await saveBridges(supabase, order.id, savedItems, input);
+  await saveBridges(supabase, order.id, savedItems, input, catalog);
 
   // 제작옵션 저장 (명세서 §4.2.8)
   const optionRows = Object.entries(input.options ?? {}).map(([groupId, valueId]) => ({
@@ -645,6 +645,7 @@ async function saveBridges(
     is_pontic: boolean;
   }>,
   input: CreateOrderInput,
+  catalog: ProsthesisCatalog,
 ): Promise<void> {
   const placements: ToothPlacement[] = savedItems.map((row) => ({
     tooth: row.tooth_number,
@@ -653,7 +654,7 @@ async function saveBridges(
     isPontic: row.is_pontic,
   }));
 
-  const bridges = computeBridges(placements, input.severedKeys ?? []);
+  const bridges = computeBridges(placements, input.severedKeys ?? [], catalog);
 
   for (const bridge of bridges) {
     const { data: saved } = await supabase
@@ -826,7 +827,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
     return { ok: false, error: `보철물 저장에 실패했습니다: ${itemError?.message}` };
   }
 
-  await saveBridges(supabase, input.orderId, savedItems, input);
+  await saveBridges(supabase, input.orderId, savedItems, input, catalog);
 
   const optionRows = Object.entries(input.options ?? {}).map(([groupId, valueId]) => ({
     order_id: input.orderId,
