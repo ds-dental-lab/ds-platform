@@ -20,8 +20,6 @@ const rows: [string, string, number[], AutoJob][] = [
   ['윤기두', 'ORD-261015-014', [16], job({ designStage: 'analyzing' })],
   ['이서연', 'ORD-261015-016', [46], job({ designStage: 'stalled', designNote: '치식을 못 읽었습니다 — 화면을 보고 사람이 확인해 주세요' })],
   ['김율비', 'ORD-261030-013', [16], job({ designStage: 'stalled', designNote: '치식이 주문서와 다릅니다 — 주문서 [16] · 설계 [15]' })],
-  ['먼치식', 'ORD-261030-020', [16], job({ designStage: 'stalled', designNote: '치식이 주문서와 다릅니다 — 주문서 [16] · 설계 [26]' })],
-  ['위아래', 'ORD-261030-021', [36], job({ designStage: 'stalled', designNote: '치식이 주문서와 다릅니다 — 주문서 [36] · 설계 [26]' })],
   ['정우성', 'ORD-261015-009', [11], job({ step: 'done', finishedAt: '2026-10-15T06:32:47Z' })],
 ];
 
