@@ -44,5 +44,9 @@ check('27-Margin.stl', False, '마진 선')
 check('뭔가.stl', False, '모르는 이름')
 check('2026-10-13_늘봄최영숙-13-12-11-waxup_cad.stl', False, 'exocad 출력물')
 
+# ★ 브릿지 (2026-10-30 실측 이름) — 'crown' 이 없어도 집어야 합니다
+check('8c6f86e2-af12-4e7f-883c-bf3d4e8958bc-upp_26-27-26-27-bridge.stl', True, '덴트버드 브릿지')
+check('2026-08-21_차정순-upperjaw_25-27-25-27-bridge.stl', True, '스캔 낱말이 앞에 있어도 브릿지')
+
 print(f'통과 {ok} · 실패 {bad}')
 raise SystemExit(1 if bad else 0)

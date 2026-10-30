@@ -151,7 +151,10 @@ def beside(stl: Path) -> Path | None:
 
 
 #: 덴트버드 크라운 이름 — `…_16-16-crown`. 앞뒤 번호가 같으면 싱글, 다르면 브릿지(꼬리는 crown 또는 bridge 로 짐작)
-_NAME_TEETH = re.compile(r"_([1-4][1-8])-([1-4][1-8])-(?:crown|bridge)$", re.IGNORECASE)
+#: ★ 브릿지는 범위가 **두 번** 적힙니다 — `…_26-27-26-27-bridge` (2026-10-30 실측, 폰틱 없는 26-27).
+#:   맨 뒤의 한 쌍을 읽습니다. 폰틱이 낀 브릿지(25-27)에서 두 쌍이 다른지는 아직 못 봤습니다 —
+#:   그래서 정보 파일과 다르면 check() 가 "치식이 서로 다릅니다" 로 멈춥니다.
+_NAME_TEETH = re.compile(r"[_-]([1-4][1-8])-([1-4][1-8])-(?:crown|bridge)$", re.IGNORECASE)
 
 
 def teeth_from_name(stl: Path) -> list[int]:

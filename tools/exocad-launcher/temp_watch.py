@@ -65,7 +65,9 @@ BACKOFF_SECONDS = 60
 #: ★ 그래서 이름에 이 낱말이 있는 것만 봅니다. 모르는 이름이면 **안 집고
 #:   적어 둡니다** — 덴트버드가 이름을 바꾸면 아무 일도 안 일어나는 쪽이
 #:   악궁을 뽑는 쪽보다 낫습니다. 적어 둔 것을 보고 낱말을 늘리면 됩니다.
-DESIGN_WORDS = ("crown",)
+#: ★ 브릿지는 `…_26-27-26-27-bridge.stl` 로 옵니다 (2026-10-30 치ㅣ ORD-261030-011 실측) —
+#:   'crown' 이 없어 "크라운 이름이 아닙니다" 로 건너뛰었고 설계 일꾼이 10분을 헛기다렸습니다.
+DESIGN_WORDS = ("crown", "bridge")
 #: 이 낱말이 있으면 스캔입니다 — 낱말이 겹쳐도 이쪽이 이깁니다
 SCAN_WORDS = ("upperjaw", "lowerjaw", "antagonist", "preparation", "scan", "margin")
 
