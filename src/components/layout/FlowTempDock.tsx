@@ -432,7 +432,7 @@ function DockRow({ item, onChanged }: { item: BoardItem; onChanged: () => Promis
       ) : null}
 
       {item.toothFix ? (
-        <div className="border-t border-[#EAF3FE] px-2.5 py-2.5">
+        <div className="border-t border-[#EAF3FE] px-3.5 py-3">
           <ToothFixCard orderId={item.orderId} fix={item.toothFix} onChanged={onChanged} />
         </div>
       ) : null}

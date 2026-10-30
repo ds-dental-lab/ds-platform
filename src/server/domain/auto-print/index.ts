@@ -414,7 +414,7 @@ export function stallAdvice(note: string | null | undefined): StallAdvice {
   // ★ 짧게 — 책갈피 한 줄에 들어가야 합니다 (사용자 2026-10-19 "설명이 너무 길어")
   const n = (note ?? '').trim();
   const fix = toothMismatch(n);
-  if (fix) return { what: `스캔은 ${fix.to}번, 주문서는 ${fix.from}번입니다`, todo: '치식을 확인해 주세요' };
+  if (fix) return { what: `스캔은 ${fix.to}번입니다. 주문서는 ${fix.from}번입니다`, todo: '치식을 확인해 주세요' };
   if (/치식을 못 읽|프렙|지대치|깎은/.test(n)) {
     return { what: '자연치가 아닙니다', todo: '임플란트는 추후 업데이트 됩니다' };
   }
