@@ -46,3 +46,12 @@ class GenerationDoneTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SliderStepsTest(unittest.TestCase):
+    def test_steps(self):
+        from dentbird_params import slider_steps
+        self.assertEqual(slider_steps(5.0, 8.0), 30)
+        self.assertEqual(slider_steps(10.0, 8.0), -20)
+        self.assertEqual(slider_steps(8.0, 8.0), 0)
+        self.assertEqual(slider_steps(7.96, 8.0), 0)

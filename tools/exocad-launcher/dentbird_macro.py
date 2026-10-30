@@ -361,9 +361,15 @@ def assemble(d, abutments: list[int], units: list[int], say=print) -> None:
     ★ 합치기 단추는 **크라운을 하나 고른 뒤에만** 툴바에 뜹니다.
     ★ 합친 뒤에는 내면·교합 조정이 잠깁니다 — 설계값은 이 **앞에서** 넣습니다.
     """
-    from dentbird_params import ParamError, select_tooth  # noqa: PLC0415
+    from dentbird_params import ParamError, select_tooth, set_connectors  # noqa: PLC0415
 
     span = bridge_span(units)
+    # ★ 커넥터 크기는 합치기 **전**에 — 기본 5·5 는 폰틱 쪽에서 2mm² 로 주름만 남겼습니다 (2026-10-30)
+    try:
+        select_tooth(d, abutments[0])
+        set_connectors(d, say)
+    except ParamError as e:
+        raise Stop(f"커넥터 크기를 못 넣었습니다 — {e}") from e
     for attempt in range(3):
         try:
             select_tooth(d, abutments[0])

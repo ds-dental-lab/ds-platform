@@ -44,6 +44,19 @@ ADAPT: list[tuple[str, float, str]] = [
     ("gingival", 0.000, "cut"),
 ]
 
+#: 브릿지 커넥터 크기 (connect-size-slider-횡단 · -수직, 1.0~10.0 · 0.1 칸). 단면 모양은 기본(둘째) 그대로.
+#: ★ 왜 — 서버 PC 가 처음 내보낸 브릿지(2026-10-30, 치ㅣ 26-27)는 두 크라운이 좁게 맞닿아 주름이 졌습니다.
+#:   매크로가 커넥터 도구를 안 건드려 기본 5.0·5.0 그대로였고, 같은 값이 폰틱 쪽(25-26)에서는 2.0mm²
+#:   ('약함') 밖에 안 나왔습니다. 덴트버드가 '최적' 이라 부르는 단면은 12.5mm² 쯤이고 그 위는 '크기 초과'
+#:   라고 하지만, PLA 임시치아는 연결부가 두꺼울수록 덜 부러지고 exocad 왁스업처럼 덜 어색합니다
+#:   (사용자 2026-10-30 "연결부분이 너무 어색하지 않니"). 실측: 26-27 은 7·7 에서 18.9mm², 10·10 에서 29.0mm².
+#:   폰틱 쪽은 10·10 이어도 12.5mm² — 단면은 슬라이더만이 아니라 두 크라운이 겹치는 자리에 달렸습니다.
+#: ★ 값은 여기 한 곳. 나온 단면은 기록 창에 적으니, 몇 건 뽑아 보고 고칩니다.
+CONNECTOR: dict[str, float] = {
+    "횡단": 8.0,
+    "수직": 8.0,
+}
+
 #: 한 번 적용하고 덴트버드가 계산을 끝낼 때까지 기다리는 한도
 SETTLE_SECONDS = 60
 
@@ -308,7 +321,11 @@ def close_panels(d) -> None:
       외형 탭을 연 채로 끝나므로, 다음 크라운을 고르기 전에 반드시 닫아야 합니다. 안 닫으면
       select_tooth 가 20초를 기다리다 멈춥니다.
     """
-    for tool, marker in (("toolbar-tool-refine", "refine-process"), ("toolbar-tool-inner", "inner-apply-btn")):
+    for tool, marker in (
+        ("toolbar-tool-refine", "refine-process"),
+        ("toolbar-tool-inner", "inner-apply-btn"),
+        ("toolbar-tool-connect", "connect-process"),
+    ):
         if d.find_elements("css selector", f'[data-testid="{marker}"]'):
             _click(d, tool)
             time.sleep(0.8)
@@ -354,3 +371,59 @@ def apply_each(d, teeth: list[int], say=print) -> None:
         say(f"크라운 {n} 의 설계값")
         select_tooth(d, n)
         apply_all(d, say)
+
+
+def slider_steps(now: float, want: float, step: float = 0.1) -> int:
+    """키보드로 슬라이더를 옮길 때 누를 횟수 — 양수면 →, 음수면 ←. 0.1 칸 슬라이더라 반올림합니다."""
+    return int(round((want - now) / step))
+
+
+def _slider_input(d, testid: str):
+    return _q(d, testid).find_element("css selector", "input[type=range]")
+
+
+def _set_slider(d, testid: str, want: float) -> float:
+    """MUI 슬라이더는 value 를 써 넣어도 React 가 모릅니다 — 숨은 range 칸에 초점을 주고 화살표로 옮깁니다
+    (2026-10-30 크롬 실측: ArrowRight 한 번에 0.1). 옮긴 뒤 다시 읽어 견줍니다."""
+    from selenium.webdriver.common.keys import Keys  # noqa: PLC0415
+
+    inp = _slider_input(d, testid)
+    for _ in range(3):
+        now = float(inp.get_attribute("value"))
+        n = slider_steps(now, want)
+        if n == 0:
+            return now
+        d.execute_script("arguments[0].focus()", inp)
+        inp.send_keys((Keys.ARROW_RIGHT if n > 0 else Keys.ARROW_LEFT) * abs(n))
+        time.sleep(0.6)
+    now = float(inp.get_attribute("value"))
+    if abs(now - want) > 0.05:
+        raise ParamError(f"'{testid}' 를 {want} 로 못 옮겼습니다 (지금 {now})")
+    return now
+
+
+def set_connectors(d, say=print) -> list[str]:
+    """브릿지 커넥터마다 크기를 CONNECTOR 로 맞추고, 덴트버드가 말하는 단면(약함/최적/크기 초과 · mm²)을 돌려줍니다.
+
+    ★ **합치기 전**에 부릅니다 — 합치면 도구가 잠깁니다. 커넥터 패널은 어느 크라운을 고르든 같습니다.
+    ★ 값은 커넥터(이웃 쌍)마다 따로 남습니다 (2026-10-30 실측) — 칩을 하나씩 눌러 다 넣습니다.
+    ★ 적용 단추가 없습니다 — 옮기는 즉시 먹고, 합치기가 그 값을 씁니다.
+    """
+    _open_tool(d, "toolbar-tool-connect", "connect-process")
+    chips = d.find_elements("css selector", '[data-testid^="connect-connector-chip-"]')
+    if not chips:
+        raise ParamError("브릿지 커넥터 칩이 없습니다 — 링크가 안 묶였는지 보세요")
+    got: list[str] = []
+    for i in range(len(chips)):
+        chip = d.find_elements("css selector", '[data-testid^="connect-connector-chip-"]')[i]
+        name = (chip.text or "").strip()
+        d.execute_script("arguments[0].click()", chip)
+        time.sleep(1.0)
+        for axis, value in CONNECTOR.items():
+            _set_slider(d, f"connect-size-slider-{axis}", value)
+        time.sleep(1.5)
+        info = " ".join((_q(d, "connect-size-info").text or "").split())
+        got.append(f"{name} {info}")
+        say(f"커넥터 {name} — {CONNECTOR['횡단']}·{CONNECTOR['수직']}mm → {info}")
+    close_panels(d)
+    return got
