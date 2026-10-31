@@ -167,6 +167,13 @@ def main() -> int:
     say(f"지켜봅니다 — {base} · {POLL_SECONDS}초마다")
     quiet = False
 
+    # ★ 버셀에 묻기 전에 DB 에 먼저 (2026-10-31) — 단추를 누른 뒤 뜨는 속도는 그대로 3초입니다.
+    #   DB 가 '없다' 면 버셀은 1분에 한 번만. probe_secret 이 없으면 옛길(3초마다 버셀) 그대로입니다.
+    from probe import Gate  # noqa: PLC0415
+    gate = Gate("exocad")
+    if not cfg.get("probe_secret"):
+        say("probe_secret 이 없어 3초마다 버셀에 묻습니다")
+
     # ★ 설계 일꾼이 이 PC 몫이 아니면(서버 PC 로 옮긴 뒤, 2026-10-21) 심장 소리는 여기서 냅니다.
     #   안 그러면 이 PC 의 '설계 PC' 줄이 3분 뒤 '꺼짐' 이 되고 센터에 헛알림이 갑니다.
     #   일꾼이 이 PC 에 있으면 일꾼이 보내니 여기서는 안 보냅니다 (둘이 보내면 상태가 엇갈립니다).
@@ -201,6 +208,10 @@ def main() -> int:
                 pass
 
         try:
+            if not gate.should_ask(cfg.get("probe_secret")):
+                time.sleep(POLL_SECONDS)
+                continue
+            gate.asked()
             got = ask(base, token)
         except Exception as e:  # noqa: BLE001
             # ★★ **지켜보기는 안 죽습니다.** 오늘(2026-10-14) 11분 만에

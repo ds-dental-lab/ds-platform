@@ -28,6 +28,15 @@ class DecideTest(unittest.TestCase):
         self.assertFalse(decide("design", {"design": False}, last_ask=100, now=100 + FORCE_ASK_SECONDS - 1))
         self.assertTrue(decide("design", {"design": False}, last_ask=100, now=100 + FORCE_ASK_SECONDS))
 
+    def test_exocad_kind(self):
+        got = {"design": False, "reslice": False, "exocad": True}
+        self.assertTrue(decide("exocad", got, 100, 110))
+        self.assertFalse(decide("exocad", {**got, "exocad": False}, 100, 110))
+
+    def test_old_db_without_kind_then_ask(self):
+        # 마이그레이션 전이면 'exocad' 칸이 없습니다 — 없다고 치면 단추가 1분씩 늦습니다
+        self.assertTrue(decide("exocad", {"design": False, "reslice": False}, 100, 110))
+
     def test_gate_without_secret_asks_every_time(self):
         # probe_secret 이 없으면 이 길을 안 씁니다 (되돌리기 = 설정 한 줄)
         g = Gate("design")
