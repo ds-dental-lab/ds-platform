@@ -1154,6 +1154,51 @@ export async function finishDeliver(
   const r = (body.rotate ?? {}) as { x?: unknown; y?: unknown; z?: unknown };
   const num = (v: unknown) => (typeof v === 'number' ? v : 0);
 
+  /*
+    ★ 다 나온 주문에 **새 파일로** 다시 뽑기 (2026-11-02, 연결부를 우리가 손본 브릿지 STL 을
+      같은 주문으로 뽑아 보려고). done 에서는 moveStep 길이 없어(NEXT.done = []) 런처의
+      '자동 출력 보내기' 가 "갈 수 없는 길" 로 막혔습니다. reprintJob 처럼 표를 바로 고치되,
+      파일이 새 것이니 'slicing' 이 아니라 'queued' 로 — 판 위 자리는 새 파일에 이미 박혀 있습니다.
+      출력판 확인 도장은 지웁니다(방금 나온 것이 판 위에 있을 수 있음). 몇 번째인지 사건으로 남깁니다.
+  */
+  if (job.step === 'done') {
+    const { error } = await admin
+      .from('auto_jobs')
+      .update({
+        step: 'queued',
+        print_file_path: print.path,
+        ...(body.rotate ? { rotate_x: num(r.x), rotate_y: num(r.y), rotate_z: num(r.z) } : {}),
+        bed_cleared_at: null,
+        bed_cleared_by: null,
+        claimed_at: null,
+        claimed_device_id: null,
+        started_at: null,
+        finished_at: null,
+        percent: null,
+        tries: 0,
+        failed_at: null,
+        failed_reason: null,
+        dismissed_at: null,
+        dismissed_by: null,
+        remaining_min: null,
+        layer_now: null,
+        layer_total: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', job.id)
+      .eq('step', 'done');
+    if (error) return { ok: false, error: error.message };
+    await admin.from('domain_events').insert({
+      event_type: 'order.auto_print.redeliver',
+      aggregate_type: 'order',
+      aggregate_id: orderId,
+      actor_org_id: null,
+      actor_user_id: null,
+      payload: { print_file_path: print.path },
+    });
+    return { ok: true };
+  }
+
   // waiting_design → slicing → queued. 건너뛰지 않습니다
   if (job.step === 'waiting_design') {
     const moved = await moveStep(job.id, 'slicing');
