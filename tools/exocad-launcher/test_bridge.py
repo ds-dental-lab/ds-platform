@@ -72,3 +72,10 @@ class ConnectorAreaTest(unittest.TestCase):
         self.assertEqual(connector_retry("크기 초과 18.9mm²"), CONNECTOR_RETRY["크기 초과"])
         with self.assertRaises(ParamError):
             connector_retry("")
+
+    def test_across(self):
+        from dentbird_params import CONNECTOR, connector_across
+        self.assertEqual(connector_across({}), CONNECTOR["횡단"])
+        self.assertEqual(connector_across({"26": 12.2, "27": 12.4}), 7.6)
+        self.assertEqual(connector_across({"26": 5.0}), 5.0)
+        self.assertEqual(connector_across({"26": 30.0}), 10.0)

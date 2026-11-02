@@ -20,10 +20,7 @@ import time
 from pathlib import Path
 
 from dentbird_macro import alive, attach
-from dentbird_params import _open_tool, _q, _slider_input
-
-#: 사용자가 26-27 에서 고른 횡단 7.6 ÷ 그 치아 폭 약 12.3mm (2026-11-02, 한 케이스 값)
-WIDTH_RATIO = 0.62
+from dentbird_params import CONNECTOR_WIDTH_RATIO as WIDTH_RATIO, _open_tool, _q, _slider_input
 
 OUT = Path(__file__).resolve().parent / "focus_probe"
 
@@ -119,6 +116,24 @@ def _measure(img, r: dict, texts: list[dict], dpr: float) -> dict | str:
     mask[mask.sum(axis=1) > 0.8 * np.maximum(wide, 1)] = False
     tall = keep.sum(axis=0)
     mask[:, mask.sum(axis=0) > 0.8 * np.maximum(tall, 1)] = False
+    # 치아 = 가장 많이 찬 줄을 품은, 이어진 줄 묶음 (위쪽 '이동' 아이콘 같은 따로 떨어진 것은 버림).
+    # 지운 격자선 자리가 치아를 가르므로 빈 줄 6줄까지는 이어진 것으로 봅니다.
+    counts = mask.sum(axis=1)
+    if counts.max() == 0:
+        return "그림에서 치아를 못 찾음"
+    filled = np.flatnonzero(counts > 0)
+    mid = int(counts.argmax())
+    top = low = mid
+    for y in filled[filled < mid][::-1]:
+        if top - y > 6:
+            break
+        top = int(y)
+    for y in filled[filled > mid]:
+        if y - low > 6:
+            break
+        low = int(y)
+    mask[:top] = False
+    mask[low + 1:] = False
     lefts, rights, ys = [], [], []
     for y in range(h):
         idx = np.flatnonzero(mask[y])
@@ -137,16 +152,57 @@ def _measure(img, r: dict, texts: list[dict], dpr: float) -> dict | str:
     # 커넥터 타원(파란 테두리)의 폭 — 타원 폭 = 지금 횡단 값이라 눈금 없이도 배율을 압니다.
     # ★ 두 번째 재기 사진에서 26번 칸 눈금(1mm 에 24px)이 27번 칸(17px)과 달랐는데, 치아와 타원은 두 칸에
     #   같은 크기로 그려져 있었습니다 — 눈금이 그림과 어긋날 수 있어 둘 다 잽니다.
-    #   잇몸 쪽 색 띠에도 파랑이 있어 치아 위쪽 70% 줄에서만 찾습니다.
-    top, low = ys[0], ys[0] + int(0.7 * (ys[-1] - ys[0]))
-    blue = (sub[:, :, 2] > sub[:, :, 0] + 60) & (sub[:, :, 2] > sub[:, :, 1] + 30) & keep
-    blue[:top] = False
-    blue[low:] = False
-    cols = np.flatnonzero(blue.any(axis=0))
+    #   테두리는 보랏빛 파랑(r·g 가 90~160 으로 비슷, b 200 근처), 접촉·잇몸 색 띠는 r=0 이라 r 로 가릅니다
+    #   (2026-11-02 디자인PC 크롬 실측).
+    r_, g_, b_ = sub[:, :, 0], sub[:, :, 1], sub[:, :, 2]
+    #   접촉 색 덩어리 가장자리의 흐린 파랑은 b 가 250 넘어 빠지고, 치아 그림자의 푸른 점은
+    #   한 열에 한두 개라 3개 넘는 열만 셉니다 (타원 끝은 세로로 서 있어 여러 개).
+    blue = (r_ >= 60) & (r_ <= 170) & (np.abs(r_ - g_) < 25) & (b_ - r_ > 45) & (b_ >= 180) & (b_ <= 235) & keep
+    cols = np.flatnonzero(blue.sum(axis=0) >= 3)
     ell = (cols[-1] - cols[0]) / dpr if len(cols) > 1 else 0.0
     return {"폭mm": round(abs(ax[0]) * px_w, 1), "높이mm": round(abs(ay[0]) * px_h, 1),
             "눈금mm/px": [round(abs(ax[0]), 4), round(abs(ay[0]), 4)],
             "치아px": [round(px_w), round(px_h)], "타원px": round(ell)}
+
+
+def measure_teeth(d, say=print, save: Path | None = None) -> dict[str, float]:
+    """지금 화면의 치아 초점 보기 칸마다 치아 폭(mm)을 잽니다. {치식: 폭}. 못 재면 빈 dict.
+
+    배율은 타원(= 지금 횡단 값)으로 먼저 잡고, 타원을 못 찾으면 눈금으로 잡습니다
+    (서버PC 에서 26번 칸 눈금이 그림과 어긋난 적이 있음, 2026-11-02)."""
+    try:
+        import numpy as np  # noqa: PLC0415
+        from PIL import Image  # noqa: PLC0415
+    except ImportError:
+        say("치아 폭: numpy/PIL 없음")
+        return {}
+    import io  # noqa: PLC0415
+
+    got = d.execute_script(SCAN_JS)
+    raw = d.get_screenshot_as_png()
+    if save is not None:
+        save.mkdir(exist_ok=True)
+        (save / "scan.json").write_text(json.dumps(got, ensure_ascii=False, indent=1), encoding="utf-8")
+        (save / "screen.png").write_bytes(raw)
+    img = np.asarray(Image.open(io.BytesIO(raw)).convert("RGB"))
+    dpr = float(got.get("dpr") or 1)
+    vw, vh = got.get("vw") or 1, got.get("vh") or 1
+    across = float(_slider_input(d, "connect-size-slider-횡단").get_attribute("value"))
+    widths: dict[str, float] = {}
+    for c in got.get("canvases") or []:
+        if c["w"] * c["h"] > 0.5 * vw * vh:  # 3D 화면
+            continue
+        texts = c["texts"]
+        # 치식 = 칸 안의 11~48 정수 (눈금은 -10~10 이라 겹치지 않음)
+        tooth = next((t["t"] for t in texts if t["t"].isdigit() and 11 <= int(t["t"]) <= 48), "")
+        m = _measure(img, c, texts, dpr)
+        if not tooth or not isinstance(m, dict):
+            say(f"치아 폭: 칸 ({round(c['l'])},{round(c['t'])}) 치식 {tooth or '없음'} — {m}")
+            continue
+        by_ell = round(m["치아px"][0] * across / m["타원px"], 1) if m["타원px"] > 20 else None
+        widths[tooth] = by_ell if by_ell else m["폭mm"]
+        say(f"치아 폭: {tooth}번 눈금 {m['폭mm']}mm · 타원(횡단 {across}) {by_ell}mm · 높이 {m['높이mm']}mm")
+    return widths
 
 
 def main() -> int:
@@ -155,45 +211,7 @@ def main() -> int:
         return 1
     d = attach()
     _show_focus(d)
-    got = d.execute_script(SCAN_JS)
-    OUT.mkdir(exist_ok=True)
-    (OUT / "scan.json").write_text(json.dumps(got, ensure_ascii=False, indent=1), encoding="utf-8")
-    png = OUT / "screen.png"
-    png.write_bytes(d.get_screenshot_as_png())
-    dpr = float(got.get("dpr") or 1)
-    canvases = got.get("canvases") or []
-    vw, vh = got.get("vw") or 1, got.get("vh") or 1
-    print(f"화면 {vw}x{vh} · 배율 {dpr} · canvas {len(canvases)}개")
-    try:
-        import numpy as np  # noqa: PLC0415
-        from PIL import Image  # noqa: PLC0415
-
-        img = np.asarray(Image.open(png).convert("RGB"))
-    except ImportError:
-        img = None
-    across = float(_slider_input(d, "connect-size-slider-횡단").get_attribute("value"))
-    print(f"지금 횡단 {across}mm")
-    widths = {}
-    for i, c in enumerate(canvases):
-        if c["w"] * c["h"] > 0.5 * vw * vh:  # 3D 화면
-            continue
-        texts = c["texts"]
-        nums = [t["t"] for t in texts if NUM.fullmatch(t["t"])]
-        # 치식 = 칸 안의 11~48 정수 (눈금은 -7.5~7.5 라 겹치지 않음)
-        tooth = next((t["t"] for t in texts if t["t"].isdigit() and 11 <= int(t["t"]) <= 48), "")
-        print(f"[{i}] 자리 ({round(c['l'])},{round(c['t'])}) 크기 {round(c['w'])}x{round(c['h'])} · 치식 {tooth or '없음'}"
-              f" · 숫자 {len(nums)}개: {' '.join(nums[:24])}")
-        if img is None:
-            print("    잰 값: 못 잼 (numpy/PIL 없음)")
-            continue
-        m = _measure(img, c, texts, dpr)
-        print("    잰 값:", m)
-        if tooth and isinstance(m, dict):
-            widths[tooth] = m["폭mm"]
-            if m["타원px"] > 20:
-                k = across / m["타원px"]
-                print(f"    타원 기준(횡단 {across}mm = {m['타원px']}px): 폭 {round(m['치아px'][0] * k, 1)}mm"
-                      f" · 높이 {round(m['치아px'][1] * k, 1)}mm")
+    widths = measure_teeth(d, save=OUT)
     if widths:
         w = min(widths.values())
         print(f"치아별 폭 {widths} → 작은 쪽 {w}mm → 횡단 {round(w * WIDTH_RATIO, 1)} (비율 {WIDTH_RATIO})")

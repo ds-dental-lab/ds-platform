@@ -59,11 +59,17 @@ ADAPT: list[tuple[str, float, str]] = [
 #:   교두 간격이 약 7mm 입니다. 횡단 10 은 '+' 에서 3.3mm 로 거의 안 굵어졌습니다(ORD-261102-012).
 #: ★ 사용자 2026-11-02: '+' 는 치아가 이미 겹쳐야 뜻이 있고 횡단·수직이 안 먹습니다. 둘째 모양으로 바꾸고
 #:   26-27 에서 횡단 7.6(교두 기준)·수직 3.0 을 손으로 합쳐 보고 "이 케이스는 수직 3.0 이 괜찮네".
-#:   치아 크기로 횡단을 정하는 일은 dentbird_focus_probe.py 로 폭을 재 본 뒤에 붙입니다.
+#:   횡단은 치아 초점 보기에서 두 치아 폭을 재서 작은 쪽 × CONNECTOR_WIDTH_RATIO 로 정합니다.
+#:   아래 7.6 은 폭을 못 잴 때 쓰는 값입니다.
 CONNECTOR: dict[str, float] = {
     "횡단": 7.6,
     "수직": 3.0,
 }
+#: 횡단 = 작은 치아 폭 × 이 비율. 26-27 에서 사용자가 고른 7.6 ÷ 잰 폭 12.2mm (2026-11-02, 한 케이스 —
+#: 디자인PC 크롬에서 눈금·타원 두 방법이 12.2·12.3 으로 맞음). 케이스가 쌓이면 다듬습니다.
+CONNECTOR_WIDTH_RATIO = 0.62
+#: 계산값이 이 범위를 벗어나면 잘못 잰 것으로 보고 끝값으로 자릅니다 (슬라이더는 1~10)
+CONNECTOR_ACROSS_RANGE = (5.0, 10.0)
 #: 덴트버드 단면 글자가 '최적' 이 아닐 때 수직을 한 번 바꿔 봅니다 (사용자 2026-11-02 "case1 이 최적이면 진행,
 #: 부족이면 case2"). 그래도 최적이 아니면 멈춥니다 — 사람이 설계합니다.
 CONNECTOR_RETRY: dict[str, float] = {
@@ -447,8 +453,10 @@ def set_connectors(d, say=print) -> list[str]:
         _unlock_size(d)
         # 단면 숫자는 모양에 달리므로 '+' 가 아니면 모양부터 고르고 잽니다
         shape = _pick_shape(d) if CONNECTOR_SHAPE != PLUS_SHAPE else ""
-        for axis, value in CONNECTOR.items():
-            _set_slider(d, f"connect-size-slider-{axis}", value)
+        # 횡단은 두 치아 폭으로 (사용자 2026-11-02 "치아 초점 보기 숫자로 크라운 폭경을 체크하고")
+        across = connector_across(_tooth_widths(d, say))
+        _set_slider(d, "connect-size-slider-횡단", across)
+        _set_slider(d, "connect-size-slider-수직", CONNECTOR["수직"])
         time.sleep(1.5)
         info = " ".join((_q(d, "connect-size-info").text or "").split())
         tall = CONNECTOR["수직"]
@@ -470,7 +478,7 @@ def set_connectors(d, say=print) -> list[str]:
             time.sleep(1.5)
         after = " ".join((_q(d, "connect-size-info").text or "").split())
         got.append(f"{name} {info}")
-        say(f"커넥터 {name} — {CONNECTOR['횡단']}·{tall}mm → {info} · 모양 {shape} → {after}")
+        say(f"커넥터 {name} — {across}·{tall}mm → {info} · 모양 {shape} → {after}")
     close_panels(d)
     return got
 
@@ -481,6 +489,29 @@ def connector_area(info: str) -> float | None:
 
     m = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*mm", info)
     return float(m.group(1)) if m else None
+
+
+def connector_across(widths: dict[str, float]) -> float:
+    """두 치아 폭 → 횡단. 못 쟀으면 CONNECTOR['횡단']. 쌍마다 값이 하나라 작은 치아에 맞춥니다."""
+    if not widths:
+        return CONNECTOR["횡단"]
+    lo, hi = CONNECTOR_ACROSS_RANGE
+    return round(min(max(min(widths.values()) * CONNECTOR_WIDTH_RATIO, lo), hi), 1)
+
+
+def _tooth_widths(d, say=print) -> dict[str, float]:
+    """치아 초점 보기를 켜고 폭을 잽니다. 무슨 일이 있어도 설계를 멈추지 않고 빈 dict 를 돌려줍니다."""
+    try:
+        sw = _q(d, "connect-sub-renderer-switch").find_elements("css selector", "input[type=checkbox]")
+        if sw and not sw[0].is_selected():
+            d.execute_script("arguments[0].click()", sw[0])
+            time.sleep(2.0)
+        from dentbird_focus_probe import measure_teeth  # noqa: PLC0415
+
+        return measure_teeth(d, say)
+    except Exception as e:  # noqa: BLE001
+        say(f"치아 폭을 못 쟀습니다 ({type(e).__name__}) — 횡단 {CONNECTOR['횡단']} 로")
+        return {}
 
 
 def connector_retry(info: str) -> float | None:
