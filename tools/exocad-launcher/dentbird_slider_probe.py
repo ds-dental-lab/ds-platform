@@ -26,7 +26,7 @@ def main() -> int:
     _open_tool(d, "toolbar-tool-connect", "connect-process")
     time.sleep(1)
     buttons = d.find_elements("css selector", '[data-testid="connect-cross-sectional-shape"] button')
-    print("넷째 단추 class:", (buttons[CONNECTOR_SHAPE].get_attribute("class") or "")[-50:] if len(buttons) > CONNECTOR_SHAPE else "없음")
+    print("고른 모양 단추 class:", (buttons[CONNECTOR_SHAPE].get_attribute("class") or "")[-50:] if len(buttons) > CONNECTOR_SHAPE else "없음")
     for axis in ("횡단", "수직"):
         inp = _slider_input(d, f"connect-size-slider-{axis}")
         print(f"{axis}: 값={inp.get_attribute('value')} 잠김={inp.get_attribute('disabled') is not None}")

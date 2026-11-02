@@ -56,14 +56,23 @@ ADAPT: list[tuple[str, float, str]] = [
 #:   안정감 있고, 교합면이나 마진 범위를 넘어서면 어쩔 수 없고". 치아 분리감이 제일 우선. 4·4 로 합쳐 보여 드리고 허락.
 #:   덴트버드는 9.5mm² 를 '약함' 이라 하지만 의도한 값이라 참고만.
 #: ★ 사용자 2026-11-02 "너무 얇다, 적어도 협측·설측 교두 정도는 붙어 있으면". '+' 4·4 의 실측이 협설 2.9mm·높이 1.2mm(2.0mm²),
-#:   교두 간격이 약 7mm 입니다. 횡단이 줄어 나오는 비율대로 최대 10 을 넣어 봅니다 — 시험값, STL 로 재서 고칩니다.
+#:   교두 간격이 약 7mm 입니다. 횡단 10 은 '+' 에서 3.3mm 로 거의 안 굵어졌습니다(ORD-261102-012).
+#: ★ 사용자 2026-11-02: '+' 는 치아가 이미 겹쳐야 뜻이 있고 횡단·수직이 안 먹습니다. 둘째 모양으로 바꾸고
+#:   26-27 에서 횡단 7.6(교두 기준)·수직 3.0 을 손으로 합쳐 보고 "이 케이스는 수직 3.0 이 괜찮네".
+#:   치아 크기로 횡단을 정하는 일은 dentbird_focus_probe.py 로 폭을 재 본 뒤에 붙입니다.
 CONNECTOR: dict[str, float] = {
-    "횡단": 10.0,
-    "수직": 4.0,
+    "횡단": 7.6,
+    "수직": 3.0,
 }
-#: 단면 모양 — 네 단추 중 몇 번째(0부터). 3 = '+' (사용자: "저거 + 가 제일 깔끔하긴 해"). 무료 계정에서는 잠겨
-#: 있었고(Mui-disabled) 서버 계정에서는 열려 있었습니다 — 잠겨 있으면 기본(1) 그대로 두고 기록에 적습니다.
-CONNECTOR_SHAPE = 3
+#: 덴트버드 단면 글자가 '최적' 이 아닐 때 수직을 한 번 바꿔 봅니다 (사용자 2026-11-02 "case1 이 최적이면 진행,
+#: 부족이면 case2"). 그래도 최적이 아니면 멈춥니다 — 사람이 설계합니다.
+CONNECTOR_RETRY: dict[str, float] = {
+    "약함": 3.5,
+    "크기 초과": 2.5,
+}
+#: 단면 모양 — 네 단추 중 몇 번째(0부터). 1 = 둘째(사용자 2026-11-02 고름). 3 = '+' 는 크기 슬라이더를 잠급니다.
+CONNECTOR_SHAPE = 1
+PLUS_SHAPE = 3
 #: 이 아래면 사실상 안 이어진 것입니다 (폰틱이 떠서 아래 모서리만 스치면 0.1mm²) — 두 조각으로 뽑히니 멈춥니다
 CONNECTOR_MIN_AREA = 1.0
 
@@ -436,20 +445,32 @@ def set_connectors(d, say=print) -> list[str]:
         # ★★ '+' 를 고르면 크기 슬라이더가 잠깁니다 (사용자 2026-11-02, 실측 disabled).
         #   크기를 다른 모양에서 먼저 넣고, 단면도 거기서 잽니다 — '+' 의 숫자는 0.5 처럼 작게 나옵니다.
         _unlock_size(d)
+        # 단면 숫자는 모양에 달리므로 '+' 가 아니면 모양부터 고르고 잽니다
+        shape = _pick_shape(d) if CONNECTOR_SHAPE != PLUS_SHAPE else ""
         for axis, value in CONNECTOR.items():
             _set_slider(d, f"connect-size-slider-{axis}", value)
         time.sleep(1.5)
         info = " ".join((_q(d, "connect-size-info").text or "").split())
+        tall = CONNECTOR["수직"]
+        nxt = connector_retry(info)
+        if nxt is not None:
+            say(f"커넥터 {name} — {info}, 수직 {nxt} 로 다시")
+            tall = _set_slider(d, "connect-size-slider-수직", nxt)
+            time.sleep(1.5)
+            info = " ".join((_q(d, "connect-size-info").text or "").split())
+            if "최적" not in info:
+                raise ParamError(f"커넥터 {name} 가 수직 {nxt} 에서도 '{info}' 입니다 — 사람이 연결부를 보세요")
         area = connector_area(info)
         if area is not None and area < CONNECTOR_MIN_AREA:
             raise ParamError(
                 f"커넥터 {name} 단면이 {area}mm² 라 사실상 안 이어집니다 — 폰틱이 옆 이보다 떠 있는지 보세요"
             )
-        shape = _pick_shape(d)
-        time.sleep(1.5)
+        if CONNECTOR_SHAPE == PLUS_SHAPE:
+            shape = _pick_shape(d)
+            time.sleep(1.5)
         after = " ".join((_q(d, "connect-size-info").text or "").split())
         got.append(f"{name} {info}")
-        say(f"커넥터 {name} — {CONNECTOR['횡단']}·{CONNECTOR['수직']}mm → {info} · 모양 {shape} → {after}")
+        say(f"커넥터 {name} — {CONNECTOR['횡단']}·{tall}mm → {info} · 모양 {shape} → {after}")
     close_panels(d)
     return got
 
@@ -460,6 +481,16 @@ def connector_area(info: str) -> float | None:
 
     m = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*mm", info)
     return float(m.group(1)) if m else None
+
+
+def connector_retry(info: str) -> float | None:
+    """'최적' 이면 None(그대로), '약함'·'크기 초과' 면 다시 넣을 수직. 그 밖의 글자면 ParamError"""
+    if "최적" in info:
+        return None
+    for word, tall in CONNECTOR_RETRY.items():
+        if word in info:
+            return tall
+    raise ParamError(f"커넥터 단면 글자를 모릅니다: '{info}'")
 
 
 def _unlock_size(d) -> None:
@@ -483,7 +514,7 @@ def _pick_shape(d) -> str:
         return "기본(단추 부족)"
     btn = buttons[CONNECTOR_SHAPE]
     if btn.get_attribute("disabled") is not None or "Mui-disabled" in (btn.get_attribute("class") or ""):
-        return "기본(+ 잠김)"
+        return "기본(잠김)"
     d.execute_script("arguments[0].click()", btn)
     time.sleep(0.8)
-    return "+"
+    return "+" if CONNECTOR_SHAPE == PLUS_SHAPE else f"{CONNECTOR_SHAPE + 1}번째"
