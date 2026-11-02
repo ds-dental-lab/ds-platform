@@ -72,6 +72,7 @@ class ConnectorAreaTest(unittest.TestCase):
         self.assertEqual(connector_across({"26": {"폭": 10.4, "교두": 5.7}, "27": {"폭": 10.6, "교두": 5.9}}), 7.2)
         self.assertEqual(connector_across({"26": {"폭": 12.2, "교두": 0.0}}), 7.6)  # 교두 못 찾으면 폭 x 0.62
         self.assertEqual(connector_across({"26": {"폭": 5.0, "교두": 2.0}}), 5.0)
+        self.assertEqual(connector_across({"43": {"폭": 8.0, "교두": 0.7}, "44": {"폭": 9.7, "교두": 1.0}}), 5.0)  # 봉우리 하나 → 폭
         self.assertEqual(connector_across({"26": {"폭": 30.0, "교두": 20.0}}), 10.0)
 
     def test_tall(self):

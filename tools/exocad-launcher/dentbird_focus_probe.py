@@ -205,11 +205,15 @@ def measure_teeth(d, say=print, save: Path | None = None) -> dict[str, dict[str,
         if not tooth or not isinstance(m, dict):
             say(f"치아 폭: 칸 ({round(c['l'])},{round(c['t'])}) 치식 {tooth or '없음'} — {m}")
             continue
-        k = across / m["타원px"] if m["타원px"] > 20 else abs(m["눈금mm/px"][0])
+        # 배율은 눈금이 먼저. 타원은 슬라이더 값과 5~10% 어긋날 때가 있었습니다(43-44: 눈금 18.5px/mm, 타원 16.8).
+        # 가로·세로 눈금이 서로 10% 넘게 다르거나 눈금이 없을 때만 타원으로.
+        sx, sy = abs(m["눈금mm/px"][0]), abs(m["눈금mm/px"][1])
+        ticks_ok = sx > 0 and sy > 0 and abs(sx - sy) / max(sx, sy) < 0.1
+        k = sx if ticks_ok or m["타원px"] <= 20 else across / m["타원px"]
         widths[tooth] = {"폭": round(m["치아px"][0] * k, 1), "교두": round(m["교두px"] * k, 1),
                          "높이": round(m["치아px"][1] * k, 1)}
         say(f"치아 폭: {tooth}번 폭 {widths[tooth]['폭']}mm · 교두 {widths[tooth]['교두']}mm · 높이 {round(m['치아px'][1] * k, 1)}mm"
-            f" (배율 {'타원' if m['타원px'] > 20 else '눈금'}, 눈금으로는 폭 {m['폭mm']}mm)")
+            f" (배율 {'눈금' if k == sx else '타원'}, 타원으로는 폭 {round(m['치아px'][0] * across / m['타원px'], 1) if m['타원px'] > 20 else '-'}mm)")
     return widths
 
 

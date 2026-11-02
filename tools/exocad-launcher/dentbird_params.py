@@ -488,7 +488,8 @@ def connector_area(info: str) -> float | None:
 def connector_across(teeth: dict[str, dict[str, float]]) -> float:
     """두 치아의 {"폭", "교두"} → 횡단. 쌍마다 값이 하나라 작은 치아에 맞춥니다.
     교두 간격이 있으면 작은 교두 간격 + 여유, 없으면 작은 폭 × 비율, 다 못 쟀으면 CONNECTOR['횡단']."""
-    cusps = [v["교두"] for v in teeth.values() if v.get("교두")]
+    # 송곳니·소구치는 봉우리가 하나라 '교두 간격' 이 0.7mm 처럼 나옵니다(43-44, 2026-11-02) — 폭의 40% 아래면 못 찾은 것
+    cusps = [v["교두"] for v in teeth.values() if v.get("교두") and v["교두"] >= 0.4 * v.get("폭", 0)]
     widths = [v["폭"] for v in teeth.values() if v.get("폭")]
     if cusps:
         want = min(cusps) + CONNECTOR_CUSP_MARGIN
