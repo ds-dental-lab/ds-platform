@@ -431,18 +431,23 @@ def set_connectors(d, say=print) -> list[str]:
         name = (chip.text or "").strip()
         d.execute_script("arguments[0].click()", chip)
         time.sleep(1.0)
-        shape = _pick_shape(d)
+        # ★★ '+' 를 고르면 크기 슬라이더가 잠깁니다 (사용자 2026-11-02, 실측 disabled).
+        #   크기를 다른 모양에서 먼저 넣고, 단면도 거기서 잽니다 — '+' 의 숫자는 0.5 처럼 작게 나옵니다.
+        _unlock_size(d)
         for axis, value in CONNECTOR.items():
             _set_slider(d, f"connect-size-slider-{axis}", value)
         time.sleep(1.5)
         info = " ".join((_q(d, "connect-size-info").text or "").split())
-        got.append(f"{name} {info}")
-        say(f"커넥터 {name} — {CONNECTOR['횡단']}·{CONNECTOR['수직']}mm · 모양 {shape} → {info}")
         area = connector_area(info)
         if area is not None and area < CONNECTOR_MIN_AREA:
             raise ParamError(
                 f"커넥터 {name} 단면이 {area}mm² 라 사실상 안 이어집니다 — 폰틱이 옆 이보다 떠 있는지 보세요"
             )
+        shape = _pick_shape(d)
+        time.sleep(1.5)
+        after = " ".join((_q(d, "connect-size-info").text or "").split())
+        got.append(f"{name} {info}")
+        say(f"커넥터 {name} — {CONNECTOR['횡단']}·{CONNECTOR['수직']}mm → {info} · 모양 {shape} → {after}")
     close_panels(d)
     return got
 
@@ -453,6 +458,20 @@ def connector_area(info: str) -> float | None:
 
     m = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*mm", info)
     return float(m.group(1)) if m else None
+
+
+def _unlock_size(d) -> None:
+    """슬라이더가 잠겨 있으면('+' 가 골라져 있으면) 첫째 모양으로 돌려 풉니다"""
+    if _slider_input(d, "connect-size-slider-횡단").get_attribute("disabled") is None:
+        return
+    buttons = d.find_elements("css selector", '[data-testid="connect-cross-sectional-shape"] button')
+    if buttons:
+        d.execute_script("arguments[0].click()", buttons[0])
+    for _ in range(10):
+        time.sleep(0.5)
+        if _slider_input(d, "connect-size-slider-횡단").get_attribute("disabled") is None:
+            return
+    raise ParamError("커넥터 크기 슬라이더가 잠겨 있습니다 — 첫째 모양으로 돌려도 안 풀립니다")
 
 
 def _pick_shape(d) -> str:
