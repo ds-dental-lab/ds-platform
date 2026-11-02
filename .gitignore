@@ -57,6 +57,7 @@ tools/skill/dist/
 tools/exocad-launcher/settings.json
 tools/exocad-launcher/chrome-profile/
 tools/exocad-launcher/logs/
+tools/exocad-launcher/focus_probe/
 
 # 스캐너 PC 올리미의 기기 열쇠 — 저장소에 들어가면 안 됩니다 (2026-10-02)
 tools/exocad-launcher/scan_agent.json

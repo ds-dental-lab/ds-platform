@@ -7,7 +7,8 @@ r"""'치아 초점 보기' 눈금으로 크라운 폭경을 재 봅니다 — �
   되어 있으니 저 숫자들로 크라운 폭경을 체크하고"). 눈금이 글자(DOM)인지 그림인지부터 모릅니다.
 ★ 크라운을 고른 상태(합치기 전)에서 돌립니다. 커넥터 패널과 '치아 초점 보기 표시' 를 켤 뿐,
   값·합치기·내보내기는 건드리지 않습니다. 건수가 들지 않습니다.
-★ 패널 그림과 구조를 바탕화면 focus_probe 폴더에 남깁니다 — 사진으로 보내 주시면 됩니다.
+★ 패널 그림과 구조를 이 폴더의 focus_probe 에 남깁니다 — 사진으로 보내 주시면 됩니다.
+  (서버 PC 는 바탕화면 폴더가 원드라이브 쪽이라 ~/Desktop 이 없었습니다, 2026-11-02)
 """
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ from dentbird_params import _open_tool, _q
 #: 사용자가 26-27 에서 고른 횡단 7.6 ÷ 그 치아 폭 약 12.3mm (2026-11-02, 한 케이스 값)
 WIDTH_RATIO = 0.62
 
-OUT = Path.home() / "Desktop" / "focus_probe"
+OUT = Path(__file__).resolve().parent / "focus_probe"
 
 # 제목 '치아 초점 보기' 가 든 칸마다, canvas/svg 를 품은 조상까지 올라가 숫자 글자와 위치를 모읍니다
 PANELS_JS = r"""
