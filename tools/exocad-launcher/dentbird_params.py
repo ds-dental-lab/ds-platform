@@ -392,7 +392,11 @@ def _slider_input(d, testid: str):
 
 def _set_slider(d, testid: str, want: float) -> float:
     """MUI 슬라이더는 value 를 써 넣어도 React 가 모릅니다 — 숨은 range 칸에 초점을 주고 화살표로 옮깁니다
-    (2026-10-30 크롬 실측: ArrowRight 한 번에 0.1). 옮긴 뒤 다시 읽어 견줍니다."""
+    (2026-10-30 크롬 실측: ArrowRight 한 번에 0.1). 옮긴 뒤 다시 읽어 견줍니다.
+
+    ★★ 칸에 대고 send_keys 하면 숨은 칸이라 'element not interactable' 로 죽습니다 (2026-11-02 첫 실전,
+      ORD-261102-008). 초점을 준 뒤 ActionChains 로 보냅니다 — 칸을 따지지 않고 초점 자리로 갑니다."""
+    from selenium.webdriver.common.action_chains import ActionChains  # noqa: PLC0415
     from selenium.webdriver.common.keys import Keys  # noqa: PLC0415
 
     inp = _slider_input(d, testid)
@@ -402,7 +406,7 @@ def _set_slider(d, testid: str, want: float) -> float:
         if n == 0:
             return now
         d.execute_script("arguments[0].focus()", inp)
-        inp.send_keys((Keys.ARROW_RIGHT if n > 0 else Keys.ARROW_LEFT) * abs(n))
+        ActionChains(d).send_keys((Keys.ARROW_RIGHT if n > 0 else Keys.ARROW_LEFT) * abs(n)).perform()
         time.sleep(0.6)
     now = float(inp.get_attribute("value"))
     if abs(now - want) > 0.05:
