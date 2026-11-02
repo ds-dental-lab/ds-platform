@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 
 from dentbird_macro import alive, attach
-from dentbird_params import _open_tool, _q
+from dentbird_params import _open_tool, _q, _slider_input
 
 #: 사용자가 26-27 에서 고른 횡단 7.6 ÷ 그 치아 폭 약 12.3mm (2026-11-02, 한 케이스 값)
 WIDTH_RATIO = 0.62
@@ -31,21 +31,29 @@ NUM = re.compile(r"-?\d+(\.\d+)?")
 
 # 화면의 canvas 전부와, 보이는 글자(맨 끝 요소, svg text 포함) 전부를 위치와 함께 모읍니다
 SCAN_JS = r"""
-const canvases = [...document.querySelectorAll('canvas')].map(c => {
+const leafTexts = root => {
+  const out = [];
+  for (const e of root.querySelectorAll('*')) {
+    if (e.childElementCount !== 0) continue;
+    const t = (e.textContent || '').trim();
+    if (!t || t.length > 12) continue;
+    const b = e.getBoundingClientRect();
+    if (b.width === 0 || b.height === 0) continue;
+    out.push({t, x: b.left + b.width / 2, y: b.top + b.height / 2, l: b.left, tp: b.top, w: b.width, h: b.height});
+  }
+  return out;
+};
+// canvas 마다 'canvas 가 그것 하나뿐인' 가장 높은 조상을 그 칸으로 보고, 그 안의 글자만 모읍니다
+// (첫 재기에서 옆 칸 '단면 뷰' 의 -0.5~0.5 눈금이 27번 칸 눈금으로 섞였습니다)
+const canvases = [];
+for (const c of document.querySelectorAll('canvas')) {
   const b = c.getBoundingClientRect();
-  return {l: b.left, t: b.top, w: b.width, h: b.height, pw: c.width, ph: c.height};
-}).filter(c => c.w > 0 && c.h > 0);
-const texts = [];
-for (const e of document.querySelectorAll('body *')) {
-  if (e.childElementCount !== 0) continue;
-  const t = (e.textContent || '').trim();
-  if (!t || t.length > 12) continue;
-  const b = e.getBoundingClientRect();
   if (b.width === 0 || b.height === 0) continue;
-  texts.push({t, tag: e.tagName.toLowerCase(), x: b.left + b.width / 2, y: b.top + b.height / 2,
-              l: b.left, tp: b.top, w: b.width, h: b.height});
+  let box = c;
+  while (box.parentElement && box.parentElement.querySelectorAll('canvas').length === 1) box = box.parentElement;
+  canvases.push({l: b.left, t: b.top, w: b.width, h: b.height, texts: leafTexts(box)});
 }
-return {dpr: window.devicePixelRatio, vw: innerWidth, vh: innerHeight, canvases, texts};
+return {dpr: window.devicePixelRatio, vw: innerWidth, vh: innerHeight, canvases};
 """
 
 
@@ -57,11 +65,6 @@ def _show_focus(d) -> None:
     if box and not box[0].is_selected():
         d.execute_script("arguments[0].click()", box[0])
     time.sleep(2.0)
-
-
-def _near(texts: list[dict], r: dict, pad: float = 40) -> list[dict]:
-    return [t for t in texts
-            if r["l"] - pad <= t["x"] <= r["l"] + r["w"] + pad and r["t"] - pad <= t["y"] <= r["t"] + r["h"] + pad]
 
 
 def _axis(texts: list[dict], key: str, other: str) -> tuple[float, float] | None:
@@ -110,6 +113,12 @@ def _measure(img, r: dict, texts: list[dict], dpr: float) -> dict | str:
         return "칸 안에 그림 자리가 없음"
     bg = np.median(sub[keep].reshape(-1, 3), axis=0)
     mask = (np.abs(sub - bg).sum(axis=2) > 24) & keep
+    # 0 축 격자선은 칸을 가로·세로로 꿰뚫어 치아와 붙습니다 — 거의 끝까지 이어진 줄·열은 지웁니다
+    # (첫 재기에서 26번 폭이 눈으로 본 8.6mm 대신 11.3mm 로 나왔습니다)
+    wide = keep.sum(axis=1)
+    mask[mask.sum(axis=1) > 0.8 * np.maximum(wide, 1)] = False
+    tall = keep.sum(axis=0)
+    mask[:, mask.sum(axis=0) > 0.8 * np.maximum(tall, 1)] = False
     lefts, rights, ys = [], [], []
     for y in range(h):
         idx = np.flatnonzero(mask[y])
@@ -125,8 +134,19 @@ def _measure(img, r: dict, texts: list[dict], dpr: float) -> dict | str:
         return "그림에서 치아를 못 찾음"
     px_w = (float(np.percentile(rights, 99)) - float(np.percentile(lefts, 1))) / dpr
     px_h = (ys[-1] - ys[0]) / dpr
+    # 커넥터 타원(파란 테두리)의 폭 — 타원 폭 = 지금 횡단 값이라 눈금 없이도 배율을 압니다.
+    # ★ 두 번째 재기 사진에서 26번 칸 눈금(1mm 에 24px)이 27번 칸(17px)과 달랐는데, 치아와 타원은 두 칸에
+    #   같은 크기로 그려져 있었습니다 — 눈금이 그림과 어긋날 수 있어 둘 다 잽니다.
+    #   잇몸 쪽 색 띠에도 파랑이 있어 치아 위쪽 70% 줄에서만 찾습니다.
+    top, low = ys[0], ys[0] + int(0.7 * (ys[-1] - ys[0]))
+    blue = (sub[:, :, 2] > sub[:, :, 0] + 60) & (sub[:, :, 2] > sub[:, :, 1] + 30) & keep
+    blue[:top] = False
+    blue[low:] = False
+    cols = np.flatnonzero(blue.any(axis=0))
+    ell = (cols[-1] - cols[0]) / dpr if len(cols) > 1 else 0.0
     return {"폭mm": round(abs(ax[0]) * px_w, 1), "높이mm": round(abs(ay[0]) * px_h, 1),
-            "눈금mm/px": [round(abs(ax[0]), 4), round(abs(ay[0]), 4)]}
+            "눈금mm/px": [round(abs(ax[0]), 4), round(abs(ay[0]), 4)],
+            "치아px": [round(px_w), round(px_h)], "타원px": round(ell)}
 
 
 def main() -> int:
@@ -141,12 +161,9 @@ def main() -> int:
     png = OUT / "screen.png"
     png.write_bytes(d.get_screenshot_as_png())
     dpr = float(got.get("dpr") or 1)
-    canvases = sorted(got.get("canvases") or [], key=lambda c: c["w"] * c["h"], reverse=True)
-    texts = got.get("texts") or []
-    print(f"화면 {got.get('vw')}x{got.get('vh')} · 배율 {dpr} · canvas {len(canvases)}개 · 글자 {len(texts)}개"
-          f" · 숫자 글자 {sum(1 for t in texts if NUM.fullmatch(t['t']))}개")
-    for c in canvases:
-        print(f"  canvas 자리 ({round(c['l'])},{round(c['t'])}) 크기 {round(c['w'])}x{round(c['h'])}")
+    canvases = got.get("canvases") or []
+    vw, vh = got.get("vw") or 1, got.get("vh") or 1
+    print(f"화면 {vw}x{vh} · 배율 {dpr} · canvas {len(canvases)}개")
     try:
         import numpy as np  # noqa: PLC0415
         from PIL import Image  # noqa: PLC0415
@@ -154,24 +171,32 @@ def main() -> int:
         img = np.asarray(Image.open(png).convert("RGB"))
     except ImportError:
         img = None
-    widths = []
-    for i, c in enumerate(canvases[1:]):  # 가장 큰 것은 3D 화면
-        near = _near(texts, c)
-        nums = [t["t"] for t in near if NUM.fullmatch(t["t"])]
-        print(f"[{i}] 크기 {round(c['w'])}x{round(c['h'])} · 둘레 숫자 {len(nums)}개: {' '.join(nums[:24])}")
+    across = float(_slider_input(d, "connect-size-slider-횡단").get_attribute("value"))
+    print(f"지금 횡단 {across}mm")
+    widths = {}
+    for i, c in enumerate(canvases):
+        if c["w"] * c["h"] > 0.5 * vw * vh:  # 3D 화면
+            continue
+        texts = c["texts"]
+        nums = [t["t"] for t in texts if NUM.fullmatch(t["t"])]
+        # 치식 = 칸 안의 11~48 정수 (눈금은 -7.5~7.5 라 겹치지 않음)
+        tooth = next((t["t"] for t in texts if t["t"].isdigit() and 11 <= int(t["t"]) <= 48), "")
+        print(f"[{i}] 자리 ({round(c['l'])},{round(c['t'])}) 크기 {round(c['w'])}x{round(c['h'])} · 치식 {tooth or '없음'}"
+              f" · 숫자 {len(nums)}개: {' '.join(nums[:24])}")
         if img is None:
             print("    잰 값: 못 잼 (numpy/PIL 없음)")
             continue
-        m = _measure(img, c, near, dpr)
+        m = _measure(img, c, texts, dpr)
         print("    잰 값:", m)
-        if isinstance(m, dict):
-            widths.append(m["폭mm"])
-    if len(canvases) < 2:
-        bottom = [t["t"] for t in texts if NUM.fullmatch(t["t"]) and t["y"] > (got.get("vh") or 0) * 0.5]
-        print("작은 canvas 가 없습니다 — 화면 아래쪽 숫자 글자:", " ".join(bottom[:40]))
+        if tooth and isinstance(m, dict):
+            widths[tooth] = m["폭mm"]
+            if m["타원px"] > 20:
+                k = across / m["타원px"]
+                print(f"    타원 기준(횡단 {across}mm = {m['타원px']}px): 폭 {round(m['치아px'][0] * k, 1)}mm"
+                      f" · 높이 {round(m['치아px'][1] * k, 1)}mm")
     if widths:
-        w = min(widths)
-        print(f"작은 쪽 폭 {w}mm → 횡단 {round(w * WIDTH_RATIO, 1)} (비율 {WIDTH_RATIO})")
+        w = min(widths.values())
+        print(f"치아별 폭 {widths} → 작은 쪽 {w}mm → 횡단 {round(w * WIDTH_RATIO, 1)} (비율 {WIDTH_RATIO})")
     print("그림·구조:", OUT)
     return 0
 
