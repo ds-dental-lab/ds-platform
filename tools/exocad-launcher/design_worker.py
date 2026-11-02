@@ -38,8 +38,8 @@ import urllib.request
 from pathlib import Path
 
 import export_tag
-from dentbird_macro import Reporter, SessionLost, Stop, assemble, export, run, session_problem
-from dentbird_params import ParamError, apply_each
+from dentbird_macro import Reporter, SessionLost, Stop, assemble, export, run, screen_labels, session_problem
+from dentbird_params import ParamError, adapt_proximal_order, apply_each, proximal_plan
 from dentbird_web import alive, attach, open_browser, reap_drivers
 from design_scans import PickError, candidates, ensure_meshes, pick, to_stl, unzip_all
 from watch_common import beat, revive, single_instance
@@ -205,7 +205,11 @@ def _handle(job: dict, spend: bool) -> None:
         # ★ 브릿지는 지대치마다 값을 넣고 **그 뒤에** 합칩니다 — 합치면 패널이 잠깁니다 (2026-10-28 실측)
         say("설계값을 맞춥니다 — 내면 · 교합/인접 · 최소 두께")
         try:
-            apply_each(attach(), abutments, say=say)
+            apply_each(attach(), abutments, say=say, proximal=len(teeth) == 1)
+            if len(teeth) > 1:
+                # ★ 브릿지 인접 거리는 순서가 전부입니다 — 자연치 닿는 크라운 먼저 -0.02, 안쪽 마지막에 -0.5
+                #   (사용자 2026-11-02 단일컨택/맞컨택 결정, proximal_plan 참고)
+                adapt_proximal_order(attach(), proximal_plan(teeth, pontics, screen_labels(attach())), say=say)
         except ParamError as e:
             raise Stop(f"설계값을 못 맞췄습니다 — {e}") from e
         if len(teeth) > 1:

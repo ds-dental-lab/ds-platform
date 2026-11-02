@@ -80,3 +80,32 @@ class ConnectorAreaTest(unittest.TestCase):
         self.assertEqual(connector_tall({}), CONNECTOR["수직"])
         self.assertEqual(connector_tall({"26": {"높이": 6.4}, "27": {"높이": 5.6}}), 2.8)
         self.assertEqual(connector_tall({"26": {"높이": 8.2}, "27": {"높이": 8.5}}), 4.1)
+
+
+class ProximalPlanTest(unittest.TestCase):
+    def test_neighbors(self):
+        from dentbird_params import fdi_neighbors
+        self.assertEqual(fdi_neighbors(26), [25, 27])
+        self.assertEqual(fdi_neighbors(11), [21, 12])
+        self.assertEqual(fdi_neighbors(31), [41, 32])
+        self.assertEqual(fdi_neighbors(28), [27])
+
+    def test_single_contact(self):
+        from dentbird_params import PROXIMAL_INNER, PROXIMAL_NATURAL, proximal_plan
+        # 26-27, 25 는 있고 28 은 없음 → 26 먼저 -0.02, 27 마지막 -0.5
+        self.assertEqual(proximal_plan([26, 27], [], [11, 21, 22, 23, 24, 25, 26, 27]),
+                         [(26, PROXIMAL_NATURAL), (27, PROXIMAL_INNER)])
+
+    def test_both_contact_two_units(self):
+        from dentbird_params import PROXIMAL_BOTH, proximal_plan
+        self.assertEqual(proximal_plan([26, 27], [], [25, 26, 27, 28]), [(26, PROXIMAL_BOTH), (27, PROXIMAL_BOTH)])
+
+    def test_both_contact_with_pontic(self):
+        from dentbird_params import PROXIMAL_INNER, PROXIMAL_NATURAL, proximal_plan
+        # 25-27 폰틱 26, 24·28 자연치 → 25·27 먼저, 폰틱 26 마지막
+        self.assertEqual(proximal_plan([25, 27], [26], [24, 25, 26, 27, 28]),
+                         [(25, PROXIMAL_NATURAL), (27, PROXIMAL_NATURAL), (26, PROXIMAL_INNER)])
+
+    def test_no_natural(self):
+        from dentbird_params import PROXIMAL_INNER, proximal_plan
+        self.assertEqual(proximal_plan([26, 27], [], [26, 27]), [(26, PROXIMAL_INNER), (27, PROXIMAL_INNER)])

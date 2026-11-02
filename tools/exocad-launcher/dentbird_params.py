@@ -79,8 +79,19 @@ CONNECTOR_TALL_RANGE = (2.0, 6.0)
 #: ★ 덴트버드 단면 글자(약함/최적/크기 초과)는 기록만 하고 값은 안 바꿉니다. 사용자가 고른 값과 두 번 어긋났습니다
 #:   (7.6·3.0 이 '크기 초과', 손으로 고친 7.4·4.1 은 더 큰데 '최적') — 사용자 2026-11-02 의 case1→case2 단계는 거둠.
 #: 단면 모양 — 네 단추 중 몇 번째(0부터). 1 = 둘째(사용자 2026-11-02 고름). 3 = '+' 는 크기 슬라이더를 잠급니다.
-CONNECTOR_SHAPE = 1
+CONNECTOR_SHAPE = 3
 PLUS_SHAPE = 3
+#: ★ 2026-11-02 밤 확정 — 두 크라운을 **겹치게** 만든 뒤 '+' 로 합칩니다. 겹침은 슬라이더가 아니라
+#:   다듬기의 '교합 및 인접 조정 → 인접 거리' 로 만듭니다 (proximal_plan 참고). 그래서 '+' 로 돌아왔습니다.
+
+#: 인접 거리 (다듬기 → 교합 및 인접 조정, 유지 모드). 마지막에 건 크라운의 값이 **그 크라운 양면**에 걸립니다
+#: (실측 2026-11-02: 26 에 -0.02 → 27 에 -0.5 를 걸면 26-27 접촉은 지름 5mm 로 돌아오고 26 의 자연치 쪽은 -0.02 그대로).
+#: 그래서 자연치에 닿는 크라운을 먼저 -0.02, 안쪽(폰틱·자연치 없는 끝)을 마지막에 -0.5 로 겁니다.
+PROXIMAL_NATURAL = -0.020   # 자연치에 닿는 면
+PROXIMAL_INNER = -0.500     # 브릿지 안쪽 — 이만큼 겹쳐야 '+' 로 합쳤을 때 넓게 붙음(사용자 2026-11-02)
+#: 2유닛인데 양쪽 다 자연치(맞컨택)면 어느 쪽을 마지막에 걸어도 한 면이 틀어짐 → 전부 -0.1
+#: (사용자 2026-11-02 "-0.1 이어도 꾸겨 넣으면 들어갈 수 있는 범위")
+PROXIMAL_BOTH = -0.100
 #: 이 아래면 사실상 안 이어진 것입니다 (폰틱이 떠서 아래 모서리만 스치면 0.1mm²) — 두 조각으로 뽑히니 멈춥니다
 CONNECTOR_MIN_AREA = 1.0
 
@@ -288,15 +299,80 @@ def _set_inner_once(d, say=print) -> None:
         say("내면 값은 이미 맞습니다")
 
 
-def set_adapt(d, say=print) -> None:
+def set_adapt(d, say=print, proximal: bool = True) -> None:
+    """교합·인접·치은 거리. 브릿지는 인접을 여기서 빼고(proximal=False) adapt_proximal_order 가 순서대로 넣습니다"""
     _refine_group(d, "Adapt", "교합 거리")
+    _expand_distance(d)
 
     _set_check(d, "refine-adapt-blockout-checkbox", True)
     for part, value, how in ADAPT:
+        if part == "proximal" and not proximal:
+            continue
         _set_number(d, f"refine-adapt-{part}-distance-input", value)
         _click(d, f"refine-adapt-{part}-{how}-btn")
         _settle(d, f"{part} 거리 조정")
-    say("교합 0.200 · 인접 -0.020 (모양 유지) · 치은 0.000 조정")
+    say("교합 0.200 · 인접 -0.020 (모양 유지) · 치은 0.000 조정" if proximal else "교합 0.200 · 치은 0.000 조정 (인접은 순서대로 따로)")
+
+
+def _expand_distance(d) -> None:
+    """'거리' 아코디언이 접혀 있으면 펼칩니다 — 접혀 있으면 입력 칸이 DOM 에 없습니다 (2026-11-02 실측)"""
+    if d.find_elements("css selector", '[data-testid="refine-adapt-proximal-distance-input"]'):
+        return
+    tab = d.find_elements("css selector", '[data-testid="refine-adapt-tab-cutByDistance"]')
+    if tab:
+        d.execute_script("arguments[0].click()", tab[0])
+    for _ in range(10):
+        time.sleep(0.5)
+        if d.find_elements("css selector", '[data-testid="refine-adapt-proximal-distance-input"]'):
+            return
+    raise ParamError("'교합 및 인접 조정' 의 거리 칸이 안 펼쳐집니다")
+
+
+def set_proximal(d, value: float, say=print) -> None:
+    """선택된 크라운의 인접 거리만 (유지 모드)"""
+    _refine_group(d, "Adapt", "교합 거리")
+    _expand_distance(d)
+    _set_number(d, "refine-adapt-proximal-distance-input", value)
+    _click(d, "refine-adapt-proximal-preserve-btn")
+    _settle(d, "인접 거리 조정")
+    say(f"인접 {value:.3f} (모양 유지)")
+
+
+def fdi_neighbors(n: int) -> list[int]:
+    """FDI 번호 n 의 양옆 — 1번끼리 정중선을 넘고, 8번은 원심 이웃이 없습니다"""
+    q, i = divmod(n, 10)
+    out = []
+    if i > 1:
+        out.append(q * 10 + i - 1)
+    else:
+        out.append({1: 21, 2: 11, 3: 41, 4: 31}[q])
+    if i < 8:
+        out.append(q * 10 + i + 1)
+    return out
+
+
+def proximal_plan(units: list[int], pontics: list[int], present: list[int]) -> list[tuple[int, float]]:
+    """브릿지 유닛마다 인접 거리를 **어느 순서로** 걸지. [(치식, 값), …] 순서대로.
+
+    present = 화면 이름표에 보이는 치식 전부(자연치 포함). 유닛의 이웃이 유닛이 아니면서 화면에 있으면 자연치 접촉.
+    - 자연치에 닿는 유닛 먼저 PROXIMAL_NATURAL, 나머지(폰틱·자연치 없는 끝) 마지막에 PROXIMAL_INNER.
+    - 2유닛 맞컨택(둘 다 자연치)은 전부 PROXIMAL_BOTH.
+    """
+    units = sorted(set(units) | set(pontics))
+    present_set = set(present)
+    natural = [u for u in units if any(nb in present_set and nb not in units for nb in fdi_neighbors(u))]
+    inner = [u for u in units if u not in natural]
+    if not inner:
+        return [(u, PROXIMAL_BOTH) for u in units]
+    return [(u, PROXIMAL_NATURAL) for u in natural] + [(u, PROXIMAL_INNER) for u in inner]
+
+
+def adapt_proximal_order(d, plan: list[tuple[int, float]], say=print) -> None:
+    """proximal_plan 순서대로 크라운(폰틱 포함)을 골라 인접 거리를 겁니다 — 합치기 전에"""
+    say("인접 거리 순서: " + " → ".join(f"{t} {v:+.2f}" for t, v in plan))
+    for tooth, value in plan:
+        select_tooth(d, tooth)
+        set_proximal(d, value, say)
 
 
 def fix_thickness(d, say=print) -> None:
@@ -329,10 +405,10 @@ def fix_thickness(d, say=print) -> None:
     raise ParamError("최소 두께 보정을 두 번 했는데도 '최소 두께 부족' 이 남습니다 — 사람이 봐 주세요")
 
 
-def apply_all(d, say=print) -> None:
+def apply_all(d, say=print, proximal: bool = True) -> None:
     """내면 → 교합·인접 → 최소 두께. 하나라도 못 하면 ParamError"""
     set_inner(d, say)
-    set_adapt(d, say)
+    set_adapt(d, say, proximal)
     fix_thickness(d, say)
 
 
@@ -386,18 +462,19 @@ def select_tooth(d, number: int, wait_s: float = SELECT_SECONDS) -> None:
     raise ParamError(f"치아 {number} 의 이름표를 눌러도 그 치아의 도구 막대가 안 뜹니다 — 화면을 봐 주세요")
 
 
-def apply_each(d, teeth: list[int], say=print) -> None:
+def apply_each(d, teeth: list[int], say=print, proximal: bool = True) -> None:
     """지대치마다 골라서 apply_all. 하나면 전처럼(아무 이름표나).
 
     ★ 브릿지는 **합치기 전**에 불러야 합니다 — 합치면 내면·교합 패널이 잠깁니다 (2026-10-28 실측).
+    ★ 브릿지는 proximal=False 로 부르고 adapt_proximal_order 로 인접을 순서대로 넣습니다.
     """
     if len(teeth) <= 1:
-        apply_all(d, say)
+        apply_all(d, say, proximal)
         return
     for n in sorted(teeth):
         say(f"크라운 {n} 의 설계값")
         select_tooth(d, n)
-        apply_all(d, say)
+        apply_all(d, say, proximal)
 
 
 def slider_steps(now: float, want: float, step: float = 0.1) -> int:
@@ -450,6 +527,14 @@ def set_connectors(d, say=print) -> list[str]:
         name = (chip.text or "").strip()
         d.execute_script("arguments[0].click()", chip)
         time.sleep(1.0)
+        if CONNECTOR_SHAPE == PLUS_SHAPE:
+            # ★ '+' 는 크기 슬라이더가 없습니다(잠김). 겹침은 adapt_proximal_order 가 이미 만들었으니 모양만 고릅니다
+            shape = _pick_shape(d)
+            time.sleep(1.5)
+            info = " ".join((_q(d, "connect-size-info").text or "").split())
+            got.append(f"{name} {info}")
+            say(f"커넥터 {name} — 모양 {shape} → {info}")
+            continue
         # ★★ '+' 를 고르면 크기 슬라이더가 잠깁니다 (사용자 2026-11-02, 실측 disabled).
         #   크기를 다른 모양에서 먼저 넣고, 단면도 거기서 잽니다 — '+' 의 숫자는 0.5 처럼 작게 나옵니다.
         _unlock_size(d)

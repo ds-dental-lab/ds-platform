@@ -303,6 +303,14 @@ def _click_label(d, number: int) -> bool:
         "if(!l) return false; l.click(); return true;", number))
 
 
+def screen_labels(d) -> list[int]:
+    """3D 화면 이름표에 보이는 치식 전부 — 자연치도 들어 있습니다 (proximal_plan 이 자연치 접촉을 알아내는 데 씀)"""
+    got = d.execute_script(
+        "return [...document.querySelectorAll('[data-testid=component-floating-label-button]')]"
+        ".map(e=>(e.innerText||'').trim()).filter(t=>/^[1-4][1-8]$/.test(t))")
+    return sorted({int(x) for x in (got or [])})
+
+
 def mark_pontics(d, pontics: list[int], say=print) -> None:
     """결손 자리를 폰틱으로 찍습니다 — 이름표 → '폰틱' → 적용.
 
