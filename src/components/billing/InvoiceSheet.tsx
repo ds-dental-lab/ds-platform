@@ -41,6 +41,8 @@ export interface InvoiceSheetProps {
   settlement: Settlement;
   issuedAt: string | null;
   paidAt: string | null;
+  /** 입금 계좌 한 줄 — 치과로 가는 청구서에만 있습니다 */
+  bank?: string | null;
 }
 
 export default function InvoiceSheet({
@@ -51,6 +53,7 @@ export default function InvoiceSheet({
   settlement,
   issuedAt,
   paidAt,
+  bank,
 }: InvoiceSheetProps) {
   const adjustments = settlement.items.filter((i) => i.adjustment !== 0);
   const remakes = settlement.items.filter((i) => !i.billable);
@@ -115,6 +118,13 @@ export default function InvoiceSheet({
           ₩{settlement.total.toLocaleString('ko-KR')}
         </b>
       </section>
+
+      {bank && (
+        <p className="mt-2 px-6 text-[13px] text-[#4A5567]">
+          <span className="mr-2 font-bold">입금 계좌</span>
+          <span className="tabular-nums">{bank}</span>
+        </p>
+      )}
 
       {/* ---------- 청구 내역 (제품별) ---------- */}
       <Section title="청구 내역">

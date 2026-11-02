@@ -78,6 +78,21 @@ export function checkPayment(amount: number, unpaid: number): PaymentVerdict {
  *   거래처마다 "매달 15일에 결제" 로 잡아 두는 것이 실제 관행이라,
  *   3일에 발행하든 10일에 발행하든 같은 날이 되어야 헷갈리지 않습니다.
  */
+/**
+ * 청구서에 찍는 입금 계좌 한 줄 — 번호가 없으면 null (2026-11-02).
+ * 화면·PDF·메일이 같은 글을 쓰도록 여기 한 곳에 둡니다.
+ */
+export function bankLine(bank: {
+  bankName?: string | null;
+  bankAccount?: string | null;
+  bankHolder?: string | null;
+}): string | null {
+  const account = bank.bankAccount?.trim();
+  if (!account) return null;
+  const holder = bank.bankHolder?.trim();
+  return [bank.bankName?.trim(), account, holder ? `(예금주 ${holder})` : ''].filter(Boolean).join(' ');
+}
+
 export function paymentDueDate(issuedOn: string, day = PAYMENT_DAY): string {
   const year = Number(issuedOn.slice(0, 4));
   const month = Number(issuedOn.slice(5, 7));

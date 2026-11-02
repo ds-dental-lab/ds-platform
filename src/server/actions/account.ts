@@ -41,6 +41,10 @@ export interface AccountInput {
    * 기공소·디자인센터가 보내도 무시합니다 (DB 문지기도 막음).
    */
   closingDay?: number;
+  /** 입금 계좌 — 디자인센터만 씁니다. 다른 곳이 보내도 무시합니다 (2026-11-02) */
+  bankName: string;
+  bankAccount: string;
+  bankHolder: string;
 }
 
 /** 빈 칸은 null 로 넣습니다. '' 를 두면 '값이 있다' 로 보입니다 */
@@ -81,6 +85,13 @@ export async function submitAccount(input: AccountInput): Promise<AccountResult>
     .from('organizations')
     .update({
       ...(clinicSetsDay ? { closing_day: input.closingDay } : {}),
+      ...(session.orgType === 'design_center'
+        ? {
+            bank_name: orNull(input.bankName),
+            bank_account: orNull(input.bankAccount),
+            bank_holder: orNull(input.bankHolder),
+          }
+        : {}),
       name: input.name.trim(),
       ceo_name: orNull(input.ceoName),
       biz_no: orNull(input.bizNo),

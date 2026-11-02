@@ -25,6 +25,9 @@ export interface MyOrg {
   /** 정산서를 어디로 받는가 */
   invoiceMethod: InvoiceMethod;
   closingDay: number;
+  bankName: string | null;
+  bankAccount: string | null;
+  bankHolder: string | null;
   /** 고칠 수 있는 사람인가 (owner · admin) */
   editable: boolean;
 }
@@ -39,7 +42,7 @@ export async function getMyOrg(): Promise<MyOrg | null> {
     .from('organizations')
     .select(
       'id, name, code, org_type, ceo_name, biz_no, tel, fax, address, ' +
-        'invoice_email, tax_email, invoice_method, closing_day',
+        'invoice_email, tax_email, invoice_method, closing_day, bank_name, bank_account, bank_holder',
     )
     .eq('id', session.orgId)
     .maybeSingle();
@@ -60,6 +63,9 @@ export async function getMyOrg(): Promise<MyOrg | null> {
     tax_email: string | null;
     invoice_method: InvoiceMethod;
     closing_day: number;
+    bank_name: string | null;
+    bank_account: string | null;
+    bank_holder: string | null;
   };
 
   return {
@@ -76,6 +82,9 @@ export async function getMyOrg(): Promise<MyOrg | null> {
     taxEmail: row.tax_email,
     invoiceMethod: row.invoice_method,
     closingDay: row.closing_day,
+    bankName: row.bank_name,
+    bankAccount: row.bank_account,
+    bankHolder: row.bank_holder,
     // ★ RLS 의 org_update 와 같은 조건입니다. 다르면 눌러 놓고 0행을 받습니다
     editable: session.role === 'owner' || session.role === 'admin',
   };

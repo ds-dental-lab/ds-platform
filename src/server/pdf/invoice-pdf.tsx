@@ -115,7 +115,7 @@ function Party({ title, org }: { title: string; org: InvoiceSheetProps['issuer']
 }
 
 export function InvoicePdf(props: InvoiceSheetProps) {
-  const { parties, issuer, receiver, yearMonth, settlement, issuedAt, paidAt } = props;
+  const { parties, issuer, receiver, yearMonth, settlement, issuedAt, paidAt, bank } = props;
   const adjustments = settlement.items.filter((i) => i.adjustment !== 0);
   const remakes = settlement.items.filter((i) => !i.billable);
   const lines = groupInvoiceLines(settlement.items, (id) => settlement.bridgeOf[id] ?? null);
@@ -153,6 +153,13 @@ export function InvoicePdf(props: InvoiceSheetProps) {
           <Text style={s.totalLabel}>{parties.amountLabel}</Text>
           <Text style={s.totalAmount}>₩{settlement.total.toLocaleString('ko-KR')}</Text>
         </View>
+
+        {bank ? (
+          <Text style={{ marginTop: 6, paddingHorizontal: 18, fontSize: 9.5, color: SOFT }}>
+            <Text style={{ fontWeight: 700 }}>입금 계좌  </Text>
+            {bank}
+          </Text>
+        ) : null}
 
         {/* ---------- 청구 내역 (제품별) ---------- */}
         <View style={s.section}>

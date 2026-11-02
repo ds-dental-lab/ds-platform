@@ -19,6 +19,7 @@ import { getPartner } from '@/server/repositories/partner';
 import { getClosedSettlement, getPeriod, billingRangeOf } from '@/server/repositories/billing';
 import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { invoicePartiesFor, isValidYearMonth, invoiceFileName } from '@/server/domain/billing';
+import { bankLine } from '@/server/domain/invoice';
 import type { InvoiceSheetProps } from '@/components/billing/InvoiceSheet';
 
 type Viewer = { orgType: 'clinic' | 'design_center' | 'lab'; orgId: string; orgName: string | null };
@@ -28,6 +29,9 @@ interface OrgCard {
   biz_no: string | null;
   ceo_name: string | null;
   address: string | null;
+  bank_name?: string | null;
+  bank_account?: string | null;
+  bank_holder?: string | null;
 }
 
 export interface InvoiceDoc {
@@ -55,8 +59,8 @@ export async function loadInvoiceDoc(
     getPeriod(partyOrgId, yearMonth),
     getProsthesisCatalog({ includeInactive: true }),
     isCenter
-      ? supabase.from('organizations').select('name, biz_no, ceo_name, address').eq('id', viewer.orgId).maybeSingle()
-      : supabase.from('organizations').select('name, biz_no, ceo_name, address').eq('org_type', 'design_center').limit(1).maybeSingle(),
+      ? supabase.from('organizations').select('name, biz_no, ceo_name, address, bank_name, bank_account, bank_holder').eq('id', viewer.orgId).maybeSingle()
+      : supabase.from('organizations').select('name, biz_no, ceo_name, address, bank_name, bank_account, bank_holder').eq('org_type', 'design_center').limit(1).maybeSingle(),
     supabase.from('billing_periods').select('invoice_no').eq('party_org_id', partyOrgId).eq('year_month', yearMonth).maybeSingle(),
   ]);
 
@@ -75,7 +79,20 @@ export async function loadInvoiceDoc(
   const receiver = parties.from === 'design_center' ? them : us;
 
   return {
-    props: { parties, issuer, receiver, yearMonth, settlement, issuedAt: period.issuedAt, paidAt: period.paidAt },
+    props: {
+      parties,
+      issuer,
+      receiver,
+      yearMonth,
+      settlement,
+      issuedAt: period.issuedAt,
+      paidAt: period.paidAt,
+      // ★ 치과로 가는 청구서에만 — 기공소 청구서는 디자인센터가 주는 쪽입니다
+      bank:
+        parties.from === 'design_center'
+          ? bankLine({ bankName: design.bank_name, bankAccount: design.bank_account, bankHolder: design.bank_holder })
+          : null,
+    },
     invoiceNo: (invoiceRow as { invoice_no: string | null } | null)?.invoice_no ?? null,
     fileName: invoiceFileName(parties.title, receiver.name, yearMonth),
   };

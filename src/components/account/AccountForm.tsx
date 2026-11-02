@@ -47,6 +47,9 @@ export interface AccountFormProps {
     taxEmail: string | null;
     invoiceMethod: InvoiceMethod;
     closingDay: number;
+    bankName?: string | null;
+    bankAccount?: string | null;
+    bankHolder?: string | null;
   };
   /** 고칠 수 있는 사람인가 (owner · admin) */
   editable: boolean;
@@ -80,6 +83,9 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
     taxEmail: org.taxEmail ?? '',
     invoiceMethod: org.invoiceMethod,
     closingDay: org.closingDay,
+    bankName: org.bankName ?? '',
+    bankAccount: org.bankAccount ?? '',
+    bankHolder: org.bankHolder ?? '',
   });
 
   // ★ 치과만 스스로 고릅니다 (2026-09-11). 기공소는 계속 디자인센터가 정합니다
@@ -264,6 +270,21 @@ export default function AccountForm({ org, editable, basePath }: AccountFormProp
               disabled={!editable}
             />
           </Field>
+
+          {/* ★ 입금 계좌 — 치과로 가는 청구서에 찍힙니다 (사용자 요청 2026-11-02) */}
+          {org.orgType === 'design_center' && (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="은행" invoice>
+                <Text value={form.bankName} onChange={(v) => set('bankName', v)} disabled={!editable} />
+              </Field>
+              <Field label="계좌번호" invoice>
+                <Text value={form.bankAccount} onChange={(v) => set('bankAccount', v)} disabled={!editable} />
+              </Field>
+              <Field label="예금주" invoice>
+                <Text value={form.bankHolder} onChange={(v) => set('bankHolder', v)} disabled={!editable} />
+              </Field>
+            </div>
+          )}
 
           {/*
             ★ 정산 기준일 — 치과는 스스로 고릅니다 (사용자 요청 2026-09-11).

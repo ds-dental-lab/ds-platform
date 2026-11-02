@@ -34,6 +34,8 @@ export interface InvoiceMailInput {
   dueDate: string;
   /** 'https://denflow.kr' — 뒤에 슬래시 없이 */
   siteUrl: string;
+  /** 입금 계좌 한 줄 — 치과에 가는 메일에만 (2026-11-02) */
+  bank?: string | null;
 }
 
 /** '2026-08' → '2026년 8월' */
@@ -110,7 +112,7 @@ export function invoiceHtml(input: InvoiceMailInput): string {
                   <div style="margin-top:4px;font-size:26px;font-weight:800;color:#14538F;">${moneyLabel(input.amount)}</div>
                   <div style="margin-top:12px;font-size:13.5px;color:#4A5567;">
                     납부기한 <b>${dayLabel(input.dueDate)}</b><br />
-                    청구서 번호 ${input.invoiceNo}
+                    청구서 번호 ${input.invoiceNo}${input.bank ? `<br />입금 계좌 <b>${input.bank}</b>` : ''}
                   </div>
                 </td>
               </tr>

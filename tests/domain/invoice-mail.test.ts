@@ -18,6 +18,7 @@ import {
   dayLabel,
   type InvoiceMailInput,
 } from '@/server/mail/invoice-mail';
+import { bankLine } from '@/server/domain/invoice';
 
 const CLINIC: InvoiceMailInput = {
   partyType: 'clinic',
@@ -113,5 +114,19 @@ describe('주소 끝의 슬래시', () => {
   it('사이트 주소가 슬래시로 끝나도 링크가 멀쩡합니다', () => {
     const link = invoiceLink({ ...CLINIC, siteUrl: 'https://denflow.kr' });
     expect(link).not.toContain('//clinic');
+  });
+});
+
+describe('청구서 메일 — 입금 계좌 (2026-11-02)', () => {
+  it('있을 때만 실립니다', () => {
+    expect(invoiceHtml({ ...CLINIC, bank: '국민은행 123-45 (예금주 덴플로우)' })).toContain('국민은행 123-45');
+    expect(invoiceHtml(CLINIC)).not.toContain('입금 계좌');
+  });
+
+  it('번호가 없으면 줄을 안 만듭니다', () => {
+    expect(bankLine({ bankName: '국민은행', bankAccount: ' ', bankHolder: '덴플로우' })).toBeNull();
+    expect(bankLine({ bankName: '국민은행', bankAccount: '123-45', bankHolder: '덴플로우' })).toBe(
+      '국민은행 123-45 (예금주 덴플로우)',
+    );
   });
 });

@@ -42,6 +42,7 @@ export async function GET() {
 
   const pdf = await renderInvoicePdf({
     parties: invoicePartiesFor('clinic'),
+    bank: '국민은행 123-456-78 (예금주 시연)',
     issuer: { name: '덴플로우 치과기공소', bizNo: '728-90-02198', ceoName: '이대신', address: '경기도 하남시 미사강변서로 16, 9층 F934호' },
     receiver: { name: '미사치과', bizNo: '123-45-67890', ceoName: '홍길동', address: '경기도 하남시 미사대로 100' },
     yearMonth: '2026-07',

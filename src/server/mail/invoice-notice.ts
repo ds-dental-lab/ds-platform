@@ -18,6 +18,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { sendMail } from '@/server/mail/send';
 import { invoiceHtml, invoiceSubject } from '@/server/mail/invoice-mail';
+import { bankLine } from '@/server/domain/invoice';
 import { wantsEmail, type InvoiceMethod } from '@/server/domain/invoice-method';
 
 export type NoticeResult = { ok: true; to: string } | { ok: false; reason: string };
@@ -93,15 +94,31 @@ export async function sendInvoiceNotice(periodId: string): Promise<NoticeResult>
 
   const amount = (row.billing_lines ?? []).reduce((sum, l) => sum + (l.amount ?? 0), 0);
 
+  const partyType = row.party?.org_type === 'lab' ? ('lab' as const) : ('clinic' as const);
+
+  // ★ 치과에 가는 메일에만 입금 계좌를 싣습니다
+  let bank: string | null = null;
+  if (partyType === 'clinic') {
+    const { data: center } = await supabase
+      .from('organizations')
+      .select('bank_name, bank_account, bank_holder')
+      .eq('org_type', 'design_center')
+      .limit(1)
+      .maybeSingle();
+    const c = center as { bank_name: string | null; bank_account: string | null; bank_holder: string | null } | null;
+    bank = bankLine({ bankName: c?.bank_name, bankAccount: c?.bank_account, bankHolder: c?.bank_holder });
+  }
+
   const input = {
     // ★ 치과가 아니면 기공소입니다. 문서 이름과 링크가 갈립니다
-    partyType: row.party?.org_type === 'lab' ? ('lab' as const) : ('clinic' as const),
+    partyType,
     partyName: row.party?.name ?? '',
     yearMonth: row.year_month,
     invoiceNo: row.invoice_no,
     amount,
     dueDate: row.due_date,
     siteUrl: siteUrl(),
+    bank,
   };
 
   const sent = await sendMail({
