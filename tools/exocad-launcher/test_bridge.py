@@ -76,6 +76,7 @@ class ConnectorAreaTest(unittest.TestCase):
     def test_across(self):
         from dentbird_params import CONNECTOR, connector_across
         self.assertEqual(connector_across({}), CONNECTOR["횡단"])
-        self.assertEqual(connector_across({"26": 12.2, "27": 12.4}), 7.6)
-        self.assertEqual(connector_across({"26": 5.0}), 5.0)
-        self.assertEqual(connector_across({"26": 30.0}), 10.0)
+        self.assertEqual(connector_across({"26": {"폭": 12.2, "교두": 6.4}, "27": {"폭": 12.3, "교두": 6.9}}), 7.4)
+        self.assertEqual(connector_across({"26": {"폭": 12.2, "교두": 0.0}}), 7.6)  # 교두 못 찾으면 폭 x 0.62
+        self.assertEqual(connector_across({"26": {"폭": 5.0, "교두": 2.0}}), 5.0)
+        self.assertEqual(connector_across({"26": {"폭": 30.0, "교두": 20.0}}), 10.0)

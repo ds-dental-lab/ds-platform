@@ -65,7 +65,10 @@ CONNECTOR: dict[str, float] = {
     "횡단": 7.6,
     "수직": 3.0,
 }
-#: 횡단 = 작은 치아 폭 × 이 비율. 26-27 에서 사용자가 고른 7.6 ÷ 잰 폭 12.2mm (2026-11-02, 한 케이스 —
+#: 횡단 = 두 치아 중 작은 교두 간격 + 이 여유 (사용자 기준 "협설폭은 교두 기준"). 26-27 에서 고른 7.6 과
+#: 그림으로 잰 교두 간격 6.4·6.9mm 사이가 약 1mm (2026-11-02, 한 케이스 — 케이스가 쌓이면 고침).
+CONNECTOR_CUSP_MARGIN = 1.0
+#: 교두를 못 찾았을 때만: 횡단 = 작은 치아 폭 × 이 비율. 26-27 에서 사용자가 고른 7.6 ÷ 잰 폭 12.2mm (2026-11-02, 한 케이스 —
 #: 디자인PC 크롬에서 눈금·타원 두 방법이 12.2·12.3 으로 맞음). 케이스가 쌓이면 다듬습니다.
 CONNECTOR_WIDTH_RATIO = 0.62
 #: 계산값이 이 범위를 벗어나면 잘못 잰 것으로 보고 끝값으로 자릅니다 (슬라이더는 1~10)
@@ -491,15 +494,22 @@ def connector_area(info: str) -> float | None:
     return float(m.group(1)) if m else None
 
 
-def connector_across(widths: dict[str, float]) -> float:
-    """두 치아 폭 → 횡단. 못 쟀으면 CONNECTOR['횡단']. 쌍마다 값이 하나라 작은 치아에 맞춥니다."""
-    if not widths:
+def connector_across(teeth: dict[str, dict[str, float]]) -> float:
+    """두 치아의 {"폭", "교두"} → 횡단. 쌍마다 값이 하나라 작은 치아에 맞춥니다.
+    교두 간격이 있으면 작은 교두 간격 + 여유, 없으면 작은 폭 × 비율, 다 못 쟀으면 CONNECTOR['횡단']."""
+    cusps = [v["교두"] for v in teeth.values() if v.get("교두")]
+    widths = [v["폭"] for v in teeth.values() if v.get("폭")]
+    if cusps:
+        want = min(cusps) + CONNECTOR_CUSP_MARGIN
+    elif widths:
+        want = min(widths) * CONNECTOR_WIDTH_RATIO
+    else:
         return CONNECTOR["횡단"]
     lo, hi = CONNECTOR_ACROSS_RANGE
-    return round(min(max(min(widths.values()) * CONNECTOR_WIDTH_RATIO, lo), hi), 1)
+    return round(min(max(want, lo), hi), 1)
 
 
-def _tooth_widths(d, say=print) -> dict[str, float]:
+def _tooth_widths(d, say=print) -> dict[str, dict[str, float]]:
     """치아 초점 보기를 켜고 폭을 잽니다. 무슨 일이 있어도 설계를 멈추지 않고 빈 dict 를 돌려줍니다."""
     try:
         sw = _q(d, "connect-sub-renderer-switch").find_elements("css selector", "input[type=checkbox]")

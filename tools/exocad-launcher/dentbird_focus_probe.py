@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 
 from dentbird_macro import alive, attach
-from dentbird_params import CONNECTOR_WIDTH_RATIO as WIDTH_RATIO, _open_tool, _q, _slider_input
+from dentbird_params import _open_tool, connector_across, _q, _slider_input
 
 OUT = Path(__file__).resolve().parent / "focus_probe"
 
@@ -149,6 +149,12 @@ def _measure(img, r: dict, texts: list[dict], dpr: float) -> dict | str:
         return "그림에서 치아를 못 찾음"
     px_w = (float(np.percentile(rights, 99)) - float(np.percentile(lefts, 1))) / dpr
     px_h = (ys[-1] - ys[0]) / dpr
+    # 교두 간격 — 근심에서 본 그림이라 윗선의 왼쪽·오른쪽 봉우리가 협측·설측 교두입니다
+    # (사용자 기준 "협설폭은 교두 기준", 2026-11-02). 열마다 맨 위 픽셀을 이어 반쪽마다 가장 높은 자리.
+    a_, b_x = int(np.percentile(lefts, 1)), int(np.percentile(rights, 99))
+    tops = np.array([np.flatnonzero(mask[:, x])[0] if mask[:, x].any() else h for x in range(a_, b_x + 1)])
+    half = len(tops) // 2
+    cusp = (half + int(np.argmin(tops[half:])) - int(np.argmin(tops[:half]))) / dpr if half > 5 else 0.0
     # 커넥터 타원(파란 테두리)의 폭 — 타원 폭 = 지금 횡단 값이라 눈금 없이도 배율을 압니다.
     # ★ 두 번째 재기 사진에서 26번 칸 눈금(1mm 에 24px)이 27번 칸(17px)과 달랐는데, 치아와 타원은 두 칸에
     #   같은 크기로 그려져 있었습니다 — 눈금이 그림과 어긋날 수 있어 둘 다 잽니다.
@@ -162,11 +168,11 @@ def _measure(img, r: dict, texts: list[dict], dpr: float) -> dict | str:
     ell = (cols[-1] - cols[0]) / dpr if len(cols) > 1 else 0.0
     return {"폭mm": round(abs(ax[0]) * px_w, 1), "높이mm": round(abs(ay[0]) * px_h, 1),
             "눈금mm/px": [round(abs(ax[0]), 4), round(abs(ay[0]), 4)],
-            "치아px": [round(px_w), round(px_h)], "타원px": round(ell)}
+            "치아px": [round(px_w), round(px_h)], "타원px": round(ell), "교두px": round(cusp)}
 
 
-def measure_teeth(d, say=print, save: Path | None = None) -> dict[str, float]:
-    """지금 화면의 치아 초점 보기 칸마다 치아 폭(mm)을 잽니다. {치식: 폭}. 못 재면 빈 dict.
+def measure_teeth(d, say=print, save: Path | None = None) -> dict[str, dict[str, float]]:
+    """지금 화면의 치아 초점 보기 칸마다 치아 폭·교두 간격(mm)을 잽니다. {치식: {"폭", "교두"}}. 못 재면 빈 dict.
 
     배율은 타원(= 지금 횡단 값)으로 먼저 잡고, 타원을 못 찾으면 눈금으로 잡습니다
     (서버PC 에서 26번 칸 눈금이 그림과 어긋난 적이 있음, 2026-11-02)."""
@@ -188,7 +194,7 @@ def measure_teeth(d, say=print, save: Path | None = None) -> dict[str, float]:
     dpr = float(got.get("dpr") or 1)
     vw, vh = got.get("vw") or 1, got.get("vh") or 1
     across = float(_slider_input(d, "connect-size-slider-횡단").get_attribute("value"))
-    widths: dict[str, float] = {}
+    widths: dict[str, dict[str, float]] = {}
     for c in got.get("canvases") or []:
         if c["w"] * c["h"] > 0.5 * vw * vh:  # 3D 화면
             continue
@@ -199,9 +205,10 @@ def measure_teeth(d, say=print, save: Path | None = None) -> dict[str, float]:
         if not tooth or not isinstance(m, dict):
             say(f"치아 폭: 칸 ({round(c['l'])},{round(c['t'])}) 치식 {tooth or '없음'} — {m}")
             continue
-        by_ell = round(m["치아px"][0] * across / m["타원px"], 1) if m["타원px"] > 20 else None
-        widths[tooth] = by_ell if by_ell else m["폭mm"]
-        say(f"치아 폭: {tooth}번 눈금 {m['폭mm']}mm · 타원(횡단 {across}) {by_ell}mm · 높이 {m['높이mm']}mm")
+        k = across / m["타원px"] if m["타원px"] > 20 else abs(m["눈금mm/px"][0])
+        widths[tooth] = {"폭": round(m["치아px"][0] * k, 1), "교두": round(m["교두px"] * k, 1)}
+        say(f"치아 폭: {tooth}번 폭 {widths[tooth]['폭']}mm · 교두 {widths[tooth]['교두']}mm · 높이 {round(m['치아px'][1] * k, 1)}mm"
+            f" (배율 {'타원' if m['타원px'] > 20 else '눈금'}, 눈금으로는 폭 {m['폭mm']}mm)")
     return widths
 
 
@@ -213,8 +220,7 @@ def main() -> int:
     _show_focus(d)
     widths = measure_teeth(d, save=OUT)
     if widths:
-        w = min(widths.values())
-        print(f"치아별 폭 {widths} → 작은 쪽 {w}mm → 횡단 {round(w * WIDTH_RATIO, 1)} (비율 {WIDTH_RATIO})")
+        print(f"치아별 {widths} → 횡단 {connector_across(widths)}")
     print("그림·구조:", OUT)
     return 0
 
