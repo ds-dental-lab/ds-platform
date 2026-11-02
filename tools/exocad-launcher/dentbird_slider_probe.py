@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-r"""커넥터 슬라이더가 어떤 방법으로 움직이는지 떠 있는 덴트버드 창에서 재 봅니다 (2026-11-02).
+r"""커넥터 슬라이더가 언제 잠기고 언제 풀리는지 떠 있는 덴트버드 창에서 재 봅니다 (2026-11-02).
 
     python dentbird_slider_probe.py 26
 
-★ 왜: 설계가 커넥터에서 두 번 멈췄습니다(ORD-261102-008). 고칠 때마다 새로 설계하면 건수를 쓰므로,
-  멈춘 채 열려 있는 케이스에서 방법을 하나씩 해 보고 결과만 적습니다.
-★ 생성·합치기·내보내기는 누르지 않습니다. 슬라이더 값만 움직입니다.
+★ 왜: 설계가 커넥터에서 두 번 멈췄습니다(ORD-261102-008). 첫 재기에서 슬라이더가 disabled 였습니다.
+  고칠 때마다 새로 설계하면 건수를 쓰므로, 멈춘 채 열려 있는 케이스에서 잽니다.
+★ 생성·합치기·내보내기는 누르지 않습니다. 칩·모양·슬라이더만 만집니다.
 """
 from __future__ import annotations
 
@@ -16,57 +16,37 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
 from dentbird_macro import alive, attach
-from dentbird_params import _open_tool, _slider_input, select_tooth
+from dentbird_params import CONNECTOR_SHAPE, _open_tool, _slider_input, select_tooth
 
 SLIDER = "connect-size-slider-횡단"
+CHIPS = '[data-testid^="connect-connector-chip-"]'
+SHAPES = '[data-testid="connect-cross-sectional-shape"] button'
+INFO = "return (document.querySelector('[data-testid=connect-size-info]')||{}).innerText||''"
 
 
-def read(d) -> float:
-    return float(_slider_input(d, SLIDER).get_attribute("value"))
+def disabled(d) -> bool:
+    return _slider_input(d, SLIDER).get_attribute("disabled") is not None
 
 
-def state(d) -> str:
-    return d.execute_script(
-        "const i=arguments[0], r=i.getBoundingClientRect(); i.focus();"
-        "return JSON.stringify({disabled:i.disabled, hasFocus:document.hasFocus(),"
-        " active:document.activeElement===i, visibility:document.visibilityState,"
-        " w:r.width, h:r.height, display:getComputedStyle(i).display})",
-        _slider_input(d, SLIDER),
-    )
+def watch(d, name: str, seconds: float = 12.0) -> None:
+    """잠김이 언제 풀리는지 0.5초마다 봅니다"""
+    start = time.time()
+    last = None
+    while time.time() - start < seconds:
+        now = disabled(d)
+        if now != last:
+            print(f"  {name} {time.time() - start:4.1f}초: {'잠김' if now else '풀림'}")
+            last = now
+        time.sleep(0.5)
 
 
-def keys(d, n: int) -> None:
-    d.execute_script("arguments[0].focus()", _slider_input(d, SLIDER))
-    ActionChains(d).send_keys((Keys.ARROW_RIGHT if n > 0 else Keys.ARROW_LEFT) * abs(n)).perform()
-
-
-def by_keys(d, now: float, want: float) -> None:
-    keys(d, round((want - now) * 10))
-
-
-def by_keys_focused(d, now: float, want: float) -> None:
-    d.execute_cdp_cmd("Page.bringToFront", {})
-    d.execute_cdp_cmd("Emulation.setFocusEmulationEnabled", {"enabled": True})
-    keys(d, round((want - now) * 10))
-
-
-def by_setter(d, now: float, want: float) -> None:
-    d.execute_script(
-        "const i=arguments[0];"
-        "Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,String(arguments[1]));"
-        "i.dispatchEvent(new Event('input',{bubbles:true}));"
-        "i.dispatchEvent(new Event('change',{bubbles:true}));",
-        _slider_input(d, SLIDER), want,
-    )
-
-
-def by_mouse(d, now: float, want: float) -> None:
-    root = d.find_element("css selector", f'[data-testid="{SLIDER}"]')
-    rail = d.execute_script(
-        "return arguments[0].querySelector('.MuiSlider-root')||arguments[0]", root)
-    width = rail.size["width"]
-    x = int(width * (want - 1) / 9 - width / 2)
-    ActionChains(d).move_to_element_with_offset(rail, x, 0).click().perform()
+def try_keys(d) -> None:
+    inp = _slider_input(d, SLIDER)
+    before = float(inp.get_attribute("value"))
+    d.execute_script("arguments[0].focus()", inp)
+    ActionChains(d).send_keys(Keys.ARROW_LEFT * 3).perform()
+    time.sleep(1.2)
+    print(f"  키보드 3칸: {before} → {_slider_input(d, SLIDER).get_attribute('value')} · {d.execute_script(INFO)!r}")
 
 
 def main() -> int:
@@ -81,19 +61,24 @@ def main() -> int:
         select_tooth(d, int(sys.argv[1]))
         _open_tool(d, "toolbar-tool-connect", "connect-process")
     time.sleep(1)
-    print("상태:", state(d))
 
-    target = 4.0
-    for name, how in (("키보드", by_keys), ("앞으로+초점+키보드", by_keys_focused),
-                      ("값 넣기", by_setter), ("마우스", by_mouse)):
-        before = read(d)
-        target = 6.0 if abs(before - 4.0) < 0.05 else 4.0
-        try:
-            how(d, before, target)
-            time.sleep(1.2)
-            print(f"{name}: {before} → {read(d)} (목표 {target})")
-        except Exception as e:  # noqa: BLE001 — 재 보는 도구입니다. 다음 방법으로 넘어갑니다
-            print(f"{name}: 오류 {type(e).__name__} {str(e)[:80]}")
+    print("패널만 연 상태")
+    watch(d, "패널", 4)
+    count = len(d.find_elements("css selector", CHIPS))
+    print(f"칩 {count}개")
+    for i in range(count):
+        chip = d.find_elements("css selector", CHIPS)[i]
+        name = (chip.text or "").strip()
+        print(f"[{name}] class={chip.get_attribute('class')[-40:]}")
+        d.execute_script("arguments[0].click()", chip)
+        watch(d, "칩 누른 뒤")
+        try_keys(d)
+        buttons = d.find_elements("css selector", SHAPES)
+        print("  모양 단추:", [b.get_attribute("disabled") is not None for b in buttons])
+        if len(buttons) > CONNECTOR_SHAPE:
+            d.execute_script("arguments[0].click()", buttons[CONNECTOR_SHAPE])
+            watch(d, "+ 누른 뒤")
+            try_keys(d)
     return 0
 
 
