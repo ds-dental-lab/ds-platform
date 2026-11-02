@@ -65,18 +65,17 @@ class ConnectorAreaTest(unittest.TestCase):
         self.assertEqual(connector_area("크기 초과 29.0mm²"), 29.0)
         self.assertIsNone(connector_area(""))
 
-    def test_retry(self):
-        from dentbird_params import CONNECTOR_RETRY, ParamError, connector_retry
-        self.assertIsNone(connector_retry("최적 12.5mm²"))
-        self.assertEqual(connector_retry("약함 2.0mm²"), CONNECTOR_RETRY["약함"])
-        self.assertEqual(connector_retry("크기 초과 18.9mm²"), CONNECTOR_RETRY["크기 초과"])
-        with self.assertRaises(ParamError):
-            connector_retry("")
-
     def test_across(self):
         from dentbird_params import CONNECTOR, connector_across
         self.assertEqual(connector_across({}), CONNECTOR["횡단"])
-        self.assertEqual(connector_across({"26": {"폭": 12.2, "교두": 6.4}, "27": {"폭": 12.3, "교두": 6.9}}), 7.4)
+        self.assertEqual(connector_across({"26": {"폭": 12.2, "교두": 6.4}, "27": {"폭": 12.3, "교두": 6.9}}), 7.9)
+        self.assertEqual(connector_across({"26": {"폭": 10.4, "교두": 5.7}, "27": {"폭": 10.6, "교두": 5.9}}), 7.2)
         self.assertEqual(connector_across({"26": {"폭": 12.2, "교두": 0.0}}), 7.6)  # 교두 못 찾으면 폭 x 0.62
         self.assertEqual(connector_across({"26": {"폭": 5.0, "교두": 2.0}}), 5.0)
         self.assertEqual(connector_across({"26": {"폭": 30.0, "교두": 20.0}}), 10.0)
+
+    def test_tall(self):
+        from dentbird_params import CONNECTOR, connector_tall
+        self.assertEqual(connector_tall({}), CONNECTOR["수직"])
+        self.assertEqual(connector_tall({"26": {"높이": 6.4}, "27": {"높이": 5.6}}), 2.8)
+        self.assertEqual(connector_tall({"26": {"높이": 8.2}, "27": {"높이": 8.5}}), 4.1)

@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 
 from dentbird_macro import alive, attach
-from dentbird_params import _open_tool, connector_across, _q, _slider_input
+from dentbird_params import _open_tool, connector_across, connector_tall, _q, _slider_input
 
 OUT = Path(__file__).resolve().parent / "focus_probe"
 
@@ -206,7 +206,8 @@ def measure_teeth(d, say=print, save: Path | None = None) -> dict[str, dict[str,
             say(f"치아 폭: 칸 ({round(c['l'])},{round(c['t'])}) 치식 {tooth or '없음'} — {m}")
             continue
         k = across / m["타원px"] if m["타원px"] > 20 else abs(m["눈금mm/px"][0])
-        widths[tooth] = {"폭": round(m["치아px"][0] * k, 1), "교두": round(m["교두px"] * k, 1)}
+        widths[tooth] = {"폭": round(m["치아px"][0] * k, 1), "교두": round(m["교두px"] * k, 1),
+                         "높이": round(m["치아px"][1] * k, 1)}
         say(f"치아 폭: {tooth}번 폭 {widths[tooth]['폭']}mm · 교두 {widths[tooth]['교두']}mm · 높이 {round(m['치아px'][1] * k, 1)}mm"
             f" (배율 {'타원' if m['타원px'] > 20 else '눈금'}, 눈금으로는 폭 {m['폭mm']}mm)")
     return widths
@@ -220,7 +221,7 @@ def main() -> int:
     _show_focus(d)
     widths = measure_teeth(d, save=OUT)
     if widths:
-        print(f"치아별 {widths} → 횡단 {connector_across(widths)}")
+        print(f"치아별 {widths} → 횡단 {connector_across(widths)} · 수직 {connector_tall(widths)}")
     print("그림·구조:", OUT)
     return 0
 

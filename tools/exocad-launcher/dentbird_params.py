@@ -65,20 +65,19 @@ CONNECTOR: dict[str, float] = {
     "횡단": 7.6,
     "수직": 3.0,
 }
-#: 횡단 = 두 치아 중 작은 교두 간격 + 이 여유 (사용자 기준 "협설폭은 교두 기준"). 26-27 에서 고른 7.6 과
-#: 그림으로 잰 교두 간격 6.4·6.9mm 사이가 약 1mm (2026-11-02, 한 케이스 — 케이스가 쌓이면 고침).
-CONNECTOR_CUSP_MARGIN = 1.0
+#: 횡단 = 두 치아 중 작은 교두 간격 + 이 여유 (사용자 기준 "협설폭은 교두 기준"). 사용자가 손으로 정한 두 케이스
+#: (2026-11-02, 둘 다 26-27): 교두 6.4 → 7.6(+1.2), 교두 5.7 → 7.4(+1.7, "이렇게 하는 걸로 기억해줘"). 둘의 가운데.
+CONNECTOR_CUSP_MARGIN = 1.5
 #: 교두를 못 찾았을 때만: 횡단 = 작은 치아 폭 × 이 비율. 26-27 에서 사용자가 고른 7.6 ÷ 잰 폭 12.2mm (2026-11-02, 한 케이스 —
 #: 디자인PC 크롬에서 눈금·타원 두 방법이 12.2·12.3 으로 맞음). 케이스가 쌓이면 다듬습니다.
 CONNECTOR_WIDTH_RATIO = 0.62
 #: 계산값이 이 범위를 벗어나면 잘못 잰 것으로 보고 끝값으로 자릅니다 (슬라이더는 1~10)
 CONNECTOR_ACROSS_RANGE = (5.0, 10.0)
-#: 덴트버드 단면 글자가 '최적' 이 아닐 때 수직을 한 번 바꿔 봅니다 (사용자 2026-11-02 "case1 이 최적이면 진행,
-#: 부족이면 case2"). 그래도 최적이 아니면 멈춥니다 — 사람이 설계합니다.
-CONNECTOR_RETRY: dict[str, float] = {
-    "약함": 3.5,
-    "크기 초과": 2.5,
-}
+#: 수직 = 두 치아 중 작은 높이(치아 초점 보기 그림) × 이 비율. 같은 두 케이스: 높이 6.4 → 3.0, 8.2 → 4.1 로 둘 다 약 절반.
+CONNECTOR_TALL_RATIO = 0.5
+CONNECTOR_TALL_RANGE = (2.0, 6.0)
+#: ★ 덴트버드 단면 글자(약함/최적/크기 초과)는 기록만 하고 값은 안 바꿉니다. 사용자가 고른 값과 두 번 어긋났습니다
+#:   (7.6·3.0 이 '크기 초과', 손으로 고친 7.4·4.1 은 더 큰데 '최적') — 사용자 2026-11-02 의 case1→case2 단계는 거둠.
 #: 단면 모양 — 네 단추 중 몇 번째(0부터). 1 = 둘째(사용자 2026-11-02 고름). 3 = '+' 는 크기 슬라이더를 잠급니다.
 CONNECTOR_SHAPE = 1
 PLUS_SHAPE = 3
@@ -457,20 +456,12 @@ def set_connectors(d, say=print) -> list[str]:
         # 단면 숫자는 모양에 달리므로 '+' 가 아니면 모양부터 고르고 잽니다
         shape = _pick_shape(d) if CONNECTOR_SHAPE != PLUS_SHAPE else ""
         # 횡단은 두 치아 폭으로 (사용자 2026-11-02 "치아 초점 보기 숫자로 크라운 폭경을 체크하고")
-        across = connector_across(_tooth_widths(d, say))
+        teeth = _tooth_widths(d, say)
+        across, tall = connector_across(teeth), connector_tall(teeth)
         _set_slider(d, "connect-size-slider-횡단", across)
-        _set_slider(d, "connect-size-slider-수직", CONNECTOR["수직"])
+        _set_slider(d, "connect-size-slider-수직", tall)
         time.sleep(1.5)
         info = " ".join((_q(d, "connect-size-info").text or "").split())
-        tall = CONNECTOR["수직"]
-        nxt = connector_retry(info)
-        if nxt is not None:
-            say(f"커넥터 {name} — {info}, 수직 {nxt} 로 다시")
-            tall = _set_slider(d, "connect-size-slider-수직", nxt)
-            time.sleep(1.5)
-            info = " ".join((_q(d, "connect-size-info").text or "").split())
-            if "최적" not in info:
-                raise ParamError(f"커넥터 {name} 가 수직 {nxt} 에서도 '{info}' 입니다 — 사람이 연결부를 보세요")
         area = connector_area(info)
         if area is not None and area < CONNECTOR_MIN_AREA:
             raise ParamError(
@@ -509,6 +500,15 @@ def connector_across(teeth: dict[str, dict[str, float]]) -> float:
     return round(min(max(want, lo), hi), 1)
 
 
+def connector_tall(teeth: dict[str, dict[str, float]]) -> float:
+    """두 치아의 {"높이"} → 수직. 작은 높이 × 비율, 못 쟀으면 CONNECTOR['수직']."""
+    hs = [v["높이"] for v in teeth.values() if v.get("높이")]
+    if not hs:
+        return CONNECTOR["수직"]
+    lo, hi = CONNECTOR_TALL_RANGE
+    return round(min(max(min(hs) * CONNECTOR_TALL_RATIO, lo), hi), 1)
+
+
 def _tooth_widths(d, say=print) -> dict[str, dict[str, float]]:
     """치아 초점 보기를 켜고 폭을 잽니다. 무슨 일이 있어도 설계를 멈추지 않고 빈 dict 를 돌려줍니다."""
     try:
@@ -522,16 +522,6 @@ def _tooth_widths(d, say=print) -> dict[str, dict[str, float]]:
     except Exception as e:  # noqa: BLE001
         say(f"치아 폭을 못 쟀습니다 ({type(e).__name__}) — 횡단 {CONNECTOR['횡단']} 로")
         return {}
-
-
-def connector_retry(info: str) -> float | None:
-    """'최적' 이면 None(그대로), '약함'·'크기 초과' 면 다시 넣을 수직. 그 밖의 글자면 ParamError"""
-    if "최적" in info:
-        return None
-    for word, tall in CONNECTOR_RETRY.items():
-        if word in info:
-            return tall
-    raise ParamError(f"커넥터 단면 글자를 모릅니다: '{info}'")
 
 
 def _unlock_size(d) -> None:
