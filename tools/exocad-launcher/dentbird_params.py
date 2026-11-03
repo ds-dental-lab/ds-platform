@@ -531,6 +531,18 @@ def set_connectors(d, say=print) -> list[str]:
             # ★ '+' 는 크기 슬라이더가 없습니다(잠김). 겹침은 adapt_proximal_order 가 이미 만들었으니 모양만 고릅니다
             shape = _pick_shape(d)
             time.sleep(1.5)
+            if shape.startswith("기본"):
+                # ★ 두 면이 안 닿으면 '+' 가 잠깁니다(설명서: 겉면이 닿을 때만). 인접 조정은 -0.5 가 한계라 틈이 넓으면
+                #   못 붙입니다(사용자 2026-11-03 "거리가 2mm 이상이면 또 오류?"). 멈추지 않고 원형 최대(10·10)로 가고 기록에 남깁니다.
+                _unlock_size(d)
+                buttons = d.find_elements("css selector", '[data-testid="connect-cross-sectional-shape"] button')
+                if len(buttons) > 1:
+                    d.execute_script("arguments[0].click()", buttons[1])
+                    time.sleep(0.8)
+                for axis in ("횡단", "수직"):
+                    _set_slider(d, f"connect-size-slider-{axis}", 10.0)
+                time.sleep(1.5)
+                shape = "원형 10·10 (두 면이 안 닿아 '+' 잠김 — 연결부가 얇을 수 있음)"
             info = " ".join((_q(d, "connect-size-info").text or "").split())
             got.append(f"{name} {info}")
             say(f"커넥터 {name} — 모양 {shape} → {info}")
