@@ -87,6 +87,16 @@ class RuleSweepTest(unittest.TestCase):
         self.assertTrue(sweep_should_stop(h))
         self.assertEqual(sweep_best(h), -0.20)
 
+    def test_both_natural_reach_constants(self):
+        # 2026-11-04 R10 상악 15-16: -0.10 에서 + 0.0 → 더 겹쳐 + 를 열어야 함. R11(같은 유형)은 -0.10 에서 3.9 로 충분
+        from dentbird_params import RULE_BOTH, RULE_BOTH_REACH, RULE_PLUS_MIN_AREA, sweep_best, sweep_should_stop
+        self.assertEqual(RULE_BOTH_REACH[0], -0.15)
+        self.assertLess(RULE_BOTH_REACH[-1], RULE_BOTH)
+        h = [(RULE_BOTH, {"16-15": 0.0}), (-0.15, {"16-15": 1.1}), (-0.20, {"16-15": 2.4})]
+        self.assertFalse(sweep_should_stop(h))
+        self.assertGreaterEqual(2.4, RULE_PLUS_MIN_AREA)
+        self.assertEqual(sweep_best(h), -0.20)
+
     def test_all_locked_falls_back(self):
         from dentbird_params import sweep_best
         self.assertEqual(sweep_best([(-0.05, {"a": None})]), -0.05)

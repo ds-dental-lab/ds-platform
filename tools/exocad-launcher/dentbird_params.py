@@ -674,6 +674,8 @@ def _pick_shape(d) -> str:
 RULE_NATURAL = -0.020
 #: 양쪽 바깥이 다 자연치인 2유닛 — 나중 유닛 값이 자연치 접촉에도 걸려 여기서 멈춤 (사용자 2026-11-02 '맞컨택 -0.1')
 RULE_BOTH = -0.100
+#: 양쪽 자연치 2유닛인데 -0.10 에서 + 가 안 열리면(아직 안 닿음) 여기까지 더 겹쳐 봅니다 (2026-11-04 R10)
+RULE_BOTH_REACH = (-0.15, -0.20, -0.25, -0.30)
 #: 안쪽 유닛(폰틱·자연치 없는 끝)을 이 순서로 내려 보며 + 면적을 읽습니다. 잠기거나 줄면 한 단계 앞이 답
 RULE_SWEEP = (-0.05, -0.10, -0.15, -0.20, -0.25, -0.30)
 #: 처음부터 + 가 잠겨 있으면(아직 안 닿음) 이어서 더 겹쳐 봅니다 — 덴트버드 인접 조정의 끝은 -0.5 (2026-11-02 실측)
@@ -842,6 +844,19 @@ def bridge_rule(d, units: list[int], present: list[int], say=print) -> list[dict
         history.append((RULE_BOTH, plus_areas(d, say)))
         best = RULE_BOTH
         say(f"양쪽 자연치 2유닛 — {first} {RULE_NATURAL:+.2f} → {last} {RULE_BOTH:+.2f} · + 면적 {history[-1][1]}")
+        # ★ -0.10 에서 + 면적이 기준 아래면(R10 상악 15-16: 0.0 → 원형으로 가 사용자 "+ 가 깔끔") 더 겹쳐 봅니다.
+        #   뒤 유닛 값이 자연치 접촉에도 걸리므로 그쪽이 0.05 씩 더 조여집니다 — 검토표에 적습니다.
+        if sweep_total(history[-1][1]) is not None and sweep_total(history[-1][1]) < RULE_PLUS_MIN_AREA:
+            for value in RULE_BOTH_REACH:
+                put(last, value)
+                history.append((value, plus_areas(d, say)))
+                say(f"양쪽 자연치 — {last} {value:+.2f} · + 면적 {history[-1][1]}")
+                if sweep_should_stop(history) or sweep_total(history[-1][1]) >= RULE_PLUS_MIN_AREA:
+                    break
+            best = sweep_best(history)
+            if history[-1][0] != best:
+                put(last, best)
+            say(f"고른 값: {last} {best:+.2f} (자연치 접촉도 같이 조여짐)")
     else:
         for u in natural:
             put(u, RULE_NATURAL)
@@ -872,5 +887,6 @@ def bridge_rule(d, units: list[int], present: list[int], say=print) -> list[dict
             note = "+ 면적이 작음 — 목이 얇을 수 있음"
         report.append({"name": name, "choice": choice, "area": area, "info": info, "note": note})
         say(f"커넥터 {name}: {choice} ({info}) {note}")
-    report.append({"name": "_sweep", "best": best, "history": history, "natural": natural, "inner": inner})
+    report.append({"name": "_sweep", "best": best, "history": history, "natural": natural, "inner": inner,
+                   "note": "양쪽 자연치 접촉이 -0.10 보다 조여짐 — 인접 접촉을 봐 주세요" if (not inner and best < RULE_BOTH) else ""})
     return report

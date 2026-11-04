@@ -797,6 +797,8 @@ def design_one(d, item: Path, scans: tuple[Path, Path], rec: dict, say, shots: P
         apply_each(d, abutments, say=say, proximal=False)
         report = bridge_rule(d, span, present, say)
         sweep = report.pop()
+        if sweep.get("note"):
+            rec["note"] = (rec.get("note", "") + " · " if rec.get("note") else "") + sweep["note"]
         rec["junctions"] += report
         rec.setdefault("sweeps", []).append({
             "bridge": f"{span[0]}-{span[-1]}", "best": sweep["best"], "inner": sweep["inner"],
