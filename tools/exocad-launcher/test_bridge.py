@@ -72,6 +72,21 @@ class RuleSweepTest(unittest.TestCase):
         self.assertTrue(sweep_should_stop(h))
         self.assertEqual(sweep_best(h), -0.05)
 
+    def test_locked_at_start_keeps_going(self):
+        # 2026-11-04 R08 하악 35-37 36 폰틱 — 처음엔 안 닿아 잠김, 더 겹치면 열린다고 보고 계속
+        from dentbird_params import sweep_best, sweep_should_stop
+        h = [(-0.05, {"37-36": None, "36-35": None})]
+        self.assertFalse(sweep_should_stop(h))
+        h.append((-0.10, {"37-36": 1.1, "36-35": None}))
+        self.assertFalse(sweep_should_stop(h))
+        h.append((-0.15, {"37-36": 2.0, "36-35": 1.4}))
+        self.assertFalse(sweep_should_stop(h))
+        h.append((-0.20, {"37-36": 2.6, "36-35": 1.1}))
+        self.assertFalse(sweep_should_stop(h))
+        h.append((-0.25, {"37-36": 2.0, "36-35": 0.9}))
+        self.assertTrue(sweep_should_stop(h))
+        self.assertEqual(sweep_best(h), -0.20)
+
     def test_all_locked_falls_back(self):
         from dentbird_params import sweep_best
         self.assertEqual(sweep_best([(-0.05, {"a": None})]), -0.05)

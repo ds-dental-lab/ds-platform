@@ -16,7 +16,7 @@ import tempfile  # noqa: E402
 import time  # noqa: E402
 
 from batch_review import (  # noqa: E402
-    classify, groups_from, items_in, jaws, name_shots, purge_judged, neutral, parse_params, pontics_from, tidy_done,
+    classify, groups_from, items_in, jaws, name_shots, prepare, purge_judged, neutral, parse_params, pontics_from, tidy_done,
 )
 
 SMART = (
@@ -57,6 +57,19 @@ class ClassifyTest(unittest.TestCase):
         verdict, why = classify(parse_params(b), b)
         self.assertEqual(verdict, "hold")
         self.assertIn("임플란트 17", why)
+
+    def test_inlay_with_crowns_goes(self):
+        # 2026-11-04 사용자 "인레이 섞인 케이스 크라운만 진행"
+        b = body("크라운 46", "인레이/온레이 47")
+        self.assertEqual(classify(parse_params(b), b), ("inlay", "47"))
+
+    def test_inlay_only_holds(self):
+        b = body("인레이/온레이 45", "인레이/온레이 46")
+        self.assertEqual(classify(parse_params(b), b)[0], "hold")
+
+    def test_inlay_inside_bridge_holds(self):
+        b = SMART.format(rows="브릿지 45-47\nPreset - 3D Printing\n└ 인레이/온레이 45\n└ 폰틱 46\n└ 크라운 47\n")
+        self.assertEqual(classify(parse_params(b), b)[0], "hold")
 
     def test_nothing_holds(self):
         self.assertEqual(classify([], "치료 대상 치아가 감지되지 않았습니다")[0], "hold")
@@ -152,6 +165,26 @@ class PurgeTest(unittest.TestCase):
             self.assertTrue((f / "b.dxd").exists())
             self.assertEqual(log["items"][0]["shots"], [])
             self.assertEqual(log["items"][0]["verdict"], "정상")
+
+
+class ZipTest(unittest.TestCase):
+    """zip 안의 위·아래턱 STL (2026-11-04) — 교합 스캔은 거르고, 이름 없는 사본으로"""
+
+    def test_zip(self):
+        import zipfile  # noqa: PLC0415
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp)
+            z = f / "case.zip"
+            with zipfile.ZipFile(z, "w") as zz:
+                zz.writestr("홍길동-maxillary.stl", b"u")
+                zz.writestr("홍길동-mandibular.stl", b"l")
+                zz.writestr("홍길동-occlusionfirst.stl", b"o")
+                zz.writestr("../../evil.stl", b"e")
+            os.utime(z, (time.time() - 600, time.time() - 600))
+            self.assertEqual([p.name for p in items_in(f)], ["case.zip"])
+            up, low = prepare(z, f / "_작업" / "case", print)
+            self.assertEqual((up.name, low.name, up.read_bytes(), low.read_bytes()), ("upperjaw.stl", "lowerjaw.stl", b"u", b"l"))
+            self.assertFalse((f.parent / "evil.stl").exists())
 
 
 class NightKeyTest(unittest.TestCase):

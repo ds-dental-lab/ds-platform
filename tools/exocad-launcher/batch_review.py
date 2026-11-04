@@ -83,19 +83,57 @@ def param_section(body: str) -> str:
     return body[start:end if end > 0 else None]
 
 
+INLAY = re.compile(r"^인레이/온레이 (\d{2})$")
+
+
+def inlay_teeth(params: list[str]) -> list[int]:
+    """따로 잡힌 인레이·온레이 치아 (브릿지 안의 것은 빼고)"""
+    return [int(m.group(1)) for p in params if (m := INLAY.match(p))]
+
+
 def classify(params: list[str], body: str) -> tuple[str, str]:
-    """('go', '') 또는 ('hold', 까닭)"""
+    """('go', '') · ('inlay', '45, 46') · ('hold', 까닭)
+
+    ★ 인레이가 섞이면 인레이만 자연치로 돌리고 크라운·브릿지는 합니다 (사용자 2026-11-04
+      "인레이 섞인 케이스 크라운만 진행"). 인레이만 있거나, 인레이가 브릿지 지대치면 보류.
+    """
     if "감지되지 않았습니다" in body or not params:
         return "hold", "치료할 치아를 못 잡음 (에그쉘·프렙 없음일 수 있음)"
     # ★ 브릿지 줄 아래에 '└ 임플란트 17' 처럼 유닛이 따로 적힙니다 (2026-11-03 시험3 — 브릿지 17-15 의 양끝이 임플란트).
     #   브릿지 줄만 보면 통과시켜 '디자인' 단추가 잠긴 채 눌렀습니다.
-    inside = re.findall(r"(임플란트\s*\d{2}|인레이[^\n]*\d{2}|온레이[^\n]*\d{2})", param_section(body))
-    if inside:
-        return "hold", "규칙 없는 종류: " + ", ".join(dict.fromkeys(x.strip() for x in inside))
-    odd = [p for p in params if not re.match(r"^(크라운 \d{2}|브릿지 \d{2}-\d{2})$", p)]
+    section = param_section(body)
+    inside = re.findall(r"└\s*((?:임플란트|인레이|온레이)[^\n]*?\d{2})", section)
+    implants = re.findall(r"(임플란트\s*\d{2})", section)
+    if inside or implants:
+        return "hold", "규칙 없는 종류: " + ", ".join(dict.fromkeys(x.strip() for x in inside + implants))
+    odd = [p for p in params if not re.match(r"^(크라운 \d{2}|브릿지 \d{2}-\d{2})$", p) and not INLAY.match(p)]
     if odd:
         return "hold", "규칙 없는 종류: " + ", ".join(odd)
+    inl = inlay_teeth(params)
+    if inl and len(inl) == len(params):
+        return "hold", "인레이·온레이만 있음: " + ", ".join(map(str, inl))
+    if inl:
+        return "inlay", ", ".join(map(str, inl))
     return "go", ""
+
+
+def inlays_to_natural(d, teeth: list[int], say) -> None:
+    """인레이 치아를 자연치로 돌려 설계에서 뺍니다 — 이름표 → '자연치' → 적용 (mark_pontics 와 같은 길)"""
+    from dentbird_macro import _click_label  # noqa: PLC0415
+
+    for n in teeth:
+        if not _click_label(d, n):
+            raise Stop(f"인레이 {n} 의 이름표가 화면에 없습니다")
+        time.sleep(1.5)
+        click(d, "tooth-planning-type-natural")
+        time.sleep(0.8)
+        click(d, "tooth-planning-apply-btn")
+        time.sleep(3)
+        d.execute_script("document.querySelector('[data-testid=tooth-planning-close-btn]')?.click();")
+        time.sleep(0.8)
+        if n in inlay_teeth(parse_params(text(d))):
+            raise Stop(f"인레이 {n} 이 자연치로 안 바뀌었습니다")
+        say(f"인레이 {n} 은 자연치로 돌려 빼고 진행합니다")
 
 
 def groups_from(params: list[str]) -> tuple[list[list[int]], list[int]]:
@@ -149,10 +187,28 @@ def neutral(scans: tuple[Path, Path], dest: Path) -> tuple[Path, Path]:
     return out
 
 
+def unzip_scans(item: Path, dest: Path) -> Path:
+    """zip 안의 스캔(stl·ply·obj)만 dest 에 풉니다 — 파일 이름만 쓰므로 zip 안의 경로가 dest 밖으로 못 나갑니다.
+    (사용자 2026-11-04 "zip 으로 stl 파일들도 넣어 놨어")"""
+    import zipfile  # noqa: PLC0415
+
+    dest.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(item) as z:
+        for info in z.infolist():
+            name = Path(info.filename).name
+            if info.is_dir() or Path(name).suffix.lower() not in (".stl", ".ply", ".obj"):
+                continue
+            with z.open(info) as src, (dest / name).open("wb") as out:
+                shutil.copyfileobj(src, out)
+    return dest
+
+
 def prepare(item: Path, work: Path, say) -> tuple[Path, Path]:
-    """dxd 면 DS Core 로 바꾸고, 폴더면 그대로. (위턱, 아래턱) — 둘 다 이름 없는 사본"""
+    """dxd 면 DS Core 로 바꾸고, zip 이면 풀고, 폴더면 그대로. (위턱, 아래턱) — 둘 다 이름 없는 사본"""
     if item.is_dir():
         return neutral(jaws(item), work / "_up")
+    if item.suffix.lower() == ".zip":
+        return neutral(jaws(unzip_scans(item, work / "_zip")), work / "_up")
     import dscore  # noqa: PLC0415
 
     # ★ 계정 파일(settings.json)이 없어도 DS Core 전용 프로필이 이미 로그인돼 있으면 그대로 됩니다 (2026-11-03,
@@ -677,6 +733,8 @@ def rename_and_save(d, name: str, say) -> bool:
 def design_one(d, item: Path, scans: tuple[Path, Path], rec: dict, say, shots: Path | None = None) -> dict:
     """올리기부터 저장까지. 돌려주는 dict 가 검토표 한 줄"""
     # ★ rec 를 밖에서 받아 그 자리에서 채웁니다 — 중간에 멈춰도 거기까지 읽은 것(치식 등)이 기록에 남게 (2026-11-03)
+    import dentbird_params  # noqa: PLC0415
+    dentbird_params.ADAPT_SKIPPED.clear()  # 앞 건에서 남은 것을 비움
     new_tab(d)
     upload_and_classify(d, list(scans), say)
     click(d, "import-next-btn")
@@ -688,6 +746,14 @@ def design_one(d, item: Path, scans: tuple[Path, Path], rec: dict, say, shots: P
     # ★ 자연치까지 보이는 것은 이 화면뿐입니다 — 생성 뒤에는 이름표가 보철 것만 남습니다 (2026-11-03 실측)
     present = screen_labels(d)
     verdict, why = classify(params, body)
+    if verdict == "inlay":
+        inlays_to_natural(d, inlay_teeth(params), say)
+        rec["skipped_inlay"] = inlay_teeth(params)
+        time.sleep(2)
+        body = text(d)
+        params = parse_params(body)
+        rec["detected"] = params
+        verdict, why = classify(params, body)
     if verdict == "hold":
         rec.update(status="hold", why=why)
         return rec
@@ -745,6 +811,10 @@ def design_one(d, item: Path, scans: tuple[Path, Path], rec: dict, say, shots: P
             rec.setdefault("shots", []).extend(capture_views(d, shots, rec.get("tag", "x"), units_all, say))
         except Exception as e:  # noqa: BLE001
             say(f"네 방향 그림 실패 — {type(e).__name__}")
+    import dentbird_params  # noqa: PLC0415
+    if dentbird_params.ADAPT_SKIPPED:
+        rec["note"] = "교합 조정 못 함 — 위아래 스캔이 안 맞물림, 교합 높이를 봐 주세요"
+        dentbird_params.ADAPT_SKIPPED.clear()
     rec["status"] = "done"
     return rec
 
@@ -882,7 +952,7 @@ def items_in(folder: Path) -> list[Path]:
             continue
         if not settled(p):
             continue
-        if p.is_file() and p.suffix.lower() == ".dxd":
+        if p.is_file() and p.suffix.lower() in (".dxd", ".zip"):
             out.append(p)
         elif p.is_dir() and any(q.suffix.lower() in (".stl", ".ply", ".obj") for q in p.rglob("*")):
             out.append(p)

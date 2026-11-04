@@ -299,6 +299,10 @@ def _set_inner_once(d, say=print) -> None:
         say("내면 값은 이미 맞습니다")
 
 
+#: 이번 건에서 칸이 잠겨 건너뛴 조정 — 밤 실행이 기록에 옮기고 비웁니다
+ADAPT_SKIPPED: list[str] = []
+
+
 def set_adapt(d, say=print, proximal: bool = True) -> None:
     """교합·인접·치은 거리. 브릿지는 인접을 여기서 빼고(proximal=False) adapt_proximal_order 가 순서대로 넣습니다"""
     _refine_group(d, "Adapt", "교합 거리")
@@ -307,6 +311,15 @@ def set_adapt(d, say=print, proximal: bool = True) -> None:
     _set_check(d, "refine-adapt-blockout-checkbox", True)
     for part, value, how in ADAPT:
         if part == "proximal" and not proximal:
+            continue
+        # ★ 위아래 스캔이 안 맞물려 있으면 덴트버드가 교합 거리 칸을 잠급니다(2026-11-04 H26 상악 14-17 —
+        #   잠긴 칸을 누르려다 멈춤). 그 조정만 건너뛰고 나머지는 합니다. 교합 높이는 사람이 봐야 합니다.
+        disabled = d.execute_script(
+            "const i=document.querySelector(`[data-testid=\"refine-adapt-${arguments[0]}-distance-input\"] input`);"
+            "return !i || i.disabled;", part)
+        if disabled:
+            say(f"{'교합' if part == 'occlusal' else part} 조정 못 함 — 칸이 잠김(위아래 스캔이 안 맞물림)")
+            ADAPT_SKIPPED.append(part)
             continue
         _set_number(d, f"refine-adapt-{part}-distance-input", value)
         _click(d, f"refine-adapt-{part}-{how}-btn")
@@ -663,6 +676,8 @@ RULE_NATURAL = -0.020
 RULE_BOTH = -0.100
 #: 안쪽 유닛(폰틱·자연치 없는 끝)을 이 순서로 내려 보며 + 면적을 읽습니다. 잠기거나 줄면 한 단계 앞이 답
 RULE_SWEEP = (-0.05, -0.10, -0.15, -0.20, -0.25, -0.30)
+#: 처음부터 + 가 잠겨 있으면(아직 안 닿음) 이어서 더 겹쳐 봅니다 — 덴트버드 인접 조정의 끝은 -0.5 (2026-11-02 실측)
+RULE_SWEEP_REACH = (-0.35, -0.40, -0.45, -0.50)
 #: + 가 열려 있어도 면적이 이보다 작으면 원형으로 (44-46 의 45-46 은 어느 값에서도 0~0.3 이었음)
 RULE_PLUS_MIN_AREA = 0.5
 #: + 를 못 쓸 때 원형 크기 (44-46 합격값 — 중심 1mm 내림은 아직 사람 손)
@@ -685,27 +700,35 @@ def sweep_total(areas: dict[str, float | None]) -> float | None:
     return round(sum(areas.values()), 3)
 
 
+def _opened(areas: dict[str, float | None]) -> bool:
+    return bool(areas) and all(v is not None for v in areas.values())
+
+
 def sweep_should_stop(history: list[tuple[float, dict[str, float | None]]]) -> bool:
-    """방금 단계에서 + 가 잠겼거나 면적 합이 앞 단계보다 줄었으면 그만"""
+    """그만 훑을 때: **열렸던 + 가 다시 잠겼거나**, 면적 합이 앞 단계보다 줄었을 때.
+
+    ★ 처음부터 잠겨 있는 것은 '겹침이 커서' 가 아니라 '아직 안 닿아서' 입니다 (2026-11-04 R08 하악 35-37,
+      36 폰틱: -0.05 에서 두 접합이 다 잠겨 거기서 멈추고 원형으로 갔고, 사용자 "폰틱 하단부 이상, 연결부
+      어색 — 면적 늘려서 + 가 나아 보여"). 이때는 멈추지 않고 더 겹쳐 봅니다.
+    """
     if not history:
         return False
-    now = sweep_total(history[-1][1])
-    if now is None:
-        return True
-    if len(history) >= 2:
-        before = sweep_total(history[-2][1])
-        if before is not None and now < before:
+    now = history[-1][1]
+    if not _opened(now):
+        return any(_opened(a) for _, a in history[:-1])
+    if len(history) >= 2 and _opened(history[-2][1]):
+        if sweep_total(now) < sweep_total(history[-2][1]):
             return True
     return False
 
 
 def sweep_best(history: list[tuple[float, dict[str, float | None]]]) -> float:
-    """잠기지 않은 단계 중 + 면적 합이 가장 큰 값. 모두 잠겼으면 첫 값"""
+    """+ 가 다 열린 단계 중 면적 합이 가장 큰 값. 한 번도 다 안 열렸으면 첫 값(원형으로 감)"""
     best, best_total = history[0][0], None
     for value, areas in history:
+        if not _opened(areas):
+            continue
         total = sweep_total(areas)
-        if total is None:
-            break
         if best_total is None or total > best_total:
             best, best_total = value, total
     return best
@@ -822,7 +845,10 @@ def bridge_rule(d, units: list[int], present: list[int], say=print) -> list[dict
     else:
         for u in natural:
             put(u, RULE_NATURAL)
-        for value in RULE_SWEEP:
+        for value in RULE_SWEEP + RULE_SWEEP_REACH:
+            # ★ -0.30 을 넘어서는 것은 그때까지 한 번도 + 가 안 열렸을 때만 (아직 안 닿은 폰틱 자리)
+            if value in RULE_SWEEP_REACH and any(_opened(a) for _, a in history):
+                break
             for u in inner:
                 put(u, value)
             history.append((value, plus_areas(d, say)))
