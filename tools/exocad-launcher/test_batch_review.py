@@ -16,7 +16,7 @@ import tempfile  # noqa: E402
 import time  # noqa: E402
 
 from batch_review import (  # noqa: E402
-    classify, groups_from, items_in, jaws, neutral, parse_params, pontics_from, tidy_done,
+    classify, groups_from, items_in, jaws, name_shots, neutral, parse_params, pontics_from, tidy_done,
 )
 
 SMART = (
@@ -117,6 +117,22 @@ class ServerFolderTest(unittest.TestCase):
             self.assertEqual(tidy_done(f, log), (1, 1))
             self.assertEqual(sorted(p.name for p in f.glob("*.dxd")), ["again.dxd", "new.dxd"])
             self.assertEqual([p.name for p in (f / "_끝남").iterdir()], ["done.dxd"])
+
+
+class ShotNameTest(unittest.TestCase):
+    """그림 이름을 'R04_교합면.png' 로 (2026-11-04) — 예전 이름(옆·안쪽·반대쪽)도"""
+
+    def test_rename_and_order(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp)
+            (f / "그림").mkdir()
+            old = ["1104_17_1_옆.png", "1104_17_2_교합면.png", "1104_17_3_안쪽.png", "1104_17_4_반대쪽.png"]
+            for n in old:
+                (f / "그림" / n).write_bytes(b"x")
+            got = name_shots(f, "R04", [f"그림/{n}" for n in old])
+            self.assertEqual(got, ["그림/R04_교합면.png", "그림/R04_마진면.png", "그림/R04_협면.png", "그림/R04_설면.png"])
+            self.assertEqual(sorted(p.name for p in (f / "그림").iterdir()),
+                             sorted(x.split("/")[1] for x in got))
 
 
 class NightKeyTest(unittest.TestCase):

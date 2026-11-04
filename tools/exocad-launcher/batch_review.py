@@ -26,6 +26,7 @@ r"""밤 실행 — 폴더의 dxd 를 덴트버드에서 규칙대로 설계해 �
 from __future__ import annotations
 
 import argparse
+import ctypes
 import html
 import json
 import re
@@ -170,6 +171,10 @@ def prepare(item: Path, work: Path, say) -> tuple[Path, Path]:
 # ---------------------------------------------------------------- 덴트버드
 
 def close_tab(d, handle: str) -> None:
+    quietly(_close_tab, d, handle)
+
+
+def _close_tab(d, handle: str) -> None:
     """탭을 크롬에 직접 닫게 합니다 — 덴트버드의 '나가시겠습니까?' 창에 걸리지 않게 (창 닫기 대신 CDP)"""
     try:
         d.execute_cdp_cmd("Target.closeTarget", {"targetId": handle})
@@ -210,7 +215,8 @@ def _rdrag(d, dx: int, dy: int) -> None:
     ★ 200픽셀이 약 90도. 아래로 끌면 위(교합면)가, 위로 끌면 아래(안쪽)가 보입니다. 가로 800픽셀이 반 바퀴.
     ★ 끝나면 마우스를 화면 구석으로 뺍니다 — 치아 위에 있으면 그 치아가 파랗게 칠해져 찍힙니다.
     """
-    x0, y0 = 960, 450
+    w, h = d.execute_script("return [innerWidth, innerHeight]")
+    x0, y0 = w // 2, h // 2  # 화면 가운데 (창 크기가 바뀌어도)
     send = lambda t, x, y, b, n: d.execute_cdp_cmd("Input.dispatchMouseEvent", {  # noqa: E731
         "type": t, "x": x, "y": y, "button": n, "buttons": b, "clickCount": 0 if t == "mouseMoved" else 1})
     send("mouseMoved", x0, y0, 0, "none")
@@ -219,7 +225,7 @@ def _rdrag(d, dx: int, dy: int) -> None:
         send("mouseMoved", x0 + dx * i / 20, y0 + dy * i / 20, 2, "right")
         time.sleep(0.02)
     send("mouseReleased", x0 + dx, y0 + dy, 0, "right")
-    send("mouseMoved", 5, 940, 0, "none")
+    send("mouseMoved", 5, h - 5, 0, "none")
     time.sleep(1.2)
 
 
@@ -259,8 +265,10 @@ def capture_views(d, shots: Path, number: str, units: list[int], say) -> list[st
             pass  # 못 자르면 전체 화면 그대로
 
     try:
-        snap("1_옆")
-        for tag, dx, dy in (("2_교합면", 0, 200), ("3_안쪽", 0, -400), (None, 0, 200), ("4_반대쪽", 800, 0), (None, -800, 0)):
+        # ★ 사용자 2026-11-04: "교합면·마진면·협면·설면 4컷만(생성된 치아만)". 이름 앞 숫자가 검토표의 순서입니다.
+        #   덴트버드 처음 방향은 바깥쪽(협면)에서 본 모습 — R01·R04 그림으로 확인.
+        snap("3_협면")
+        for tag, dx, dy in (("1_교합면", 0, 200), ("2_마진면", 0, -400), (None, 0, 200), ("4_설면", 800, 0), (None, -800, 0)):
             try:
                 _rdrag(d, dx, dy)
             except Exception as e:  # noqa: BLE001
@@ -273,7 +281,32 @@ def capture_views(d, shots: Path, number: str, units: list[int], say) -> list[st
             d.execute_script("document.querySelector('[data-testid=views-label-visibility-btn]')?.click()")
         for n in hidden:
             _set_model(d, n, True)
-    return out
+    return sorted(out)  # 교합면 → 마진면 → 협면 → 설면
+
+
+#: 그림 이름의 면 — 예전 이름(옆·안쪽·반대쪽)도 새 이름으로 (2026-11-04)
+VIEW_NAMES = {"교합면": "교합면", "마진면": "마진면", "협면": "협면", "설면": "설면",
+              "옆": "협면", "안쪽": "마진면", "반대쪽": "설면"}
+VIEW_ORDER = ["교합면", "마진면", "협면", "설면"]
+
+
+def name_shots(folder: Path, number: str, shots: list[str]) -> list[str]:
+    """'1104_17_1_교합면.png' 같은 임시 이름을 'R04_교합면.png' 로 바꿉니다 (사용자 2026-11-04 "R04_교합면 처럼").
+    번호는 설계가 끝나야 정해져서, 찍을 때는 임시 이름을 쓰고 끝난 뒤 바꿉니다. 바꾼 경로를 면 순서대로 돌려줍니다."""
+    out: dict[str, str] = {}
+    for rel in shots:
+        src = folder / rel
+        view = next((VIEW_NAMES[k] for k in VIEW_NAMES if src.stem.endswith("_" + k)), None)
+        if view is None:
+            continue
+        dst = src.with_name(f"{number}_{view}.png")
+        try:
+            if src != dst:
+                src.replace(dst)
+            out[view] = f"그림/{dst.name}"
+        except OSError:
+            out[view] = rel
+    return [out[v] for v in VIEW_ORDER if v in out]
 
 
 def focus_shots(d, shots: Path, number: str, say) -> list[str]:
@@ -299,9 +332,122 @@ def focus_shots(d, shots: Path, number: str, say) -> list[str]:
     return out
 
 
+
+# ---------------------------------------------------------------- 창을 안 보이게 (2026-11-04)
+#
+# 사용자 2026-11-04: "크롬창 최소화해서 진행해줘. 디자인도 해야 돼서 불편해."
+# ★ 최소화는 안 씁니다 — 최소화한 크롬은 3D(WebGL) 그리기가 멈출 수 있어 dentbird_web.keep_awake 가
+#   붙을 때마다 최소화를 풉니다(2026-10-21 서버PC). 대신 창을 **모든 모니터의 오른쪽 바깥** 에 둡니다.
+# ★ 실측(2026-11-04 디자인PC, 모니터 둘): 창이 모니터 위에 있으면 붙기·탭 닫기 때 크롬이 맨 앞으로 와서
+#   키보드를 가져갔습니다. 화면 밖에 두자 붙기·뒤에서 탭 열기·탭 옮기기·탭 닫기 어느 것도 앞으로 안 왔습니다.
+#   그래도 만일 앞으로 오면 원래 쓰던 창으로 되돌립니다(give_back).
+
+_U = ctypes.windll.user32 if sys.platform == "win32" else None
+#: 창 크기 — 그림 자르기·화면 돌리기 기준(안쪽 약 1904×955)이 이 크기에서 맞춰졌습니다
+WIN_W, WIN_H = 1920, 1050
+
+
+def _offscreen_left() -> int:
+    if _U is None:
+        return 4000
+    return _U.GetSystemMetrics(76) + _U.GetSystemMetrics(78) + 100  # 가상 화면 왼쪽 + 너비 = 오른쪽 끝
+
+
+def place_window(d, hidden: bool) -> None:
+    """hidden=True 면 화면 밖으로, False 면 주 모니터 위로(로그인할 때)"""
+    try:
+        win = d.execute_cdp_cmd("Browser.getWindowForTarget", {})
+        d.execute_cdp_cmd("Browser.setWindowBounds", {"windowId": win["windowId"], "bounds": {"windowState": "normal"}})
+        left, top = (_offscreen_left(), 0) if hidden else (100, 40)
+        d.execute_cdp_cmd("Browser.setWindowBounds", {"windowId": win["windowId"],
+                                                       "bounds": {"left": left, "top": top, "width": WIN_W, "height": WIN_H}})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+class _RECT(ctypes.Structure):
+    _fields_ = [("l", ctypes.c_long), ("t", ctypes.c_long), ("r", ctypes.c_long), ("b", ctypes.c_long)]
+
+
+def _ours(h) -> bool:
+    """이 창이 화면 밖에 둔 전용 크롬인가 — 창 위치로 가립니다"""
+    if _U is None or not h:
+        return False
+    r = _RECT()
+    _U.GetWindowRect(h, ctypes.byref(r))
+    return r.l >= _offscreen_left() - 10
+
+
+def give_back(prev) -> None:
+    """크롬이 키보드를 가져갔으면 prev 창으로 되돌립니다 (맨 앞 창의 입력 줄에 잠깐 붙어서)"""
+    if _U is None or not prev or _ours(prev):
+        return
+    cur = _U.GetForegroundWindow()
+    if not _ours(cur):
+        return
+    t_cur = _U.GetWindowThreadProcessId(cur, None)
+    t_me = ctypes.windll.kernel32.GetCurrentThreadId()
+    _U.AttachThreadInput(t_me, t_cur, True)
+    try:
+        _U.SetForegroundWindow(prev)
+        _U.BringWindowToTop(prev)
+    finally:
+        _U.AttachThreadInput(t_me, t_cur, False)
+
+
+def quietly(fn, *args):
+    """fn 을 하되, 그 사이 크롬이 맨 앞으로 오면 원래 창으로 되돌립니다"""
+    prev = _U.GetForegroundWindow() if _U else None
+    try:
+        return fn(*args)
+    finally:
+        time.sleep(0.3)
+        give_back(prev)
+
+
+def bg_tab(d, url: str) -> str:
+    """뒤에서 새 탭을 열고 그 탭으로 옮깁니다 — selenium new_window 는 창을 앞으로 끌어옵니다"""
+    t = d.execute_cdp_cmd("Target.createTarget", {"url": url, "background": True})["targetId"]
+    d.switch_to.window(t)
+    return t
+
+
+def ensure_ready(say=print) -> bool:
+    """단추 하나로 (2026-11-04 사용자 "버튼이 하나만 있으면"): 전용 크롬이 없으면 띄우고, 로그인이 풀렸으면
+    그때만 창을 보여 주고 로그인을 기다립니다(최대 20분). 준비되면 True"""
+    from dentbird_macro import session_problem_of  # noqa: PLC0415
+    from dentbird_web import open_browser, page_snapshot  # noqa: PLC0415
+
+    if not alive():
+        say("덴트버드 전용 크롬을 띄웁니다")
+        open_browser(HOME_TAB)
+        time.sleep(10)
+    if not alive():
+        say("전용 크롬이 안 떴습니다")
+        return False
+    shown = False
+    bad = 0
+    for _ in range(240):
+        snap = page_snapshot()
+        why = session_problem_of(*snap) if snap else "덴트버드 화면이 아직 없습니다"
+        if not why:
+            if shown:
+                say("로그인 확인 — 창을 다시 화면 밖으로 보내고 시작합니다")
+            return True
+        bad += 1
+        # ★ 막 띄운 크롬은 화면이 다 뜨기 전에 '로그인' 글자가 잠깐 보입니다(2026-11-04 실측) — 15초 넘게 그대로일 때만 창을 보여 줌
+        if not shown and bad >= 4:
+            say(f"{why}\n  -> 앞에 뜬 크롬 창에서 밤 실행용 덴트버드 계정으로 로그인해 주세요. 로그인하면 저절로 시작합니다.")
+            d = attach()
+            place_window(d, hidden=False)
+            shown = True
+        time.sleep(5)
+    say("20분 동안 로그인이 안 돼서 그만둡니다")
+    return False
+
+
 def new_tab(d) -> None:
-    d.switch_to.new_window("tab")
-    d.get(CROWN_URL)
+    quietly(bg_tab, d, CROWN_URL)
     time.sleep(6)
     why = session_problem(d)
     if why:
@@ -467,8 +613,7 @@ def design_one(d, item: Path, scans: tuple[Path, Path], rec: dict, say, shots: P
             "bridge": f"{span[0]}-{span[-1]}", "best": sweep["best"], "inner": sweep["inner"],
             "natural": sweep["natural"], "history": [[v, a] for v, a in sweep["history"]],
         })
-        if shots is not None:
-            rec.setdefault("shots", []).extend(focus_shots(d, shots, rec.get("tag", "x"), say))
+        # ★ 접합별 초점 그림은 뺐습니다 (사용자 2026-11-04 "연결부만 보면 된다, 나머지는 용량만 차지") — focus_shots 는 남겨 둠
         assemble(d, abutments[0], say)
     if shots is not None:
         units_all = sorted({u for b in bridges for u in b} | set(singles))
@@ -529,6 +674,8 @@ def write_sheet(folder: Path, log: dict) -> Path:
 
 #: 서버PC 의 공유 폴더 (2026-11-04 사용자 "파일은 디자인PC 에서 넣고 분석은 서버PC 에서").
 #: 파일은 서버PC 디스크에 있고, 디자인PC 바탕화면에는 이 폴더의 바로가기만 둡니다 — 밤에 디자인PC 를 꺼도 됩니다.
+HOME_TAB = "https://ai.dentbird.com/cloud/design"
+
 SERVER_FOLDER = Path(r"C:\DenFlow\덴트버드_밤작업")
 #: 끝난 dxd 를 옮겨 두는 곳과 지우기까지의 날 수 — 서버PC SSD 가 250GB 라 dxd(100~140MB)가 쌓이면 두 달이면 찹니다
 DONE_DIR = "_끝남"
@@ -613,8 +760,7 @@ def main(argv: list[str] | None = None) -> int:
     if batch_running():
         print("밤 실행이 이미 돌고 있습니다 — 두 개를 같이 돌리면 크롬 탭이 겹쳐 꺼집니다")
         return 3
-    if not alive():
-        print("덴트버드 전용 크롬이 안 떠 있습니다 — 'python dentbird_web.py' 로 띄우고 로그인해 주세요")
+    if not ensure_ready():
         return 2
     def flag(note: str) -> None:
         """설계 일꾼에게 '지금 전용 크롬을 쓰는 중' 이라고 알립니다 (dentbird_web.batch_running)"""
@@ -627,12 +773,12 @@ def main(argv: list[str] | None = None) -> int:
 
     flag("시작")
     time.sleep(5)  # 일꾼이 막 일감을 잡았다면 그쪽이 먼저 창을 쓰도록 잠깐 둡니다
-    d = attach()
+    d = quietly(attach)
+    place_window(d, hidden=True)
     # ★ 전 실행이나 사람이 열어 둔 덴트버드 케이스 탭을 먼저 닫습니다 (2026-11-03 시험 — 3D 탭 5개가 쌓이자
     #   크롬이 멈췄다가 꺼졌습니다). 케이스 화면이 아닌 탭 하나는 남겨 '집' 으로 씁니다.
-    d.switch_to.new_window("tab")
-    d.get("https://ai.dentbird.com/cloud/design")
-    home_tab = d.current_window_handle
+    home_tab = quietly(bg_tab, d, HOME_TAB)
+    time.sleep(4)
     for h in list(d.window_handles):
         if h != home_tab:
             close_tab(d, h)
@@ -668,7 +814,7 @@ def main(argv: list[str] | None = None) -> int:
                 time.sleep(15)
                 waited += 15
             say(f"이어서 합니다 ({waited}초 기다림)")
-            d = attach()
+            d = quietly(attach)
             home = d.current_window_handle
         rec: dict = {"file": item.name, "tag": f"{time.strftime('%m%d')}_{len(log['items']) + 1:02d}"}
         flag(item.name)
@@ -686,6 +832,7 @@ def main(argv: list[str] | None = None) -> int:
         if rec.get("status") == "done":
             r_no += 1
             rec["number"] = f"R{r_no:02d}"
+            rec["shots"] = name_shots(folder, rec["number"], rec.get("shots", []))
         else:
             h_no += 1
             rec["number"] = f"H{h_no:02d}"
@@ -695,7 +842,7 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:  # noqa: BLE001 — 크롬이 멈췄거나 꺼짐
             on_screen = False
             try:
-                d = attach()
+                d = quietly(attach)
                 home = d.current_window_handle
             except Exception:  # noqa: BLE001
                 rec["retry"] = True
@@ -705,21 +852,23 @@ def main(argv: list[str] | None = None) -> int:
                 say("덴트버드 전용 크롬이 응답하지 않아 여기서 멈춥니다 — 크롬을 다시 띄우고 다시 시작해 주세요")
                 break
         if on_screen:
-            rec["url"] = d.current_url  # 아침에 바로 열 수 있게 케이스 주소를 남깁니다
-            rec["saved"] = rename_and_save(d, f"{rec['number']} {what}".strip()[:60], say)
-            try:
-                shot = shots / f"{rec['number']}.png"
-                d.save_screenshot(str(shot))
-                rec["shot"] = f"그림/{shot.name}"
-            except Exception:  # noqa: BLE001
-                pass
+            # ★ 이름 바꾸기·저장은 뺐습니다 (2026-11-04) — 덴트버드가 생성한 디자인을 남기지 않아 아침에 열 일이 없고,
+            #   판별은 그림 네 장으로 합니다. 건마다 10초쯤 줄어듭니다.
+            # ★ 전체 화면 그림은 **보류 건에만** — 왜 멈췄는지 보려고. 완성 건은 크라운 네 장이면 됩니다(사용자 2026-11-04).
+            if rec.get("status") != "done":
+                try:
+                    shot = shots / f"{rec['number']}.png"
+                    d.save_screenshot(str(shot))
+                    rec["shot"] = f"그림/{shot.name}"
+                except Exception:  # noqa: BLE001
+                    pass
             # ★ 보류(H) 건도 탭을 닫습니다 (2026-11-03 시험 — 덴트버드 탭 5개가 쌓이자 크롬 렌더러가 멈춰
             #   다음 건이 '계산이 안 끝납니다' 로 죽었습니다). 이름을 H번호로 바꿔 저장했으니 목록에서 엽니다.
             try:
                 close_tab(d, d.current_window_handle)
                 d.switch_to.window(home)
             except Exception:  # noqa: BLE001
-                d = attach()
+                d = quietly(attach)
                 home = d.current_window_handle
         rec["seconds"] = round(time.time() - t0)
         log["items"] = [it for it in log["items"] if it["file"] != item.name]  # 다시 한 건은 옛 줄을 바꿔 씁니다
@@ -745,5 +894,45 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _run() -> int:
+    """main 을 돌리되, 시작 단계의 말과 오류도 진행 기록에 남깁니다 (2026-11-04).
+
+    ★ 단추 하나로 바꾸며 검은 창을 작업표시줄로 내렸습니다. 첫 시도가 시작하자마자 멈췄는데, 이유가 그 창에만
+      찍혀 있어 볼 수 없었습니다. print 를 진행 기록 파일에도 함께 씁니다.
+    """
+    import builtins  # noqa: PLC0415
+
+    log_file = default_folder() / LOG_TEXT
+    real_print = builtins.print
+
+    def both(*a, **k):
+        real_print(*a, **k)
+        try:
+            line = " ".join(str(x) for x in a)
+            if not line.startswith("["):  # 건마다 쓰는 줄은 이미 파일에 씁니다
+                with log_file.open("a", encoding="utf-8") as f:
+                    f.write(f"[{time.strftime('%H:%M:%S')}] (시작) {line}\n")
+        except OSError:
+            pass
+
+    builtins.print = both
+    try:
+        return main()
+    except Exception:  # noqa: BLE001
+        print("멈춤 — " + traceback.format_exc().strip().splitlines()[-1])
+        try:
+            with log_file.open("a", encoding="utf-8") as f:
+                f.write(traceback.format_exc())
+        except OSError:
+            pass
+        try:
+            BATCH_FLAG.unlink()  # 죽은 실행의 표시가 다음 실행을 막지 않게
+        except OSError:
+            pass
+        return 1
+    finally:
+        builtins.print = real_print
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_run())
