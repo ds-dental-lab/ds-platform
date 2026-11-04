@@ -40,7 +40,7 @@ from pathlib import Path
 import export_tag
 from dentbird_macro import Reporter, SessionLost, Stop, assemble, export, run, screen_labels, session_problem
 from dentbird_params import ParamError, adapt_proximal_order, apply_each, proximal_plan
-from dentbird_web import alive, attach, open_browser, reap_drivers
+from dentbird_web import WORKER_WANTS, alive, attach, batch_running, open_browser, reap_drivers
 from design_scans import PickError, candidates, ensure_meshes, pick, to_stl, unzip_all
 from watch_common import beat, revive, single_instance
 
@@ -367,6 +367,65 @@ def _window_bad() -> bool:
     return False
 
 
+#: 밤 실행을 띄우는 시각 (2026-11-04 사용자 "분석은 서버PC 에서"). 이 시각부터 아침 6시 전까지, 하룻밤에 한 번.
+NIGHT_START_HOUR = 21
+NIGHT_END_HOUR = 6
+#: 밤 한 번에 할 최대 건수 — 건당 5~8분이라 30건이면 4시간 안쪽, 아침 6시 전에 끝납니다
+NIGHT_LIMIT = 30
+NIGHT_STAMP = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow" / "launcher" / "batch_last_night.txt"
+
+
+def night_key(now: time.struct_time) -> str | None:
+    """밤 실행할 때면 그 밤의 이름(시작한 날짜), 아니면 None — 새벽 2시도 전날 밤으로 셉니다"""
+    if now.tm_hour >= NIGHT_START_HOUR:
+        return time.strftime("%Y-%m-%d", now)
+    if now.tm_hour < NIGHT_END_HOUR:
+        return time.strftime("%Y-%m-%d", time.localtime(time.mktime(now) - 86400))
+    return None
+
+
+def maybe_start_batch() -> bool:
+    """밤이고, 오늘 밤 아직 안 했고, 공유 폴더에 새 파일이 있으면 밤 실행을 띄웁니다.
+
+    ★ 일꾼이 일감을 들고 있지 않은 자리에서만 부릅니다 — 그래서 둘이 크롬을 같이 쓰지 않습니다.
+    ★ python.exe 로 띄웁니다(pythonw 아님). 밤중에 새 코드가 와서 update_server.cmd 가 pythonw 를 모두 끄더라도
+      밤 실행은 하던 건을 끝까지 합니다.
+    """
+    key = night_key(time.localtime())
+    if key is None:
+        return False
+    try:
+        if NIGHT_STAMP.read_text(encoding="utf-8").strip() == key:
+            return False
+    except OSError:
+        pass
+    try:
+        from batch_review import SERVER_FOLDER, items_in, load_log  # noqa: PLC0415
+        if not SERVER_FOLDER.is_dir():
+            return False
+        log = load_log(SERVER_FOLDER)
+        seen = {it["file"] for it in log["items"] if not it.get("retry")}
+        if not [x for x in items_in(SERVER_FOLDER) if x.name not in seen]:
+            return False
+    except Exception as e:  # noqa: BLE001
+        say(f"밤작업 폴더를 못 읽었습니다 — {e!r}")
+        return False
+    NIGHT_STAMP.parent.mkdir(parents=True, exist_ok=True)
+    NIGHT_STAMP.write_text(key, encoding="utf-8")
+    import subprocess  # noqa: PLC0415
+    here = Path(__file__).resolve().parent
+    py = Path(sys.executable)
+    if py.name.lower() == "pythonw.exe":
+        py = py.with_name("python.exe")
+    subprocess.Popen(
+        [str(py), str(here / "batch_review.py"), "--limit", str(NIGHT_LIMIT)],
+        cwd=str(here), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        close_fds=True, creationflags=0x00000008 | 0x00000200 | 0x08000000,  # 떼어서·새 묶음·창 없이
+    )
+    say(f"밤 실행을 띄웠습니다 (최대 {NIGHT_LIMIT}건)")
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="설계 PC 일꾼 — FlowTemp 자동 설계")
     ap.add_argument("--once", action="store_true", help="일감 하나만 하고 끝냅니다")
@@ -449,6 +508,21 @@ def main(argv: list[str] | None = None) -> int:
                 open_window("PC 를 켠 뒤라")
             if time.time() - _session_bad_at < SESSION_PAUSE_SECONDS:
                 pass  # 덴트버드 창이 돌아올 때까지 일감을 안 잡습니다
+            elif batch_running():
+                # ★ 밤 실행(batch_review.py)이 전용 크롬을 쓰는 중 — 끝나면 다시 잡습니다 (2026-11-03)
+                # ★ 그래도 주문이 와 있는지는 묻고, 와 있으면 표시를 남깁니다. 밤 실행이 건 사이에 보고 크롬을
+                #   내줍니다 (2026-11-04 서버PC 로 옮기며 — 덴플로우 주문이 밤 검토보다 먼저).
+                if _gate.should_ask(cfg.get("probe_secret")):
+                    _gate.asked()
+                    peek = post(f"{base}/api/device/auto-print/next-design", {"peek": True}, token)
+                    if peek.get("ok") and peek.get("available"):
+                        try:
+                            WORKER_WANTS.parent.mkdir(parents=True, exist_ok=True)
+                            WORKER_WANTS.write_text(time.strftime("%Y-%m-%d %H:%M:%S"), encoding="utf-8")
+                        except OSError:
+                            pass
+            elif maybe_start_batch():
+                pass
             else:
                 # ★★ 잡지 않고 **묻기만** 합니다 (2026-10-16). 할 일이 있을 때만 덴트버드
                 #   창을 확인합니다 — 전에는 5분마다 창에 붙어 디자이너 화면 앞으로
@@ -467,10 +541,21 @@ def main(argv: list[str] | None = None) -> int:
                         open_window("일감이 와서")
                     got = {"ok": True} if _window_bad() else post(
                         f"{base}/api/device/auto-print/next-design", {}, token)
+                if got.get("ok") and not got.get("job"):
+                    try:
+                        WORKER_WANTS.unlink()  # 와 있던 주문이 다른 데서 처리됐으면 밤 실행을 붙잡아 두지 않게
+                    except OSError:
+                        pass
                 if not got.get("ok"):
                     say(f"일감 묻기 실패: {got.get('error')}")
                 elif got.get("job"):
-                    handle(got["job"], spend=not args.no_export)
+                    try:
+                        handle(got["job"], spend=not args.no_export)
+                    finally:
+                        try:
+                            WORKER_WANTS.unlink()  # 밤 실행이 기다리고 있으면 이어서 하라고
+                        except OSError:
+                            pass
                     # ★ 일감 하나에 창에 여러 번 붙으며 크롬드라이버가 남습니다 — 끝나면 치웁니다.
                     #   일꾼만 쓰는 것이라 쉬는 지금 꺼도 됩니다 (2026-10-16, 한때 5개 쌓임)
                     reap_drivers()

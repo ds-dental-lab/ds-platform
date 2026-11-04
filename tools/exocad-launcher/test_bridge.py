@@ -44,8 +44,44 @@ class GenerationDoneTest(unittest.TestCase):
         self.assertTrue(generation_done("AI 디자인 생성 완료", 3))
 
 
-if __name__ == "__main__":
-    unittest.main()
+class RuleSweepTest(unittest.TestCase):
+    """docs/bridge_rules.md 의 고르기 — 오늘 실측 숫자 그대로 (2026-11-03)"""
+
+    def test_plan_cases(self):
+        from dentbird_params import rule_plan
+        # 상악 25-27 폰틱 26, 24·28? 24 만 화면에 있음
+        self.assertEqual(rule_plan([25, 26, 27], [21, 22, 23, 24, 25, 26, 27]), ([25], [26, 27]))  # 28 없음 → 27 은 안쪽
+        # 하악 34-35 양쪽 자연치
+        self.assertEqual(rule_plan([34, 35], [33, 34, 35, 36]), ([34, 35], []))
+        # 상악 16-17, 15 있고 18 없음
+        self.assertEqual(rule_plan([16, 17], [15, 16, 17]), ([16], [17]))
+
+    def test_25_27_peak_at_010(self):
+        from dentbird_params import sweep_best, sweep_should_stop
+        h = [(-0.05, {"25-26": 1.2, "26-27": 1.8})]
+        self.assertFalse(sweep_should_stop(h))
+        h.append((-0.10, {"25-26": 1.7, "26-27": 3.2}))
+        self.assertFalse(sweep_should_stop(h))
+        h.append((-0.20, {"25-26": 0.9, "26-27": 2.0}))
+        self.assertTrue(sweep_should_stop(h))
+        self.assertEqual(sweep_best(h), -0.10)
+
+    def test_16_17_locks(self):
+        from dentbird_params import sweep_best, sweep_should_stop
+        h = [(-0.05, {"17-16": 0.3}), (-0.10, {"17-16": None})]
+        self.assertTrue(sweep_should_stop(h))
+        self.assertEqual(sweep_best(h), -0.05)
+
+    def test_all_locked_falls_back(self):
+        from dentbird_params import sweep_best
+        self.assertEqual(sweep_best([(-0.05, {"a": None})]), -0.05)
+
+    def test_choice(self):
+        from dentbird_params import junction_choice
+        self.assertEqual(junction_choice(3.2), "+")
+        self.assertEqual(junction_choice(0.3), "원형")
+        self.assertEqual(junction_choice(None), "원형")
+
 
 
 class SliderStepsTest(unittest.TestCase):
@@ -109,3 +145,7 @@ class ProximalPlanTest(unittest.TestCase):
     def test_no_natural(self):
         from dentbird_params import PROXIMAL_INNER, proximal_plan
         self.assertEqual(proximal_plan([26, 27], [], [26, 27]), [(26, PROXIMAL_INNER), (27, PROXIMAL_INNER)])
+
+
+if __name__ == "__main__":
+    unittest.main()

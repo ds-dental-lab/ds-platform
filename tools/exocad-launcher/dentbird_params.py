@@ -647,3 +647,202 @@ def _pick_shape(d) -> str:
     d.execute_script("arguments[0].click()", btn)
     time.sleep(0.8)
     return "+" if CONNECTOR_SHAPE == PLUS_SHAPE else f"{CONNECTOR_SHAPE + 1}번째"
+
+
+# ================================================================ 브릿지 규칙 (2026-11-03, docs/bridge_rules.md)
+#
+# ★ 규칙의 원본은 docs/bridge_rules.md 입니다. 여기 숫자를 바꾸면 그 문서도 같이 고칩니다.
+# ★ 근거는 사용자가 눈으로 합격시킨 4건(하악 44-46·34-36, 상악 16-17·25-27) — docs/bridge_cases.md.
+# ★ 덴트버드는 다시 생성할 때마다 모양이 조금씩 달라 면적 숫자가 바뀝니다 → 고정값이 아니라 화면을 읽어 고릅니다.
+
+#: 자연치에 닿는 유닛 — 먼저 겁니다 (나중에 건 값이 그 틈을 덮어씀)
+RULE_NATURAL = -0.020
+#: 양쪽 바깥이 다 자연치인 2유닛 — 나중 유닛 값이 자연치 접촉에도 걸려 여기서 멈춤 (사용자 2026-11-02 '맞컨택 -0.1')
+RULE_BOTH = -0.100
+#: 안쪽 유닛(폰틱·자연치 없는 끝)을 이 순서로 내려 보며 + 면적을 읽습니다. 잠기거나 줄면 한 단계 앞이 답
+RULE_SWEEP = (-0.05, -0.10, -0.15, -0.20, -0.25, -0.30)
+#: + 가 열려 있어도 면적이 이보다 작으면 원형으로 (44-46 의 45-46 은 어느 값에서도 0~0.3 이었음)
+RULE_PLUS_MIN_AREA = 0.5
+#: + 를 못 쓸 때 원형 크기 (44-46 합격값 — 중심 1mm 내림은 아직 사람 손)
+RULE_CIRCLE = (4.0, 4.0)
+
+
+def rule_plan(units: list[int], present: list[int]) -> tuple[list[int], list[int]]:
+    """(자연치에 닿는 유닛, 안쪽 유닛). present = 화면 이름표 전부(자연치 포함)"""
+    units = sorted(set(units))
+    have = set(present)
+    natural = [u for u in units if any(nb in have and nb not in units for nb in fdi_neighbors(u))]
+    inner = [u for u in units if u not in natural]
+    return natural, inner
+
+
+def sweep_total(areas: dict[str, float | None]) -> float | None:
+    """한 단계의 + 면적 합. 하나라도 잠겼으면 None"""
+    if any(a is None for a in areas.values()):
+        return None
+    return round(sum(areas.values()), 3)
+
+
+def sweep_should_stop(history: list[tuple[float, dict[str, float | None]]]) -> bool:
+    """방금 단계에서 + 가 잠겼거나 면적 합이 앞 단계보다 줄었으면 그만"""
+    if not history:
+        return False
+    now = sweep_total(history[-1][1])
+    if now is None:
+        return True
+    if len(history) >= 2:
+        before = sweep_total(history[-2][1])
+        if before is not None and now < before:
+            return True
+    return False
+
+
+def sweep_best(history: list[tuple[float, dict[str, float | None]]]) -> float:
+    """잠기지 않은 단계 중 + 면적 합이 가장 큰 값. 모두 잠겼으면 첫 값"""
+    best, best_total = history[0][0], None
+    for value, areas in history:
+        total = sweep_total(areas)
+        if total is None:
+            break
+        if best_total is None or total > best_total:
+            best, best_total = value, total
+    return best
+
+
+def junction_choice(area: float | None) -> str:
+    """'+' 또는 '원형'"""
+    return "+" if area is not None and area >= RULE_PLUS_MIN_AREA else "원형"
+
+
+_MERGE_JS = (
+    "const root=document.querySelector('[data-testid=connect-cross-sectional-shape]'); if(!root) return null;"
+    "const k=Object.keys(root).find(x=>x.startsWith('__reactFiber')); let f=root[k];"
+    "for(let i=0;i<8&&f;i++){ if(f.memoizedProps&&f.memoizedProps.mergeModePossible) return f.memoizedProps.mergeModePossible; f=f.return;}"
+    "return null;"
+)
+
+
+def _chips(d):
+    return d.find_elements("css selector", '[data-testid^="connect-connector-chip-"]')
+
+
+def _shape_buttons(d):
+    return d.find_elements("css selector", '[data-testid="connect-cross-sectional-shape"] button')
+
+
+def plus_areas(d, say=print) -> dict[str, float | None]:
+    """접합마다 + 면적. + 를 못 쓰면 None. (읽으면서 각 접합을 + 로 바꿔 둡니다)"""
+    close_panels(d)
+    _open_tool(d, "toolbar-tool-connect", "connect-process")
+    time.sleep(2.5)
+    merge = d.execute_script(_MERGE_JS) or {}
+    out: dict[str, float | None] = {}
+    for i in range(len(_chips(d))):
+        chip = _chips(d)[i]
+        name = (chip.text or "").strip()
+        d.execute_script("arguments[0].click()", chip)
+        time.sleep(2.0)
+        btns = _shape_buttons(d)
+        locked = len(btns) < 4 or btns[3].get_attribute("disabled") is not None or merge.get(name) is False
+        if locked:
+            out[name] = None
+            continue
+        d.execute_script("arguments[0].click()", btns[3])
+        time.sleep(4.0)
+        out[name] = connector_area(" ".join((_q(d, "connect-size-info").text or "").split()))
+    close_panels(d)
+    return out
+
+
+def _set_slider_js(d, testid: str, value: float) -> None:
+    """원형 크기 — 숨은 range 칸에 값 넣고 input/change (2026-11-03 브라우저 실측으로 먹음)"""
+    d.execute_script(
+        "const inp=document.querySelector(`[data-testid=\"${arguments[0]}\"] input`);"
+        "Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(inp,String(arguments[1]));"
+        "inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true}));",
+        testid, value)
+
+
+def set_junction(d, name: str, choice: str) -> str:
+    """접합 하나를 '+' 또는 원형 4×4 로. 덴트버드가 말하는 단면 글자를 돌려줍니다"""
+    close_panels(d)
+    _open_tool(d, "toolbar-tool-connect", "connect-process")
+    time.sleep(2.0)
+    chip = next((c for c in _chips(d) if (c.text or "").strip() == name), None)
+    if chip is None:
+        raise ParamError(f"커넥터 {name} 칩이 없습니다")
+    d.execute_script("arguments[0].click()", chip)
+    time.sleep(2.0)
+    btns = _shape_buttons(d)
+    if choice == "+":
+        d.execute_script("arguments[0].click()", btns[3])
+        time.sleep(4.0)
+    else:
+        d.execute_script("arguments[0].click()", btns[1])
+        time.sleep(1.5)
+        _set_slider_js(d, "connect-size-slider-횡단", RULE_CIRCLE[0])
+        _set_slider_js(d, "connect-size-slider-수직", RULE_CIRCLE[1])
+        time.sleep(3.5)
+    info = " ".join((_q(d, "connect-size-info").text or "").split())
+    close_panels(d)
+    return info
+
+
+def bridge_rule(d, units: list[int], present: list[int], say=print) -> list[dict]:
+    """docs/bridge_rules.md 의 3)~8). 합치기 전까지. 접합마다 {name, choice, area, info, note} 를 돌려줍니다"""
+    units = sorted(set(units))
+    natural, inner = rule_plan(units, present)
+    history: list[tuple[float, dict[str, float | None]]] = []
+
+    def put(tooth: int, value: float) -> None:
+        # ★ 같은 이를 열 번 넘게 잘 고르다 한 번 '도구 막대가 안 뜸' 으로 멈춘 일이 있습니다 (2026-11-03 밤작업 H07).
+        #   패널을 닫고 잠깐 쉬었다가 두 번까지 다시 합니다.
+        for attempt in range(3):
+            try:
+                select_tooth(d, tooth)
+                set_proximal(d, value, say=lambda m: say(f"  {tooth}: {m}"))
+                return
+            except ParamError:
+                if attempt == 2:
+                    raise
+                say(f"  {tooth}: 고르기 실패 — 패널을 닫고 다시")
+                close_panels(d)
+                time.sleep(4)
+
+    if not inner:
+        # 양쪽 바깥이 다 자연치 — 앞 유닛 -0.02, 뒤 유닛 -0.10 에서 멈춤
+        first, last = units[0], units[-1]
+        put(first, RULE_NATURAL)
+        put(last, RULE_BOTH)
+        history.append((RULE_BOTH, plus_areas(d, say)))
+        best = RULE_BOTH
+        say(f"양쪽 자연치 2유닛 — {first} {RULE_NATURAL:+.2f} → {last} {RULE_BOTH:+.2f} · + 면적 {history[-1][1]}")
+    else:
+        for u in natural:
+            put(u, RULE_NATURAL)
+        for value in RULE_SWEEP:
+            for u in inner:
+                put(u, value)
+            history.append((value, plus_areas(d, say)))
+            say(f"안쪽 {inner} {value:+.2f} → + 면적 {history[-1][1]}")
+            if sweep_should_stop(history):
+                break
+        best = sweep_best(history)
+        if history[-1][0] != best:
+            for u in inner:
+                put(u, best)
+        say(f"고른 값: 안쪽 {inner} {best:+.2f}")
+    final = next(a for v, a in history if v == best)
+    report = []
+    for name, area in final.items():
+        choice = junction_choice(area)
+        info = set_junction(d, name, choice)
+        note = ""
+        if choice == "원형":
+            note = "원형 — 중심 1mm 잇몸 쪽 내림은 사람이"
+        elif area is not None and area < 1.0:
+            note = "+ 면적이 작음 — 목이 얇을 수 있음"
+        report.append({"name": name, "choice": choice, "area": area, "info": info, "note": note})
+        say(f"커넥터 {name}: {choice} ({info}) {note}")
+    report.append({"name": "_sweep", "best": best, "history": history, "natural": natural, "inner": inner})
+    return report

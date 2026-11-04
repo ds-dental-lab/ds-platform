@@ -45,6 +45,33 @@ def chrome() -> Path:
     raise SystemExit("크롬을 찾지 못했습니다")
 
 
+#: 밤 실행(batch_review.py)이 도는 동안 설계 일꾼이 새 일감을 잡지 않게 하는 표시 (2026-11-03).
+#: 덴트버드는 한 계정이 한 창에서만 일하므로 둘이 같은 전용 크롬을 동시에 만지면 서로 끊깁니다.
+BATCH_FLAG = STATE / "batch_running.json"
+#: 밤 실행은 건마다 표시를 새로 씁니다. 이보다 오래 안 바뀌었으면 죽은 것으로 보고 무시합니다
+BATCH_FLAG_STALE = 40 * 60
+
+
+def batch_running() -> bool:
+    try:
+        return BATCH_FLAG.is_file() and time.time() - BATCH_FLAG.stat().st_mtime < BATCH_FLAG_STALE
+    except OSError:
+        return False
+
+
+#: 설계 일꾼이 '덴플로우 주문이 와 있다' 고 남기는 표시 (2026-11-04). 밤 실행은 건 사이마다 보고 크롬을 내줍니다.
+WORKER_WANTS = STATE / "worker_wants.json"
+#: 일꾼이 죽어 표시가 남았을 때 — 이보다 오래된 표시는 무시합니다(일꾼 한 건은 길어야 15분)
+WORKER_WANTS_STALE = 30 * 60
+
+
+def worker_wants() -> bool:
+    try:
+        return WORKER_WANTS.is_file() and time.time() - WORKER_WANTS.stat().st_mtime < WORKER_WANTS_STALE
+    except OSError:
+        return False
+
+
 def alive() -> bool:
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json/version", timeout=2):
