@@ -428,6 +428,8 @@ def close_panels(d) -> None:
         ("toolbar-tool-refine", "refine-process"),
         ("toolbar-tool-inner", "inner-apply-btn"),
         ("toolbar-tool-connect", "connect-process"),
+        # ★ 마진선 도구도 (2026-11-04) — 열린 채면 '상태' 칸이 가려지고 생성 단추가 잠깁니다
+        ("toolbar-tool-margin-line", "margin-process"),
     ):
         if d.find_elements("css selector", f'[data-testid="{marker}"]'):
             _click(d, tool)

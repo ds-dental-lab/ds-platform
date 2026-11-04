@@ -16,7 +16,7 @@ import tempfile  # noqa: E402
 import time  # noqa: E402
 
 from batch_review import (  # noqa: E402
-    classify, groups_from, items_in, jaws, name_shots, neutral, parse_params, pontics_from, tidy_done,
+    classify, groups_from, items_in, jaws, name_shots, purge_judged, neutral, parse_params, pontics_from, tidy_done,
 )
 
 SMART = (
@@ -133,6 +133,25 @@ class ShotNameTest(unittest.TestCase):
             self.assertEqual(got, ["그림/R04_교합면.png", "그림/R04_마진면.png", "그림/R04_협면.png", "그림/R04_설면.png"])
             self.assertEqual(sorted(p.name for p in (f / "그림").iterdir()),
                              sorted(x.split("/")[1] for x in got))
+
+
+class PurgeTest(unittest.TestCase):
+    """판정 끝난 건은 dxd·그림을 지우고 기록은 남김 (2026-11-04)"""
+
+    def test_purge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp)
+            (f / "_끝남").mkdir()
+            (f / "그림").mkdir()
+            (f / "_끝남" / "a.dxd").write_bytes(b"x")
+            (f / "b.dxd").write_bytes(b"x")
+            (f / "그림" / "R01_교합면.png").write_bytes(b"x")
+            log = {"items": [{"file": "a.dxd", "verdict": "정상", "shots": ["그림/R01_교합면.png"]},
+                             {"file": "b.dxd", "shots": []}]}
+            self.assertEqual(purge_judged(f, log), (1, 1))
+            self.assertTrue((f / "b.dxd").exists())
+            self.assertEqual(log["items"][0]["shots"], [])
+            self.assertEqual(log["items"][0]["verdict"], "정상")
 
 
 class NightKeyTest(unittest.TestCase):

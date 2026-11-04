@@ -457,6 +457,11 @@ def run(scans: list[Path], want: list[int], say=print, mark=lambda stage, note=N
     #   단추는 멀쩡한데(`disabled` 아님) 위에 뭐가 덮여 있어 클릭이 가로막힙니다.
     #   한 번 실패했다고 포기하면 "눌렀는데 아무 일도 안 일어난다" 가 됩니다 —
     #   그 자리를 오늘 4분 헤맸습니다. 먹을 때까지 몇 번 더 눌러 봅니다.
+    # ★ 마진선이 꼬였으면 덴트버드가 생성을 거부합니다(단추는 살아 있음, 2026-11-04 하악 47 두 건).
+    #   그 치아 스캔이 모자란 것이라 다시 해도 같습니다 — 치과에 다시 찍어 달라고 하도록, 서버가
+    #   '스캔 문제' 로 읽는 말로 멈춥니다(auto-print stallKind MARGIN_TWIST). 치아는 주문서 치식으로 적습니다.
+    if "꼬인 마진라인" in text(d):
+        raise Stop(f"{', '.join(map(str, sorted(want)))}번 마진선이 꼬입니다 — 스캔을 봐 주세요 (마진이 언더컷을 가로지름)")
     say("생성을 누릅니다")
     mark("generating")
     for attempt in range(6):

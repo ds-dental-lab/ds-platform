@@ -1,6 +1,6 @@
 // 묶음 일감에서 일꾼이 멈추는 말 — 기계 판정이 '자동으로 못 함' 으로 가야 합니다 (2026-10-26)
 import { describe, it, expect } from 'vitest';
-import { stallKind, designVerdict } from '@/server/domain/auto-print';
+import { stallKind, designVerdict, stallAdvice } from '@/server/domain/auto-print';
 
 describe('브릿지·묶음 멈춤 말의 판정', () => {
   it('브릿지 준비 중 — 다시 걸어도 같으니 포기(give_up)', () => {
@@ -36,5 +36,19 @@ describe('브릿지·묶음 멈춤 말의 판정', () => {
   it('합치기·묶기 실패는 일시적 — 다시 건다', () => {
     expect(stallKind('브릿지 25-27 로 안 묶였습니다 — 화면: 크라운 26 크라운 27')).toBe('transient');
     expect(designVerdict('합치기를 눌렀는데 90초 안에 \'조립됨\' 이 안 뜹니다', 0)).toBe('retry');
+  });
+});
+
+describe('마진선 꼬임 → 재스캔 요청 (2026-11-04)', () => {
+  const n = '47번 마진선이 꼬입니다 — 스캔을 봐 주세요 (마진이 언더컷을 가로지름)';
+  it('스캔 문제로 가려 치과에 다시 올려 달라고 합니다', () => {
+    expect(stallKind(n)).toBe('scan');
+    expect(designVerdict(n, 0)).toBe('wait_scan');
+  });
+  it('어느 치아를 다시 찍을지 말합니다', () => {
+    expect(stallAdvice(n)).toEqual({ what: '47번 마진이 스캔에 잘 안 보입니다', todo: '그 치아를 다시 스캔해 올려 주세요' });
+  });
+  it('치아가 둘이어도', () => {
+    expect(stallAdvice('46, 47번 마진선이 꼬입니다 — 스캔을 봐 주세요').what).toBe('46, 47번 마진이 스캔에 잘 안 보입니다');
   });
 });

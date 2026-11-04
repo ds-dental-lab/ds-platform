@@ -240,10 +240,16 @@ function toGroup(members: DesignTooth[]): DesignGroup {
   return { teeth, pontics };
 }
 
+/** 일꾼이 남기는 말 '47번 마진선이 꼬입니다' — 치아 번호를 꺼내 치과 안내에 씁니다 */
+const MARGIN_TWIST = /(\d{2}(?:, ?\d{2})*)번 마진선이 꼬입니다/;
+
 export type StallKind = 'unsupported' | 'unreadable' | 'scan' | 'credits' | 'setup' | 'transient';
 
 export function stallKind(note: string | null | undefined): StallKind {
   const n = (note ?? '').trim();
+  // ★ 마진선이 꼬임 = 그 치아의 스캔이 모자람 (2026-11-04 하악 47 두 건 — 지대치가 가는 조각만 찍혀 마진선이
+  //   언더컷을 가로지름). 선을 고쳐도 크라운 바닥이 안 맞아 다시 스캔해야 합니다. 맨 앞에서 가립니다
+  if (MARGIN_TWIST.test(n)) return 'scan';
   // ★ 묶음 여럿은 아직 자동으로 못 하는 것 — 다시 걸어 봐야 같은 자리 (2026-10-26)
   // ★ 브릿지는 2026-10-28 부터 자동 — 남는 것은 결손 자리에 이름표가 없을 때(사람이 폰틱을 찍어야)와
   //   의뢰서가 이상할 때(떨어진 크라운 둘인데 연결 표시) 뿐. 둘 다 다시 걸어도 같습니다
@@ -433,6 +439,11 @@ export function stallAdvice(note: string | null | undefined): StallAdvice {
   }
   if (/시험|--no-export/.test(n)) {
     return { what: '시험 건입니다', todo: '센터가 정리합니다' };
+  }
+  // ★ 마진선 꼬임은 어느 치아를 다시 찍어야 하는지 말해 줍니다 (사용자 2026-11-04 "새로운 스캔을 달라고 문구를")
+  const twist = n.match(MARGIN_TWIST);
+  if (twist) {
+    return { what: `${twist[1]}번 마진이 스캔에 잘 안 보입니다`, todo: '그 치아를 다시 스캔해 올려 주세요' };
   }
   // ★ 스캔은 치과가 고칠 수 있는 것 — 다시 올리면 저절로 이어집니다 (2026-10-21)
   if (stallKind(n) === 'scan') {

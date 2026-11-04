@@ -474,9 +474,124 @@ def link_neighbors(d, say) -> int:
     return n
 
 
-def generate(d, units: int, say) -> None:
-    for _ in range(6):
+#: 생성 단추가 잠겼을 때 그 순간의 화면 사정 (2026-11-04)
+_GEN_STATE_JS = r"""
+const g=document.querySelector('[data-testid=generate-crown-btn]');
+const vis=s=>[...document.querySelectorAll(s)].filter(e=>e.offsetParent).length;
+return {disabled: g?g.disabled:null, linkApply: vis('[data-testid=bridge-link-panel-apply-btn]'),
+  dialog: vis('[role=dialog]'), links: [...document.querySelectorAll('[data-testid*=link]')].filter(e=>e.offsetParent)
+  .map(e=>e.getAttribute('data-testid')).filter((v,i,a)=>a.indexOf(v)===i)};
+"""
+
+
+def _unstick(d, say) -> bool:
+    """잠긴 생성 단추를 풀어 봅니다. 풀리면 True — 무엇으로 풀렸는지 기록에 남깁니다.
+
+    ★ 덴트버드 화면 코드(2026-11-04 읽음): 생성 단추는 ① 무거운 작업 중 ② 서버와 통신 중 ③ 기본 모드가 아님
+      ④ 생성할 보철 없음 — 넷 중 하나면 잠깁니다. 2026-11-04 H17 은 링크 고리가 떠 있는 채 잠겨 ③ 을 의심합니다.
+    """
+    from selenium.webdriver.common.keys import Keys  # noqa: PLC0415
+
+    st = d.execute_script(_GEN_STATE_JS)
+    say(f"생성 단추 잠김 — {st}")
+    tries = [
+        ("링크 창 적용", lambda: d.execute_script("document.querySelector('[data-testid=bridge-link-panel-apply-btn]')?.click()")),
+        ("링크 창 닫기", lambda: d.execute_script("document.querySelector('[data-testid=bridge-link-panel-close-btn]')?.click()")),
+        ("Esc", lambda: d.find_element("tag name", "body").send_keys(Keys.ESCAPE)),
+        ("대화창 닫기", lambda: dismiss(d)),
+    ]
+    for name, act in tries:
         try:
+            act()
+        except Exception:  # noqa: BLE001
+            continue
+        time.sleep(3)
+        if not d.execute_script("return document.querySelector('[data-testid=generate-crown-btn]')?.disabled"):
+            say(f"생성 단추가 풀렸습니다 — {name}")
+            return True
+    return False
+
+
+#: 덴트버드가 생성을 거부하는 경고 — 다시 해도 같으므로 바로 보류(사람이 마진을 고쳐야 함)
+REFUSE_SIGNS = ("꼬인 마진라인",)
+
+
+def _refused(d) -> str | None:
+    """'상태' 칸이 보일 때만 경고를 읽습니다. 칸이 안 보이면(도구 칸이 덮음) 경고가 있는 것으로 봅니다.
+
+    ★ 2026-11-04 첫 시도: 마진선 도구를 열자 '상태' 칸이 마진선 칸으로 바뀌어 경고 글자가 사라졌고,
+      그것을 '풀렸다' 로 읽었습니다.
+    """
+    close_panels(d)
+    time.sleep(1)
+    body = text(d)
+    if "상태" not in body:
+        return "상태 칸이 안 보임"
+    return next((w for w in REFUSE_SIGNS if w in body), None)
+
+
+def _pick_for_margin(d, n: int) -> bool:
+    """생성 전 화면에서 치아 n 을 골라 도구 막대를 띄웁니다 (생성 전에는 내면 도구가 없어 select_tooth 를 못 씀)"""
+    close_panels(d)
+    for _ in range(8):
+        hit = d.execute_script(
+            "const l=[...document.querySelectorAll('[data-testid=component-floating-label-button]')]"
+            ".find(e=>(e.innerText||'').trim()===String(arguments[0])); if(!l) return false; l.click(); return true;", n)
+        time.sleep(1.2)
+        if hit and d.find_elements("css selector", '[data-testid="toolbar-tool-margin-line"]'):
+            bar = d.execute_script("return (document.querySelector('[data-testid=crown-toolbar]')||{}).innerText||''")
+            if str(n) in bar or not bar:
+                return True
+    return False
+
+
+def _margin_apply(d) -> None:
+    d.execute_script("document.querySelector('[data-testid=margin-apply-btn]')?.click()")
+    time.sleep(4)
+    dismiss(d)  # '꼬인 선 감지' 안내 창이 뜨면 닫음
+    time.sleep(1)
+
+
+def find_twisted(d, units: list[int], say, shots: Path | None, tag: str) -> list[int]:
+    """'꼬인 마진라인' 일 때 어느 치아 탓인지 찾습니다 — 마진선 도구를 열어 언더컷 알림이 뜨는 치아.
+
+    ★ 2026-11-04 하악 45-47 두 번 시도: 좁히기·넓히기·재탐지로는 안 풀렸습니다. 마진선 도구로 47 만 띄우니
+      지대치가 스캔에 거의 없고(가는 조각, 대부분 언더컷), 덴트버드가 "마진 라인이 언더컷 영역을 가로지르고
+      있습니다" 라고 알렸습니다. 스캔이 없는 곳은 선을 고쳐도 크라운 바닥이 맞지 않으므로 고치지 않고,
+      어느 치아인지 적어 재스캔으로 돌립니다(사용자 2026-11-04 확인 전 — 결과 보고 후 정함).
+    """
+    from dentbird_params import _open_tool  # noqa: PLC0415
+
+    bad: list[int] = []
+    for n in units:
+        if not _pick_for_margin(d, n):
+            continue
+        try:
+            _open_tool(d, "toolbar-tool-margin-line", "margin-process")
+        except Exception:  # noqa: BLE001
+            continue
+        time.sleep(2.5)
+        if "언더컷 영역을 가로지르고" in text(d):
+            bad.append(n)
+            if shots is not None:
+                d.save_screenshot(str(shots / f"{tag}_마진_{n}.png"))
+        close_panels(d)
+        time.sleep(1)
+    say(f"꼬인 마진라인 — 언더컷을 가로지르는 치아 {bad or '못 찾음'}")
+    return bad
+
+
+def generate(d, units: int, say) -> None:
+    # ★ 2026-11-04 H19: 생성 단추는 살아 있는데 눌러도 시작이 안 됐습니다. 상태 칸에 빨간 '꼬인 마진라인' 경고 —
+    #   AI 가 그린 마진선이 꼬이면 덴트버드가 생성을 거부합니다. 96초를 버리지 않고 이유를 적어 보류합니다.
+    body = text(d)
+    hit = next((w for w in REFUSE_SIGNS if w in body), None)
+    if hit:
+        raise Stop(f"덴트버드 경고 '{hit}' — 마진선을 사람이 고쳐야 생성됩니다")
+    for attempt in range(6):
+        try:
+            if d.execute_script("return document.querySelector('[data-testid=generate-crown-btn]')?.disabled") and attempt >= 1:
+                _unstick(d, say)
             click(d, "generate-crown-btn")
             time.sleep(6)
             if re.search(r"준비 중|생성 중|생성됨", text(d)):
@@ -595,6 +710,14 @@ def design_one(d, item: Path, scans: tuple[Path, Path], rec: dict, say, shots: P
     click(d, "workspace-preparation-design-btn")
     time.sleep(8)
     units_total = sum(len(b) for b in bridges) + len(singles)
+    time.sleep(2)
+    if _refused(d):
+        crowns = [u for b in bridges for u in b if u not in pontics_from(text(d), b)] + list(singles)
+        bad = find_twisted(d, crowns, say, shots, rec.get("tag", "x"))
+        rec["twisted"] = bad
+        if bad:
+            # ★ 서버(auto-print stallKind)와 같은 말 — '지대치' 를 쓰면 '자동으로 못 하는 종류' 로 잘못 읽힙니다
+            raise Stop(f"{', '.join(map(str, bad))}번 마진선이 꼬입니다 — 스캔을 봐 주세요 (마진이 언더컷을 가로지름), 재스캔 필요")
     generate(d, units_total, say)
     body = text(d)
 
@@ -725,6 +848,33 @@ def tidy_done(folder: Path, log: dict, now: float | None = None) -> tuple[int, i
     return moved, removed
 
 
+def purge_judged(folder: Path, log: dict) -> tuple[int, int]:
+    """판정이 끝난 건의 dxd 원본과 그림을 지웁니다. (지운 dxd, 지운 그림)
+
+    ★ 사용자 2026-11-04: "평가가 끝난 것들은 파일을 지워 줬으면". 기록(번호·고른 값·면적·판정)은 남깁니다 —
+      규칙을 다듬을 근거는 기록이고, 환자 스캔은 판정이 끝나면 둘 까닭이 없습니다.
+    """
+    dxd = pics = 0
+    for it in log["items"]:
+        if not it.get("verdict") or it.get("purged"):
+            continue
+        for place in (folder / it["file"], folder / DONE_DIR / it["file"]):
+            if place.is_file():
+                place.unlink()
+                dxd += 1
+            elif place.is_dir():
+                shutil.rmtree(place, ignore_errors=True)
+                dxd += 1
+        for rel in list(it.get("shots", [])) + ([it["shot"]] if it.get("shot") else []):
+            q = folder / rel
+            if q.is_file():
+                q.unlink()
+                pics += 1
+        it["shots"], it["purged"] = [], time.strftime("%Y-%m-%d")
+        it.pop("shot", None)
+    return dxd, pics
+
+
 def items_in(folder: Path) -> list[Path]:
     out = []
     for p in sorted(folder.iterdir()):
@@ -842,8 +992,15 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:  # noqa: BLE001 — 크롬이 멈췄거나 꺼짐
             on_screen = False
             try:
+                # ★ 크롬이 꺼졌으면 다시 띄우고 이어 갑니다 (2026-11-04 — 12:14 크롬 끊김으로 남은 건을 못 함)
+                if not alive():
+                    say("전용 크롬이 꺼져 다시 띄웁니다")
+                    if not ensure_ready(say):
+                        raise RuntimeError("크롬을 다시 못 띄움")
                 d = quietly(attach)
-                home = d.current_window_handle
+                place_window(d, hidden=True)
+                home = quietly(bg_tab, d, HOME_TAB)
+                rec["retry"] = True  # 이 건은 크롬 탓 — 다음 실행에 다시
             except Exception:  # noqa: BLE001
                 rec["retry"] = True
                 log["items"] = [it for it in log["items"] if it["file"] != item.name] + [rec]
@@ -888,6 +1045,10 @@ def main(argv: list[str] | None = None) -> int:
         if sub.is_dir():
             shutil.rmtree(sub, ignore_errors=True)  # 바꾼 스캔은 남기지 않습니다 (원본 dxd 는 그대로)
     moved, removed = tidy_done(folder, log)
+    gone_dxd, gone_pics = purge_judged(folder, log)
+    if gone_dxd or gone_pics:
+        save_log(folder, log)
+        print(f"판정 끝난 건의 dxd {gone_dxd}개·그림 {gone_pics}장을 지움")
     if moved or removed:
         print(f"끝난 dxd {moved}개를 {DONE_DIR} 로 옮김, {KEEP_DAYS}일 지난 것 {removed}개 지움")
     print(f"끝 — 검토표: {write_sheet(folder, log)}")
