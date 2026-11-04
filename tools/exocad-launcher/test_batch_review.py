@@ -16,7 +16,7 @@ import tempfile  # noqa: E402
 import time  # noqa: E402
 
 from batch_review import (  # noqa: E402
-    classify, groups_from, items_in, jaws, name_shots, prepare, purge_judged, neutral, parse_params, pontics_from, tidy_done,
+    classify, groups_from, items_in, jaws, load_log, name_shots, prepare, purge_judged, save_log, set_verdict, neutral, parse_params, pontics_from, tidy_done,
 )
 
 SMART = (
@@ -160,8 +160,8 @@ class PurgeTest(unittest.TestCase):
             (f / "b.dxd").write_bytes(b"x")
             (f / "그림" / "R01_교합면.png").write_bytes(b"x")
             log = {"items": [{"file": "a.dxd", "verdict": "정상", "shots": ["그림/R01_교합면.png"]},
-                             {"file": "b.dxd", "shots": []}]}
-            self.assertEqual(purge_judged(f, log), (1, 1))
+                             {"file": "b.dxd", "shots": [], "verdict": "비정상", "retry": True}]}
+            self.assertEqual(purge_judged(f, log), (1, 1))  # 다시 돌릴 b 는 안 지움
             self.assertTrue((f / "b.dxd").exists())
             self.assertEqual(log["items"][0]["shots"], [])
             self.assertEqual(log["items"][0]["verdict"], "정상")
@@ -185,6 +185,24 @@ class ZipTest(unittest.TestCase):
             up, low = prepare(z, f / "_작업" / "case", print)
             self.assertEqual((up.name, low.name, up.read_bytes(), low.read_bytes()), ("upperjaw.stl", "lowerjaw.stl", b"u", b"l"))
             self.assertFalse((f.parent / "evil.stl").exists())
+
+
+class VerdictFileTest(unittest.TestCase):
+    """판정은 따로 — 실행이 기록을 덮어써도 남음 (2026-11-04 R08 판정이 지워진 일)"""
+
+    def test_survives_log_overwrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp)
+            save_log(f, {"items": [{"file": "a.dxd", "number": "R08", "status": "done"}]})
+            set_verdict(f, "R08", "비정상", "폰틱 하단 이상")
+            # 돌고 있던 실행이 옛 메모리로 기록을 덮어씀
+            save_log(f, {"items": [{"file": "a.dxd", "number": "R08", "status": "done"}, {"file": "b.dxd", "number": "R09", "status": "done"}]})
+            log = load_log(f)
+            r08 = next(i for i in log["items"] if i["number"] == "R08")
+            self.assertEqual((r08["verdict"], r08["verdict_note"]), ("비정상", "폰틱 하단 이상"))
+            self.assertNotIn("verdict", next(i for i in log["items"] if i["number"] == "R09"))
+            # 기록 파일 자체에는 판정이 안 들어감
+            self.assertNotIn("verdict", (f / "밤작업_기록.json").read_text(encoding="utf-8"))
 
 
 class NightKeyTest(unittest.TestCase):

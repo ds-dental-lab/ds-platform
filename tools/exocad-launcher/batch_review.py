@@ -821,15 +821,67 @@ def design_one(d, item: Path, scans: tuple[Path, Path], rec: dict, say, shots: P
 
 # ---------------------------------------------------------------- 기록·검토표
 
+VERDICT_NAME = "판정.json"
+#: 다음 실행에 다시 할 파일 이름 목록 — 돌고 있는 실행이 기록을 덮어써도 남게 따로 둡니다 (2026-11-04)
+RETRY_NAME = "다시할것.json"
+
+
+def mark_retry(folder: Path, names: list[str]) -> None:
+    p = folder / RETRY_NAME
+    cur = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else []
+    p.write_text(json.dumps(sorted(set(cur) | set(names)), ensure_ascii=False), encoding="utf-8")
+
+
+def take_retries(folder: Path, log: dict) -> list[str]:
+    """목록을 기록에 옮기고(그 건은 retry) 파일을 지웁니다"""
+    p = folder / RETRY_NAME
+    if not p.is_file():
+        return []
+    names = json.loads(p.read_text(encoding="utf-8"))
+    for it in log["items"]:
+        if it["file"] in names:
+            it["retry"] = True
+    p.unlink()
+    return names
+VERDICT_KEYS = ("verdict", "verdict_on", "verdict_how", "verdict_note")
+
+
+def load_verdicts(folder: Path) -> dict[str, dict]:
+    p = folder / VERDICT_NAME
+    if p.is_file():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except ValueError:
+            return {}
+    return {}
+
+
+def set_verdict(folder: Path, number: str, verdict: str, note: str = "", how: str = "검토표 크라운 네 장 육안") -> None:
+    """사용자 판정을 **기록과 다른 파일**에 적습니다 — 밤 실행이 돌고 있어도 안 지워집니다.
+
+    ★ 2026-11-04 R08 비정상 판정을 기록(밤작업_기록.json)에 적었는데, 돌고 있던 실행이 메모리에 든 기록으로
+      덮어써 사라졌습니다. 판정은 번호를 열쇠로 따로 두고, 읽을 때 합칩니다. 밤 실행은 이 파일을 쓰지 않습니다.
+    """
+    v = load_verdicts(folder)
+    v[number] = {"verdict": verdict, "verdict_on": time.strftime("%Y-%m-%d"), "verdict_how": how, "verdict_note": note}
+    (folder / VERDICT_NAME).write_text(json.dumps(v, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 def load_log(folder: Path) -> dict:
     p = folder / LOG_NAME
-    if p.is_file():
-        return json.loads(p.read_text(encoding="utf-8"))
-    return {"items": []}
+    log = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {"items": []}
+    verdicts = load_verdicts(folder)
+    for it in log["items"]:
+        v = verdicts.get(it.get("number", ""))
+        if v:
+            it.update({k: v[k] for k in VERDICT_KEYS if k in v})
+    return log
 
 
 def save_log(folder: Path, log: dict) -> None:
-    (folder / LOG_NAME).write_text(json.dumps(log, ensure_ascii=False, indent=1), encoding="utf-8")
+    """기록만 씁니다 — 판정 칸은 빼고(판정.json 이 원본). 읽을 때 도로 합쳐집니다"""
+    items = [{k: v for k, v in it.items() if k not in VERDICT_KEYS} for it in log["items"]]
+    (folder / LOG_NAME).write_text(json.dumps({**log, "items": items}, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 def write_sheet(folder: Path, log: dict) -> Path:
@@ -926,8 +978,8 @@ def purge_judged(folder: Path, log: dict) -> tuple[int, int]:
     """
     dxd = pics = 0
     for it in log["items"]:
-        if not it.get("verdict") or it.get("purged"):
-            continue
+        if not it.get("verdict") or it.get("purged") or it.get("retry"):
+            continue  # 다시 돌릴 건(비정상 판정 뒤 규칙을 고친 R08 같은)은 원본을 둡니다
         for place in (folder / it["file"], folder / DONE_DIR / it["file"]):
             if place.is_file():
                 place.unlink()
@@ -970,13 +1022,21 @@ def main(argv: list[str] | None = None) -> int:
     shots = folder / "그림"
     shots.mkdir(parents=True, exist_ok=True)
     log = load_log(folder)
+    again = take_retries(folder, log)
+    if again:
+        for name in again:  # 끝난 쪽으로 옮겨진 원본을 되돌림
+            src = folder / DONE_DIR / name
+            if src.exists() and not (folder / name).exists():
+                src.rename(folder / name)
+        save_log(folder, log)
+        print(f"다시 할 것 {len(again)}건을 목록에서 받았습니다")
     # ★ 로그인 풀림처럼 환경 탓으로 멈춘 건(retry)은 다음 실행에 다시 합니다 (2026-11-03 시험 — DS Core 로그인 전)
     seen = {it["file"] for it in log["items"] if not it.get("retry")}
     todo = [p for p in items_in(folder) if p.name not in seen][: a.limit]
     print(f"할 것 {len(todo)}건 (이미 한 것 {len(seen)}건)")
     if not todo:
         write_sheet(folder, log)
-        return 0
+        return 4  # 할 것 없음 — 단추(.cmd)가 이 값을 보고 되풀이를 멈춥니다
     if batch_running():
         print("밤 실행이 이미 돌고 있습니다 — 두 개를 같이 돌리면 크롬 탭이 겹쳐 꺼집니다")
         return 3
