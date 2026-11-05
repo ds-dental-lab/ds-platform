@@ -48,3 +48,6 @@ Supabase 쪽 **시계가 틀어져** DB가 로그인 토큰을 `PGRST303 JWT iss
 - 10:36 로그인 → 12:31 (GET 이동) 때는 `?next=` 붙은 쪽이었음 — 그건 토큰 만료 뒤 갱신 실패(쿠키 없이 1시간 55분 방치).
 - 고침: `policies/session.ts` getSession — claims 가 비어도 인증 쿠키가 있으면 **getUser 로 한 번 더 확인**(proxy 와 같은 길), 결과를 `[session] 토큰 검증 실패 → 인증 서버에 재확인` 으로 console.error → Vercel 로그에서 찾을 수 있음.
 - 못 본 것(사용자 손): Supabase 대시보드 Authentication 로그에서 10/21 13:08·13:27 KST 치ㅣ 계정의 token refresh 오류, 그리고 Sessions 설정의 **JWT 만료 시간·refresh token reuse interval**. 대시보드·Vercel 로그는 내 브라우저 창에서 로그인이 풀려 못 들어감.
+
+## 2026-10-28 06:59:57 — 1초짜리 PGRST303 (헛경보)
+같은 코드로 경보 메일이 왔지만, 접속 기록을 보니 **같은 초에 거절 → 다음 초(07:00:00)부터 들어옴**. 토큰 찍는 서버와 검사하는 서버 시계가 1초 어긋난 것. 재시작 안 누름. 고침(5a9b53e): `getSession` 이 PGRST303 이면 1.5초 뒤 한 번 더 묻고 그래도 막힐 때만 경보. **판별법: audit_logs 에 경보 직후 접속이 있으면 헛경보.**
