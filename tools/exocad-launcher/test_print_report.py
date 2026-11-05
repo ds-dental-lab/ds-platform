@@ -101,5 +101,45 @@ class StatusRefindTest(unittest.TestCase):
         self.assertEqual(p.host, "192.168.0.123")
 
 
+
+class ClaimGateTest(unittest.TestCase):
+    """DB 먼저 묻기 (2026-11-05) — '없다' 면 버셀에 안 가고, 1분마다 한 번은 감, DB 가 말 없으면 감"""
+
+    def _w(self):
+        return print_loop.PrintWorker("t" * 20, {}, Path("."), say=lambda m: None)
+
+    def test_first_time_always_asks(self):
+        self.assertTrue(self._w().should_claim(now=1000.0, probe=lambda t: {"print": False, "warm": False}))
+
+    def test_db_says_nothing(self):
+        w = self._w()
+        w.last_ask = 1000.0
+        self.assertFalse(w.should_claim(now=1010.0, probe=lambda t: {"print": False, "warm": True}))
+        self.assertTrue(w.warm_hint)  # 데우기 신호는 DB 답에서
+
+    def test_db_says_something(self):
+        w = self._w()
+        w.last_ask = 1000.0
+        self.assertTrue(w.should_claim(now=1010.0, probe=lambda t: {"print": True, "warm": False}))
+
+    def test_db_silent_falls_back(self):
+        w = self._w()
+        w.last_ask = 1000.0
+        self.assertTrue(w.should_claim(now=1010.0, probe=lambda t: None))
+
+    def test_safety_net(self):
+        w = self._w()
+        w.last_ask = 1000.0
+        self.assertTrue(w.should_claim(now=1000.0 + print_loop.CLAIM_FORCE_SECONDS, probe=lambda t: {"print": False}))
+
+    def test_tick_skips_vercel(self):
+        w = self._w()
+        w.last_ask = time_now = __import__("time").time()
+        w.should_claim = lambda: False
+        w.claim = lambda: self.fail("버셀에 물으면 안 됨")
+        w.keep_warm = lambda: None
+        self.assertFalse(w.tick())
+
+
 if __name__ == "__main__":
     unittest.main()

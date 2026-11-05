@@ -48,6 +48,35 @@ def probe(secret: str | None, timeout: float = 8.0) -> dict | None:
     return got
 
 
+def clinic_probe(token: str | None, timeout: float = 8.0) -> dict | None:
+    """치과 에이전트용 (2026-11-05) — {"print": bool, "warm": bool}. 못 물었으면 None (그러면 버셀에 묻습니다).
+
+    ★ 공용 비밀이 아니라 **그 기기의 열쇠**로 묻습니다. DB 가 그 기기 치과 것만 답합니다
+      (supabase/migrations/20261105120000_clinic_print_probe.sql).
+    ★ 함수가 아직 DB 에 없거나(마이그레이션 전) 망이 막히면 None — 옛길(버셀만) 그대로 돕니다.
+    """
+    if not token:
+        return None
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}/rest/v1/rpc/clinic_print_probe",
+        data=json.dumps({"p_token": token}).encode("utf-8"),
+        headers={
+            "content-type": "application/json",
+            "apikey": ANON_KEY,
+            "authorization": f"Bearer {ANON_KEY}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            got = json.loads(r.read().decode("utf-8", "replace"))
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        return None
+    if not isinstance(got, dict) or "print" not in got:
+        return None
+    return got
+
+
 class Gate:
     """한 종류(design / reslice)에 대해 '지금 버셀에 물을까' 를 정합니다."""
 

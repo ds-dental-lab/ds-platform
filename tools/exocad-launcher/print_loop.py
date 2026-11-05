@@ -40,6 +40,9 @@ BASE = __import__("os").environ.get("DENFLOW_BASE", "https://denflow.kr")  # 시
 #:   — 치과 PC 하나가 하루 약 4,900. 「비웠습니다」 뒤 기다림은 낮에 최대 10초
 POLL_SECONDS = 10
 POLL_IDLE_SECONDS = 60
+#: DB 가 '없다' 고 해도 이만큼에 한 번은 버셀에 직접 묻습니다 (2026-11-05) — 설계 PC 와 같은 1분
+#: ★★ 3분(DEVICE_OFFLINE_SECONDS=180) 보다 길게 하지 마세요 — 화면의 '치과 PC 꺼짐' 판정이 버셀 묻기 시각(last_seen_at)을 봅니다
+CLAIM_FORCE_SECONDS = 60
 
 #: ★ 미리 데우기 (사용자 2026-10-23 "미리 데우기도 넣어줘") — **판만**, 55도(텍스처 PEI 첫 층).
 #:   노즐은 안 데웁니다: A1 mini 는 시작할 때 노즐을 170·140 으로 **식히며 기다려서**
@@ -122,6 +125,32 @@ class PrintWorker:
         self.warm_since: float | None = None
         self.warm_sent = 0.0
         self.warm_gave_up = False
+        #: 버셀에 마지막으로 물은 때 — DB 먼저 묻기(2026-11-05)의 안전망 간격을 잽니다
+        self.last_ask = 0.0
+
+    def should_claim(self, now: float | None = None, probe=None) -> bool:
+        """
+        이번 바퀴에 버셀(/api/device/print)에 물을까 (2026-11-05, 사용자 "치과 에이전트도 DB 직결로").
+
+        ★ 치과 PC 한 대가 진료 시간에 10초마다 버셀을 불러 하루 약 5,200건이었습니다. 이제 DB 가
+          '있을 수도 있다' 고 할 때만 버셀에 갑니다. 출력 시작 속도는 같습니다(DB 도 10초마다 봅니다).
+        ★ 안전망: DB 가 '없다' 고 해도 CLAIM_FORCE_SECONDS 마다 한 번은 버셀에 그냥 묻습니다.
+          DB 가 답을 못 하면(None) 언제나 버셀에 묻습니다 — 옛길 그대로.
+        ★ 미리 데우기 신호도 DB 답에서 받습니다. 안 그러면 버셀에 안 묻는 동안 판을 식혀 버립니다.
+        """
+        now = time.time() if now is None else now
+        if now - self.last_ask >= CLAIM_FORCE_SECONDS:
+            return True
+        if probe is None:
+            try:
+                from probe import clinic_probe as probe  # noqa: PLC0415
+            except ImportError:
+                return True  # 묶음에 빠졌으면 옛길
+        got = probe(self.token)
+        if got is None:
+            return True
+        self.warm_hint = bool(got.get("warm"))
+        return bool(got.get("print"))
 
     def _key(self) -> tuple:
         s = self.settings
@@ -170,6 +199,7 @@ class PrintWorker:
     # --- 서버와 주고받기 ---
 
     def claim(self) -> dict | None:
+        self.last_ask = time.time()
         got = _post(f"{BASE}/api/device/print", {}, self.token)
         if not got.get("ok"):
             self.say(f"물어보기 실패: {got.get('error', '')}")
@@ -416,6 +446,9 @@ class PrintWorker:
         """할 일이 있었으면 True"""
         self.flush()
         self.refresh_printer()
+        if not self.should_claim():
+            self.keep_warm()
+            return False
         job = self.claim()
         if not job:
             self.keep_warm()
