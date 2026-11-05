@@ -681,7 +681,9 @@ RULE_SWEEP = (-0.05, -0.10, -0.15, -0.20, -0.25, -0.30)
 #: 처음부터 + 가 잠겨 있으면(아직 안 닿음) 이어서 더 겹쳐 봅니다 — 덴트버드 인접 조정의 끝은 -0.5 (2026-11-02 실측)
 RULE_SWEEP_REACH = (-0.35, -0.40, -0.45, -0.50)
 #: + 가 열려 있어도 면적이 이보다 작으면 원형으로 (44-46 의 45-46 은 어느 값에서도 0~0.3 이었음)
-RULE_PLUS_MIN_AREA = 0.5
+#: + 로 갈 최소 면적. 0.5 였다가 0.1 로 (2026-11-05) — 원형으로 간 R21·R25·R28·R31·R33 이 모두 비정상
+#: ("+ 로 했으면 괜찮을 것"). 이들의 + 면적은 0.1~0.4 였습니다. 0 은 안 닿은 것이라 그때만 원형.
+RULE_PLUS_MIN_AREA = 0.1
 #: + 를 못 쓸 때 원형 크기 (44-46 합격값 — 중심 1mm 내림은 아직 사람 손)
 RULE_CIRCLE = (4.0, 4.0)
 
@@ -882,7 +884,8 @@ def bridge_rule(d, units: list[int], present: list[int], say=print) -> list[dict
         info = set_junction(d, name, choice)
         note = ""
         if choice == "원형":
-            note = "원형 — 중심 1mm 잇몸 쪽 내림은 사람이"
+            note = ("연결부가 안 닿음(+ 면적 0) — 사람이 봐 주세요" if area == 0
+                    else "+ 를 못 씀(잠김) — 원형, 사람이 봐 주세요")
         elif area is not None and area < 1.0:
             note = "+ 면적이 작음 — 목이 얇을 수 있음"
         report.append({"name": name, "choice": choice, "area": area, "info": info, "note": note})

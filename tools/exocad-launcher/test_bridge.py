@@ -104,7 +104,8 @@ class RuleSweepTest(unittest.TestCase):
     def test_choice(self):
         from dentbird_params import junction_choice
         self.assertEqual(junction_choice(3.2), "+")
-        self.assertEqual(junction_choice(0.3), "원형")
+        self.assertEqual(junction_choice(0.3), "+")   # 2026-11-05: 0.2~0.4 도 + (원형 7곳 모두 비정상)
+        self.assertEqual(junction_choice(0.0), "원형")  # 안 닿음
         self.assertEqual(junction_choice(None), "원형")
 
 
