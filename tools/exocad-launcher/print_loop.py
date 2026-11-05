@@ -112,6 +112,7 @@ class PrintWorker:
         #: 설정을 적어 두는 쪽. 프린터 주소가 바뀌면 기억해 둡니다
         self.save = save
         self.printer = build_printer(settings, work_dir / "보낸것")
+        self._printer_key = self._key()
         #: 못 보낸 단계 보고 — 연결이 돌아오면 다시 보냅니다 (2026-10-16 점검)
         self.pending: list[tuple[str, dict]] = []
         #: 한 건을 들고 있는가 — 스스로 업데이트가 이때는 기다립니다 (2026-10-24)
@@ -121,6 +122,31 @@ class PrintWorker:
         self.warm_since: float | None = None
         self.warm_sent = 0.0
         self.warm_gave_up = False
+
+    def _key(self) -> tuple:
+        s = self.settings
+        # ★ 주소도 봅니다 — 「프린터 찾기」 가 새 주소를 적으면 바로 그 주소로 붙습니다
+        return (s.get("printer_kind"), (s.get("printer_serial") or "").strip(), (s.get("printer_code") or "").strip(),
+                (s.get("printer_last_ip") or "").strip())
+
+    def refresh_printer(self) -> None:
+        """
+        프린터 칸이 바뀌었으면 새 값으로 다시 만듭니다.
+
+        ★★ 2026-11-05 새 프린터로 바꾼 날: 「프린터 찾기」 는 새 프린터를 찾았는데(찾았습니다 — N1)
+          출력은 '프린터에 닿지 못했습니다 — timed out' 으로 두 번 멈췄습니다. 일꾼이 켜질 때 한 번 만든
+          프린터(옛 시리얼·코드·옛 주소)를 계속 쓰고 있었습니다. 에이전트를 껐다 켜야만 바뀌었습니다.
+          설정 사전은 화면과 같은 것을 쥐고 있으므로, 작업마다 견줘 바뀌었으면 다시 만듭니다.
+        """
+        key = self._key()
+        if key == self._printer_key:
+            return
+        if key[:3] == self._printer_key[:3] and key[3] == getattr(self.printer, "host", ""):
+            self._printer_key = key  # 일꾼이 스스로 찾아 적은 주소 — 다시 만들 것 없음
+            return
+        self.printer = build_printer(self.settings, self.work_dir / "보낸것")
+        self._printer_key = key
+        self.say("프린터 설정이 바뀌어 새 프린터로 붙습니다")
 
     def remember_host(self) -> None:
         """
@@ -389,6 +415,7 @@ class PrintWorker:
     def tick(self) -> bool:
         """할 일이 있었으면 True"""
         self.flush()
+        self.refresh_printer()
         job = self.claim()
         if not job:
             self.keep_warm()

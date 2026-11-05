@@ -240,14 +240,24 @@ def _open_tool(d, tool: str, marker: str) -> None:
     if here():
         return
     # ★ 다른 패널이 열려 있으면 한 번 눌러서는 안 넘어가는 때가 있습니다 — 세 번까지
-    for _ in range(3):
+    for attempt in range(4):
+        if attempt == 3:
+            # ★ 2026-11-05 임시치아 건: 세 번 눌러도 내면 패널이 안 열려 멈췄고, 그림이 없어 까닭을
+            #   못 가렸습니다. 마지막 한 번은 열린 패널을 모두 닫고(close_panels) 크라운을 다시 고른 뒤 누릅니다.
+            close_panels(d)
+            time.sleep(1.0)
         _click(d, tool)
         for _ in range(12):
             time.sleep(0.5)
             if here():
                 return
         _crown_toolbar(d)
-    raise ParamError(f"'{tool}' 패널이 안 열립니다")
+    from dentbird_web import snapshot, window_report  # noqa: PLC0415
+
+    shot = snapshot(d, "panel")
+    raise ParamError(
+        f"'{tool}' 패널이 안 열립니다 — " + window_report(d) + (f" · 그림 {shot}" if shot else "")
+    )
 
 
 def _refine_group(d, group: str, sign: str) -> None:

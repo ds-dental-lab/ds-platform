@@ -422,7 +422,18 @@ class BambuPrinter:
 
         client = self._mqtt()
         client.on_message = on_message
-        client.connect(self.host or self.resolve(), 8883, keepalive=60)
+        try:
+            client.connect(self.host or self.resolve(), 8883, keepalive=60)
+        except OSError:
+            # ★★ 2026-11-05 새 프린터: 적어 둔 주소(옛 프린터 .183)로만 가서 'timed out' 으로 세 번 멈췄습니다.
+            #   방송·훑기는 host 가 비었을 때만 탔습니다. 적어 둔 주소에 안 닿으면 **새로 찾아** 한 번 더 붙습니다.
+            found = self._refind()
+            if not found or found == self.host:
+                raise
+            self.host = found
+            client = self._mqtt()
+            client.on_message = on_message
+            client.connect(found, 8883, keepalive=60)
         client.loop_start()
         try:
             time.sleep(seconds)

@@ -52,5 +52,54 @@ class Report(unittest.TestCase):
         self.assertEqual([b["step"] for _, b in w.pending], ["printing", "done"])
 
 
+
+class RefreshPrinterTest(unittest.TestCase):
+    """2026-11-05 새 프린터 — 칸을 바꾸면 껐다 켜지 않아도 새 프린터로 붙음"""
+
+    def test_rebuilds_when_settings_change(self):
+        cfg = {"printer_kind": "bambu", "printer_serial": "OLD", "printer_code": "1111", "printer_last_ip": "10.0.0.5"}
+        w = print_loop.PrintWorker("t", cfg, Path("."), say=lambda m: None)
+        first = w.printer
+        w.refresh_printer()
+        self.assertIs(w.printer, first)  # 그대로면 안 만듦
+        cfg["printer_serial"] = "NEW"
+        cfg["printer_code"] = "2222"
+        w.refresh_printer()
+        self.assertIsNot(w.printer, first)
+        self.assertEqual((w.printer.serial, w.printer.access_code), ("NEW", "2222"))
+
+    def test_rebuilds_when_found_new_address(self):
+        cfg = {"printer_kind": "bambu", "printer_serial": "S", "printer_code": "1", "printer_last_ip": "192.168.0.183"}
+        w = print_loop.PrintWorker("t", cfg, Path("."), say=lambda m: None)
+        cfg["printer_last_ip"] = "192.168.0.123"  # 「프린터 찾기」 가 새 주소를 적음
+        w.refresh_printer()
+        self.assertEqual(w.printer.host, "192.168.0.123")
+
+
+class StatusRefindTest(unittest.TestCase):
+    """적어 둔 주소에 안 닿으면 새로 찾아 붙음 (2026-11-05)"""
+
+    def test_refinds_on_timeout(self):
+        import printer_send
+        p = printer_send.BambuPrinter(access_code="c", serial="S", host="192.168.0.183")
+        tried = []
+
+        class Fake:
+            def __init__(self): self.on_message = None
+            def connect(self, host, *_a, **_k):
+                tried.append(host)
+                if host == "192.168.0.183":
+                    raise TimeoutError("timed out")
+            def loop_start(self): pass
+            def loop_stop(self): pass
+            def disconnect(self): pass
+
+        p._mqtt = lambda: Fake()
+        p._refind = lambda: "192.168.0.123"
+        p.status(0)
+        self.assertEqual(tried, ["192.168.0.183", "192.168.0.123"])
+        self.assertEqual(p.host, "192.168.0.123")
+
+
 if __name__ == "__main__":
     unittest.main()
