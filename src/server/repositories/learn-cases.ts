@@ -1,7 +1,7 @@
 // =========================================================
 // 놓을 위치: src/server/repositories/learn-cases.ts
 //
-// 밤 실행이 배울 덴플로우 주문 목록 (2026-11-06). 고르는 규칙은 domain/learn-cases.
+// 밤 실행이 배울 덴플로우 주문 목록 (2026-11-06). 고르는 규칙은 domain/learn-cases. 브릿지가 있는 주문만.
 //
 // ★ 설계 PC(디자인센터 기기)만 받습니다. 치과 기기 열쇠로는 못 받습니다.
 // ★ 주는 것: 주문번호·구치부 크라운 치식·스캔 파일 이름과 내려받을 주소(2시간). **환자 이름은 주지 않습니다**
@@ -50,7 +50,7 @@ export async function listLearnCases(
   if (!rows.length) return { ok: true, cases: [], skipped: 0 };
 
   const ids = rows.map((r) => r.id);
-  const [{ data: items }, { data: files }] = await Promise.all([
+  const [{ data: items }, { data: files }, { data: bridges }] = await Promise.all([
     admin.from('order_items').select('order_id, tooth_number, type_code, implant_manufacturer, implant_type').in('order_id', ids),
     admin
       .from('order_files')
@@ -59,7 +59,10 @@ export async function listLearnCases(
       .eq('kind', 'scan')
       .eq('upload_status', 'uploaded')
       .is('deleted_at', null),
+    // ★ 브릿지만 배웁니다 (2026-11-06 "싱글은 문제가 없어")
+    admin.from('order_bridges').select('order_id').in('order_id', ids),
   ]);
+  const bridged = new Set(((bridges ?? []) as { order_id: string }[]).map((b) => b.order_id));
 
   type ItemRow = { order_id: string; tooth_number: number; type_code: string; implant_manufacturer: string | null; implant_type: string | null };
   type FileRow = { order_id: string; file_name: string; file_size: number | null; storage_path: string };
@@ -80,7 +83,7 @@ export async function listLearnCases(
   let skipped = 0;
   for (const o of rows) {
     if (cases.length >= MAX_CASES) break;
-    const ok = learnable(itemsOf.get(o.id) ?? []);
+    const ok = learnable(itemsOf.get(o.id) ?? [], bridged.has(o.id));
     const all = filesOf.get(o.id) ?? [];
     const chosen = ok.ok ? pickLearnFiles(all.map((f) => ({ name: f.file_name, size: f.file_size }))) : [];
     if (!ok.ok || !chosen.length) {

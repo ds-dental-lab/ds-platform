@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { learnable, pickLearnFiles } from '@/server/domain/learn-cases';
+import { hasAdjacent, learnable, pickLearnFiles } from '@/server/domain/learn-cases';
 
 const crown = (tooth: number) => ({ tooth, type: 'crown', implant: false });
 
@@ -7,6 +7,19 @@ describe('밤 실행이 배울 덴플로우 주문 고르기 (2026-11-06)', () =
   it('구치부 자연치 크라운·브릿지는 고릅니다', () => {
     expect(learnable([crown(46), crown(47)])).toEqual({ ok: true, teeth: [46, 47] });
     expect(learnable([crown(16)])).toEqual({ ok: true, teeth: [16] });
+  });
+  it('브릿지 표시도 없고 붙은 크라운도 없으면(싱글만) 뺍니다', () => {
+    expect(learnable([crown(46)], false)).toEqual({ ok: false, why: '싱글만' });
+    expect(learnable([crown(16), crown(46)], false)).toEqual({ ok: false, why: '싱글만' });
+    expect(learnable([crown(45), crown(47)], false)).toEqual({ ok: false, why: '싱글만' });
+  });
+  it('붙은 싱글 둘은 브릿지 연습으로 고릅니다', () => {
+    expect(learnable([crown(46), crown(47)], false)).toEqual({ ok: true, teeth: [46, 47] });
+    expect(learnable([crown(14), crown(15), crown(36)], false).ok).toBe(true);
+  });
+  it('사분면이 다르면 번호가 이어져도 붙은 것이 아닙니다', () => {
+    expect(hasAdjacent([18, 21])).toBe(false);
+    expect(hasAdjacent([28, 31])).toBe(false);
   });
   it('인레이가 섞여도 크라운만 셉니다', () => {
     expect(learnable([crown(46), { tooth: 45, type: 'inlay', implant: false }])).toEqual({ ok: true, teeth: [46] });

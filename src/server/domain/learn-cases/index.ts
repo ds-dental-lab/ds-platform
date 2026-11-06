@@ -25,7 +25,19 @@ export function isPosterior(tooth: number): boolean {
   return unit >= 4 && unit <= 8;
 }
 
-export function learnable(items: LearnItem[]): Learnable {
+/** 같은 쪽(사분면)에서 번호가 이어진 크라운이 있는가 — 46·47 처럼 */
+export function hasAdjacent(teeth: number[]): boolean {
+  const t = [...new Set(teeth)].sort((a, b) => a - b);
+  return t.some((x, i) => i > 0 && x - t[i - 1] === 1 && Math.floor(x / 10) === Math.floor(t[i - 1] / 10));
+}
+
+/**
+ * ★ 브릿지만 배웁니다 — 사용자 2026-11-06 "브릿지만 골라 줄 수 있어? 싱글은 문제가 없어".
+ *   bridged: 주문서에 브릿지 묶음(order_bridges)이 있는가.
+ * ★ 붙은 싱글도 고릅니다 — 사용자 "싱글싱글이어도 브릿지로 연습할 수 있으니까". 밤 실행이 덴트버드에서
+ *   따로 잡힌 이웃 크라운을 링크로 묶어 브릿지로 만듭니다(batch_review.link_neighbors).
+ */
+export function learnable(items: LearnItem[], bridged = true): Learnable {
   if (!items.length) return { ok: false, why: '치식 없음' };
   if (items.some((i) => i.implant || i.type === 'implant')) return { ok: false, why: '임플란트' };
   const odd = items.filter((i) => i.type !== 'crown' && i.type !== 'inlay');
@@ -34,6 +46,7 @@ export function learnable(items: LearnItem[]): Learnable {
   if (!crowns.length) return { ok: false, why: '크라운 없음' };
   const front = crowns.filter((t) => !isPosterior(t));
   if (front.length) return { ok: false, why: `전치부: ${front.join(', ')}` };
+  if (!bridged && !hasAdjacent(crowns)) return { ok: false, why: '싱글만' };
   return { ok: true, teeth: crowns };
 }
 

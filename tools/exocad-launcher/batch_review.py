@@ -1200,7 +1200,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"다시 할 것 {len(again)}건을 목록에서 받았습니다")
     # ★ 덴플로우 주문 받기 (2026-11-06). 다시 할 덴플로우 건은 파일을 이미 지웠으니 다시 받습니다(기간을 넓혀서)
     refetch = forget_learned(folder, again or [])
-    fetch_denflow(folder, print, hours=24 * 14 if refetch else LEARN_HOURS)
+    # ★ 처음 받는 날은 지난 14일 치를 받습니다 — 48시간에는 브릿지 연습 거리가 1건뿐이었습니다(2026-11-06, 14일이면 14건)
+    first = not (folder / LEARNED_NAME).exists()
+    fetch_denflow(folder, print, hours=24 * 14 if (refetch or first) else LEARN_HOURS)
     # ★ 로그인 풀림처럼 환경 탓으로 멈춘 건(retry)은 다음 실행에 다시 합니다 (2026-11-03 시험 — DS Core 로그인 전)
     seen = {it["file"] for it in log["items"] if not it.get("retry")}
     todo = [p for p in items_in(folder) if p.name not in seen][: a.limit]
