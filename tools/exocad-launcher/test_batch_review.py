@@ -215,6 +215,26 @@ class VerdictFileTest(unittest.TestCase):
             self.assertNotIn("verdict", (f / "밤작업_기록.json").read_text(encoding="utf-8"))
 
 
+class CloseTabTest(unittest.TestCase):
+    """이미 사라진 탭을 닫으려다 멈추지 않음 (2026-11-06 10:08)"""
+
+    def test_gone_tab_is_fine(self):
+        from batch_review import _close_tab
+
+        class Gone(Exception):
+            pass
+
+        class D:
+            window_handles = ["home"]
+            def execute_cdp_cmd(self, *a): raise Gone("no target")
+            class switch_to:
+                @staticmethod
+                def window(h): raise Gone("no such window")
+            def close(self): raise Gone("x")
+
+        _close_tab(D(), "old")  # 오류 없이 지나가야 함
+
+
 class NightKeyTest(unittest.TestCase):
     """설계 일꾼이 밤 실행을 띄우는 시각 — 21시부터 새벽 6시 전까지, 새벽은 전날 밤으로 셈"""
 

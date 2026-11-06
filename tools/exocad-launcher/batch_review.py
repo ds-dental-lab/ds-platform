@@ -241,8 +241,16 @@ def _close_tab(d, handle: str) -> None:
     try:
         d.execute_cdp_cmd("Target.closeTarget", {"targetId": handle})
     except Exception:  # noqa: BLE001
-        d.switch_to.window(handle)
-        d.close()
+        # ★ 이미 없는 탭이면 닫을 것도 없습니다 (2026-11-06 10:08 — 막 띄운 크롬이 되살린 탭이 목록을 읽은 사이
+        #   스스로 닫혀, 여기서 'no such window' 로 밤 실행 전체가 시작하자마자 멈췄습니다)
+        if handle not in d.window_handles:
+            return
+        try:
+            d.switch_to.window(handle)
+            d.close()
+        except Exception:  # noqa: BLE001
+            if handle in d.window_handles:
+                raise
     time.sleep(1)
 
 
@@ -1217,8 +1225,10 @@ def _run() -> int:
     builtins.print = both
     try:
         return main()
-    except Exception:  # noqa: BLE001
-        print("멈춤 — " + traceback.format_exc().strip().splitlines()[-1])
+    except Exception as e:  # noqa: BLE001
+        # ★ 셀레니움 오류는 traceback 끝 줄이 '(No symbol) [0x…]' 라 까닭이 안 보였습니다 (2026-11-06) — 오류 이름과 첫 줄로
+        first = (str(e).strip().splitlines() or [""])[0]
+        print(f"멈춤 — {type(e).__name__}: {first}")
         try:
             with log_file.open("a", encoding="utf-8") as f:
                 f.write(traceback.format_exc())

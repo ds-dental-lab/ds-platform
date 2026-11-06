@@ -826,25 +826,29 @@ def stretch_toward(d, tooth: int, neighbor: int, say=print, target: float = STRE
         raise ParamError("이웃 크라운 방향을 못 정했습니다")
     toward = (toward[0] / length, toward[1] / length)
     pulled, area, name = 0, None, None
+    #: 마지막으로 읽은 **모든 접합**의 면적 — 되돌렸으면 None (화면과 다를 수 있으니 다시 읽어야 함)
+    areas: dict[str, float | None] | None = None
     while pulled < STRETCH_MAX_PX:
         _transform_open(d, tooth)
         hx, hy = pick_handle(_transform_circles(d), toward)
         _ldrag(d, hx, hy, hx + toward[0] * STRETCH_STEP_PX, hy + toward[1] * STRETCH_STEP_PX)
         time.sleep(2)
         pulled += STRETCH_STEP_PX
-        name, now = _junction_area(plus_areas(d, say), tooth, neighbor)
+        areas = plus_areas(d, say)
+        name, now = _junction_area(areas, tooth, neighbor)
         say(f"  {tooth} → {neighbor} 쪽으로 {pulled}px 늘림 · + 면적 {now}")
         if now is None and name is not None:
             _click(d, "UndoButton")
             time.sleep(3)
             pulled -= STRETCH_STEP_PX
+            areas = None
             say(f"  + 가 잠겨 한 번 되돌림 ({pulled}px)")
             break
         area = now
         if area is not None and area >= target:
             break
     close_panels(d)
-    return {"tooth": tooth, "neighbor": neighbor, "px": pulled, "area": area, "name": name}
+    return {"tooth": tooth, "neighbor": neighbor, "px": pulled, "area": area, "name": name, "areas": areas}
 
 
 def junction_choice(area: float | None) -> str:
@@ -868,25 +872,63 @@ def _shape_buttons(d):
     return d.find_elements("css selector", '[data-testid="connect-cross-sectional-shape"] button')
 
 
+#: 면적 읽기의 고정 대기를 '화면이 멈출 때까지' 로 (2026-11-06 시간 줄이기). False 면 예전 고정 대기 그대로.
+PLUS_FAST = True  # 2026-11-06 실측: 같은 화면 옛·새 번갈아 12번 — 잠김·열림(2.2) 모두 같은 값, 읽기 한 번 6.4~12.1초 → 4.3~8.1초
+
+
+def _until_steady(read, least: float, most: float, gap: float = 0.4) -> None:
+    """read() 값이 두 번 연달아 같고 비어 있지 않을 때까지 — 최소 least 초, 최대 most 초"""
+    start = time.time()
+    time.sleep(least)
+    last = read()
+    while time.time() - start < most:
+        time.sleep(gap)
+        now = read()
+        if now and now == last:
+            return
+        last = now
+
+
+def _connect_snapshot(d) -> str:
+    return d.execute_script(
+        "const b=[...document.querySelectorAll('[data-testid=connect-cross-sectional-shape] button')];"
+        "const i=document.querySelector('[data-testid=connect-size-info]');"
+        "return b.length+'|'+b.map(x=>x.disabled?1:0).join('')+'|'+(i?i.innerText:'');"
+    ) or ""
+
+
 def plus_areas(d, say=print) -> dict[str, float | None]:
-    """접합마다 + 면적. + 를 못 쓰면 None. (읽으면서 각 접합을 + 로 바꿔 둡니다)"""
+    """접합마다 + 면적. + 를 못 쓰면 None. (읽으면서 각 접합을 + 로 바꿔 둡니다)
+
+    ★ PLUS_FAST: 고정 대기(2.5·2.0·4.0초) 대신 화면 글자가 두 번 연달아 같을 때까지 기다립니다.
+      최소 대기는 남겨 둡니다 — 덴트버드가 계산을 시작하기 전의 옛 글자를 읽지 않도록.
+    """
     close_panels(d)
     _open_tool(d, "toolbar-tool-connect", "connect-process")
-    time.sleep(2.5)
+    if PLUS_FAST:
+        _until_steady(lambda: str(len(_chips(d))) + str(d.execute_script(_MERGE_JS)), 0.8, 5.0)
+    else:
+        time.sleep(2.5)
     merge = d.execute_script(_MERGE_JS) or {}
     out: dict[str, float | None] = {}
     for i in range(len(_chips(d))):
         chip = _chips(d)[i]
         name = (chip.text or "").strip()
         d.execute_script("arguments[0].click()", chip)
-        time.sleep(2.0)
+        if PLUS_FAST:
+            _until_steady(lambda: _connect_snapshot(d), 0.8, 4.0)
+        else:
+            time.sleep(2.0)
         btns = _shape_buttons(d)
         locked = len(btns) < 4 or btns[3].get_attribute("disabled") is not None or merge.get(name) is False
         if locked:
             out[name] = None
             continue
         d.execute_script("arguments[0].click()", btns[3])
-        time.sleep(4.0)
+        if PLUS_FAST:
+            _until_steady(lambda: _connect_snapshot(d), 1.5, 6.0, gap=0.5)
+        else:
+            time.sleep(4.0)
         out[name] = connector_area(" ".join((_q(d, "connect-size-info").text or "").split()))
     close_panels(d)
     return out
@@ -990,6 +1032,7 @@ def bridge_rule(d, units: list[int], present: list[int], say=print) -> list[dict
     # ★ '이동 및 변형' 늘리기 (2026-11-05) — 인접 거리를 더 겹쳐도 + 면적은 안 늘었습니다(R36·R38·R39·R40).
     #   면적이 STRETCH_TARGET 아래인 접합은 크라운을 이웃 쪽으로 늘려 봅니다. 폰틱이 있으면 폰틱을, 없으면 안쪽 유닛을.
     stretched: dict[str, dict] = {}
+    last_areas: dict[str, float | None] | None = None  # 마지막 늘리기에서 읽은 전체 면적 (되돌렸으면 None)
     for name, area in list(final.items()):
         if area is not None and area >= STRETCH_TARGET:
             continue
@@ -1015,8 +1058,11 @@ def bridge_rule(d, units: list[int], present: list[int], say=print) -> list[dict
             say(f"늘리기 못 함 {name}: {e}")
             continue
         stretched[name] = got
+        last_areas = got.get("areas")
     if stretched:
-        final = plus_areas(d, say)
+        # ★ 시간 줄이기 (2026-11-06): 늘리기 마지막 단계가 이미 모든 접합을 읽었으면 그 값을 씁니다 (건당 약 12초).
+        #   마지막이 되돌리기였으면 화면이 바뀌었으니 다시 읽습니다.
+        final = last_areas if last_areas else plus_areas(d, say)
         say(f"늘린 뒤 + 면적 {final}")
     report = []
     for name, area in final.items():

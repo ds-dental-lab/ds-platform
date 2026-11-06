@@ -106,6 +106,14 @@ class RuleSweepTest(unittest.TestCase):
         self.assertEqual(_junction_area({"46-47": 0.3}, 47, 46), ("46-47", 0.3))
         self.assertEqual(_junction_area({"37-36": 0.4, "34-33": 0.1}, 33, 34), ("34-33", 0.1))
 
+    def test_no_shadowed_functions(self):
+        # 2026-11-06: 새 _settle 이 원래 _settle 을 덮어 인접 거리 조정이 깨졌음 — 이름이 겹치면 실패
+        import ast, collections
+        for name in ("dentbird_params.py", "batch_review.py", "dentbird_macro.py"):
+            src = (Path(__file__).resolve().parent / name).read_text(encoding="utf-8")
+            defs = [n.name for n in ast.parse(src).body if isinstance(n, ast.FunctionDef)]
+            self.assertEqual([k for k, v in collections.Counter(defs).items() if v > 1], [], name)
+
     def test_all_locked_falls_back(self):
         from dentbird_params import sweep_best
         self.assertEqual(sweep_best([(-0.05, {"a": None})]), -0.05)
