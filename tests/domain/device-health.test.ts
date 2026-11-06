@@ -2,6 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   deviceState,
+  HEARTBEAT_INTERVAL_SECONDS,
+  HEARTBEAT_OFFLINE_SECONDS,
   sanitizeEvents,
   sanitizeStatus,
   staleWatchers,
@@ -19,8 +21,10 @@ describe('기기 상태', () => {
   it('상태를 안 보낸 옛 판은 꺼졌다고 단정하지 않는다', () => {
     expect(deviceState({ heartbeatAt: null, lastSeenAt: '2026-10-13T00:00:00Z', lastErrorAt: null }, now)).toBe('legacy');
   });
-  it('3분 넘게 소식이 없으면 꺼짐', () => {
-    expect(deviceState({ heartbeatAt: '2026-10-16T04:56:00Z', lastSeenAt: null, lastErrorAt: null }, now)).toBe('offline');
+  it('11분 넘게 소식이 없으면 꺼짐 — 5분 간격이라 4분은 켜짐 (2026-11-06)', () => {
+    expect(deviceState({ heartbeatAt: '2026-10-16T04:56:00Z', lastSeenAt: null, lastErrorAt: null }, now)).toBe('ok');
+    expect(deviceState({ heartbeatAt: '2026-10-16T04:48:00Z', lastSeenAt: null, lastErrorAt: null }, now)).toBe('offline');
+    expect(HEARTBEAT_OFFLINE_SECONDS).toBeGreaterThan(HEARTBEAT_INTERVAL_SECONDS * 2);
   });
   it('켜져 있고 한 시간 안에 오류가 있으면 확인 필요', () => {
     expect(deviceState({ heartbeatAt: '2026-10-16T04:59:30Z', lastSeenAt: null, lastErrorAt: '2026-10-16T04:30:00Z' }, now)).toBe('warn');
@@ -31,7 +35,7 @@ describe('기기 상태', () => {
     expect(deviceState({ ...on, status: { missing: ['런처 설정(config.json)'] } }, now)).toBe('warn');
     expect(deviceState({ ...on, status: { missing: [] } }, now)).toBe('ok');
     // 꺼진 것이 먼저입니다
-    expect(deviceState({ ...on, heartbeatAt: '2026-10-16T04:50:00Z', status: { missing: ['x'] } }, now)).toBe('offline');
+    expect(deviceState({ ...on, heartbeatAt: '2026-10-16T04:48:00Z', status: { missing: ['x'] } }, now)).toBe('offline');
   });
   it('판이 뒤처졌는지', () => {
     expect(versionBehind('1.3.1', '1.3.2')).toBe(true);

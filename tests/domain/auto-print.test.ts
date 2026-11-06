@@ -618,7 +618,8 @@ describe('2026-10-16 점검 — 끊겼을 때', () => {
 
   it('기기는 3분 소식이 없으면 꺼진 것', () => {
     expect(deviceOnline('2026-10-16T01:58:30Z', now)).toBe(true);
-    expect(deviceOnline('2026-10-16T01:56:00Z', now)).toBe(false);
+    expect(deviceOnline('2026-10-16T01:56:00Z', now)).toBe(true); // 밤에는 5분마다 묻습니다 (2026-11-06)
+    expect(deviceOnline('2026-10-16T01:48:00Z', now)).toBe(false);
     expect(deviceOnline(null, now)).toBe(false);
   });
 

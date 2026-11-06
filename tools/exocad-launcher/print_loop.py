@@ -41,7 +41,7 @@ BASE = __import__("os").environ.get("DENFLOW_BASE", "https://denflow.kr")  # 시
 POLL_SECONDS = 10
 POLL_IDLE_SECONDS = 60
 #: DB 가 '없다' 고 해도 이만큼에 한 번은 버셀에 직접 묻습니다 (2026-11-05) — 설계 PC 와 같은 1분
-#: ★★ 3분(DEVICE_OFFLINE_SECONDS=180) 보다 길게 하지 마세요 — 화면의 '치과 PC 꺼짐' 판정이 버셀 묻기 시각(last_seen_at)을 봅니다
+#: ★★ 11분(DEVICE_OFFLINE_SECONDS=660) 보다 길게 하지 마세요 — 화면의 '치과 PC 꺼짐' 판정이 버셀 묻기 시각(last_seen_at)을 봅니다
 CLAIM_FORCE_SECONDS = 60
 
 #: ★ 미리 데우기 (사용자 2026-10-23 "미리 데우기도 넣어줘") — **판만**, 55도(텍스처 PEI 첫 층).

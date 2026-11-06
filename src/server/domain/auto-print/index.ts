@@ -1068,8 +1068,14 @@ export function isUpperTooth(tooth: number): boolean {
 //   치과 PC 가 꺼져 있으면 책갈피가 '곧 프린터로 보냅니다' 만 하염없이 보였습니다.
 //   기기는 몇 초마다 서버에 묻고(last_seen_at), 그게 끊기면 꺼진 것입니다.
 
-/** 이만큼 소식이 없으면 꺼진 것으로 봅니다. 치과 PC 는 10초, 설계 PC 는 3~30초마다 묻습니다 */
-export const DEVICE_OFFLINE_SECONDS = 180;
+/**
+ * 이만큼 소식이 없으면 꺼진 것으로 봅니다.
+ *
+ * ★ 2026-11-06 180 → 660. 치과 PC 는 낮에도 1분마다(1.3.24 부터 DB 먼저 묻기의 안전망), 깊은 밤(23~08시)에는
+ *   5분마다 버셀에 묻습니다. 180초로는 밤마다 켜져 있는 치과 PC 가 '꺼짐' 으로 보였습니다.
+ *   기기 상태판(HEARTBEAT_OFFLINE_SECONDS)과 같은 값입니다.
+ */
+export const DEVICE_OFFLINE_SECONDS = 660;
 
 export function deviceOnline(lastSeenAt: string | null | undefined, now: number): boolean {
   if (!lastSeenAt) return false;

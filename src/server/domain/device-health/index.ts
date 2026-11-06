@@ -13,8 +13,16 @@
 
 import { olderThan } from '@/server/domain/agent';
 
-/** 상태 보고가 이만큼 없으면 꺼진 것으로 봅니다 (1분마다 보냄 — 세 번 놓치면) */
-export const HEARTBEAT_OFFLINE_SECONDS = 180;
+/** 기기가 상태를 보내는 간격 — tools/exocad-launcher/heartbeat.py INTERVAL_SECONDS 와 같아야 합니다 */
+export const HEARTBEAT_INTERVAL_SECONDS = 300;
+/**
+ * 상태 보고가 이만큼 없으면 꺼진 것으로 봅니다 — 두 번 놓치고 1분 여유.
+ *
+ * ★★ 2026-11-06 사용자 "명령도 안 내렸는데 뻘거냐": 10/27 Vercel 호출을 줄이며 보내는 간격을 1분 → 5분으로
+ *   늘렸는데 이 값은 180초(1분 간격 기준) 그대로였습니다. 켜져 있는 기기가 보낸 지 3분만 지나면 '꺼짐' 으로
+ *   빨갛게 떴습니다. 간격을 바꾸면 이 값도 같이 바꿉니다(시험이 둘의 관계를 봅니다).
+ */
+export const HEARTBEAT_OFFLINE_SECONDS = HEARTBEAT_INTERVAL_SECONDS * 2 + 60;
 /** 오류가 이만큼 안에 있었으면 '확인 필요' 로 둡니다 */
 export const RECENT_ERROR_MINUTES = 60;
 
