@@ -848,6 +848,158 @@ def mark_retry(folder: Path, names: list[str]) -> None:
     p.write_text(json.dumps(sorted(set(cur) | set(names)), ensure_ascii=False), encoding="utf-8")
 
 
+# ================================================================ 덴플로우 주문에서 배우기 (2026-11-06)
+#
+# ★ 사용자 "덴플로우에 올라오는 자연치 케이스 자동으로 학습 가능해? 하루 동안 모아 놨다가 밤작업 누르면
+#   진행 — 메모리 쌓이지 않게". 밤 실행을 시작할 때 서버(/api/device/learn)에 지난 48시간의 구치부 자연치
+#   크라운·브릿지 주문을 묻고, 스캔을 '덴플로우_<주문번호>.dxd/.zip' 으로 받아 둡니다.
+# ★ 쌓이지 않게: 한 건이 끝나면(다시 할 건이 아니면) 받은 파일을 바로 지웁니다. 판정 전 그림만 남습니다.
+#   받은 주문번호는 LEARNED_NAME 에 적어 두 번 받지 않습니다.
+# ★ 환자 이름은 받지 않습니다 — 서버가 주문번호·치식·파일만 줍니다(파일 안 이름은 neutral 이 지움).
+
+LEARN_PREFIX = "덴플로우_"
+LEARNED_NAME = "덴플로우_받은주문.json"
+LEARN_HOURS = 48
+
+
+def design_key() -> tuple[str, str] | None:
+    """설계 PC 기기 열쇠 (exocad 지켜보기와 같은 design_agent.json) — (주소, 열쇠). 없으면 None"""
+    import os  # noqa: PLC0415
+
+    p = Path(os.environ.get("APPDATA", Path.home())) / "DenFlow" / "design_agent.json"
+    try:
+        cfg = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    token = cfg.get("token")
+    if not token:
+        return None
+    return (cfg.get("base_url") or "https://denflow.kr").rstrip("/"), token
+
+
+def load_learned(folder: Path) -> dict[str, dict]:
+    p = folder / LEARNED_NAME
+    try:
+        return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+    except ValueError:
+        return {}
+
+
+def save_learned(folder: Path, learned: dict[str, dict]) -> None:
+    (folder / LEARNED_NAME).write_text(json.dumps(learned, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def learn_name(order_no: str, files: list[dict]) -> str:
+    """받은 주문의 파일 이름 — dxd 하나면 .dxd, 그 밖에는 .zip (zip 하나는 그대로, 메쉬 여럿은 묶음)"""
+    safe = re.sub(r"[^0-9A-Za-z\-]", "_", order_no)
+    if len(files) == 1 and files[0]["name"].lower().endswith(".dxd"):
+        return f"{LEARN_PREFIX}{safe}.dxd"
+    return f"{LEARN_PREFIX}{safe}.zip"
+
+
+def jaw_arcname(name: str, teeth: list[int] | None) -> str:
+    """zip 안 이름 — 'Raw Preparation scan.stl' 처럼 역할 이름이면 치식으로 위·아래턱을 붙입니다.
+
+    ★ DS Core 에서 바로 받은 스캔은 Preparation·Antagonist·Bite 라는 이름이라, 밤 실행(jaws)이 위·아래를 못 가립니다.
+      작업치 턱 = 주문 치식의 턱, 대합치 = 반대쪽. 교합 스캔(Bite)은 그대로 둡니다(어차피 안 씀).
+    """
+    from design_scans import ANTAGONIST, PREP, is_upper  # noqa: PLC0415
+
+    base = Path(name).name
+    if not teeth or UPPER.search(base) or LOWER.search(base):
+        return base
+    up = is_upper(teeth[0])
+    if PREP.search(Path(base).stem):
+        return f"{'upper' if up else 'lower'}jaw-{base}"
+    if ANTAGONIST.search(Path(base).stem):
+        return f"{'lower' if up else 'upper'}jaw-{base}"
+    return base
+
+
+def fetch_denflow(folder: Path, say=print, hours: int = LEARN_HOURS, post=None, download=None) -> int:
+    """덴플로우 주문을 받아 폴더에 둡니다. 받은 건수. 못 받아도 밤 실행은 이어 갑니다(말만 남김).
+
+    post(url, body, token) → dict, download(url, path) — 시험에서 바꿔 끼웁니다.
+    """
+    import os  # noqa: PLC0415
+    import urllib.request  # noqa: PLC0415
+    import zipfile  # noqa: PLC0415
+
+    key = design_key() if post is None else ("http://test", "t")
+    if not key:
+        say("설계 PC 열쇠(design_agent.json)가 없어 덴플로우 주문은 건너뜁니다")
+        return 0
+    base, token = key
+
+    def _post(url: str, body: dict, tok: str) -> dict:
+        req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), method="POST",
+                                     headers={"content-type": "application/json", "authorization": f"Bearer {tok}"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.loads(r.read().decode("utf-8"))
+
+    def _download(url: str, path: Path) -> None:
+        with urllib.request.urlopen(url, timeout=600) as r, path.open("wb") as f:
+            shutil.copyfileobj(r, f, 1 << 20)
+
+    post = post or _post
+    download = download or _download
+    try:
+        got = post(f"{base}/api/device/learn", {"hours": hours}, token)
+    except Exception as e:  # noqa: BLE001
+        say(f"덴플로우 주문을 못 물었습니다 — {type(e).__name__}: {str(e)[:120]}")
+        return 0
+    if not got.get("ok"):
+        say(f"덴플로우가 주문 목록을 안 줬습니다 — {got.get('error')}")
+        return 0
+    learned = load_learned(folder)
+    n = 0
+    for c in got.get("cases") or []:
+        if c["orderId"] in learned:
+            continue
+        name = learn_name(c["orderNo"], c["files"])
+        part = folder / (".받는중_" + name)
+        try:
+            if name.endswith(".dxd") or (len(c["files"]) == 1 and c["files"][0]["name"].lower().endswith(".zip")):
+                download(c["files"][0]["url"], part)
+            else:
+                tmp = folder / WORK_DIR / ("_받기_" + c["orderNo"])
+                tmp.mkdir(parents=True, exist_ok=True)
+                with zipfile.ZipFile(part, "w", zipfile.ZIP_DEFLATED) as zf:
+                    for i, f in enumerate(c["files"]):
+                        one = tmp / f"{i}{Path(f['name']).suffix.lower()}"
+                        download(f["url"], one)
+                        zf.write(one, jaw_arcname(f["name"], c.get("teeth")))
+                shutil.rmtree(tmp, ignore_errors=True)
+            final = folder / name
+            part.replace(final)
+            # ★ 막 받은 파일도 바로 하게 — items_in 은 SETTLE_SECONDS 안에 바뀐 파일을 '복사 중' 으로 건너뜁니다
+            old = time.time() - SETTLE_SECONDS - 5
+            os.utime(final, (old, old))
+        except Exception as e:  # noqa: BLE001
+            part.unlink(missing_ok=True)
+            say(f"{c['orderNo']} 스캔을 못 받았습니다 — {type(e).__name__}: {str(e)[:120]}")
+            continue
+        learned[c["orderId"]] = {"orderNo": c["orderNo"], "teeth": c.get("teeth"), "file": name,
+                                 "at": time.strftime("%Y-%m-%d %H:%M")}
+        save_learned(folder, learned)
+        n += 1
+    say(f"덴플로우 주문 {n}건을 받았습니다 (고를 수 있던 것 {len(got.get('cases') or [])}건 · "
+        f"구치부 자연치가 아니라 뺀 것 {got.get('skipped', 0)}건)")
+    return n
+
+
+def forget_learned(folder: Path, names: list[str]) -> int:
+    """다시 할 덴플로우 건인데 파일을 이미 지웠으면, 받은 기록에서 빼서 다음에 다시 받게 합니다"""
+    learned = load_learned(folder)
+    drop = [oid for oid, v in learned.items() if v.get("file") in names
+            and not (folder / v["file"]).exists() and not (folder / DONE_DIR / v["file"]).exists()]
+    for oid in drop:
+        learned.pop(oid)
+    if drop:
+        save_learned(folder, learned)
+    return len(drop)
+
+
 def take_retries(folder: Path, log: dict) -> list[str]:
     """목록을 기록에 옮기고(그 건은 retry) 파일을 지웁니다"""
     p = folder / RETRY_NAME
@@ -1046,6 +1198,9 @@ def main(argv: list[str] | None = None) -> int:
                 src.rename(folder / name)
         save_log(folder, log)
         print(f"다시 할 것 {len(again)}건을 목록에서 받았습니다")
+    # ★ 덴플로우 주문 받기 (2026-11-06). 다시 할 덴플로우 건은 파일을 이미 지웠으니 다시 받습니다(기간을 넓혀서)
+    refetch = forget_learned(folder, again or [])
+    fetch_denflow(folder, print, hours=24 * 14 if refetch else LEARN_HOURS)
     # ★ 로그인 풀림처럼 환경 탓으로 멈춘 건(retry)은 다음 실행에 다시 합니다 (2026-11-03 시험 — DS Core 로그인 전)
     seen = {it["file"] for it in log["items"] if not it.get("retry")}
     todo = [p for p in items_in(folder) if p.name not in seen][: a.limit]
@@ -1181,6 +1336,10 @@ def main(argv: list[str] | None = None) -> int:
         say(f"{rec['number']} — {rec['status']} ({rec['seconds']}초)")
         # ★ 바꾼 스캔(ply·stl, 건당 수백 MB)은 건마다 지웁니다 — 끝에 한꺼번에 지우면 30건이면 10GB 가까이 쌓입니다
         shutil.rmtree(folder / WORK_DIR / item.stem, ignore_errors=True)
+        # ★ 덴플로우에서 받은 원본도 바로 지웁니다 (사용자 "메모리 쌓이지 않게") — 다시 할 건(retry)만 남깁니다.
+        #   판정 뒤 다시 하고 싶으면 다시할것 목록에 넣으면 서버에서 다시 받습니다(forget_learned).
+        if item.name.startswith(LEARN_PREFIX) and not rec.get("retry"):
+            item.unlink(missing_ok=True)
 
     try:
         BATCH_FLAG.unlink()

@@ -235,6 +235,53 @@ class CloseTabTest(unittest.TestCase):
         _close_tab(D(), "old")  # 오류 없이 지나가야 함
 
 
+class LearnFetchTest(unittest.TestCase):
+    """덴플로우 주문 받기 (2026-11-06) — 이름은 주문번호로, 두 번 안 받음, 메쉬 여럿은 zip 으로"""
+
+    def test_fetch_and_skip_and_names(self):
+        import zipfile
+        from batch_review import LEARNED_NAME, fetch_denflow, forget_learned, items_in, learn_name, load_learned
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp)
+            cases = [
+                {"orderId": "o1", "orderNo": "ORD-261106-001", "teeth": [46, 47],
+                 "files": [{"name": "홍길동.dxd", "url": "u1", "size": 3}]},
+                {"orderId": "o2", "orderNo": "ORD-261106-002", "teeth": [16],
+                 "files": [{"name": "홍길동-maxillary.stl", "url": "u2", "size": 1},
+                           {"name": "홍길동-mandibular.stl", "url": "u3", "size": 1}]},
+            ]
+            post = lambda url, body, tok: {"ok": True, "cases": cases, "skipped": 4}  # noqa: E731
+            download = lambda url, path: Path(path).write_bytes(url.encode())  # noqa: E731
+            self.assertEqual(fetch_denflow(f, lambda m: None, post=post, download=download), 2)
+            names = sorted(p.name for p in items_in(f))  # 바로 할 수 있어야 함 (복사 중으로 안 봄)
+            self.assertEqual(names, ["덴플로우_ORD-261106-001.dxd", "덴플로우_ORD-261106-002.zip"])
+            with zipfile.ZipFile(f / "덴플로우_ORD-261106-002.zip") as z:
+                self.assertEqual(sorted(z.namelist()), ["홍길동-mandibular.stl", "홍길동-maxillary.stl"])
+            self.assertNotIn("홍길동", (f / LEARNED_NAME).read_text(encoding="utf-8"))
+            # 두 번째에는 안 받음
+            self.assertEqual(fetch_denflow(f, lambda m: None, post=post, download=download), 0)
+            # 끝나고 지운 건을 다시 하려면 받은 기록에서 빠짐
+            (f / "덴플로우_ORD-261106-001.dxd").unlink()
+            self.assertEqual(forget_learned(f, ["덴플로우_ORD-261106-001.dxd"]), 1)
+            self.assertNotIn("o1", load_learned(f))
+            self.assertEqual(learn_name("ORD-1", [{"name": "a.zip"}]), "덴플로우_ORD-1.zip")
+
+    def test_role_names_get_jaw(self):
+        from batch_review import jaw_arcname
+        self.assertEqual(jaw_arcname("Raw Preparation scan (1).stl", [46, 47]), "lowerjaw-Raw Preparation scan (1).stl")
+        self.assertEqual(jaw_arcname("Raw Antagonist scan.stl", [46, 47]), "upperjaw-Raw Antagonist scan.stl")
+        self.assertEqual(jaw_arcname("Raw Preparation scan.stl", [16]), "upperjaw-Raw Preparation scan.stl")
+        self.assertEqual(jaw_arcname("Raw Bite scan.stl", [16]), "Raw Bite scan.stl")
+        self.assertEqual(jaw_arcname("x-maxillary.stl", [46]), "x-maxillary.stl")
+
+    def test_server_down_keeps_going(self):
+        from batch_review import fetch_denflow
+        def boom(*a):
+            raise OSError("down")
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(fetch_denflow(Path(tmp), lambda m: None, post=boom, download=None), 0)
+
+
 class NightKeyTest(unittest.TestCase):
     """설계 일꾼이 밤 실행을 띄우는 시각 — 21시부터 새벽 6시 전까지, 새벽은 전날 밤으로 셈"""
 
