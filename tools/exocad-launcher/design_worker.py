@@ -39,7 +39,7 @@ from pathlib import Path
 
 import export_tag
 from dentbird_macro import Reporter, SessionLost, Stop, assemble, export, run, screen_labels, session_problem
-from dentbird_params import ParamError, adapt_proximal_order, apply_each, proximal_plan
+from dentbird_params import ParamError, apply_each, bridge_rule
 from dentbird_web import WORKER_WANTS, alive, attach, batch_running, open_browser, reap_drivers
 from design_scans import PickError, candidates, ensure_meshes, pick, to_stl, unzip_all
 from watch_common import beat, revive, single_instance
@@ -206,14 +206,22 @@ def _handle(job: dict, spend: bool) -> None:
         say("설계값을 맞춥니다 — 내면 · 교합/인접 · 최소 두께")
         try:
             apply_each(attach(), abutments, say=say, proximal=len(teeth) == 1)
+            report = []
             if len(teeth) > 1:
-                # ★ 브릿지 인접 거리는 순서가 전부입니다 — 자연치 닿는 크라운 먼저 -0.02, 안쪽 마지막에 -0.5
-                #   (사용자 2026-11-02 단일컨택/맞컨택 결정, proximal_plan 참고)
-                adapt_proximal_order(attach(), proximal_plan(teeth, pontics, screen_labels(attach())), say=say)
+                # ★ 밤 실행과 같은 브릿지 규칙 (docs/bridge_rules.md, 2026-11-06 사용자 "서버 PC 일꾼에도 늘리기 넣어줘"):
+                #   자연치 쪽 -0.02 → 안쪽 유닛 겹침 훑기 → + 면적이 2.0 아래면 '이동 및 변형' 늘리기 → 접합마다 + / 원형.
+                #   전에는 고정 순서(proximal_plan)로 넣고 모두 + 로 합쳤습니다.
+                report = bridge_rule(attach(), teeth, screen_labels(attach()), say=say)
         except ParamError as e:
             raise Stop(f"설계값을 못 맞췄습니다 — {e}") from e
         if len(teeth) > 1:
-            assemble(attach(), abutments, teeth, say=say)
+            # ★ 원형으로 갈 접합이 있으면 내보내지 않습니다 — 원형은 사람 판정 10번이 모두 비정상이었고,
+            #   이 일꾼은 사람이 안 보고 바로 출력합니다. 센터가 보게 세웁니다 (서버 stallKind: 'unsupported').
+            round_ = [j for j in report if j.get("name") != "_sweep" and j.get("choice") == "원형"]
+            if round_:
+                names = ", ".join(f"{j['name']}(+ 면적 {j.get('area')})" for j in round_)
+                raise Stop(f"브릿지 연결부를 자동으로 못 만듭니다 — {names}, 사람이 봐 주세요")
+            assemble(attach(), abutments, teeth, say=say, connectors=False)
 
         if spend:
             mark("exporting")

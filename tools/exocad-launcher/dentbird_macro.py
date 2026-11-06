@@ -363,7 +363,7 @@ def link_bridge(d, units: list[int], say=print) -> None:
     say(f"브릿지 {span} 로 묶었습니다")
 
 
-def assemble(d, abutments: list[int], units: list[int], say=print) -> None:
+def assemble(d, abutments: list[int], units: list[int], say=print, connectors: bool = True) -> None:
     """생성된 크라운·폰틱을 한 덩어리로 합칩니다 — 툴바의 '합치기'.
 
     ★ 합치기 단추는 **크라운을 하나 고른 뒤에만** 툴바에 뜹니다.
@@ -373,11 +373,13 @@ def assemble(d, abutments: list[int], units: list[int], say=print) -> None:
 
     span = bridge_span(units)
     # ★ 커넥터 크기는 합치기 **전**에 — 기본 5·5 는 폰틱 쪽에서 2mm² 로 주름만 남겼습니다 (2026-10-30)
-    try:
-        select_tooth(d, abutments[0])
-        set_connectors(d, say)
-    except ParamError as e:
-        raise Stop(f"커넥터 크기를 못 넣었습니다 — {e}") from e
+    # ★ connectors=False: bridge_rule 이 접합마다 이미 정해 두었으면 덮어쓰지 않습니다 (2026-11-06)
+    if connectors:
+        try:
+            select_tooth(d, abutments[0])
+            set_connectors(d, say)
+        except ParamError as e:
+            raise Stop(f"커넥터 크기를 못 넣었습니다 — {e}") from e
     for attempt in range(3):
         try:
             select_tooth(d, abutments[0])
@@ -387,6 +389,9 @@ def assemble(d, abutments: list[int], units: list[int], say=print) -> None:
                 raise Stop(f"합치기 단추를 못 눌렀습니다 — {e}") from e
             time.sleep(3)
             continue
+        # ★ 밤 실행(batch_review)과 같게 — 확인 창이 뜨면 누릅니다. 안 뜨면 아무 일도 안 합니다
+        time.sleep(3)
+        d.execute_script("document.querySelector('[data-testid=modal-confirm-btn]')?.click()")
         for _ in range(ASSEMBLE_SECONDS // 2):
             time.sleep(2)
             if "조립됨" in text(d):
