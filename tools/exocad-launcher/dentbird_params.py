@@ -748,6 +748,105 @@ def sweep_best(history: list[tuple[float, dict[str, float | None]]]) -> float:
     return best
 
 
+#: '이동 및 변형' 늘리기 (2026-11-05) — + 면적이 이만큼 안 되면 크라운을 이웃 쪽으로 늘립니다.
+#: 근거: 면적 0.1~0.5 의 + 다섯 중 넷이 "겹치는 부분이 더 많았으면". 합격은 대개 1.3~5.6. 판정으로 다시 정할 값.
+STRETCH_TARGET = 2.0
+#: 한 번에 끄는 화면 픽셀 · 한 크라운에서 끌 수 있는 최대 (R40 실측: 6px 에서 0.3 → 2.1)
+STRETCH_STEP_PX = 2
+STRETCH_MAX_PX = 12
+
+
+def _transform_open(d, tooth: int) -> None:
+    select_tooth(d, tooth)
+    _open_tool(d, "toolbar-tool-refine", "refine-group-Adapt-btn")
+    _click(d, "refine-group-Transform-btn")
+    time.sleep(1.5)
+
+
+def _transform_circles(d) -> list[tuple[float, float]]:
+    """이동 및 변형 상자의 변 가운데 손잡이(SVG circle) 화면 좌표 — 숨은 것(0,0)은 뺌"""
+    pts = d.execute_script(
+        "const svg=[...document.querySelectorAll('[data-testid=mesh-viewer-container] svg')].find(s=>s.querySelector('circle'));"
+        "if(!svg) return [];"
+        "return [...svg.querySelectorAll('circle')].map(e=>{const r=e.getBoundingClientRect();"
+        "return [r.x+r.width/2, r.y+r.height/2, r.width]}).filter(p=>p[2]>0 && p[2]<12 && p[0]>0);"
+    ) or []
+    return [(float(x), float(y)) for x, y, _ in pts]
+
+
+def _ldrag(d, x1: float, y1: float, x2: float, y2: float, steps: int = 12) -> None:
+    """왼쪽 단추로 끌기 — CDP 마우스 이벤트 (창이 화면 밖이어도 먹고, 포커스를 안 뺏음)"""
+    def send(kind: str, x: float, y: float, **k) -> None:
+        d.execute_cdp_cmd("Input.dispatchMouseEvent", {"type": kind, "x": x, "y": y, "button": "left", **k})
+    send("mouseMoved", x1, y1, buttons=0)
+    time.sleep(0.2)
+    send("mousePressed", x1, y1, buttons=1, clickCount=1)
+    for i in range(1, steps + 1):
+        send("mouseMoved", x1 + (x2 - x1) * i / steps, y1 + (y2 - y1) * i / steps, buttons=1)
+        time.sleep(0.03)
+    send("mouseReleased", x2, y2, buttons=0, clickCount=1)
+    time.sleep(0.3)
+    send("mouseMoved", 5, 900, buttons=0)  # 하이라이트가 남지 않게 구석으로
+
+
+def _center(pts: list[tuple[float, float]]) -> tuple[float, float]:
+    return (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts))
+
+
+def pick_handle(circles: list[tuple[float, float]], toward: tuple[float, float]) -> tuple[float, float]:
+    """이웃 쪽(toward: 이 크라운 중심 → 이웃 중심 방향)으로 가장 곧게 놓인 변 가운데 손잡이"""
+    cx, cy = _center(circles)
+    return max(circles, key=lambda p: (p[0] - cx) * toward[0] + (p[1] - cy) * toward[1])
+
+
+def _junction_area(areas: dict[str, float | None], a: int, b: int) -> tuple[str | None, float | None]:
+    for name, v in areas.items():
+        if {str(a), str(b)} <= set(name.replace(" ", "").split("-")):
+            return name, v
+    return None, None
+
+
+def stretch_toward(d, tooth: int, neighbor: int, say=print, target: float = STRETCH_TARGET) -> dict:
+    """tooth 크라운을 neighbor 쪽으로 STRETCH_STEP_PX 씩 늘리며 + 면적을 읽습니다 (docs/bridge_rules.md 4절).
+
+    ★ 면적은 조금씩 늘지 않고 닿는 순간 확 뜁니다(R40: 0.3 → 0.2 → 0.3 → 2.1). 그래서 매번 읽습니다.
+    ★ + 가 잠기면(겹침 과다) 마지막 한 번을 되돌리고 멈춥니다. 마진선은 그대로입니다(실측).
+    ★ 방향은 두 크라운의 상자 중심으로 정합니다 — 다른 크라운을 고르면 이웃 이름표가 숨어서 이름표로는 못 잽니다.
+    """
+    _transform_open(d, neighbor)
+    there = _center(_transform_circles(d) or [(0.0, 0.0)])
+    _transform_open(d, tooth)
+    circles = _transform_circles(d)
+    if len(circles) < 4:
+        raise ParamError("이동 및 변형 손잡이를 못 찾았습니다")
+    here = _center(circles)
+    toward = (there[0] - here[0], there[1] - here[1])
+    length = (toward[0] ** 2 + toward[1] ** 2) ** 0.5
+    if length < 5:
+        raise ParamError("이웃 크라운 방향을 못 정했습니다")
+    toward = (toward[0] / length, toward[1] / length)
+    pulled, area, name = 0, None, None
+    while pulled < STRETCH_MAX_PX:
+        _transform_open(d, tooth)
+        hx, hy = pick_handle(_transform_circles(d), toward)
+        _ldrag(d, hx, hy, hx + toward[0] * STRETCH_STEP_PX, hy + toward[1] * STRETCH_STEP_PX)
+        time.sleep(2)
+        pulled += STRETCH_STEP_PX
+        name, now = _junction_area(plus_areas(d, say), tooth, neighbor)
+        say(f"  {tooth} → {neighbor} 쪽으로 {pulled}px 늘림 · + 면적 {now}")
+        if now is None and name is not None:
+            _click(d, "UndoButton")
+            time.sleep(3)
+            pulled -= STRETCH_STEP_PX
+            say(f"  + 가 잠겨 한 번 되돌림 ({pulled}px)")
+            break
+        area = now
+        if area is not None and area >= target:
+            break
+    close_panels(d)
+    return {"tooth": tooth, "neighbor": neighbor, "px": pulled, "area": area, "name": name}
+
+
 def junction_choice(area: float | None) -> str:
     """'+' 또는 '원형'"""
     return "+" if area is not None and area >= RULE_PLUS_MIN_AREA else "원형"
@@ -888,6 +987,37 @@ def bridge_rule(d, units: list[int], present: list[int], say=print) -> list[dict
                 put(u, best)
         say(f"고른 값: 안쪽 {inner} {best:+.2f}")
     final = next(a for v, a in history if v == best)
+    # ★ '이동 및 변형' 늘리기 (2026-11-05) — 인접 거리를 더 겹쳐도 + 면적은 안 늘었습니다(R36·R38·R39·R40).
+    #   면적이 STRETCH_TARGET 아래인 접합은 크라운을 이웃 쪽으로 늘려 봅니다. 폰틱이 있으면 폰틱을, 없으면 안쪽 유닛을.
+    stretched: dict[str, dict] = {}
+    for name, area in list(final.items()):
+        if area is not None and area >= STRETCH_TARGET:
+            continue
+        if area is None and any(a.get(name) is not None for _, a in history):
+            continue  # 열렸다가 잠긴 것 = 겹침 과다 — 늘리면 더 나빠짐
+        try:
+            a, b = (int(x) for x in name.replace(" ", "").split("-"))
+        except ValueError:
+            continue
+        movers = [u for u in (a, b) if u in inner] or [a, b]
+        tooth = movers[-1] if len(movers) > 1 else movers[0]
+        neighbor = b if tooth == a else a
+        try:
+            got = stretch_toward(d, tooth, neighbor, say)
+            # ★ 첫 2px 에 바로 잠기면(2026-11-06 R44 34-33: 34 를 33 쪽으로 2px → 잠김) 이쪽은 이미 바짝 붙은 것.
+            #   반대쪽 크라운을 이쪽으로 늘려 봅니다.
+            if got["px"] == 0:
+                say(f"  {tooth} 쪽은 바로 잠겨 반대로 {neighbor} 을 {tooth} 쪽으로 늘려 봅니다")
+                other = stretch_toward(d, neighbor, tooth, say)
+                if other["px"] > 0:
+                    got = other
+        except ParamError as e:
+            say(f"늘리기 못 함 {name}: {e}")
+            continue
+        stretched[name] = got
+    if stretched:
+        final = plus_areas(d, say)
+        say(f"늘린 뒤 + 면적 {final}")
     report = []
     for name, area in final.items():
         choice = junction_choice(area)
@@ -898,6 +1028,11 @@ def bridge_rule(d, units: list[int], present: list[int], say=print) -> list[dict
                     else "+ 를 못 씀(잠김) — 원형, 사람이 봐 주세요")
         elif area is not None and area < 1.0:
             note = "+ 면적이 작음 — 목이 얇을 수 있음"
+        if name in stretched:
+            g = stretched[name]
+            note = (note + " · " if note else "") + (
+                f"{g['tooth']} 을 {g['neighbor']} 쪽으로 {g['px']}px 늘림" if g["px"] > 0
+                else "늘리면 바로 잠겨 못 늘림 — 사람이 봐 주세요")
         report.append({"name": name, "choice": choice, "area": area, "info": info, "note": note})
         say(f"커넥터 {name}: {choice} ({info}) {note}")
     report.append({"name": "_sweep", "best": best, "history": history, "natural": natural, "inner": inner,

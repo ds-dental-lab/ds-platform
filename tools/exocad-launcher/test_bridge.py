@@ -97,6 +97,15 @@ class RuleSweepTest(unittest.TestCase):
         self.assertGreaterEqual(2.4, RULE_PLUS_MIN_AREA)
         self.assertEqual(sweep_best(h), -0.20)
 
+    def test_stretch_handle_and_junction(self):
+        # 2026-11-05 이동 및 변형 — R40 화면 그대로: 상자 693-893, 46 이 오른쪽
+        from dentbird_params import _junction_area, pick_handle
+        circles = [(693, 516), (793, 416), (793, 616), (893, 516)]
+        self.assertEqual(pick_handle(circles, (1.0, 0.0)), (893, 516))
+        self.assertEqual(pick_handle(circles, (-0.9, 0.1)), (693, 516))
+        self.assertEqual(_junction_area({"46-47": 0.3}, 47, 46), ("46-47", 0.3))
+        self.assertEqual(_junction_area({"37-36": 0.4, "34-33": 0.1}, 33, 34), ("34-33", 0.1))
+
     def test_all_locked_falls_back(self):
         from dentbird_params import sweep_best
         self.assertEqual(sweep_best([(-0.05, {"a": None})]), -0.05)

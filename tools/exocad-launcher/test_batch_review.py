@@ -71,6 +71,16 @@ class ClassifyTest(unittest.TestCase):
         b = SMART.format(rows="브릿지 45-47\nPreset - 3D Printing\n└ 인레이/온레이 45\n└ 폰틱 46\n└ 크라운 47\n")
         self.assertEqual(classify(parse_params(b), b)[0], "hold")
 
+    def test_anterior_holds(self):
+        # 2026-11-06 "전치부는 제외하자"
+        self.assertEqual(classify(["브릿지 33-37"], body("브릿지 33-37"))[0], "hold")
+        self.assertIn("33", classify(["브릿지 33-37"], body("브릿지 33-37"))[1])
+        self.assertEqual(classify(["크라운 13"], body("크라운 13"))[0], "hold")
+        self.assertEqual(classify(["브릿지 11-21"], body("브릿지 11-21"))[0], "hold")
+        self.assertEqual(classify(["브릿지 34-36"], body("브릿지 34-36"))[0], "go")
+        b2 = body("크라운 46", "인레이/온레이 13")  # 앞니 인레이는 빼고 구치부만 — 인레이 길 그대로
+        self.assertEqual(classify(parse_params(b2), b2), ("inlay", "13"))
+
     def test_nothing_holds(self):
         self.assertEqual(classify([], "치료 대상 치아가 감지되지 않았습니다")[0], "hold")
 

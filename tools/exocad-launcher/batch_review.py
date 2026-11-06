@@ -109,6 +109,12 @@ def classify(params: list[str], body: str) -> tuple[str, str]:
     odd = [p for p in params if not re.match(r"^(크라운 \d{2}|브릿지 \d{2}-\d{2})$", p) and not INLAY.match(p)]
     if odd:
         return "hold", "규칙 없는 종류: " + ", ".join(odd)
+    # ★ 전치부(x1~x3, 송곳니 포함)가 들어간 케이스는 하지 않습니다 (사용자 2026-11-06 "전치부는 제외하자" —
+    #   R44 하악 33-37 의 34-33 이 늘려도 잠겨 비정상). 목표는 구치부 브릿지·싱글 100%.
+    bridges, singles = groups_from([p for p in params if not INLAY.match(p)])
+    front = sorted(t for t in {u for g in bridges for u in g} | set(singles) if t % 10 <= 3)
+    if front:
+        return "hold", "전치부는 자동으로 안 함: " + ", ".join(map(str, front))
     inl = inlay_teeth(params)
     if inl and len(inl) == len(params):
         return "hold", "인레이·온레이만 있음: " + ", ".join(map(str, inl))
