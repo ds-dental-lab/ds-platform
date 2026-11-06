@@ -757,6 +757,9 @@ STRETCH_MAX_PX = 12
 
 
 def _transform_open(d, tooth: int) -> None:
+    # ★ 다른 크라운의 다듬기 패널이 열려 있으면 이름표가 숨어 고르지 못합니다 (2026-11-06 덴플로우 34-35:
+    #   이웃 35 의 상자를 연 채로 34 를 고르다 '도구 막대가 안 뜸' → 패널이 남은 채 합치기 → '조립됨' 안 뜸)
+    close_panels(d)
     select_tooth(d, tooth)
     _open_tool(d, "toolbar-tool-refine", "refine-group-Adapt-btn")
     _click(d, "refine-group-Transform-btn")
@@ -1056,6 +1059,7 @@ def bridge_rule(d, units: list[int], present: list[int], say=print) -> list[dict
                     got = other
         except ParamError as e:
             say(f"늘리기 못 함 {name}: {e}")
+            close_panels(d)  # ★ 열린 패널을 남기면 뒤의 커넥터·합치기가 막힙니다
             continue
         stretched[name] = got
         last_areas = got.get("areas")

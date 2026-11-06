@@ -288,6 +288,11 @@ def generation_done(body: str, units: int) -> bool:
       생성됨 · 크라운 27 생성됨" 이 적힌 채로 아직 "생성 중... 95%" 가 돌고 있었습니다.
       유닛 수만큼 '생성됨' 이 있고, '준비 중/생성 중' 이 사라져야 끝입니다.
     """
+    # ★★ 실패 창이 떠 있으면 끝난 것이 아닙니다 (2026-11-06 덴플로우 주문 44-45·24-25). 덴트버드가 "생성 실패 —
+    #   브릿지 44-45 메쉬 생성 오류" 를 띄웠는데 상태 칸에는 '생성됨' 이 유닛 수만큼 있어 끝난 줄 알고 넘어갔고,
+    #   창이 화면을 가려 '최소 두께 보정 단추를 못 찾음' 이라는 엉뚱한 까닭으로 멈췄습니다.
+    if "생성 실패" in body:
+        return False
     if "생성 완료" in body:
         return True
     if re.search(r"준비 중|생성 중", body):
@@ -380,8 +385,10 @@ def assemble(d, abutments: list[int], units: list[int], say=print, connectors: b
             set_connectors(d, say)
         except ParamError as e:
             raise Stop(f"커넥터 크기를 못 넣었습니다 — {e}") from e
+    from dentbird_params import close_panels  # noqa: PLC0415
     for attempt in range(3):
         try:
+            close_panels(d)  # ★ 남은 도구 패널이 있으면 합치기가 안 먹습니다 (2026-11-06)
             select_tooth(d, abutments[0])
             click(d, "toolbar-assemble-btn")
         except (Stop, ParamError) as e:

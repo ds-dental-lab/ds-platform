@@ -9,7 +9,7 @@
 // ★ 읽기만 합니다. 주문 상태·파일은 건드리지 않습니다.
 // =========================================================
 import { createAdminClient } from '@/lib/supabase/admin';
-import { learnable, pickLearnFiles, type LearnItem } from '@/server/domain/learn-cases';
+import { implantScanName, learnable, pickLearnFiles, type LearnItem } from '@/server/domain/learn-cases';
 
 const BUCKET = 'order-files';
 const TTL_SECONDS = 2 * 60 * 60;
@@ -83,8 +83,11 @@ export async function listLearnCases(
   let skipped = 0;
   for (const o of rows) {
     if (cases.length >= MAX_CASES) break;
-    const ok = learnable(itemsOf.get(o.id) ?? [], bridged.has(o.id));
     const all = filesOf.get(o.id) ?? [];
+    // ★ 주문서에는 크라운인데 스캔 이름에 지대주·스캔바디가 보이면 임플란트입니다 (2026-11-06, AbutmentAlignmentScan)
+    const ok = implantScanName(all.map((f) => f.file_name))
+      ? ({ ok: false, why: '임플란트(스캔 이름)' } as const)
+      : learnable(itemsOf.get(o.id) ?? [], bridged.has(o.id));
     const chosen = ok.ok ? pickLearnFiles(all.map((f) => ({ name: f.file_name, size: f.file_size }))) : [];
     if (!ok.ok || !chosen.length) {
       skipped += 1;

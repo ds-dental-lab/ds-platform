@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasAdjacent, learnable, pickLearnFiles } from '@/server/domain/learn-cases';
+import { hasAdjacent, implantScanName, learnable, pickLearnFiles } from '@/server/domain/learn-cases';
 
 const crown = (tooth: number) => ({ tooth, type: 'crown', implant: false });
 
@@ -56,5 +56,13 @@ describe('내려받을 스캔 고르기', () => {
   });
   it('고를 것이 없으면 빈 배열', () => {
     expect(pickLearnFiles([{ name: 'photo.jpg', size: 1 }])).toEqual([]);
+  });
+});
+
+describe('스캔 이름으로 임플란트 가리기 (2026-11-06)', () => {
+  it('지대주·스캔바디 스캔이 있으면 임플란트', () => {
+    expect(implantScanName(['Raw Preparation scan.stl', 'AbutmentAlignmentScan.stl'])).toBe(true);
+    expect(implantScanName(['x-ScanBody.stl'])).toBe(true);
+    expect(implantScanName(['x-upperjaw.stl', 'x-lowerjaw.stl', 'case.zip'])).toBe(false);
   });
 });

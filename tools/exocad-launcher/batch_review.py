@@ -651,6 +651,12 @@ def find_twisted(d, units: list[int], say, shots: Path | None, tag: str) -> list
     return bad
 
 
+def failure_reason(body: str) -> str:
+    """'생성 실패' 창의 까닭 한 줄 — 예: '브릿지 44-45 메쉬 생성 오류.' 못 찾으면 빈 글"""
+    m = re.search(r"((?:브릿지|크라운|폰틱)\s*[\d,\- ]+?)\s+([^\n]*오류[^\n]*)", body)
+    return f"{m.group(1).strip()} {m.group(2).strip()}" if m else ""
+
+
 def generate(d, units: int, say) -> None:
     # ★ 2026-11-04 H19: 생성 단추는 살아 있는데 눌러도 시작이 안 됐습니다. 상태 칸에 빨간 '꼬인 마진라인' 경고 —
     #   AI 가 그린 마진선이 꼬이면 덴트버드가 생성을 거부합니다. 96초를 버리지 않고 이유를 적어 보류합니다.
@@ -679,7 +685,8 @@ def generate(d, units: int, say) -> None:
             return
         if "생성 실패" in body:
             if retried:
-                raise Stop("덴트버드가 생성에 두 번 실패했습니다")
+                why = failure_reason(body)
+                raise Stop("덴트버드가 생성에 두 번 실패했습니다" + (f" — {why}" if why else ""))
             dismiss(d)
             retried = True
             time.sleep(4)
@@ -691,6 +698,7 @@ def generate(d, units: int, say) -> None:
 def assemble(d, abutment: int, say) -> None:
     for attempt in range(3):
         try:
+            close_panels(d)  # ★ 남은 도구 패널이 있으면 합치기가 안 먹습니다 (2026-11-06 덴플로우 34-35)
             select_tooth(d, abutment)
             click(d, "toolbar-assemble-btn")
             break
@@ -751,6 +759,14 @@ def design_one(d, item: Path, scans: tuple[Path, Path], rec: dict, say, shots: P
     dentbird_params.ADAPT_SKIPPED.clear()  # 앞 건에서 남은 것을 비움
     new_tab(d)
     upload_and_classify(d, list(scans), say)
+    # ★ 다음 단추가 잠겨 있으면 덴트버드가 위·아래턱을 다 못 가른 것입니다 (2026-11-06 덴플로우 14-16 —
+    #   'element click intercepted' 라는 알아볼 수 없는 오류로 멈췄습니다). 20초 기다려 보고 까닭을 적습니다.
+    for _ in range(40):
+        if d.execute_script("const b=document.querySelector('[data-testid=import-next-btn]'); return !!b && !b.disabled"):
+            break
+        time.sleep(0.5)
+    else:
+        raise Stop("덴트버드가 스캔을 위·아래턱으로 다 못 갈랐습니다 (다음 단추가 잠김) — 스캔 파일을 봐 주세요")
     click(d, "import-next-btn")
     wait_gone(d, "분석하고 있습니다", "AI 분석이 안 끝납니다")
     time.sleep(3)

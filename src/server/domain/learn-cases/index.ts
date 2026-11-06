@@ -50,6 +50,11 @@ export function learnable(items: LearnItem[], bridged = true): Learnable {
   return { ok: true, teeth: crowns };
 }
 
+/** 스캔 파일 이름에 지대주·스캔바디·임플란트가 보이는가 — 주문서에는 크라운이어도 임플란트 케이스 */
+export function implantScanName(names: string[]): boolean {
+  return names.some((n) => /abutment|scan[\s_-]?body|implant|지대주|스캔바디|임플란트/i.test(n));
+}
+
 export interface LearnFile {
   name: string;
   size: number | null;

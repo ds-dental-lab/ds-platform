@@ -114,6 +114,16 @@ class RuleSweepTest(unittest.TestCase):
             defs = [n.name for n in ast.parse(src).body if isinstance(n, ast.FunctionDef)]
             self.assertEqual([k for k, v in collections.Counter(defs).items() if v > 1], [], name)
 
+    def test_generation_failure_is_not_done(self):
+        # 2026-11-06 덴플로우 44-45: 실패 창이 떠 있는데 '생성됨' 이 둘이라 끝난 줄 알았음
+        from dentbird_macro import generation_done
+        from batch_review import failure_reason
+        body = ("상태\n브릿지 44-45\n크라운 44\n생성됨\n크라운 45\n생성됨\n"
+                "생성 실패\n아래와 같이 생성에 실패했습니다.\n브릿지 44-45\n메쉬 생성 오류.\n확인")
+        self.assertFalse(generation_done(body, 2))
+        self.assertTrue(generation_done("크라운 44\n생성됨\n크라운 45\n생성됨", 2))
+        self.assertEqual(failure_reason(body), "브릿지 44-45 메쉬 생성 오류.")
+
     def test_all_locked_falls_back(self):
         from dentbird_params import sweep_best
         self.assertEqual(sweep_best([(-0.05, {"a": None})]), -0.05)
