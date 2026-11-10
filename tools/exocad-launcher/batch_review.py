@@ -651,6 +651,22 @@ def find_twisted(d, units: list[int], say, shots: Path | None, tag: str) -> list
     return bad
 
 
+def made_teeth(body: str) -> list[int]:
+    """설계 화면 글에 보철로 적힌 치식 전부 — '크라운 24' · '폰틱 36' · '임플란트 17' · '인레이/온레이 45'"""
+    return sorted({int(n) for n in re.findall(r"(?:크라운|폰틱|임플란트|인레이/온레이)\s*([1-4][1-8])\b", body)})
+
+
+def extra_teeth(body: str, bridges: list[list[int]], singles: list[int]) -> list[int]:
+    """읽은 목록(브릿지·싱글)에 없는데 화면에는 보철로 있는 치식.
+
+    ★ 2026-11-10 사용자 "R47 에서 30번대 치아는 이상하네" — 주문은 24·25 뿐인데 그림에 아래턱 크라운이 하나 더
+      생성돼 있었고(대합치가 뚫고 나옴), 기록에는 '브릿지 24-25' 뿐이었습니다. 프로그램이 모르는 보철이 같이
+      만들어진 것을 조용히 넘기지 않도록 견줍니다.
+    """
+    known = {u for b in bridges for u in b} | set(singles)
+    return [t for t in made_teeth(body) if t not in known]
+
+
 def failure_reason(body: str) -> str:
     """'생성 실패' 창의 까닭 한 줄 — 예: '브릿지 44-45 메쉬 생성 오류.' 못 찾으면 빈 글"""
     m = re.search(r"((?:브릿지|크라운|폰틱)\s*[\d,\- ]+?)\s+([^\n]*오류[^\n]*)", body)
@@ -803,6 +819,8 @@ def design_one(d, item: Path, scans: tuple[Path, Path], rec: dict, say, shots: P
                         "return !b || b.disabled || b.classList.contains('Mui-disabled')"):
         rec.update(status="hold", why="'디자인' 단추가 잠김 — 덴트버드가 더 고를 것을 요구 (임플란트 라이브러리 등)")
         return rec
+    # ★ 진단용 — Smart order 의 '디자인 파라미터' 칸 글(치식·보철 종류뿐, 환자 정보 없음)을 기록에 남깁니다 (2026-11-10)
+    rec["smart"] = param_section(text(d))[:900]
     click(d, "workspace-preparation-design-btn")
     time.sleep(8)
     units_total = sum(len(b) for b in bridges) + len(singles)
@@ -816,6 +834,12 @@ def design_one(d, item: Path, scans: tuple[Path, Path], rec: dict, say, shots: P
             raise Stop(f"{', '.join(map(str, bad))}번 마진선이 꼬입니다 — 스캔을 봐 주세요 (마진이 언더컷을 가로지름), 재스캔 필요")
     generate(d, units_total, say)
     body = text(d)
+    extra = extra_teeth(body, bridges, singles)
+    if extra:
+        rec["extra"] = extra
+        note = f"읽은 목록에 없는 {', '.join(map(str, extra))} 이(가) 같이 생성됨 — 봐 주세요"
+        rec["note"] = (rec.get("note", "") + " · " if rec.get("note") else "") + note
+        say(note)
 
     if singles:
         apply_each(d, singles, say=say, proximal=True)

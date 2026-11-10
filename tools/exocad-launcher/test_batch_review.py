@@ -282,6 +282,17 @@ class LearnFetchTest(unittest.TestCase):
             self.assertEqual(fetch_denflow(Path(tmp), lambda m: None, post=boom, download=None), 0)
 
 
+class ExtraTeethTest(unittest.TestCase):
+    """읽은 목록에 없는 보철이 같이 생성되면 알림 (2026-11-10 R47 — 주문 24·25 인데 아래턱 크라운이 하나 더)"""
+
+    def test_extra(self):
+        from batch_review import extra_teeth, made_teeth
+        body = "상태\n브릿지 24-25\n크라운 24\n생성됨\n크라운 25\n생성됨\n크라운 35\n생성됨\n18\n17\n16\n모델 리스트\n브릿지 24-25"
+        self.assertEqual(made_teeth(body), [24, 25, 35])
+        self.assertEqual(extra_teeth(body, [[24, 25]], []), [35])
+        self.assertEqual(extra_teeth(body, [[24, 25]], [35]), [])
+
+
 class NightKeyTest(unittest.TestCase):
     """설계 일꾼이 밤 실행을 띄우는 시각 — 21시부터 새벽 6시 전까지, 새벽은 전날 밤으로 셈"""
 

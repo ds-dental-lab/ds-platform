@@ -948,12 +948,27 @@ def _set_slider_js(d, testid: str, value: float) -> None:
 
 def set_junction(d, name: str, choice: str) -> str:
     """접합 하나를 '+' 또는 원형 4×4 로. 덴트버드가 말하는 단면 글자를 돌려줍니다"""
-    close_panels(d)
-    _open_tool(d, "toolbar-tool-connect", "connect-process")
-    time.sleep(2.0)
-    chip = next((c for c in _chips(d) if (c.text or "").strip() == name), None)
+    # ★ 칩이 늦게 그려지는 때가 있습니다 (2026-11-06 덴플로우 44-45: 늘리기 바로 뒤 2초 만에 찾아 '칩이 없습니다' 로 멈춤).
+    #   8초까지 기다리고, 그래도 없으면 그 접합의 치아를 다시 골라 한 번 더 엽니다.
+    chip = None
+    for attempt in range(2):
+        close_panels(d)
+        if attempt:
+            try:
+                select_tooth(d, int(name.replace(" ", "").split("-")[0]))
+            except (ParamError, ValueError):
+                pass
+        _open_tool(d, "toolbar-tool-connect", "connect-process")
+        for _ in range(16):
+            time.sleep(0.5)
+            chip = next((c for c in _chips(d) if (c.text or "").strip() == name), None)
+            if chip is not None:
+                break
+        if chip is not None:
+            break
     if chip is None:
-        raise ParamError(f"커넥터 {name} 칩이 없습니다")
+        seen = [(c.text or "").strip() for c in _chips(d)]
+        raise ParamError(f"커넥터 {name} 칩이 없습니다 (보이는 칩: {', '.join(seen) or '없음'})")
     d.execute_script("arguments[0].click()", chip)
     time.sleep(2.0)
     btns = _shape_buttons(d)
