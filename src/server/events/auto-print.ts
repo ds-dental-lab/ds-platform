@@ -114,6 +114,34 @@ export async function publishDentbirdLoggedOut(orgId: string, deviceName: string
   }
 }
 
+/**
+ * 서버 PC 일꾼이 크롬에 못 붙습니다 — 센터에 종·푸시 (2026-11-11).
+ * ★ 주문이 오기 **전에** 알리는 것이 목적입니다. 이 상태로 주문이 오면 '차례를 기다립니다' 에서 멈춥니다.
+ * ★ 기기는 디자인센터 것이라 알림도 센터에만 갑니다. 치과에는 아무것도 안 갑니다.
+ */
+export async function publishDentbirdBlocked(orgId: string, deviceName: string, detail: string): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const title = 'FlowTemp 설계가 멈춥니다 — 서버 PC 가 크롬에 못 붙습니다';
+    const body = `${deviceName} — ${detail.replace(/^못 붙음\s*—\s*/, '')}`.slice(0, 300);
+    const link = '/design/devices';
+
+    await admin.from('notifications').insert({
+      org_id: orgId,
+      channel: 'in_app',
+      status: 'sent',
+      event_type: 'device.dentbird_blocked',
+      title,
+      body,
+      link,
+      payload: { deviceName },
+    });
+    await sendPushToOrgs(new Map([[orgId, { title, body, link, tag: 'dentbird-blocked' }]]));
+  } catch (error) {
+    console.error('[events] 크롬 못 붙음 알림 실패', error);
+  }
+}
+
 export async function publishDesignStall(orderId: string, note: string | null): Promise<void> {
   try {
     const admin = createAdminClient();

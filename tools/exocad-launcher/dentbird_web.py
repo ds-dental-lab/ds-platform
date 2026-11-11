@@ -165,6 +165,44 @@ def minimize() -> None:
         pass
 
 
+def driver_reason(error: BaseException) -> str:
+    """크롬 조종 프로그램(크롬드라이버)을 못 구한 까닭을 사람 말로 — 오류와 그 원인 사슬을 다 봅니다"""
+    chain, e = [], error
+    while e is not None and len(chain) < 6:
+        chain.append(e)
+        e = e.__cause__ or e.__context__
+    for e in chain:
+        # ★ 2026-11-11 시연 — 새로 깐 윈도우가 며칠 뒤 스스로 켠 '스마트 앱 컨트롤' 이 selenium-manager.exe 를 막음
+        if getattr(e, "winerror", None) == 4551 or "4551" in str(e):
+            return ("윈도우 보안(스마트 앱 컨트롤)이 크롬 조종 프로그램을 막았습니다 — "
+                    "서버 PC 의 Windows 보안 → 앱 및 브라우저 컨트롤 → 스마트 앱 컨트롤을 봐 주세요")
+    first = (str(chain[-1]) or type(chain[-1]).__name__).strip().splitlines()[0][:120]
+    return f"크롬 조종 프로그램을 못 구했습니다 — {first}"
+
+
+def driver_problem() -> str | None:
+    """
+    크롬에 **붙을 수 있는 상태인가** — 붙지 않고 봅니다 (2026-11-11).
+
+    ★ 왜 — 붙는 데 쓰는 보조 프로그램을 윈도우가 막았는데, 상태판은 '켜짐 · 대기' 였고 주문이 와서야
+      (그것도 치과 시연 자리에서) 알았습니다. 셀레니움이 붙을 때 맨 먼저 하는 '드라이버 구하기' 만
+      따로 해 봅니다. 창을 건드리지 않아 앞으로 튀어나오지 않습니다.
+    ★ 확인 자체를 못 하면(셀레니움 판이 달라 이 길이 없음) None — 모르는 것을 문제라고 하지 않습니다.
+    """
+    try:
+        from selenium.webdriver.common.selenium_manager import SeleniumManager  # noqa: PLC0415
+        run = SeleniumManager().binary_paths
+    except Exception:  # noqa: BLE001
+        return None
+    try:
+        got = run(["--browser", "chrome"])
+    except Exception as e:  # noqa: BLE001
+        return driver_reason(e)
+    if not (got or {}).get("driver_path"):
+        return "크롬 조종 프로그램을 못 구했습니다 — 경로가 비어 있습니다"
+    return None
+
+
 def attach():
     """떠 있는 창에 붙습니다 — 새로 띄우지 않습니다"""
     from selenium import webdriver  # noqa: PLC0415

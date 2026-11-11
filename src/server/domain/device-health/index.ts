@@ -40,7 +40,7 @@ export interface DeviceHealthInput {
   lastSeenAt: string | null;
   lastErrorAt: string | null;
   /** 설계 PC 가 스스로 본 '빠진 것' — 하나라도 있으면 확인 필요 */
-  status?: { missing?: string[] };
+  status?: { missing?: string[]; dentbird?: string };
 }
 
 export function deviceState(d: DeviceHealthInput, now: number): DeviceState {
@@ -48,6 +48,8 @@ export function deviceState(d: DeviceHealthInput, now: number): DeviceState {
   if (now - new Date(d.heartbeatAt).getTime() > HEARTBEAT_OFFLINE_SECONDS * 1000) return 'offline';
   // ★ 2026-10-16 빠진 설정 하나가 아무 말 없이 일을 멈췄습니다. 빠지면 바로 노랗게
   if (d.status?.missing?.length) return 'warn';
+  // ★ 2026-11-11 크롬에 못 붙는 동안은 계속 '확인 필요' — 한 시간 지났다고 정상으로 돌아가면 안 됩니다
+  if (dentbirdBlocked(d.status)) return 'warn';
   if (d.lastErrorAt && now - new Date(d.lastErrorAt).getTime() < RECENT_ERROR_MINUTES * 60_000) return 'warn';
   return 'ok';
 }
@@ -134,6 +136,26 @@ export function sanitizeStatus(raw: unknown): DeviceStatus {
  */
 export function dentbirdLoggedOut(status: DeviceStatus | null | undefined): boolean {
   return !!status?.dentbird?.startsWith('로그인 풀림');
+}
+
+/**
+ * 서버 PC 일꾼이 '크롬에 못 붙는다' 고 알렸는가 (2026-11-11).
+ *
+ * ★ 치과 시연에서 주문이 '차례를 기다립니다' 로 멈췄습니다. 윈도우가 일꾼의 보조 프로그램을 막았는데
+ *   상태판은 '켜짐 · 대기' 였습니다. 일꾼이 쉬는 동안 스스로 확인하고, 막히면 상태 문구를
+ *   '못 붙음' 으로 **시작**합니다(design_worker._health).
+ * ★ **디자인센터에만** 알립니다 (사용자 — "치과엔 혼란만 줄 것 같다"). 치과 화면은 그대로입니다.
+ */
+export function dentbirdBlocked(status: { dentbird?: string } | null | undefined): boolean {
+  return !!status?.dentbird?.startsWith('못 붙음');
+}
+
+/** 이번 보고에서 **처음** 막혔는가 */
+export function justBlocked(
+  prev: { dentbird?: string } | null | undefined,
+  next: { dentbird?: string } | null | undefined,
+): boolean {
+  return dentbirdBlocked(next) && !dentbirdBlocked(prev);
 }
 
 /** 이번 보고에서 **처음** 풀렸는가 — 1분마다 같은 알림이 쌓이지 않게 */

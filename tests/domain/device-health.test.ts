@@ -13,6 +13,8 @@ import {
   deviceGroup,
   dentbirdLoggedOut,
   justLoggedOut,
+  dentbirdBlocked,
+  justBlocked,
 } from '@/server/domain/device-health';
 
 const now = Date.parse('2026-10-16T05:00:00Z');
@@ -117,5 +119,28 @@ describe('덴트버드 로그인 풀림 알림 (2026-10-23)', () => {
   it('긴 까닭이 붙어도 거르기에서 살아남습니다 (120자)', () => {
     const s = sanitizeStatus({ dentbird: '로그인 풀림 — ' + '가'.repeat(200) });
     expect(dentbirdLoggedOut(s)).toBe(true);
+  });
+});
+
+describe('크롬에 못 붙음 (2026-11-11 치과 시연이 차례 기다리기에서 멈춤)', () => {
+  const at = '2026-10-16T04:59:30Z';
+
+  it("상태 문구가 '못 붙음' 으로 시작하면 막힌 것", () => {
+    expect(dentbirdBlocked({ dentbird: '못 붙음 — 윈도우 보안이 막았습니다' })).toBe(true);
+    expect(dentbirdBlocked({ dentbird: '켜짐' })).toBe(false);
+    expect(dentbirdBlocked({ dentbird: '로그인 풀림 — x' })).toBe(false);
+    expect(dentbirdBlocked(null)).toBe(false);
+  });
+
+  it('처음 막힌 보고에만 알립니다', () => {
+    expect(justBlocked({ dentbird: '켜짐' }, { dentbird: '못 붙음 — x' })).toBe(true);
+    expect(justBlocked({ dentbird: '못 붙음 — x' }, { dentbird: '못 붙음 — x · 못 쓰는 상태(쉬는 중)' })).toBe(false);
+    expect(justBlocked({ dentbird: '못 붙음 — x' }, { dentbird: '켜짐' })).toBe(false);
+  });
+
+  it('막혀 있는 동안은 오류가 오래됐어도 계속 확인 필요', () => {
+    const base = { heartbeatAt: at, lastSeenAt: at, lastErrorAt: '2026-10-15T00:00:00Z' };
+    expect(deviceState({ ...base, status: { dentbird: '못 붙음 — x' } }, now)).toBe('warn');
+    expect(deviceState({ ...base, status: { dentbird: '켜짐' } }, now)).toBe('ok');
   });
 });

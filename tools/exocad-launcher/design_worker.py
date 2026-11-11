@@ -285,6 +285,9 @@ def _health() -> dict:
     # ★ 쉬는 동안 읽어 본 것이 '풀림' 이면 그 말이 먼저 — 서버가 이 말로 알림을 보냅니다
     if _login_lost:
         dentbird = f"로그인 풀림 — {_login_lost}"
+    # ★ 붙을 수 없는 상태면 그 말이 맨 먼저 — 서버가 '못 붙음' 으로 시작하는 말을 보고 센터에 알립니다 (2026-11-11)
+    if _driver_bad:
+        dentbird = f"못 붙음 — {_driver_bad}"
     if time.time() - _session_bad_at < SESSION_PAUSE_SECONDS:
         dentbird += " · 못 쓰는 상태(쉬는 중)"
     # ★ 빠진 것이 **바뀔 때만** 오류로 남깁니다 — 1분마다 같은 말이 쌓이지 않게
@@ -353,6 +356,40 @@ def _probe_login() -> None:
         say("덴트버드 로그인이 돌아왔습니다 — 일감을 다시 받습니다")
         _session_bad_at = 0.0
     _login_lost = why
+    if why:
+        _session_bad_at = now
+
+
+#: 쉬는 동안 '크롬에 붙을 수 있나' 확인 — 멀쩡할 때 10분, 막혀 있는 동안 1분 (2026-11-11)
+DRIVER_PROBE_SECONDS = 600
+DRIVER_BAD_PROBE_SECONDS = 60
+_next_driver_probe = 0.0
+#: 못 붙는 까닭 — 못 붙는 동안만 들어 있습니다
+_driver_bad: str | None = None
+
+
+def _probe_driver(check=None) -> None:
+    """
+    ★ 일감이 없을 때도 크롬에 붙을 수 있는지 봅니다 (2026-11-11 치과 시연이 '차례를 기다립니다' 에서 멈춤).
+      윈도우가 보조 프로그램을 막았는데 주문이 와서야 알았습니다. 막히면 상태 보고에 '못 붙음' 을 싣고
+      (서버가 **디자인센터에만** 알림·푸시), 그동안 일감은 안 잡습니다. 풀리면 1분 안에 다시 받습니다.
+    """
+    global _next_driver_probe, _driver_bad, _session_bad_at
+    now = time.time()
+    if now < _next_driver_probe:
+        return
+    _next_driver_probe = now + (DRIVER_BAD_PROBE_SECONDS if _driver_bad else DRIVER_PROBE_SECONDS)
+    if check is None:
+        from dentbird_web import driver_problem as check  # noqa: PLC0415
+    why = check()
+    if why and not _driver_bad:
+        say(f"크롬에 붙을 수 없습니다 — {why}")
+        if _heart is not None:
+            _heart.report(f"FlowTemp 설계 멈춤 — {why}")
+    elif not why and _driver_bad:
+        say("크롬에 다시 붙을 수 있습니다 — 일감을 다시 받습니다")
+        _session_bad_at = 0.0
+    _driver_bad = why
     if why:
         _session_bad_at = now
 
@@ -506,6 +543,10 @@ def main(argv: list[str] | None = None) -> int:
                 _probe_login()
             except Exception as e:  # noqa: BLE001 — 확인이 일꾼을 죽이면 안 됩니다
                 say(f"로그인 확인 중 문제 — {e!r}")
+            try:
+                _probe_driver()
+            except Exception as e:  # noqa: BLE001
+                say(f"크롬 붙기 확인 중 문제 — {e!r}")
             from watch_common import self_update  # noqa: PLC0415
             if self_update(say=say):
                 time.sleep(30)  # 곧 taskkill 이 옵니다 — 그 사이 새 일감을 잡지 않게
