@@ -41,6 +41,7 @@ sys.path.insert(0, str(HERE))
 
 from dentbird_case import fdi_range  # noqa: E402
 from dentbird_macro import (  # noqa: E402
+    listed_pontics, stray_pontics, to_missing,
     CROWN_URL, Stop, click, dismiss, generation_done, screen_labels, session_problem, text,
     upload_and_classify, wait_gone,
 )
@@ -809,6 +810,16 @@ def design_one(d, item: Path, scans: tuple[Path, Path], rec: dict, say, shots: P
         params = parse_params(text(d))
         rec["detected"] = params
     bridges, singles = groups_from(params)
+    # ★ 떠돌이 폰틱 — 덴트버드가 빠진 자리를 스스로 폰틱으로 잡았는데 옆에 보철이 없는 것 (2026-11-10 R47 의 36).
+    #   결손치로 돌려 설계에서 뺍니다. 옆에 크라운이 있으면(브릿지가 될 자리) 건드리지 않습니다.
+    stray = stray_pontics(listed_pontics(text(d)), [u for b in bridges for u in b] + list(singles))
+    if stray:
+        to_missing(d, stray, say)
+        rec["skipped_pontic"] = stray
+        time.sleep(2)
+        params = parse_params(text(d))
+        rec["detected"] = params
+        bridges, singles = groups_from(params)
     rec["bridges"] = [f"{b[0]}-{b[-1]}" for b in bridges]
     rec["singles"] = singles
 

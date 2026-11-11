@@ -293,6 +293,26 @@ class ExtraTeethTest(unittest.TestCase):
         self.assertEqual(extra_teeth(body, [[24, 25]], [35]), [])
 
 
+class StrayPonticTest(unittest.TestCase):
+    """떠돌이 폰틱 (2026-11-10) — 화면 글 그대로: 폰틱 줄 뒤에는 Preset 줄이 없음"""
+
+    BODY = ("Smart order\n디자인 파라미터\n크라운 24\nPreset - 3D Printing\n\u200b\n크라운 25\nPreset - 3D Printing\n\u200b\n"
+            "폰틱 36\n디자인 설정\n뒤로가기\n디자인")
+
+    def test_listed_and_stray(self):
+        from batch_review import listed_pontics, stray_pontics
+        self.assertEqual(listed_pontics(self.BODY), [36])
+        self.assertEqual(stray_pontics([36], [24, 25]), [36])
+        self.assertEqual(stray_pontics([45], [44, 46]), [])      # 브릿지가 될 자리는 그대로
+        self.assertEqual(stray_pontics([35], [36]), [])
+        self.assertEqual(stray_pontics([47], [37]), [47])        # 사분면이 다르면 옆이 아님
+
+    def test_pontic_inside_bridge_is_not_listed(self):
+        from batch_review import listed_pontics
+        b = "디자인 파라미터\n브릿지 44-46\nPreset - 3D Printing\n└ 크라운 44\n└ 폰틱 45\n└ 크라운 46\n디자인 설정"
+        self.assertEqual(listed_pontics(b), [])
+
+
 class NightKeyTest(unittest.TestCase):
     """설계 일꾼이 밤 실행을 띄우는 시각 — 21시부터 새벽 6시 전까지, 새벽은 전날 밤으로 셈"""
 

@@ -316,6 +316,47 @@ def screen_labels(d) -> list[int]:
     return sorted({int(x) for x in (got or [])})
 
 
+def listed_pontics(body: str) -> list[int]:
+    """Smart order '디자인 파라미터' 칸에 **혼자** 적힌 폰틱 치식 — 브릿지 안의 '└ 폰틱 46' 은 빼고.
+
+    ★ 덴트버드는 이가 빠진 자리를 스스로 폰틱으로 잡기도 합니다. 그 줄 뒤에는 'Preset' 줄이 안 따라와
+      밤 실행의 parse_params 가 못 읽었습니다 (2026-11-10 주문 24·25 에 '폰틱 36' 이 같이 생성됨).
+    """
+    start = body.find("디자인 파라미터")
+    if start < 0:
+        return []
+    end = body.find("디자인 설정", start)
+    seg = body[start:end if end > 0 else None]
+    return sorted({int(n) for n in re.findall(r"^[ \t]*폰틱[ \t]*([1-4][1-8])[ \t]*$", seg, re.M)})
+
+
+def stray_pontics(listed: list[int], units: list[int]) -> list[int]:
+    """떠돌이 폰틱 — 같은 쪽 바로 옆(±1)에 보철 유닛이 하나도 없는 폰틱. 브릿지가 될 수 없으니 설계에서 뺍니다"""
+    have = set(units)
+    return [p for p in listed if p not in have and not ({p - 1, p + 1} & {u for u in have if u // 10 == p // 10})]
+
+
+def to_missing(d, teeth: list[int], say=print) -> None:
+    """폰틱으로 잡힌 자리를 '결손치' 로 돌려 설계에서 뺍니다 — 이름표 → '결손치' → 적용 (2026-11-10 실측)"""
+    for n in teeth:
+        d.execute_script(
+            "document.querySelector('[data-testid=pontic-guide-close-btn]')?.click();"
+            "document.querySelector('[data-testid=tooth-planning-close-btn]')?.click();")
+        time.sleep(1.0)
+        if not _click_label(d, n):
+            raise Stop(f"폰틱 {n} 의 이름표가 화면에 없습니다 — 주문에 없는 폰틱이라 사람이 빼 주세요")
+        time.sleep(1.5)
+        click(d, "tooth-planning-type-missing")
+        time.sleep(0.8)
+        click(d, "tooth-planning-apply-btn")
+        time.sleep(3)
+        d.execute_script("document.querySelector('[data-testid=tooth-planning-close-btn]')?.click();")
+        time.sleep(0.8)
+        if n in listed_pontics(text(d)):
+            raise Stop(f"폰틱 {n} 이 결손치로 안 바뀌었습니다 — 주문에 없는 폰틱이라 사람이 빼 주세요")
+        say(f"주문에 없는 폰틱 {n} 은 결손치로 돌려 빼고 진행합니다")
+
+
 def mark_pontics(d, pontics: list[int], say=print) -> None:
     """결손 자리를 폰틱으로 찍습니다 — 이름표 → '폰틱' → 적용.
 
@@ -445,6 +486,11 @@ def run(scans: list[Path], want: list[int], say=print, mark=lambda stage, note=N
         raise Stop("치식을 못 읽었습니다 — 화면을 보고 사람이 확인해 주세요")
     if sorted(got) != sorted(want):
         raise Stop(f"치식이 주문서와 다릅니다 — 주문서 {want} · 덴트버드 {got}")
+    # ★ 주문서에 없는 폰틱(덴트버드가 빠진 자리를 스스로 잡은 것)은 결손치로 돌려 뺍니다 (2026-11-10).
+    #   위 치식 견주기는 크라운만 봐서, 그대로 두면 주문에 없는 폰틱이 같이 생성·내보내집니다.
+    extra = [p for p in listed_pontics(text(d)) if p not in set(pontics or [])]
+    if extra:
+        to_missing(d, extra, say)
 
     # ★ 브릿지 — 폰틱을 찍고 이웃을 잇습니다. 싱글 하나면 아무것도 안 합니다.
     #   ★ 이 화면에서 '뒤로가기(Smart order)' 로 돌아오면 묶음이 풀립니다 (실측) —
