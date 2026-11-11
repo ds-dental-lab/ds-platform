@@ -259,7 +259,8 @@ export function stallKind(note: string | null | undefined): StallKind {
   if (/치식을 못 읽|치식이 주문서와 다릅|치식이 다릅|크라운이 주문서와 다릅|브릿지가 주문서와 다릅/.test(n)) return 'unreadable';
   if (/스캔을 못 찾|스캔 후보가|파일을 내려놓|스캔을 봐 주세요|두 번 실패/.test(n)) return 'scan';
   if (/건수|횟수|차감|credit/i.test(n)) return 'credits';
-  if (/다운로드|download|로그인|session|세션|창이 안 떠|CAM 축|ZIP으로 압축|올라오지|올라왔|내보낸 뒤|배달|deliver/i.test(n)) {
+  // ★ '주문과 안 맞' (2026-11-11) — 내보낸 파일의 치식이 정보 파일과 다를 때. 다시 걸면 건수만 또 씁니다 → 사람이 봅니다
+  if (/다운로드|download|로그인|session|세션|창이 안 떠|CAM 축|ZIP으로 압축|올라오지|올라왔|내보낸 뒤|배달|deliver|주문과 안 맞/i.test(n)) {
     return 'setup';
   }
   return 'transient';
@@ -1077,6 +1078,18 @@ export function isUpperTooth(tooth: number): boolean {
  */
 export const DEVICE_OFFLINE_SECONDS = 660;
 
+/** 치과 PC 탓으로 막힌 줄의 상태 글 — 이 글이면 안내 띠도 그 까닭을 먼저 말합니다 */
+export const CLINIC_AGENT_PAUSED = '프로그램 멈춤';
+export const CLINIC_PC_BLOCKED = ['치과 PC 꺼짐', CLINIC_AGENT_PAUSED];
+
+/**
+ * 치과 PC 의 프로그램이 **켜져 있는데 지켜보기가 멈춰** 있는가.
+ * ★ 옛 판은 이 값을 안 보냅니다 — 모르면 멈춘 것으로 보지 않습니다.
+ */
+export function agentPaused(status: { watching?: boolean } | null | undefined): boolean {
+  return status?.watching === false;
+}
+
 export function deviceOnline(lastSeenAt: string | null | undefined, now: number): boolean {
   if (!lastSeenAt) return false;
   return now - new Date(lastSeenAt).getTime() < DEVICE_OFFLINE_SECONDS * 1000;
@@ -1090,11 +1103,22 @@ export function deviceOnline(lastSeenAt: string | null | undefined, now: number)
  * ★ 출력 중에 끊겼으면 **프린터는 계속 뽑고 있을 수 있다** 고 말합니다.
  *   실패라고 단정하지 않습니다 — 와이파이가 잠깐 끊긴 것일 수 있습니다.
  */
-export function withClinicPc(row: BoardRow, job: AutoJob, online: boolean): BoardRow {
-  if (online) return row;
+export function withClinicPc(row: BoardRow, job: AutoJob, online: boolean, paused = false): BoardRow {
+  if (online && !paused) return row;
   const waitsPc =
     (job.step === 'queued' && job.bedClearedAt !== null) || job.step === 'sending' || job.step === 'printing';
   if (!waitsPc) return row;
+  // ★ 켜져 있는데 '지켜보기' 가 멈춰 있을 때 (2026-11-11 치과 첫 실전). 치과가 단추 하나로 풀 수 있는 일이라
+  //   치과 화면에 말합니다. 출력 중이면 프린터는 이미 받은 것을 계속 뽑으니 그대로 둡니다.
+  if (online) {
+    if (job.step === 'printing') return row;
+    return {
+      ...row,
+      tone: 'action',
+      status: CLINIC_AGENT_PAUSED,
+      detail: '치과 PC 의 덴플로우 프로그램이 멈춰 있어 출력을 못 보냅니다 — 프로그램 창에서 「지켜보기 시작」을 눌러 주세요',
+    };
+  }
   return {
     ...row,
     tone: 'delay',

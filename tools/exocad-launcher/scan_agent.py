@@ -94,6 +94,8 @@ POLL_SECONDS = 1
 SETTLE_TICK = 0.4
 #: 폴더(메딧)는 파일이 하나씩 떨어집니다. 이만큼 조용하면 다 떨어진 것으로 봅니다
 QUIET_SECONDS = 1.5
+#: 멈춤을 누른 뒤 스스로 다시 지켜보기까지 (2026-11-11)
+AUTO_RESUME_SECONDS = 600
 
 
 def load_settings() -> dict:
@@ -460,6 +462,7 @@ class Agent:
 
         self.say(f"{label} — {name} 올리는 중…")
 
+        asked_at = time.time()
         slot = post_json(
             f"{SITE}/api/device/scan",
             {
@@ -474,6 +477,8 @@ class Agent:
         if not slot.get("ok"):
             self.say(f"   실패: {slot.get('error', '')}")
             return
+        # ★ 어디서 시간이 걸리는지 기록에 남깁니다 — 줄이기 전에 먼저 잽니다
+        self.say(f"   걸린 시간 — 서버 응답 {time.time() - asked_at:.1f}초")
 
         """
         ★★ 창을 **올리기 전에** 띄웁니다 (사용자 요청 2026-10-06).
@@ -567,6 +572,8 @@ class Agent:
 
         #: 폴더(메딧)는 파일이 하나씩 떨어집니다 — '언제 마지막으로 바뀌었나' 를 적어 둡니다
         folder_seen: dict[str, tuple[tuple, float]] = {}
+        #: 새 폴더를 **처음 본 때** — 걸린 시간을 재려고 (2026-11-11)
+        first_seen: dict[str, float] = {}
 
         while not self.stop.is_set():
             try:
@@ -594,6 +601,7 @@ class Agent:
 
                         # ★ 아직 더 떨어질 수 있습니다. 폴더 안이 **조용해질 때까지** 둡니다
                         #   (파일 이름·크기가 안 바뀐 채로 QUIET_SECONDS).
+                        first_seen.setdefault(path.name, time.time())
                         shape = tuple(sorted((f.name, f.stat().st_size) for f in inside))
                         last_shape, since = folder_seen.get(path.name, (None, 0.0))
                         if shape != last_shape:
@@ -606,7 +614,11 @@ class Agent:
                             continue
 
                         known.add(path.name)
-                        folder_seen.pop(path.name, None)
+                        _, quiet_from = folder_seen.pop(path.name, (None, time.time()))
+                        seen_at = first_seen.pop(path.name, quiet_from)
+                        # ★ 처음 본 때 → 마지막 파일이 떨어진 때(스캐너가 쓰는 시간) → 지금(기다린 시간)
+                        self.say(f"{path.name} — 걸린 시간: 스캐너가 쓰는 데 {quiet_from - seen_at:.1f}초 · "
+                                 f"다 떨어졌는지 기다린 {time.time() - quiet_from:.1f}초")
                         self.upload_medit(path.name, meshes)
 
                     elif path.suffix.lower() == ".dxd":
@@ -816,6 +828,8 @@ class App:
         cfg = self.agent.cfg
         folder = cfg.get("folder")
         out: dict = {"kind": "clinic", "folderOk": bool(folder) and Path(folder).is_dir()}
+        # ★ 지켜보는 중인가 — 멈춰 있으면 치과 화면이 "프로그램이 멈춰 있습니다" 라고 말합니다 (2026-11-11)
+        out["watching"] = bool(self.watching)
         kind = cfg.get("printer_kind")
         if kind:
             out["printer"] = {"kind": kind, "ip": cfg.get("printer_last_ip") or ""}
@@ -1378,8 +1392,36 @@ class App:
         self.watching = False
         # ★ 출력 가져오기도 그 신호를 보고 끝납니다. 손잡이는 **둡니다** (2026-10-27) — 다시 켤 때
         #   옛 루프가 아직 보내는 중이면 끝나길 기다렸다 새 루프를 띄웁니다 (start_printing)
-        self.say("지켜보기를 멈췄습니다. 지금 내보낸 것은 안 올라갑니다.")
+        # ★★ 멈춘 채로 잊히지 않게 **10분 뒤 스스로 다시 지켜봅니다** (2026-11-11). 치과 첫 실전에서 멈춤이
+        #   눌린 채였고, 그대로면 설계가 끝나도 출력이 안 나갔습니다. 아무 경고도 없었습니다.
+        minutes = AUTO_RESUME_SECONDS // 60
+        self.say(f"지켜보기를 멈췄습니다. 지금 내보낸 것은 안 올라갑니다. {minutes}분 뒤 스스로 다시 지켜봅니다.")
+        self._cancel_resume()
+        self._resume_id = self.root.after(AUTO_RESUME_SECONDS * 1000, self._auto_resume)
+        self._beat_now()
         self.refresh()
+
+    def _cancel_resume(self) -> None:
+        rid = getattr(self, "_resume_id", None)
+        self._resume_id = None
+        if rid is not None:
+            try:
+                self.root.after_cancel(rid)
+            except Exception:  # noqa: BLE001
+                pass
+
+    def _auto_resume(self) -> None:
+        self._resume_id = None
+        if self.watching:
+            return
+        self.say("멈춘 지 오래돼 다시 지켜봅니다.")
+        self.start()
+
+    def _beat_now(self) -> None:
+        """지켜보기를 켜고 끌 때 상태를 바로 알립니다 — 5분 뒤 보고까지 화면이 틀린 말을 하지 않게"""
+        heart = getattr(self, "heart", None)
+        if heart is not None:
+            threading.Thread(target=heart.beat_once, daemon=True).start()
 
     def start(self) -> None:
         folder = Path(self.folder.get().strip())
@@ -1394,8 +1436,10 @@ class App:
         save_settings(self.agent.cfg)
 
         # ★ 멈췄다 다시 켤 수 있게 새 신호를 답니다 (한 번 set 된 Event 는 계속 켜져 있습니다)
+        self._cancel_resume()
         self.agent.stop = threading.Event()
         self.watching = True
+        self._beat_now()
         self.refresh()
         threading.Thread(target=self.agent.watch, args=(folder,), daemon=True).start()
         self.start_printing()

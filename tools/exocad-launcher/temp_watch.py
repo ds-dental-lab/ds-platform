@@ -162,6 +162,9 @@ def handle(stl: Path, base: str, token: str) -> None:
     looked = check_case(stl)
     if not looked.ok:
         say(f"{stl.name} — 멈춤: {looked.message}")
+        # ★ 설계 일꾼이 10분을 헛기다리지 않게 까닭을 남깁니다 — 일꾼이 읽고 바로 멈춥니다 (2026-11-11)
+        import export_tag as _tag  # noqa: PLC0415
+        _tag.refuse(looked.message, stl.name)
         return
     if not looked.teeth:
         say(f"{stl.name} — 치식을 못 읽어 넘어갑니다 ({looked.message})")

@@ -225,6 +225,11 @@ def _handle(job: dict, spend: bool) -> None:
 
         if spend:
             mark("exporting")
+            # ★ 지난 내보내기를 먼저 치웁니다 — 새 크라운이 옛 정보 파일과 짝지어지지 않게 (2026-11-11)
+            swept = export_tag.sweep(export_tag.watch_dir())
+            if swept:
+                say(f"내려받기 폴더의 지난 내보내기 {swept}개를 옆 폴더로 옮겼습니다")
+            export_tag.clear()
             # ★ 이름표 — 지켜보기가 이 크라운을 이 주문에 붙입니다 (2026-10-16 점검).
             #   브릿지는 유닛 전부(지대치+폰틱) — 내보낸 파일 이름의 범위(25-27)와 맞춥니다
             export_tag.write(order_id, teeth)
@@ -237,7 +242,15 @@ def _handle(job: dict, spend: bool) -> None:
         #   답합니다 — 그게 다 됐다는 뜻입니다. 묻는 김에 잡은 표시도 새로 둡니다.
         until = time.time() + DELIVER_WAIT_SECONDS
         while time.time() < until:
-            time.sleep(15)
+            # ★ 지켜보기가 "못 올립니다" 라고 했으면 10분을 안 기다립니다 — 까닭 그대로 세웁니다 (2026-11-11)
+            for _ in range(3):
+                time.sleep(5)
+                why = export_tag.refused(order_id)
+                if why:
+                    mark("stalled", f"내보낸 파일이 주문과 안 맞습니다 — {why}")
+                    say(f"멈춤: 내보낸 파일이 주문과 안 맞습니다 — {why}")
+                    export_tag.clear(order_id)
+                    return
             if not mark.still_designing():
                 say("주문에 올라갔습니다 — 출력 대기로 넘어갑니다")
                 export_tag.clear(order_id)

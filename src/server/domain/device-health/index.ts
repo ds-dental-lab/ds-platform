@@ -80,6 +80,8 @@ export interface DeviceStatus {
   host?: string;
   /** 치과 PC — 스캔 감시 폴더가 있는가 */
   folderOk?: boolean;
+  /** 치과 PC — 지켜보는 중인가. 옛 판(1.3.24 까지)은 안 보냅니다 — 없으면 모르는 것 */
+  watching?: boolean;
   /** 치과 PC — 프린터 */
   printer?: { kind?: string; ip?: string; ok?: boolean };
   /** 설계 PC — 덴트버드 창 상태(문구) */
@@ -102,6 +104,7 @@ export function sanitizeStatus(raw: unknown): DeviceStatus {
   const host = str(r.host, 60);
   if (host) out.host = host;
   if (typeof r.folderOk === 'boolean') out.folderOk = r.folderOk;
+  if (typeof r.watching === 'boolean') out.watching = r.watching;
   if (r.printer && typeof r.printer === 'object') {
     const p = r.printer as Record<string, unknown>;
     out.printer = {

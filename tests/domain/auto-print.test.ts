@@ -43,6 +43,8 @@ import {
   isUpperTooth,
   deviceOnline,
   withClinicPc,
+  agentPaused,
+  CLINIC_AGENT_PAUSED,
   autoProgress,
   canClearBed,
   canMove,
@@ -815,5 +817,44 @@ describe('치식이 어긋나면 치과가 고릅니다 (2026-10-30)', () => {
   });
   it('다시 걸 때 일꾼이 저절로 안 집어 갑니다 — 치과를 기다립니다', () => {
     expect(stallKind(note)).toBe('unreadable');
+  });
+});
+
+describe('치과 PC 프로그램이 멈춰 있을 때 (2026-11-11 치과 첫 실전)', () => {
+  const now = Date.parse('2026-10-16T02:00:00Z');
+
+  it('옛 판은 값을 안 보냅니다 — 모르면 멈춘 것으로 보지 않습니다', () => {
+    expect(agentPaused({ watching: false })).toBe(true);
+    expect(agentPaused({ watching: true })).toBe(false);
+    expect(agentPaused({})).toBe(false);
+    expect(agentPaused(null)).toBe(false);
+  });
+
+  it('켜져 있는데 멈췄으면 치과가 할 일로 보입니다', () => {
+    const waiting = job({ step: 'queued', bedClearedAt: '2026-10-16T01:00:00Z' });
+    const r = withClinicPc(boardRow(waiting, now), waiting, true, true);
+    expect(r.tone).toBe('action');
+    expect(r.status).toBe(CLINIC_AGENT_PAUSED);
+    expect(r.detail).toContain('지켜보기 시작');
+  });
+
+  it('출력 중·치과가 비울 차례·끝난 것은 그대로', () => {
+    const printing = job({ step: 'printing', percent: 40 });
+    expect(withClinicPc(boardRow(printing, now), printing, true, true).status).not.toBe(CLINIC_AGENT_PAUSED);
+    const bed = job({ step: 'queued' });
+    expect(withClinicPc(boardRow(bed, now), bed, true, true).status).not.toBe(CLINIC_AGENT_PAUSED);
+    const done = job({ step: 'done' });
+    expect(withClinicPc(boardRow(done, now), done, true, true).tone).toBe('done');
+  });
+
+  it('꺼져 있으면 꺼짐이 먼저', () => {
+    const waiting = job({ step: 'queued', bedClearedAt: '2026-10-16T01:00:00Z' });
+    expect(withClinicPc(boardRow(waiting, now), waiting, false, true).status).toBe('치과 PC 꺼짐');
+  });
+
+  it('내보낸 파일이 주문과 안 맞으면 저절로 다시 걸지 않습니다 — 건수를 또 쓰지 않게', () => {
+    const note = '내보낸 파일이 주문과 안 맞습니다 — 치식이 서로 다릅니다 — 파일 이름 [25] · 정보 파일 [25, 33]';
+    expect(stallKind(note)).toBe('setup');
+    expect(designVerdict(note, 0)).toBe('hold');
   });
 });

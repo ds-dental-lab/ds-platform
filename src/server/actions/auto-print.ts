@@ -34,6 +34,8 @@ import {
   BOARD_DONE_HOURS,
   deviceOnline,
   withClinicPc,
+  agentPaused,
+  CLINIC_PC_BLOCKED,
   isAutoStep,
   isDesignStage,
   type AutoJob,
@@ -142,22 +144,24 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
   const now = Date.now();
   const { data: ord } = await admin.from('orders').select('clinic_org_id, design_org_id').eq('id', orderId).maybeSingle();
   const o = ord as { clinic_org_id: string; design_org_id: string | null } | null;
-  const lastSeen = async (orgId: string | null | undefined) => {
+  const latest = async (orgId: string | null | undefined) => {
     if (!orgId) return null;
     const { data } = await admin
       .from('clinic_devices')
-      .select('last_seen_at')
+      .select('last_seen_at, status')
       .eq('clinic_org_id', orgId)
       .is('revoked_at', null)
       .order('last_seen_at', { ascending: false, nullsFirst: false })
       .limit(1);
-    return ((data ?? []) as { last_seen_at: string | null }[])[0]?.last_seen_at ?? null;
+    return ((data ?? []) as { last_seen_at: string | null; status: { watching?: boolean } | null }[])[0] ?? null;
   };
-  const clinicOnline = deviceOnline(await lastSeen(o?.clinic_org_id), now);
+  const lastSeen = async (orgId: string | null | undefined) => (await latest(orgId))?.last_seen_at ?? null;
+  const clinicPc = await latest(o?.clinic_org_id);
+  const clinicOnline = deviceOnline(clinicPc?.last_seen_at, now);
   // ★ 준비 구간 남은 시간은 이 치과의 실제 출력 시간으로 (2026-10-23)
   const typical = rest.step === 'printing' && o?.clinic_org_id ? await clinicTypicalPrintSeconds(o.clinic_org_id) : null;
   // ★ 까닭 글은 화면으로 안 나갑니다 — boardRow 가 치과 말과 번호로만 바꿉니다 (2026-10-30)
-  const shown = withClinicPc(boardRow({ ...rest, designNote }, now, typical), rest, clinicOnline);
+  const shown = withClinicPc(boardRow({ ...rest, designNote }, now, typical), rest, clinicOnline, agentPaused(clinicPc?.status));
   // ★ 이미 책갈피에서 치운 다 나온 건 — 상세에는 「다시 뽑기」만, 「치우기」는 또 안 띄움 (2026-10-23)
   const board = dismissed ? { ...shown, canDismiss: false } : shown;
 
@@ -171,7 +175,7 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
     job: rest,
     steps: autoProgress(rest),
     // ★ 치과 PC 가 꺼져서 막힌 것이면 그 말이 먼저입니다
-    notice: board.status === '치과 PC 꺼짐' ? board.detail : autoNotice({ ...rest, designNote }),
+    notice: CLINIC_PC_BLOCKED.includes(board.status) ? board.detail : autoNotice({ ...rest, designNote }),
     needsBed: canClearBed(job),
     board,
     designNote: note,
@@ -339,11 +343,13 @@ export async function getFlowTempBoard(): Promise<Board> {
   */
   const { data: devs } = await supabase
     .from('clinic_devices')
-    .select('last_seen_at')
+    .select('last_seen_at, status')
     .is('revoked_at', null)
     .order('last_seen_at', { ascending: false, nullsFirst: false })
     .limit(1);
-  const online = deviceOnline(((devs ?? []) as { last_seen_at: string | null }[])[0]?.last_seen_at, Date.now());
+  const dev = ((devs ?? []) as { last_seen_at: string | null; status: { watching?: boolean } | null }[])[0];
+  const online = deviceOnline(dev?.last_seen_at, Date.now());
+  const paused = agentPaused(dev?.status);
   for (let i = 0; i < items.length; i++) {
     const r = rows.find((x) => x.order_id === items[i].orderId);
     if (!r || !isAutoStep(r.step)) continue;
@@ -353,7 +359,7 @@ export async function getFlowTempBoard(): Promise<Board> {
       percent: r.percent,
       failedAt: null,
       failedReason: null,
-    }, online);
+    }, online, paused);
     items[i] = { ...items[i], ...fixed };
   }
   items.sort((a, b) => order[a.tone] - order[b.tone]);
