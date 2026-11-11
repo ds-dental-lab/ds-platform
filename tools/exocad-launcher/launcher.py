@@ -257,6 +257,26 @@ def unzip_scans(zip_path: Path, into: Path) -> list[Path]:
     return out
 
 
+_BAD_NAME_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]+')
+
+
+def safe_case_name(name: str) -> str:
+    """환자 이름을 **폴더·파일 이름으로 쓸 수 있게** 고칩니다 (2026-11-11).
+
+    ★ 전에는 이름을 그대로 폴더에 썼습니다. '홍/길동' 이면 윈도우가 '/' 를 폴더
+      구분으로 읽어 `날짜_홍` 안에 `길동` 폴더가 생기고 스캔 이름은 `길동-…` 이
+      됐습니다 — 멈추지 않고 **조용히 어긋납니다**. ':' '*' '?' 는 폴더를 못 만들어
+      그 자리에서 멈춥니다.
+    ★ exocad 는 케이스 폴더를 "날짜_이름" 으로 찾으므로, exocad 에 등록하는 이름도
+      **이 고친 이름**으로 넣습니다 (폴더와 이름이 같아야 열립니다).
+    윈도우가 못 쓰는 글자는 '_' 로, 끝의 점·빈칸은 뗍니다 (윈도우가 스스로 떼어
+    이름이 달라집니다).
+    """
+    out = _BAD_NAME_CHARS.sub("_", str(name or ""))
+    out = re.sub(r"\s+", " ", out).strip(" ._")
+    return out or "이름없음"
+
+
 def unique_folder(base: Path) -> Path:
     """이미 있으면 _2, _3 … exocad 가 열어 둔 폴더를 덮어쓰지 않습니다."""
     if not base.exists():
@@ -592,7 +612,11 @@ class Job:
         #   "환자명이 zz 인데 zz_2 를 확인하라니 맞지 않다"). exocad 에 이미 가져온
         #   케이스면 그 폴더의 스캔만 새것으로 바뀌어 그대로 열립니다.
         #   exocad 가 파일을 잡고 있어 못 쓸 때만 _2 로 비켜 갑니다 (아래).
-        folder = cad / f"{order_date}_{patient}"
+        # ★ 폴더·exocad 등록에는 **고친 이름**을 씁니다 ('/' ':' 같은 글자 — safe_case_name)
+        case_name = safe_case_name(patient)
+        if case_name != patient:
+            self.note(f"환자 이름에 폴더에 못 쓰는 글자가 있어 exocad 에는 '{case_name}' 로 넣습니다")
+        folder = cad / f"{order_date}_{case_name}"
         folder_name = folder.name
         if folder.exists():
             self.note(f"같은 폴더가 있어 안의 주문서·스캔을 새로 씁니다: {folder.name}")
@@ -758,7 +782,7 @@ class Job:
                 db = exocad_db.ExocadDb(cad)
                 try:
                     tid, patient_id = db.register(
-                        patient_name=patient, project_guid=project_guid,
+                        patient_name=case_name, project_guid=project_guid,
                         tray_no=make_project.TRAY_NO, when=made_at,
                         teeth=exocad_db.teeth_from_plan(work, mesial, healthy, antagonist),
                     )
@@ -777,7 +801,7 @@ class Job:
         if not registered:
             patient_id = make_project.next_patient_id()
         xml = make_project.build_project(
-            patient_name=patient, teeth=data["teeth"], bridges=data.get("bridges", []),
+            patient_name=case_name, teeth=data["teeth"], bridges=data.get("bridges", []),
             when=made_at, patient_id=patient_id, project_guid=project_guid,
             # ★ 스캔바디 스캔이 같이 왔으면 주문서에서 켭니다 (2026-10-06, 박상균 건)
             scan_abutment=scan_abutment,
@@ -791,7 +815,7 @@ class Job:
         self.report("done", f"{folder_name}")
         self.summary("완료" if registered else "완료(가져오기 필요)", self.durations())
         if registered:
-            self.win.finish(f"완료 — exocad 에서 '{patient}' 를 여세요", ok=True)
+            self.win.finish(f"완료 — exocad 에서 '{case_name}' 를 여세요", ok=True)
         else:
             self.win.finish("완료 — exocad 에서 [가져오기]로 주문서를 고르세요", ok=True)
 

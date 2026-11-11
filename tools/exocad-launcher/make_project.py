@@ -177,7 +177,10 @@ def build_project(
     #   런처는 DentalDB_V3.sqlite 의 max(patient_id)+1 을 읽어 넣어야 합니다
     #   (next_patient_id()). 검증용 main 은 그대로 0 을 씁니다.
     out = re.sub(r"<PatientId>\d+</PatientId>", f"<PatientId>{patient_id}</PatientId>", out, count=1)
-    out = re.sub(r"<PatientName>[^<]*</PatientName>", f"<PatientName>{patient_name}</PatientName>", out, count=1)
+    # ★ 이름의 '&' '<' 는 XML 을 깨고, '\' 는 re.sub 가 묶음 번호로 읽습니다 — 둘 다 막습니다 (2026-11-11)
+    from xml.sax.saxutils import escape
+    name_tag = f"<PatientName>{escape(patient_name)}</PatientName>"
+    out = re.sub(r"<PatientName>[^<]*</PatientName>", lambda _m: name_tag, out, count=1)
 
     if scan_abutment:
         out = out.replace(
