@@ -167,31 +167,21 @@ export async function submitDeleteOrderMessage(messageId: string): Promise<Messa
   const supabase = await createClient();
 
   /*
-    ★ 주문 id 는 **지우기 전에** 읽습니다 (2026-10-28 "대화내용 삭제가 안되네").
-      전에는 update 뒤에 .select() 로 되돌려 받았는데, 그러면 DB 가 **바뀐 줄을 다시 읽어
-      보여 줘도 되는지** 읽기 규칙으로 검사합니다. 읽기 규칙이 "deleted_at is null" 이라
-      방금 숨긴 줄은 통과를 못 해 "new row violates row-level security policy" 로
-      거절됐습니다. 그래서 먼저 읽고, 고칠 때는 되돌려 받지 않고 **바뀐 줄 수만** 셉니다.
+    ★ 지우기는 **DB 함수**가 합니다 (2026-11-11 "이거 왜 삭제가안되나").
+      읽기 규칙이 "deleted_at is null" 이라, deleted_at 을 채우는 update 는 화면 쪽 권한으로는
+      어떻게 써도 "new row violates row-level security policy" 로 거절됩니다 — Postgres 는
+      where 가 있는 update 에서 **바뀐 뒤의 줄도** 읽기 규칙을 통과해야 한다고 봅니다.
+      2026-10-28 에 "되돌려 읽지 않으면 된다" 고 고쳤지만 틀렸습니다.
+      권한 검사(글쓴 조직 · 그 주문의 디자인센터)는 함수 안에 있고, 지운 주문 id 를 돌려줍니다.
   */
-  const { data: row, error: readError } = await supabase
-    .from('order_messages')
-    .select('order_id')
-    .eq('id', messageId)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (readError) return { ok: false, error: `지우지 못했습니다: ${readError.message}` };
-  if (!row) return { ok: false, error: '지울 수 있는 글이 아닙니다' };
-
-  const { error, count } = await supabase
-    .from('order_messages')
-    .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
-    .eq('id', messageId)
-    .is('deleted_at', null);
+  const { data, error } = await supabase.rpc('delete_order_message', {
+    p_message_id: messageId,
+  });
 
   if (error) return { ok: false, error: `지우지 못했습니다: ${error.message}` };
-  if (!count) return { ok: false, error: '지울 수 있는 글이 아닙니다' };
+  if (!data) return { ok: false, error: '지울 수 있는 글이 아닙니다' };
 
-  const orderId = (row as { order_id: string }).order_id;
+  const orderId = data as string;
   after(() => signalOrderChanged(orderId));
 
   refreshAll();
