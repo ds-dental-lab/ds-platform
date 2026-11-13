@@ -60,6 +60,8 @@ export default async function DesignEditOrderPage({ params }: EditOrderPageProps
       /* ★ 주문의 주인은 그 치과입니다. 디자인센터 이름을 적으면 안 됩니다 */
       clinicName={order.clinic_name}
       today={today}
+      /* ★ 등록 화면과 같은 규칙 — 디자인센터는 오늘부터 고릅니다 (2026-11-13) */
+      dueDatePolicy="free"
       defaultDue={defaultDueDate(today, holidays)}
       holidays={holidays}
       implantCatalog={implantCatalog}

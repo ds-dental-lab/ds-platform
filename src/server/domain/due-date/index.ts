@@ -161,6 +161,19 @@ export function checkDueDate(
   return { selectable: true };
 }
 
+/**
+ * 고치기 전과 같은 요청시한인가.
+ *
+ * ★ 주문을 고칠 때 날짜를 안 건드렸으면 규칙을 다시 따지지 않습니다 (2026-11-13).
+ *   주문할 때 맞던 날짜가 며칠 지나면 '최소 납기 이전' 이 되어, 메모만 고쳐도
+ *   저장이 막혔습니다.
+ * ★ DB 는 '2026-11-16' 로도 '2026-11-16T00:00:00' 로도 줄 수 있어 앞 10글자만 봅니다.
+ */
+export function sameDueDate(next: string | null | undefined, stored: string | null | undefined): boolean {
+  if (!next || !stored) return false;
+  return next.slice(0, 10) === stored.slice(0, 10);
+}
+
 // ---------- 캘린더 ----------
 
 export interface CalendarCell {

@@ -338,6 +338,11 @@ function OrderFormBody({
   /** 오른쪽 위 업로드 알림. 큰 스캔 파일이 되고 있는지 보여 줍니다 */
   const [upload, setUpload] = useState<UploadState | null>(null);
   const [error, setError] = useState('');
+  // ★ 오류가 뜨면 그 띠를 화면 가운데로 — 스크롤 밖에 떠서 못 보는 일이 없게 (2026-11-13)
+  useEffect(() => {
+    if (!error) return;
+    document.getElementById('order-form-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [error]);
   const [hint, setHint] = useState('');
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [createdOrderNo, setCreatedOrderNo] = useState('');
@@ -1520,10 +1525,22 @@ function OrderFormBody({
         </p>
       )}
 
+      {/*
+        ★ 저장이 안 됐다는 것을 **놓칠 수 없게** 합니다 (사용자 지적 2026-11-13 —
+          "화면이 멈춘 줄 알았어"). 전에는 옅은 분홍 띠에 이유 한 줄만 있어서
+          눌렀는데 아무 일도 없는 것처럼 보였습니다. 무슨 일이 났는지를 먼저 굵게 말하고,
+          띠가 화면 가운데로 오게 합니다 (아래 useEffect).
+      */}
       {error && (
-        <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700">
-          {error}
-        </p>
+        <div
+          id="order-form-error"
+          role="alert"
+          className="rounded-lg border-2 border-[#D8453F] bg-red-50 px-4 py-3.5"
+        >
+          {/* ★ '저장 안 됨' 이라고 못 박지 않습니다 — 주문은 됐고 파일만 못 올린 경우도 이 띠로 옵니다 */}
+          <p className="text-[15px] font-bold text-[#B42318]">확인이 필요합니다</p>
+          <p className="mt-1 text-[14px] text-red-700">{error}</p>
+        </div>
       )}
 
       {/* 빠진 항목 알림 — 주문완료를 눌렀을 때만 */}

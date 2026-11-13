@@ -246,3 +246,18 @@ describe('공휴일', () => {
     expect(isSunday(due)).toBe(false);
   });
 });
+
+describe('고치기 전과 같은 날짜인가 (2026-11-13)', () => {
+  it('같은 날이면 같다 — 시각이 붙어 와도', async () => {
+    const { sameDueDate } = await import('@/server/domain/due-date');
+    expect(sameDueDate('2026-11-16', '2026-11-16')).toBe(true);
+    expect(sameDueDate('2026-11-16', '2026-11-16T00:00:00+00:00')).toBe(true);
+  });
+
+  it('다른 날이거나 한쪽이 비면 다르다 — 그때는 규칙을 다시 봅니다', async () => {
+    const { sameDueDate } = await import('@/server/domain/due-date');
+    expect(sameDueDate('2026-11-17', '2026-11-16')).toBe(false);
+    expect(sameDueDate('', '2026-11-16')).toBe(false);
+    expect(sameDueDate('2026-11-16', null)).toBe(false);
+  });
+});

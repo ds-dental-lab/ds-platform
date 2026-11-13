@@ -22,7 +22,7 @@ import {
 import { isAllowedPair, MAX_PER_TOOTH, unpairedAutoTooth, type Placement } from '@/server/domain/duplicate';
 import { computeBridges, type ToothPlacement } from '@/server/domain/bridge';
 import { isValidShade } from '@/server/domain/shade';
-import { checkDueDate, type DueDatePolicy } from '@/server/domain/due-date';
+import { checkDueDate, sameDueDate, type DueDatePolicy } from '@/server/domain/due-date';
 import type { HolidayMap } from '@/server/domain/holiday';
 import { canEditSpec, type OrderStatus } from '@/server/domain/order-status';
 import {
@@ -703,8 +703,6 @@ export type UpdateOrderResult = { ok: true } | { ok: false; error: string };
  */
 export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderResult> {
   const catalog = await getProsthesisCatalog({ includeInactive: true });
-  const problem = validateOrder(input, catalog, todayInKst(), 'standard', await getHolidayMap());
-  if (problem) return { ok: false, error: problem };
 
   const supabase = await createClient();
 
@@ -719,12 +717,32 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
   // RLS 가 관련 조직만 읽게 해 줍니다 — 여기서는 상태만 다시 봅니다
   const { data: current } = await supabase
     .from('orders')
-    .select('status, patient_id, clinic_org_id, order_type')
+    .select('status, patient_id, clinic_org_id, order_type, due_date')
     .eq('id', input.orderId)
     .is('deleted_at', null)
     .maybeSingle();
 
   if (!current) return { ok: false, error: '주문을 찾을 수 없습니다' };
+
+  /*
+    ★★ **요청시한을 안 바꿨으면 날짜를 다시 따지지 않습니다** (사용자 신고 2026-11-13 —
+      "화면이 멈춘 줄 알았어").
+
+      전에는 고칠 때마다 '오늘 기준 최소 납기' 로 다시 검사했습니다. 주문한 다음 날
+      메모 한 줄만 고쳐도 원래 날짜가 최소 납기보다 앞이라 저장이 막혔습니다 —
+      주문할 때는 맞던 날짜입니다. 날짜를 **바꿀 때만** 규칙을 봅니다.
+    ★ 바꿀 때의 규칙은 등록과 같습니다 — 디자인센터는 오늘부터, 치과는 최소 납기부터.
+      누가 로그인했는지로 정합니다 (화면이 보낸 값이 아닙니다).
+  */
+  const dueUnchanged = sameDueDate(input.dueDate, current.due_date as string | null);
+  const problem = validateOrder(
+    input,
+    catalog,
+    dueUnchanged ? undefined : todayInKst(),
+    session.orgType === 'design_center' ? 'free' : 'standard',
+    await getHolidayMap(),
+  );
+  if (problem) return { ok: false, error: problem };
 
   const status = current.status as OrderStatus;
   // ★ 디자인센터는 단계를 안 가립니다 (사용자 결정 2026-08-12)
