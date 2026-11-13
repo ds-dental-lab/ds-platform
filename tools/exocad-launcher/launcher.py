@@ -785,6 +785,8 @@ class Job:
                         patient_name=case_name, project_guid=project_guid,
                         tray_no=make_project.TRAY_NO, when=made_at,
                         teeth=exocad_db.teeth_from_plan(work, mesial, healthy, antagonist),
+                        # ★ 주문서(XML)와 같은 값이어야 합니다 — exocad 는 DB 값으로 주문서를 다시 씁니다 (2026-11-13)
+                        scan_abutment=scan_abutment,
                     )
                 finally:
                     db.close()

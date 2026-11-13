@@ -87,6 +87,7 @@ class ExocadDb:
         tray_no: int,
         when: dt.datetime,
         teeth: list[tuple[int, str, bool]],   # (번호, kind, mesial)
+        scan_abutment: bool = False,
     ) -> tuple[int, int]:
         """→ (treatment_id, patient_id). ★ 환자 번호는 **잠금 안에서** 정합니다 — 두 런처가 같은
            순간에 max+1 을 따로 계산해 부딪힌 일이 있습니다 (동시 실행 시험 2026-09-10)."""
@@ -116,7 +117,7 @@ class ExocadDb:
             tid = c.execute("select last_insert_rowid()").fetchone()[0]
             # 치아
             for number, kind, mesial in teeth:
-                self._clone_tooth(tid, number, kind, mesial)
+                self._clone_tooth(tid, number, kind, mesial, scan_abutment)
             # 케이스 파라미터
             for sn, val in (("ToothColor", "---"), ("AntagonistType", "DigitalImpressionScan")):
                 c.execute("insert into TreatmentValuedParameters (PARAM_TYPE, ParamSN, ValueSN, treatment_id) values ('TEXTUAL',?,?,?)", (sn, val, tid))
@@ -132,7 +133,13 @@ class ExocadDb:
             raise RuntimeError("템플릿 WorkParamsInfo 가 없습니다")
         return row[0]
 
-    def _clone_tooth(self, tid: int, number: int, kind: str, mesial: bool) -> None:
+    def _clone_tooth(self, tid: int, number: int, kind: str, mesial: bool, scan_abutment: bool = False) -> None:
+        # ★★ **스캔바디를 뜬 임플란트**면 ScanAbutmentScan 을 true 로 넣습니다 (2026-11-13).
+        #   복제해 온 줄은 그 틀 치아의 값(대개 false)이라, 주문서(XML)에서 true 로 켜 둬도
+        #   exocad 가 케이스를 열 때 **DB 값으로 주문서를 다시 써서** false 로 돌아갔습니다 —
+        #   스캔바디 불러오는 창이 안 떴습니다. DB 와 주문서가 같은 값이어야 합니다.
+        # ★ 임플란트 치아에만 켭니다 — 자연치 크라운은 스캔바디가 없습니다.
+        want_scan_ab = scan_abutment and kind == "implant"
         c = self.c
         src = self._template_toothwork(kind)
         c.execute("insert into ToothWork (WorkParams, WorkParamsFile, ToothId, flags, WorkTypeSN, MaterialSN, treatment_id) values (?,?,?,?,?,?,?)",
@@ -146,7 +153,11 @@ class ExocadDb:
                 c.execute("insert into TextualToothWorkParameter (id, ParameterSN, ValueSN) values (?,?,?)", (new_p, t["ParameterSN"], t["ValueSN"]))
                 for d in c.execute("select * from DependentToothWorkParameters where parent_param_id=?", (p["id"],)).fetchall():
                     c.execute("insert into DependentToothWorkParameters (parent_param_id, dep_param_string, dep_param_value_string, dep_param_kind) values (?,?,?,?)",
-                              (new_p, d["dep_param_string"], d["dep_param_value_string"], d["dep_param_kind"]))
+                              (new_p, d["dep_param_string"],
+                               # ★ 틀 치아의 값을 물려받지 않습니다 — 가장 최근 임플란트가 틀이라, 직전 케이스가
+                               #   스캔바디였으면 안 뜬 케이스까지 true 가 됐습니다. 늘 이번 주문의 값으로 씁니다.
+                               ("true" if want_scan_ab else "false") if d["dep_param_string"] == "ScanAbutmentScan" else d["dep_param_value_string"],
+                               d["dep_param_kind"]))
             n = c.execute("select * from NumericToothWorkParameter where id=?", (p["id"],)).fetchone()
             if n is not None:
                 c.execute("insert into NumericToothWorkParameter (id, ParameterSN, value) values (?,?,?)", (new_p, n["ParameterSN"], n["value"]))
