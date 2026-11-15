@@ -751,17 +751,25 @@ class Job:
         if prep_is_scanbody:
             scan_abutment = True
             self.note("임플란트 주문 — PrePreparation 을 원본, Preparation 을 스캔바디 스캔으로 넣습니다")
+        # ★★ 두 파일이 **같은 이름을 다투면 어느 쪽에도 안 줍니다** (2026-11-15 자기 점검).
+        #   전에는 먼저 내려받은 쪽이 이름을 가졌습니다. 한쪽 악 주문에 상·하악 스캔이
+        #   'PreparationScan' · 'PreparationScan_1' 로 같이 오면, 어느 쪽이 '-lowerjaw' 가
+        #   될지가 **내려받는 차례**에 달려 있었습니다 — 반대쪽 악이 그 이름을 가질 수 있습니다.
+        #   모르는 것은 모르는 채로 두고 사람이 고르게 합니다.
+        wants = {p.name: place_name(folder_name, p.name, jaw, prep_is_scanbody) for p in got if p.suffix.lower() != ".dxd"}
+        fought = {n for n in wants.values() if list(wants.values()).count(n) > 1}
+        for n in sorted(fought):
+            rivals = ", ".join(o for o, w in wants.items() if w == n)
+            self.note(f"⚠ {rivals} 이 모두 {n} 이 되려 합니다 — 어느 쪽인지 몰라 이름을 그대로 둡니다. exocad 에서 골라 주세요")
         for p in got:
             if p.suffix.lower() == ".dxd":
                 dxds.append(p)
                 continue
 
-            name = place_name(folder_name, p.name, jaw, prep_is_scanbody)
-            if name in placed:
-                self.note(f"⚠ {p.name} 과 {placed[name]} 이 같은 이름이 됩니다 — {p.name} 은 그대로 둡니다")
+            name = wants[p.name]
+            if name in fought:
                 name = p.name
-            else:
-                placed[name] = p.name
+            placed[name] = p.name
 
             target = folder / name
             if MARKER.search(Path(p.name).stem):

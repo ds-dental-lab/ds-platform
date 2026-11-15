@@ -695,18 +695,21 @@ interface OrderSpecSnapshot {
 async function snapshotOrderSpec(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orderId: string,
-): Promise<OrderSpecSnapshot> {
+): Promise<OrderSpecSnapshot | null> {
   const [items, bridges, options] = await Promise.all([
     supabase.from('order_items').select('*').eq('order_id', orderId),
     supabase.from('order_bridges').select('*').eq('order_id', orderId),
     supabase.from('order_options').select('*').eq('order_id', orderId),
   ]);
 
+  if (items.error || bridges.error || options.error) return null;
+
   const bridgeIds = ((bridges.data ?? []) as Row[]).map((b) => b.id as string);
   const members =
     bridgeIds.length > 0
       ? await supabase.from('order_bridge_members').select('*').in('bridge_id', bridgeIds)
-      : { data: [] as Row[] };
+      : { data: [] as Row[], error: null };
+  if (members.error) return null;
 
   return {
     items: (items.data ?? []) as Row[],
@@ -876,6 +879,8 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
       화면에는 "저장에 실패했습니다" 만 떴습니다. 이제 못 넣으면 원래대로 돌려놓습니다.
   */
   const before = await snapshotOrderSpec(supabase, input.orderId);
+  // ★ 지금 것을 못 읽었으면 **지우지 않습니다** — 되돌릴 것이 없는 채로 지우면 같은 사고입니다
+  if (!before) return { ok: false, error: '주문의 지금 내용을 읽지 못해 고치지 않았습니다. 잠시 뒤 다시 해 주세요' };
 
   await supabase.from('order_bridges').delete().eq('order_id', input.orderId);
   await supabase.from('order_items').delete().eq('order_id', input.orderId);
