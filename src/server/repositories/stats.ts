@@ -72,40 +72,78 @@ interface RawHistory {
   created_at: string;
 }
 
+/** 한 번에 받는 줄 수 — Supabase 는 1000줄에서 **말없이** 자릅니다 */
+const PAGE = 1000;
+/** `.in()` 에 한 번에 넣는 id 수 — 주소가 너무 길어지면 요청이 통째로 실패합니다 */
+const ID_CHUNK = 150;
+
+type Paged<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+
+/**
+ * 끝까지 읽습니다.
+ *
+ * ★ 못 읽으면 **던집니다** (2026-11-15 자기 점검). 전에는 오류가 나도 빈 목록으로
+ *   넘어가 "0건" 이 찍혔습니다 — 틀린 통계는 안 뜨는 통계보다 나쁩니다.
+ */
+async function readAll<T>(what: string, page: (from: number, to: number) => Paged<T>): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1);
+    if (error) throw new Error(`통계를 읽지 못했습니다 (${what}): ${error.message}`);
+    out.push(...(data ?? []));
+    if (!data || data.length < PAGE) return out;
+  }
+}
+
+function chunks<T>(list: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
 export async function getDesignStats(from: string, to: string): Promise<DesignStats> {
   const supabase = await createClient();
 
-  const [orderRes, historyRes] = await Promise.all([
-    supabase
-      .from('orders')
-      .select(
-        'id, clinic_org_id, is_remake, is_repair, parent_order_id, received_at, ' +
-          // ★ 종류·재료만 받아 옵니다 — 'Abut+크라운' 한 줄은 2개로
-          //   세기 때문에 무엇인지 알아야 합니다 (unitCount)
-          'order_items(type_code, material_code), ' +
-          'clinic:organizations!orders_clinic_org_id_fkey(name)',
-      )
-      .is('deleted_at', null)
-      .neq('status', 'cancelled')
-      .gte('received_at', `${from}T00:00:00`)
-      .lte('received_at', `${to}T23:59:59`),
+  /*
+    ★★ 달의 경계는 **한국 시각**입니다 (2026-11-15 자기 점검).
+      전에는 시간대를 안 붙여 UTC 로 읽혔습니다 — 1일 00:00~09:00 에 접수된 주문이
+      지난달로 가고, 다음 달 1일 아침 것이 이번 달로 왔습니다.
+  */
+  const start = `${from}T00:00:00+09:00`;
+  const end = `${to}T23:59:59.999+09:00`;
 
-    /*
-      ★ 이력은 기간으로 자르지 않습니다.
-        기간 안에 접수된 주문의 이력이면, 그 이력이 기간을 조금 넘겨
-        찍혔더라도 그 주문의 것입니다. 주문으로 자르고 이력은 따라옵니다.
-    */
-    supabase
-      .from('order_status_history')
-      .select('order_id, to_status, actor_user_id, created_at')
-      .in('to_status', ['designing', 'production_wait'])
-      .gte('created_at', `${from}T00:00:00`)
-      .lte('created_at', `${to}T23:59:59.999`)
-      .order('created_at'),
+  const [orders, history] = await Promise.all([
+    readAll<RawOrder>('주문', (a, b) =>
+      supabase
+        .from('orders')
+        .select(
+          'id, clinic_org_id, is_remake, is_repair, parent_order_id, received_at, ' +
+            // ★ 종류·재료만 받아 옵니다 — 'Abut+크라운' 한 줄은 2개로
+            //   세기 때문에 무엇인지 알아야 합니다 (unitCount)
+            'order_items(type_code, material_code), ' +
+            'clinic:organizations!orders_clinic_org_id_fkey(name)',
+        )
+        .is('deleted_at', null)
+        .neq('status', 'cancelled')
+        .gte('received_at', start)
+        .lte('received_at', end)
+        .order('id')
+        .range(a, b) as unknown as Paged<RawOrder>,
+    ),
+
+    // 그 기간에 **디자인을 잡았거나 넘긴** 기록
+    readAll<RawHistory>('이력', (a, b) =>
+      supabase
+        .from('order_status_history')
+        .select('order_id, to_status, actor_user_id, created_at')
+        .in('to_status', ['designing', 'production_wait'])
+        .gte('created_at', start)
+        .lte('created_at', end)
+        .order('created_at')
+        .order('order_id')
+        .range(a, b) as unknown as Paged<RawHistory>,
+    ),
   ]);
-
-  const orders = (orderRes.data ?? []) as unknown as RawOrder[];
-  const history = (historyRes.data ?? []) as unknown as RawHistory[];
 
   /*
     주문 → 개수. 디자이너 쪽에서도 씁니다.
@@ -175,17 +213,79 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
     .filter((o) => o.is_remake && o.parent_order_id)
     .map((o) => o.parent_order_id as string);
 
-  const needDesigner = [...new Set([...picked.keys(), ...parentIds])];
+  /*
+    ★★ **넘긴 건은 넘긴 달에 셉니다** (2026-11-15 자기 점검).
+      전에는 "이번 달에 잡은 건 중 넘긴 것" 만 셌습니다. 10월 31일에 잡아 11월 1일에
+      넘긴 건은 10월에도 11월에도 '넘김' 에 안 들어갔습니다 (11월에 실제로 2건).
+      그런 건은 **잡은 때를 기간 밖에서** 찾아옵니다 — 걸린 날을 재려면 필요합니다.
+  */
+  const pickAt = new Map<string, string>();
+  for (const [orderId, done] of handed) {
+    const mine = picked.get(orderId);
+    if (mine && mine.created_at <= done.created_at) pickAt.set(orderId, mine.created_at);
+  }
+
+  const lookBack = [...handed.keys()].filter((id) => !pickAt.has(id));
+  for (const ids of chunks(lookBack, ID_CHUNK)) {
+    const earlier = await readAll<RawHistory>('앞선 이력', (a, b) =>
+      supabase
+        .from('order_status_history')
+        .select('order_id, to_status, actor_user_id, created_at')
+        .eq('to_status', 'designing')
+        .in('order_id', ids)
+        .lte('created_at', end)
+        .order('created_at')
+        .order('order_id')
+        .range(a, b) as unknown as Paged<RawHistory>,
+    );
+
+    // 오래된 것부터라, 넘긴 때보다 앞선 것 중 **마지막**이 남습니다
+    for (const row of earlier) {
+      const done = handed.get(row.order_id);
+      if (done && row.created_at <= done.created_at) pickAt.set(row.order_id, row.created_at);
+    }
+  }
+
+  const needDesigner = [...new Set([...picked.keys(), ...handed.keys(), ...parentIds])];
   const designerOf = new Map<string, string>();
+  /** 디자인을 잡은 뒤 삭제(또는 취소)된 주문 — 일량에서 빼고 따로 셉니다 (2026-11-15) */
+  const gone = new Set<string>();
+  /**
+   * ★★ 디자이너 쪽 치아 개수는 **여기서 읽은 것**으로 셉니다 (2026-11-15).
+   *   전에는 위의 teethOf(그 기간에 **접수된** 주문)에서 꺼냈습니다. 10월에 접수돼
+   *   11월에 디자인한 건은 건수에는 들어가고 치아는 0개로 들어갔습니다.
+   *   건수와 같은 기준으로 맞춥니다.
+   */
+  const designTeethOf = new Map<string, number>();
 
-  if (needDesigner.length > 0) {
-    const { data } = await supabase
-      .from('orders')
-      .select('id, designer_user_id')
-      .in('id', needDesigner);
+  type DesignRow = {
+    id: string;
+    designer_user_id: string | null;
+    deleted_at: string | null;
+    status: string;
+    order_items: { type_code: string; material_code: string }[] | null;
+  };
 
-    for (const row of (data ?? []) as { id: string; designer_user_id: string | null }[]) {
+  for (const ids of chunks(needDesigner, ID_CHUNK)) {
+    const rows = await readAll<DesignRow>('담당 디자이너', (a, b) =>
+      supabase
+        .from('orders')
+        .select('id, designer_user_id, deleted_at, status, order_items(type_code, material_code)')
+        .in('id', ids)
+        .order('id')
+        .range(a, b) as unknown as Paged<DesignRow>,
+    );
+
+    for (const row of rows) {
       if (row.designer_user_id) designerOf.set(row.id, row.designer_user_id);
+      if (row.deleted_at || row.status === 'cancelled') gone.add(row.id);
+      designTeethOf.set(
+        row.id,
+        countUnits(
+          (row.order_items ?? []).map((i) => ({ typeCode: i.type_code, materialCode: i.material_code })),
+          catalog,
+        ),
+      );
     }
   }
 
@@ -200,6 +300,8 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
       handed: 0,
       handedTeeth: 0,
       remade: 0,
+      deleted: 0,
+      deletedTeeth: 0,
       amount: 0,
       amountUnpriced: false,
       avgDays: null,
@@ -210,20 +312,39 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
     return found;
   };
 
-  for (const [orderId, row] of picked) {
+  // ★ 삭제된 건은 일량에 안 넣고 따로 적습니다 (사용자 결정 2026-11-15).
+  //   잡기도 넘기기도 한 주문을 두 번 세지 않게 **주문 하나에 한 번**입니다.
+  for (const orderId of new Set([...picked.keys(), ...handed.keys()])) {
     const who = designerOf.get(orderId);
-    if (!who) continue;
+    if (!who || !gone.has(orderId)) continue;
+
+    const seatRow = seat(who);
+    seatRow.deleted += 1;
+    seatRow.deletedTeeth += designTeethOf.get(orderId) ?? 0;
+  }
+
+  // 잡음 — 이번 기간에 디자인을 잡은 건
+  for (const orderId of picked.keys()) {
+    const who = designerOf.get(orderId);
+    if (!who || gone.has(orderId)) continue;
 
     const seatRow = seat(who);
     seatRow.picked += 1;
-    seatRow.pickedTeeth += teethOf.get(orderId) ?? 0;
+    seatRow.pickedTeeth += designTeethOf.get(orderId) ?? 0;
+  }
 
-    const done = handed.get(orderId);
-    if (done && done.created_at >= row.created_at) {
-      seatRow.handed += 1;
-      seatRow.handedTeeth += teethOf.get(orderId) ?? 0;
-      seatRow.spans.push(daysBetween(row.created_at, done.created_at));
-    }
+  // 넘김 — 이번 기간에 제작주문으로 넘긴 건 (언제 잡았든)
+  for (const [orderId, done] of handed) {
+    const who = designerOf.get(orderId);
+    if (!who || gone.has(orderId)) continue;
+
+    const seatRow = seat(who);
+    seatRow.handed += 1;
+    seatRow.handedTeeth += designTeethOf.get(orderId) ?? 0;
+
+    // 잡은 기록이 없는 건(디자인 단계를 안 거친 건)은 걸린 날을 못 잽니다 — 평균에서 뺍니다
+    const began = pickAt.get(orderId);
+    if (began) seatRow.spans.push(daysBetween(began, done.created_at));
   }
 
   // 리메이크는 원주문을 디자인한 사람에게 답니다
@@ -242,7 +363,7 @@ export async function getDesignStats(from: string, to: string): Promise<DesignSt
       디자이너에게는 금액이 아예 안 보이는 것이 이 프로젝트의 규칙이라,
       여기 숫자가 디자이너 화면으로 새 나갈 길이 없어야 합니다.
   */
-  await addShippedAmounts(supabase, from, to, designerOf, seat);
+  await addShippedAmounts(supabase, start, end, designerOf, seat);
 
   // ---------- 이름 붙이기 ----------
   const ids = [...tally.keys()];
@@ -303,21 +424,7 @@ async function addShippedAmounts(
   designerOf: Map<string, string>,
   seat: (userId: string) => DesignerTally & { spans: number[] },
 ): Promise<void> {
-  const { data: shipped } = await supabase
-    .from('orders')
-    .select(
-      // shipped_at — 그 날 유효했던 단가로 셉니다 (2026-10-08)
-      'id, clinic_org_id, designer_user_id, shipped_at, ' +
-        'order_items(type_code, material_code, is_pontic, has_gingival)',
-    )
-    .is('deleted_at', null)
-    .eq('is_billable', true)
-    .not('shipped_at', 'is', null)
-    .not('designer_user_id', 'is', null)
-    .gte('shipped_at', `${from}T00:00:00`)
-    .lte('shipped_at', `${to}T23:59:59`);
-
-  const rows = (shipped ?? []) as unknown as {
+  type ShippedRow = {
     id: string;
     clinic_org_id: string;
     designer_user_id: string;
@@ -325,7 +432,27 @@ async function addShippedAmounts(
     order_items:
       | { type_code: string; material_code: string; is_pontic: boolean; has_gingival: boolean }[]
       | null;
-  }[];
+  };
+
+  // ★ 끝까지 읽고, 못 읽으면 던집니다 — 1000줄에서 잘린 금액은 틀린 금액입니다
+  const rows = await readAll<ShippedRow>('배송분', (a, b) =>
+    supabase
+      .from('orders')
+      .select(
+        // shipped_at — 그 날 유효했던 단가로 셉니다 (2026-10-08)
+        'id, clinic_org_id, designer_user_id, shipped_at, ' +
+          'order_items(type_code, material_code, is_pontic, has_gingival)',
+      )
+      .is('deleted_at', null)
+      .eq('is_billable', true)
+      .not('shipped_at', 'is', null)
+      .not('designer_user_id', 'is', null)
+      // ★ 한국 달력의 경계입니다 — getDesignStats 가 +09:00 을 붙여 넘깁니다
+      .gte('shipped_at', from)
+      .lte('shipped_at', to)
+      .order('id')
+      .range(a, b) as unknown as Paged<ShippedRow>,
+  );
 
   if (rows.length === 0) return;
 

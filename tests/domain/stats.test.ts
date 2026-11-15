@@ -24,6 +24,8 @@ const designer = (over: Partial<DesignerTally>): DesignerTally => ({
   name: '아무개',
   picked: 0,
   pickedTeeth: 0,
+  deleted: 0,
+  deletedTeeth: 0,
   handed: 0,
   handedTeeth: 0,
   remade: 0,

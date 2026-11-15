@@ -92,7 +92,9 @@ export default function StatsScreen({ stats, reasons, months, month }: StatsScre
         <p className="border-b border-[#E8EBF0] bg-[#FBFCFD] px-5 py-2.5 text-[13px] leading-relaxed text-[#98A2B3]">
           <b className="font-semibold text-[#4A5567]">배정된 담당 디자이너</b>를 기준으로 셉니다.
           리메이크는 <b className="font-semibold text-[#4A5567]">원주문을 디자인한 사람</b>에게
-          답니다 — 다만 리메이크 사유가 디자인 탓이 아닌 경우가 많습니다.
+          답니다 — 다만 리메이크 사유가 디자인 탓이 아닌 경우가 많습니다.{' '}
+          <b className="font-semibold text-[#4A5567]">삭제된 주문</b>은 잡음·넘김·치아에 넣지 않고
+          삭제 칸에 따로 적습니다.
           <br />
           <b className="font-semibold text-[#4A5567]">완성 금액</b>은 그 기간에{' '}
           <b className="font-semibold text-[#4A5567]">배송된</b> 건의 치과 판매가입니다. 깎아 준
@@ -110,6 +112,7 @@ export default function StatsScreen({ stats, reasons, months, month }: StatsScre
                 <Th right>잡음</Th>
                 <Th right>넘김</Th>
                 <Th right>치아</Th>
+                <Th right>삭제</Th>
                 <Th right>완성 금액</Th>
                 <Th right>평균 소요</Th>
                 <Th right>리메이크</Th>
@@ -126,6 +129,22 @@ export default function StatsScreen({ stats, reasons, months, month }: StatsScre
                   <Td right>{row.handed}</Td>
                   {/* ★ 넘긴 건의 치아 개수. 큰 건을 맡은 사람이 여기서 드러납니다 */}
                   <Td right>{row.handedTeeth}</Td>
+                  {/*
+                    ★ 디자인을 잡은 뒤 삭제된 주문 — 잡음·넘김·치아에는 **안 들어갑니다**
+                      (사용자 결정 2026-11-15). 손이 간 일이라 여기 따로 적습니다.
+                  */}
+                  <Td right>
+                    {row.deleted === 0 ? (
+                      <span className="text-[#C4CBD6]">—</span>
+                    ) : (
+                      <span
+                        title="디자인을 잡은 뒤 삭제된 주문입니다. 잡음·넘김·치아에는 들어가지 않습니다"
+                        className="text-[#98A2B3]"
+                      >
+                        {row.deleted}건 · {row.deletedTeeth}개
+                      </span>
+                    )}
+                  </Td>
                   {/*
                     ★ 단가 미정이 섞이면 그 사실을 답니다 (2026-08-13).
                       0원으로 조용히 세면 그 사람 능률이 낮아 보입니다.
