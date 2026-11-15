@@ -682,6 +682,68 @@ async function saveBridges(
 
 // ---------- 수정 ----------
 
+type Row = Record<string, unknown>;
+
+interface OrderSpecSnapshot {
+  items: Row[];
+  bridges: Row[];
+  members: Row[];
+  options: Row[];
+}
+
+/** 고치기 전의 항목·브릿지·옵션 — 새것을 못 넣으면 이것으로 되돌립니다 */
+async function snapshotOrderSpec(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string,
+): Promise<OrderSpecSnapshot> {
+  const [items, bridges, options] = await Promise.all([
+    supabase.from('order_items').select('*').eq('order_id', orderId),
+    supabase.from('order_bridges').select('*').eq('order_id', orderId),
+    supabase.from('order_options').select('*').eq('order_id', orderId),
+  ]);
+
+  const bridgeIds = ((bridges.data ?? []) as Row[]).map((b) => b.id as string);
+  const members =
+    bridgeIds.length > 0
+      ? await supabase.from('order_bridge_members').select('*').in('bridge_id', bridgeIds)
+      : { data: [] as Row[] };
+
+  return {
+    items: (items.data ?? []) as Row[],
+    bridges: (bridges.data ?? []) as Row[],
+    members: (members.data ?? []) as Row[],
+    options: (options.data ?? []) as Row[],
+  };
+}
+
+/**
+ * 고치기 전으로 되돌립니다. 다 돌아갔으면 true.
+ *
+ * ★ 같은 id 로 다시 넣습니다 — 브릿지 멤버가 항목 id 를 가리키기 때문입니다.
+ * ★ 항목이 먼저입니다. 항목이 안 돌아가면 나머지는 넣을 곳이 없습니다.
+ */
+async function restoreOrderSpec(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  before: OrderSpecSnapshot,
+): Promise<boolean> {
+  if (before.items.length === 0) return true;
+
+  const items = await supabase.from('order_items').insert(before.items);
+  if (items.error) return false;
+
+  let ok = true;
+  if (before.bridges.length > 0) {
+    ok = !(await supabase.from('order_bridges').insert(before.bridges)).error && ok;
+  }
+  if (before.members.length > 0) {
+    ok = !(await supabase.from('order_bridge_members').insert(before.members)).error && ok;
+  }
+  if (before.options.length > 0) {
+    ok = !(await supabase.from('order_options').insert(before.options)).error && ok;
+  }
+  return ok;
+}
+
 export interface UpdateOrderInput extends CreateOrderInput {
   orderId: string;
 }
@@ -807,6 +869,14 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
 
   // ★ 항목·브릿지·옵션을 통째로 갈아끼웁니다.
   //   order_bridges 는 order_id 로 매달려 있어 지우면 멤버도 따라 지워집니다.
+  /*
+    ★★ **지우기 전에 지금 것을 들고 있습니다** (사고 2026-11-15, ORD-261111-031).
+      전에는 먼저 지우고 새로 넣었습니다. 새 항목이 DB 규칙에 걸려 안 들어가면
+      지운 것은 그대로 사라져 **보철 항목이 0개인 주문**이 남았습니다 —
+      화면에는 "저장에 실패했습니다" 만 떴습니다. 이제 못 넣으면 원래대로 돌려놓습니다.
+  */
+  const before = await snapshotOrderSpec(supabase, input.orderId);
+
   await supabase.from('order_bridges').delete().eq('order_id', input.orderId);
   await supabase.from('order_items').delete().eq('order_id', input.orderId);
   await supabase.from('order_options').delete().eq('order_id', input.orderId);
@@ -842,7 +912,13 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
     .select('id, tooth_number, slot, type_code, material_code, is_pontic');
 
   if (itemError || !savedItems) {
-    return { ok: false, error: `보철물 저장에 실패했습니다: ${itemError?.message}` };
+    const restored = await restoreOrderSpec(supabase, before);
+    return {
+      ok: false,
+      error: restored
+        ? `보철물 저장에 실패했습니다. 주문은 고치기 전 그대로입니다: ${itemError?.message}`
+        : `★ 보철물 저장에 실패했고 고치기 전 항목도 되돌리지 못했습니다. 이 화면을 닫지 말고 다시 저장해 주세요: ${itemError?.message}`,
+    };
   }
 
   await saveBridges(supabase, input.orderId, savedItems, input, catalog);
