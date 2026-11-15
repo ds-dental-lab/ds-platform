@@ -63,5 +63,31 @@ else:
     bad += 1
     print(f"  X 셋이 겹칩니다: {names}")
 
+# ---------- 임플란트만 있는 주문 — PrePreparation 이 원본, Preparation 이 스캔바디 (2026-11-15) ----------
+from launcher import scanbody_in_prep
+
+PAIR = ["PreparationScan.stl", "PrePreparationScan.stl"]
+
+
+def expect(name, cond):
+    global ok, bad
+    if cond:
+        ok += 1
+    else:
+        bad += 1
+        print(f"  X {name}")
+
+
+expect("임플란트만 + 짝 → 켭니다", scanbody_in_prep(PAIR, ["implant", "implant"]))
+expect("폰틱은 세지 않습니다", scanbody_in_prep(PAIR, ["implant", "pontic", "implant"]))
+expect("크라운이 섞이면 전처럼", not scanbody_in_prep(PAIR, ["implant", "crown"]))
+expect("자연치 주문은 전처럼", not scanbody_in_prep(PAIR, ["crown"]))
+expect("스캔바디 파일이 따로 왔으면 전처럼", not scanbody_in_prep(PAIR + ["AbutmentAlignmentScan.stl"], ["implant"]))
+expect("짝이 아니면 전처럼", not scanbody_in_prep(["PreparationScan.stl", "AntagonistScan.stl"], ["implant"]))
+expect("원본은 꼬리표 없이", place_name(F, "PrePreparationScan.stl", "lower", True) == f"{F}-lowerjaw.stl")
+expect("Preparation 은 -marker", place_name(F, "PreparationScan.stl", "lower", True) == f"{F}-lowerjaw-marker.stl")
+expect("대합치는 그대로 반대쪽", place_name(F, "AntagonistScan.stl", "lower", True) == f"{F}-upperjaw.stl")
+expect("두 악이면 이름 그대로", place_name(F, "PreparationScan.stl", None, True) == "PreparationScan.stl")
+
 print(f"통과 {ok} · 실패 {bad}")
 raise SystemExit(1 if bad else 0)

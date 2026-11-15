@@ -128,6 +128,18 @@ def plan_teeth(teeth: list[dict], bridges: list[list[int]]) -> tuple[dict[int, s
     return work, mesial, healthy, antagonist
 
 
+def work_order(work: dict[int, str]) -> list[int]:
+    """
+    작업 치아를 넣는 차례 — **임플란트(커스텀 어버트먼트)가 먼저**, 그다음 치식 번호순.
+
+    ★ 사용자 관찰(2026-11-15): exocad 주문서에 지르코니아 크라운을 먼저 넣고 커스텀 어버트먼트를
+      나중에 넣으면 그 주문서는 어버트먼트가 활성화되지 않습니다. 어버트먼트를 먼저 넣어야 합니다.
+      exocad 쪽 버릇으로 보이며, 우리는 손으로 넣을 때 되는 차례를 그대로 따릅니다.
+    ★ 주문서(XML)와 DB 등록이 **같은 차례**를 씁니다.
+    """
+    return sorted(work, key=lambda n: (work[n] != "implant", n))
+
+
 TRAY_NO = 2  # 샘플과 같은 값. DB 의 t_schaleId 와 XML 의 TrayNo 가 같아야 합니다
 
 
@@ -152,7 +164,7 @@ def build_project(
     work, mesial, healthy, antagonist = plan_teeth(teeth, bridges)
 
     rendered: list[str] = []
-    for n in sorted(work):
+    for n in work_order(work):
         kind = work[n]
         if kind not in ("crown", "implant", "inlay", "pontic"):
             raise ValueError(f"모르는 종류: {kind}")

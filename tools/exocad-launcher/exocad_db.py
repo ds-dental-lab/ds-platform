@@ -202,7 +202,9 @@ class ExocadDb:
 
 def teeth_from_plan(work: dict[int, str], mesial: set[int], healthy: set[int], antagonist: int | None) -> list[tuple[int, str, bool]]:
     """make_project 의 계산 결과를 DB 등록용 목록으로."""
-    out = [(n, k, n in mesial) for n, k in sorted(work.items())]
+    # ★ 임플란트 먼저 — exocad 는 어버트먼트가 먼저 들어가야 활성화합니다 (make_project.work_order)
+    import make_project  # noqa: PLC0415
+    out = [(n, work[n], n in mesial) for n in make_project.work_order(work)]
     out += [(n, "healthy", False) for n in sorted(healthy)]
     if antagonist is not None:
         out.append((antagonist, "antagonist", False))

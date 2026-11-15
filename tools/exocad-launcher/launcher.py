@@ -168,7 +168,29 @@ def working_jaw(teeth: list[int]) -> str | None:
     return None
 
 
-def place_name(folder_name: str, original: str, jaw: str | None = None) -> str:
+def scanbody_in_prep(names: list[str], kinds: list[str]) -> bool:
+    """
+    스캔바디가 **'Preparation' 스캔 안에** 들어 있는 주문인가. (사용자 확인 2026-11-15)
+
+    ★ 임플란트만 있는 주문에 'PrePreparation' 과 'Preparation' 이 짝으로 오고 스캔바디 파일이
+      따로 없으면 — **PrePreparation 이 원본(잇몸), Preparation 이 스캔바디를 꽂은 스캔**입니다.
+      ("Pre 가 더 붙은 쪽이 먼저 뜬 것". 재 보니 Preparation 쪽이 5mm 더 높았습니다.)
+    ★ 자연치 크라운 주문에서는 뜻이 다릅니다 — PrePreparation 은 깎기 전, Preparation 이 지대치.
+      그래서 **작업 치아가 전부 임플란트일 때만** 이렇게 읽습니다 (폰틱은 세지 않습니다).
+      크라운과 섞인 주문은 전처럼 둡니다 — 어느 쪽인지 파일 이름만으로는 모릅니다.
+    """
+    real = [k for k in kinds if k != "pontic"]
+    if not real or any(k != "implant" for k in real):
+        return False
+    stems = [Path(n).stem for n in names]
+    if any(MARKER.search(s) for s in stems):
+        return False
+    has_situ = any(SITU.search(s) for s in stems)
+    has_prep = any(PREP.search(s) and not SITU.search(s) for s in stems)
+    return has_situ and has_prep
+
+
+def place_name(folder_name: str, original: str, jaw: str | None = None, prep_is_scanbody: bool = False) -> str:
     """
     exocad 가 자동 인식하는 이름으로. 못 맞추면 원래 이름 그대로 (exocad 에서 고름).
 
@@ -195,6 +217,10 @@ def place_name(folder_name: str, original: str, jaw: str | None = None) -> str:
     #   지대치 자리를 차지했습니다. 둘은 다른 질문이라 따로 묻습니다.
     if MARKER.search(stem):
         tag = "-marker"          # 스캔바디
+    elif prep_is_scanbody and SITU.search(stem):
+        tag = ""                 # 임플란트 주문의 PrePreparation — 스캔바디 없는 **원본**
+    elif prep_is_scanbody and PREP.search(stem):
+        tag = "-marker"          # 임플란트 주문의 Preparation — **스캔바디를 꽂은 스캔**
     elif SITU.search(stem):
         tag = "-situ"            # 삭제 전 — 지대치와 **다른 이름**이어야 합니다
     else:
@@ -720,12 +746,17 @@ class Job:
         #   모르는 스캐너가 또 겹치게 보낼 수 있습니다. 그때는 **덮지 않고**
         #   원래 이름으로 두고 **말해 줍니다** — 조용히 지는 쪽이 없게.
         placed: dict[str, str] = {}
+        # ★ 임플란트만 있는 주문 — PrePreparation 이 원본, Preparation 이 스캔바디 스캔 (2026-11-15)
+        prep_is_scanbody = scanbody_in_prep([p.name for p in got], [t.get("type", "") for t in data["teeth"]])
+        if prep_is_scanbody:
+            scan_abutment = True
+            self.note("임플란트 주문 — PrePreparation 을 원본, Preparation 을 스캔바디 스캔으로 넣습니다")
         for p in got:
             if p.suffix.lower() == ".dxd":
                 dxds.append(p)
                 continue
 
-            name = place_name(folder_name, p.name, jaw)
+            name = place_name(folder_name, p.name, jaw, prep_is_scanbody)
             if name in placed:
                 self.note(f"⚠ {p.name} 과 {placed[name]} 이 같은 이름이 됩니다 — {p.name} 은 그대로 둡니다")
                 name = p.name
@@ -739,6 +770,13 @@ class Job:
                 target.unlink()  # 지난번 보낸 같은 이름의 스캔은 새것으로
             shutil.move(str(p), target)
             self.note(f"{p.name} → {target.name}")
+        # ★ 색 붙은 ply 는 옆에 텍스처 그림이 있어야 열립니다 — 덴플로우가 webp 로 바꿔 둔 것을
+        #   ply 가 찾는 이름으로 놓습니다 (2026-11-15, "Texture file … is not found")
+        try:
+            import ply_texture
+            ply_texture.fix_textures(folder, self.note)
+        except Exception as e:  # noqa: BLE001
+            self.note(f"⚠ ply 의 색 그림을 맞추지 못했습니다 ({e})")
         self.note(f"폴더: {folder}")
 
         # 5. dxd → DS Core 자동 변환 (2026-09-10 — dscore.py, 사람 손 없이)
