@@ -34,9 +34,11 @@ const TONE: Record<DeviceState, { dot: string; chip: string; ink: string }> = {
   offline: { dot: '#D64545', chip: '#FDECEA', ink: '#A32F2F' },
   warn: { dot: '#E09A1B', chip: '#FFF6E5', ink: '#8A5A12' },
   ok: { dot: '#12855B', chip: '#E7F5EE', ink: '#0E6B49' },
+  // 퇴근한 치과 PC — 회색. 빨강도 초록도 아닙니다
+  resting: { dot: '#B6BECC', chip: '#F2F4F7', ink: '#5B6577' },
   legacy: { dot: '#B6BECC', chip: '#F2F4F7', ink: '#5B6577' },
 };
-const STATE_ORDER: Record<DeviceState, number> = { offline: 0, warn: 1, ok: 2, legacy: 3 };
+const STATE_ORDER: Record<DeviceState, number> = { offline: 0, warn: 1, ok: 2, resting: 3, legacy: 4 };
 // 서버 PC 가 맨 위 — 설계가 거기서 돕니다
 const ROLE_ORDER: Record<DeviceRole, number> = { server: 0, design: 1, clinic: 2 };
 
@@ -72,8 +74,9 @@ export default async function DesignDevicesPage() {
   const now = board.now;
   const rows = board.rows
     .map((d) => {
-      const state = deviceState(d, now);
-      return { ...d, state, role: deviceRole(d), group: deviceGroup(state) };
+      const role = deviceRole(d);
+      const state = deviceState({ ...d, role }, now);
+      return { ...d, state, role, group: deviceGroup(state) };
     })
     .sort(
       (a, b) =>
@@ -113,9 +116,17 @@ export default async function DesignDevicesPage() {
                   {items.map((d) => {
                     const tone = TONE[d.state];
                     const stale = staleWatchers(d.status.watchers);
-                    const { shown, folded } = splitEvents(d.events, d.state, now);
+                    const { shown, folded } = splitEvents(d.events, d.state, now, d.heartbeatAt ?? d.lastSeenAt);
                     // 문제가 있을 때만 그 까닭을 한 줄로 — 정상이면 아무 말 없음
                     const why: string[] = [];
+                    // ★ 왜 빨간지를 말로 — 꺼진 치과 PC 는 까닭이 둘 중 하나입니다 (2026-11-16)
+                    if (d.state === 'offline' && d.role === 'clinic') {
+                      why.push(
+                        d.openJobs > 0
+                          ? `출력할 것이 ${d.openJobs}건 걸려 있는데 PC 가 꺼져 있습니다`
+                          : '오늘 한 번도 켜지지 않았습니다',
+                      );
+                    }
                     if (d.status.missing?.length) why.push(`빠진 것: ${d.status.missing.join(' · ')}`);
                     if (stale.length) why.push(`멈춘 프로그램: ${stale.join(', ')}`);
                     if (d.status.printer?.ok === false) why.push('프린터 연결 안 됨');
@@ -148,6 +159,12 @@ export default async function DesignDevicesPage() {
                             {stateLabel(d.state).split(' — ')[0]}
                           </span>
                         </div>
+
+                        {d.state === 'resting' ? (
+                          <p className="mt-1.5 text-[12.5px] text-[#7C8595]">
+                            걸려 있는 일이 없습니다. 치과가 PC 를 켜면 저절로 다시 붙습니다.
+                          </p>
+                        ) : null}
 
                         {why.length ? (
                           <p className="mt-1.5 text-[12.5px] font-semibold text-[#A32F2F]">{why.join(' · ')}</p>

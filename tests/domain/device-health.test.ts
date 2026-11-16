@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   deviceState,
+  noShowToday,
   HEARTBEAT_INTERVAL_SECONDS,
   HEARTBEAT_OFFLINE_SECONDS,
   sanitizeEvents,
@@ -88,7 +89,9 @@ describe('서버 PC / 디자인 PC / 치과 PC (사용자 2026-10-21)', () => {
     const r = splitEvents(mixed, 'ok', now);
     expect(r.shown.map((e) => e.at)).toEqual([ev(10).at]);
     expect(r.folded).toHaveLength(1);
-    expect(splitEvents(old, 'warn', now).shown).toHaveLength(1);
+    // ★ 지난 오류는 문제 기기에서도 앞에 내놓지 않습니다 (2026-11-16)
+    expect(splitEvents(old, 'warn', now).shown).toHaveLength(0);
+    expect(splitEvents(mixed, 'warn', now).shown).toHaveLength(1);
     expect(splitEvents([], 'offline', now)).toEqual({ shown: [], folded: [] });
   });
 
@@ -142,5 +145,57 @@ describe('크롬에 못 붙음 (2026-11-11 치과 시연이 차례 기다리기�
     const base = { heartbeatAt: at, lastSeenAt: at, lastErrorAt: '2026-10-15T00:00:00Z' };
     expect(deviceState({ ...base, status: { dentbird: '못 붙음 — x' } }, now)).toBe('warn');
     expect(deviceState({ ...base, status: { dentbird: '켜짐' } }, now)).toBe('ok');
+  });
+});
+
+describe('퇴근한 치과 PC 는 고장이 아닙니다 (2026-11-16)', () => {
+  // 2026-11-16 은 월요일. 18:26 KST = 09:26Z
+  const evening = Date.parse('2026-11-16T09:26:00Z');
+  const offAt = '2026-11-16T08:50:50Z'; // 17:50 KST 에 꺼짐
+  const base = { heartbeatAt: offAt, lastSeenAt: offAt, lastErrorAt: null };
+
+  it('걸린 일이 없고 오늘 켜졌던 치과 PC 는 꺼져 있음 — 정상 묶음', () => {
+    expect(deviceState({ ...base, role: 'clinic', openJobs: 0 }, evening)).toBe('resting');
+    expect(deviceGroup('resting')).toBe('fine');
+  });
+
+  it('걸린 출력 일감이 있으면 빨간 꺼짐', () => {
+    expect(deviceState({ ...base, role: 'clinic', openJobs: 1 }, evening)).toBe('offline');
+  });
+
+  it('서버 PC · 디자인 PC 는 전과 같이 꺼짐', () => {
+    expect(deviceState({ ...base, role: 'server', openJobs: 0 }, evening)).toBe('offline');
+    expect(deviceState({ ...base, role: 'design', openJobs: 0 }, evening)).toBe('offline');
+    // 역할을 안 주면 조심스러운 쪽 — 꺼짐
+    expect(deviceState(base, evening)).toBe('offline');
+  });
+
+  it('다음 날 오후 1시까지 안 켜지면 꺼짐, 그 전에는 꺼져 있음', () => {
+    const nextMorning = Date.parse('2026-11-17T01:00:00Z'); // 화 10:00 KST
+    const nextNoon = Date.parse('2026-11-17T04:05:00Z'); // 화 13:05 KST
+    expect(deviceState({ ...base, role: 'clinic', openJobs: 0 }, nextMorning)).toBe('resting');
+    expect(deviceState({ ...base, role: 'clinic', openJobs: 0 }, nextNoon)).toBe('offline');
+  });
+
+  it('일요일에는 안 켜져도 꺼져 있음', () => {
+    const sat = '2026-11-21T04:00:00Z'; // 토 13:00 KST 에 꺼짐
+    const sunday = Date.parse('2026-11-22T06:00:00Z'); // 일 15:00 KST
+    expect(noShowToday(sat, sunday)).toBe(false);
+    expect(deviceState({ heartbeatAt: sat, lastSeenAt: sat, lastErrorAt: null, role: 'clinic', openJobs: 0 }, sunday)).toBe('resting');
+  });
+
+  it('오늘 새벽 0시 직후에 켜졌어도 오늘 켜진 것', () => {
+    const noon = Date.parse('2026-11-17T04:05:00Z');
+    expect(noShowToday('2026-11-16T15:00:30Z', noon)).toBe(false); // 화 00:00:30 KST
+    expect(noShowToday('2026-11-16T14:59:30Z', noon)).toBe(true); // 월 23:59:30 KST
+  });
+
+  it('아침의 오류를 저녁에 꺼진 카드 앞에 내놓지 않습니다', () => {
+    const morning = [{ at: '2026-11-16T01:10:30Z', level: 'error', message: '물어보기 실패' }]; // 10:10 KST
+    expect(splitEvents(morning, 'resting', evening, offAt).shown).toHaveLength(0);
+    expect(splitEvents(morning, 'offline', evening, offAt).shown).toHaveLength(0);
+    // 꺼지기 20분 전의 오류는 단서라 보입니다
+    const justBefore = [{ at: '2026-11-16T08:30:00Z', level: 'error', message: '프린터 연결 끊김' }];
+    expect(splitEvents(justBefore, 'offline', evening, offAt).shown).toHaveLength(1);
   });
 });

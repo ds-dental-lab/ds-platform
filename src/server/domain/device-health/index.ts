@@ -30,10 +30,32 @@ export const RECENT_ERROR_MINUTES = 60;
  * 기기 하나의 상태.
  *   ok       정상
  *   warn     켜져 있지만 최근 오류가 있음
- *   offline  상태 보고가 끊김
+ *   offline  상태 보고가 끊김 — **봐야 하는** 꺼짐
+ *   resting  치과 PC 가 꺼져 있지만 걸린 일이 없고 오늘 이미 켜졌던 것 — 퇴근 (2026-11-16)
  *   legacy   옛 판 — 상태를 안 보냄. 마지막 소식만 압니다
  */
-export type DeviceState = 'ok' | 'warn' | 'offline' | 'legacy';
+export type DeviceState = 'ok' | 'warn' | 'offline' | 'resting' | 'legacy';
+
+/** 치과 PC 가 이 시각(한국)까지 한 번도 안 켜졌으면 그날은 '안 켜진 날' 로 봅니다 */
+export const NO_SHOW_HOUR_KST = 13;
+
+const KST_MS = 9 * 3_600_000;
+
+/**
+ * 치과 PC 가 **오늘 안 나타났는가** — 한국 시각 오후 1시가 넘었는데 오늘 소식이 한 번도 없을 때.
+ *
+ * ★ 진료 시간은 치과마다 달라서 "몇 시부터 몇 시" 를 정하지 않습니다 (사용자 2026-11-16).
+ *   대신 **하루에 한 번이라도 켜졌는가**만 봅니다. 늦게 여는 치과도 오후 1시면 켜져 있습니다.
+ * ★ 일요일은 보지 않습니다.
+ */
+export function noShowToday(heartbeatAt: string | null, now: number): boolean {
+  const kst = new Date(now + KST_MS);
+  if (kst.getUTCDay() === 0) return false;
+  if (kst.getUTCHours() < NO_SHOW_HOUR_KST) return false;
+  if (!heartbeatAt) return true;
+  const midnight = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()) - KST_MS;
+  return new Date(heartbeatAt).getTime() < midnight;
+}
 
 export interface DeviceHealthInput {
   heartbeatAt: string | null;
@@ -41,11 +63,26 @@ export interface DeviceHealthInput {
   lastErrorAt: string | null;
   /** 설계 PC 가 스스로 본 '빠진 것' — 하나라도 있으면 확인 필요 */
   status?: { missing?: string[]; dentbird?: string };
+  /** 어느 PC 인가 — 안 주면 꺼짐을 늘 '봐야 하는 꺼짐' 으로 봅니다 */
+  role?: DeviceRole;
+  /** 그 치과에 **아직 안 끝난 출력 일감** 수 */
+  openJobs?: number;
 }
 
 export function deviceState(d: DeviceHealthInput, now: number): DeviceState {
   if (!d.heartbeatAt) return 'legacy';
-  if (now - new Date(d.heartbeatAt).getTime() > HEARTBEAT_OFFLINE_SECONDS * 1000) return 'offline';
+  if (now - new Date(d.heartbeatAt).getTime() > HEARTBEAT_OFFLINE_SECONDS * 1000) {
+    /*
+      ★★ 치과가 퇴근하며 PC 를 끄는 것은 고장이 아닙니다 (사용자 2026-11-16 "이게 무슨 소리야").
+        전에는 꺼지면 무조건 빨간 '꺼짐' 이었습니다. 이제 치과 PC 는
+          - 걸린 출력 일감이 있거나
+          - 오늘 오후 1시까지 한 번도 안 켜졌을 때
+        만 빨갛게 봅니다. 그 밖에는 '꺼져 있음' — 정상 묶음에 조용히 둡니다.
+      ★ 서버 PC·디자인 PC 는 늘 켜져 있어야 하므로 전과 같습니다.
+    */
+    if (d.role === 'clinic' && !(d.openJobs && d.openJobs > 0) && !noShowToday(d.heartbeatAt, now)) return 'resting';
+    return 'offline';
+  }
   // ★ 2026-10-16 빠진 설정 하나가 아무 말 없이 일을 멈췄습니다. 빠지면 바로 노랗게
   if (d.status?.missing?.length) return 'warn';
   // ★ 2026-11-11 크롬에 못 붙는 동안은 계속 '확인 필요' — 한 시간 지났다고 정상으로 돌아가면 안 됩니다
@@ -58,6 +95,7 @@ const LABEL: Record<DeviceState, string> = {
   ok: '정상',
   warn: '확인 필요',
   offline: '꺼짐',
+  resting: '꺼져 있음',
   legacy: '옛 판 — 상태를 안 보냄',
 };
 
@@ -231,12 +269,28 @@ export function splitEvents(
   events: DeviceEvent[],
   state: DeviceState,
   now: number,
+  /** 마지막 소식 — 꺼진 기기에서 '꺼지기 직전의 오류' 를 가리는 데 씁니다 */
+  lastSeenAt?: string | null,
 ): { shown: DeviceEvent[]; folded: DeviceEvent[] } {
   const sorted = [...events].sort((a, b) => b.at.localeCompare(a.at));
   if (sorted.length === 0) return { shown: [], folded: [] };
   const head = sorted[0];
-  const fresh = now - new Date(head.at).getTime() < RECENT_ERROR_MINUTES * 60_000;
-  const show = state === 'ok' || state === 'legacy' ? fresh : true;
+  const window = RECENT_ERROR_MINUTES * 60_000;
+  const fresh = now - new Date(head.at).getTime() < window;
+  /*
+    ★★ **지난 오류를 지금 일처럼 보이지 않습니다** (사용자 2026-11-16).
+      전에는 문제 기기면 제일 최근 오류를 나이와 상관없이 맨 앞에 보였습니다. 저녁에 꺼진
+      치과 PC 카드에 아침 10시의 오류가 빨갛게 떠서, 그것 때문에 꺼진 것처럼 읽혔습니다.
+      - 켜져 있는 기기: 최근 한 시간 안의 것만
+      - 꺼진 기기: **꺼지기 직전 한 시간** 안의 것만 (그 오류가 꺼짐의 단서일 수 있습니다)
+      - 퇴근한 기기: 보이지 않습니다
+  */
+  let show = fresh;
+  if (state === 'offline') {
+    const last = lastSeenAt ? new Date(lastSeenAt).getTime() : NaN;
+    show = Number.isFinite(last) ? last - new Date(head.at).getTime() < window : fresh;
+  }
+  if (state === 'resting') show = false;
   return show ? { shown: [head], folded: sorted.slice(1) } : { shown: [], folded: sorted };
 }
 
@@ -246,5 +300,6 @@ export type DeviceGroup = 'trouble' | 'fine' | 'legacy';
 export function deviceGroup(state: DeviceState): DeviceGroup {
   if (state === 'offline' || state === 'warn') return 'trouble';
   if (state === 'legacy') return 'legacy';
+  // 'resting'(퇴근한 치과 PC)은 정상 묶음입니다 — 봐 달라고 하지 않습니다
   return 'fine';
 }

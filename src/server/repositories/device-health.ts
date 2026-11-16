@@ -23,6 +23,8 @@ export interface DeviceRow {
   lastError: string | null;
   lastErrorAt: string | null;
   events: { at: string; level: string; message: string }[];
+  /** 그 치과에 아직 안 끝난 출력 일감 수 — 있으면 꺼진 PC 를 봐야 합니다 (2026-11-16) */
+  openJobs: number;
 }
 
 export async function listDevices(): Promise<DeviceRow[]> {
@@ -30,7 +32,7 @@ export async function listDevices(): Promise<DeviceRow[]> {
   const { data } = await admin
     .from('clinic_devices')
     .select(
-      'id, name, agent_version, last_seen_at, heartbeat_at, status, last_error, last_error_at, ' +
+      'id, clinic_org_id, name, agent_version, last_seen_at, heartbeat_at, status, last_error, last_error_at, ' +
         'organizations(name, org_type)',
     )
     .is('revoked_at', null)
@@ -38,6 +40,7 @@ export async function listDevices(): Promise<DeviceRow[]> {
 
   type Raw = {
     id: string;
+    clinic_org_id: string;
     name: string;
     agent_version: string | null;
     last_seen_at: string | null;
@@ -63,7 +66,20 @@ export async function listDevices(): Promise<DeviceRow[]> {
     byDevice.set(e.device_id, list);
   }
 
+  // 치과별 안 끝난 일감 — 끝남·실패·치운 것은 세지 않습니다
+  const { data: jobs } = await admin
+    .from('auto_jobs')
+    .select('clinic_org_id')
+    .not('step', 'in', '(done,failed)')
+    .is('dismissed_at', null)
+    .is('failed_at', null);
+  const openOf = new Map<string, number>();
+  for (const j of (jobs ?? []) as { clinic_org_id: string }[]) {
+    openOf.set(j.clinic_org_id, (openOf.get(j.clinic_org_id) ?? 0) + 1);
+  }
+
   return rows.map((r) => ({
+    openJobs: openOf.get(r.clinic_org_id) ?? 0,
     id: r.id,
     name: r.name,
     orgName: r.organizations?.name ?? '—',
