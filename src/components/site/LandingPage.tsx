@@ -142,8 +142,13 @@ function Header({ loggedIn }: { loggedIn: boolean }) {
   const link = `hidden text-[14.5px] font-semibold text-[#3D4E60] hover:text-[#14263A] sm:block ${FOCUS}`;
   return (
     <header className="sticky top-0 z-40 border-b border-[#E3E8EB] bg-white/92 backdrop-blur">
-      <div className={`${WRAP} flex h-[68px] items-center`}>
-        <DenFlowLogo markHeight={28} fontSize={21} gap={11} />
+      {/* ★ 320px 폰에서 로고·로그인·수가표 요청이 18px 넘쳤습니다 (운영에서 잰 값 2026-11-16).
+            360px 아래에서만 옆 여백과 단추를 조금 줄입니다 */}
+      <div className={`${WRAP} flex h-[68px] items-center max-[359px]:px-4`}>
+        {/* 320px 에서는 로고가 로그인 단추에 닿아 보여 조금 줄입니다 */}
+        <span className="origin-left max-[359px]:scale-[0.88]">
+          <DenFlowLogo markHeight={28} fontSize={21} gap={11} />
+        </span>
         <nav className="ml-auto flex items-center gap-1 sm:gap-7">
           <a href="#why" className={link}>모델리스</a>
           <a href="#flow" className={link}>진행 과정</a>
@@ -155,13 +160,13 @@ function Header({ loggedIn }: { loggedIn: boolean }) {
           */}
           <Link
             href={loggedIn ? '/' : '/login'}
-            className={`ml-2 grid h-10 shrink-0 place-items-center whitespace-nowrap rounded-lg border border-[#C9D3D9] px-3 text-[14px] sm:px-4 sm:text-[14.5px] font-bold text-[#14263A] hover:border-[#14263A] ${FOCUS}`}
+            className={`ml-2 grid h-10 shrink-0 place-items-center whitespace-nowrap rounded-lg border border-[#C9D3D9] px-3 text-[14px] max-[359px]:ml-0 max-[359px]:px-2.5 max-[359px]:text-[13px] sm:px-4 sm:text-[14.5px] font-bold text-[#14263A] hover:border-[#14263A] ${FOCUS}`}
           >
             {loggedIn ? '내 화면으로' : '로그인'}
           </Link>
           <a
             href="#contact"
-            className={`ml-1 grid h-10 shrink-0 place-items-center whitespace-nowrap rounded-lg bg-[#1279E8] px-3 text-[14px] font-bold text-white hover:bg-[#0F68C9] sm:ml-0 sm:px-5 sm:text-[14.5px] ${FOCUS}`}
+            className={`ml-1 grid h-10 shrink-0 place-items-center whitespace-nowrap rounded-lg bg-[#1279E8] px-3 text-[14px] max-[359px]:px-2.5 max-[359px]:text-[13px] font-bold text-white hover:bg-[#0F68C9] sm:ml-0 sm:px-5 sm:text-[14.5px] ${FOCUS}`}
           >
             수가표 요청
           </a>
