@@ -1,23 +1,25 @@
 // =========================================================
 // 놓을 위치: src/components/site/ContactForm.tsx
 //
-// 홈페이지 수가표·상담 요청 폼.
+// 홈페이지 수가표 요청 폼.
 //
 // ★ 홈페이지에서 제일 중요한 칸입니다.
 //   보고 마음이 동한 사람이 전화를 걸까 말까 망설이는 그 순간에,
 //   치과명과 연락처만 남기고 갈 수 있어야 합니다.
 //
+// ★★ **한 번에 하나씩 묻습니다** (사용자 2026-11-16 — 시안을 보고 "진행해줘").
+//   전에는 두 토막을 한 화면에 다 보였습니다. 묻는 것은 그때와 똑같습니다 —
+//   스캐너 · 불만족점(선택) · 치과명 · 연락처 · 이메일 · 동의. 순서와 방식만 바꿨습니다.
+//
+// ★ 누르기만 하면 되는 질문을 앞에 뒀습니다. 첫 화면이 빈 칸 셋이면 거기서 닫지만,
+//   단추 하나를 누르고 나면 끝까지 가기 쉽습니다. 연락처는 맨 마지막에 묻습니다.
+//
 // ★ 보내고 나면 화면을 통째로 바꿉니다.
 //   "보냈습니다" 를 폼 아래에 작게 띄우면 두 번 세 번 누릅니다.
 //
-// ★★ 두 토막으로 나눴습니다 (사용자 지적 2026-09-04 — "글씨가 빽빽해
-//   보인다. 보기 편하게 구분지어줘"). 질문이 여덟 개가 되니 한 덩어리로
-//   두면 어디까지가 한 질문인지 눈이 못 가릅니다. 번호와 선으로 끊어서
-//   "지금 몇 번째인지" 가 보이게 했습니다.
-//
-// ★ 담당자 성함은 안 받습니다 (사용자 요청 2026-09-04). 치과명과
-//   번호만 있으면 전화해서 물어보면 됩니다 — 칸이 하나 줄면 그만큼
-//   더 보냅니다.
+// ★ 담당자 성함·지역·'더 하실 말씀' 은 안 받습니다 (사용자 2026-09-04). 다시 넣지 마세요.
+// ★ 스캐너는 기본값을 안 둡니다. 미리 골라 두면 안 읽고 넘어갑니다.
+// ★ 동의 문구는 domain/contact 가 쥡니다 — 화면과 처리방침이 같은 뜻이어야 합니다.
 // =========================================================
 
 'use client';
@@ -33,54 +35,48 @@ import {
   type PainPoint,
 } from '@/server/domain/contact';
 
+const TOTAL = 4;
+const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1279E8]';
+
 export default function ContactForm() {
+  const [step, setStep] = useState(1);
+  const [scanner, setScanner] = useState<ContactScanner | ''>('');
+  const [painPoints, setPainPoints] = useState<PainPoint[]>([]);
   const [clinicName, setClinicName] = useState('');
   const [tel, setTel] = useState('');
   const [email, setEmail] = useState('');
   const [agreed, setAgreed] = useState(false);
-  // ★ 스캐너는 기본값을 안 둡니다. 미리 골라 두면 안 읽고 넘어갑니다
-  const [scanner, setScanner] = useState<ContactScanner | ''>('');
-  const [painPoints, setPainPoints] = useState<PainPoint[]>([]);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
 
   function togglePain(p: PainPoint) {
     setPainPoints((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
   }
 
-  // ★ 선택 항목은 접어 둡니다 (사용자 2026-10-23 "폼이 길어 보여") — 필수(치과명·연락처·이메일·스캐너)만 먼저
-  const [more, setMore] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
-  const [sent, setSent] = useState(false);
+  function go(n: number) {
+    setError('');
+    setStep(n);
+  }
 
   async function send() {
     setError('');
     setSending(true);
-
-    const result = await submitContact({
-      clinicName, tel, email, agreed, scanner, painPoints,
-    });
-
+    const result = await submitContact({ clinicName, tel, email, agreed, scanner, painPoints });
     setSending(false);
-
     if (!result.ok) {
       setError(result.error);
       return;
     }
-
     setSent(true);
   }
 
   if (sent) {
     return (
-      <div className="rounded-2xl border border-[#BFE3D2] bg-white p-10 text-center">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#EAF7F1]">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#12855B" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 12.5 9.5 18 20 6.5" />
-          </svg>
-        </span>
-        <h3 className="mt-5 text-[19px] font-extrabold tracking-[-0.03em]">보내 주셔서 고맙습니다</h3>
-        <p className="mt-3 text-[14px] leading-relaxed text-[#4A5567]">
-          남겨 주신 연락처로 <b className="font-bold text-[#1A2130]">영업일 기준 1일 안에</b> 연락드리겠습니다.
+      <div className="rounded-2xl bg-white p-10 text-center">
+        <h3 className="text-[22px] font-extrabold tracking-[-0.03em]">보내 주셔서 고맙습니다</h3>
+        <p className="mt-4 text-[15.5px] leading-[1.75] text-[#3D4E60]">
+          남겨 주신 연락처로 <b className="font-bold text-[#14263A]">영업일 기준 1일 안에</b> 연락드리겠습니다.
           <br />
           급하시면 <a href="tel:01033653145" className="font-bold text-[#1279E8]">010-3365-3145</a> 로 전화 주셔도 됩니다.
         </p>
@@ -89,220 +85,157 @@ export default function ContactForm() {
   }
 
   return (
-    <div className="rounded-2xl border border-[#E8EBF0] bg-white p-7 sm:p-9">
-      {/* ---------- 01 연락처 ---------- */}
-      <Section no="01" title="연락처" first>
-        <div className="grid gap-4">
-          <Field label="치과명" required>
-            <Input value={clinicName} onChange={setClinicName} placeholder="○○치과의원" />
-          </Field>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="연락처" required>
-              <Input value={tel} onChange={setTel} placeholder="010-0000-0000" type="tel" />
-            </Field>
-
-            <Field label="이메일" required hint="수가표를 이 주소로 보내 드립니다">
-              <Input value={email} onChange={setEmail} placeholder="doctor@clinic.co.kr" type="email" />
-            </Field>
-          </div>
-        </div>
-      </Section>
-
-      {/*
-        ★ '무엇을 도와드릴까요'(수가표만 / 방문 상담) 토막은 뺐습니다
-          (사용자 판단 2026-09-04 — "방문상담 이런 건 전화로도 해결").
-          고르는 칸 하나가 늘 뿐, 어차피 전화해서 정합니다.
-      */}
-
-      {/* ---------- 02 진료실 상황 ---------- */}
-      <Section no="02" title="진료실 상황">
-        <Label required>구강스캐너 보유 여부</Label>
-        <div className="mt-2.5 grid grid-cols-3 gap-2">
-          {(Object.keys(SCANNER_LABEL) as ContactScanner[]).map((v) => (
-            <Choice key={v} on={scanner === v} onClick={() => setScanner(v)}>
-              {SCANNER_LABEL[v]}
-            </Choice>
+    <div className="rounded-2xl bg-white p-7 sm:p-10">
+      {/* 지금 몇 번째인지 — 막대 넷 */}
+      <div className="flex items-center gap-3">
+        <div className="flex flex-1 gap-1.5" aria-hidden>
+          {Array.from({ length: TOTAL }, (_, i) => (
+            <span
+              key={i}
+              className={'h-1 flex-1 rounded-full transition-colors duration-300 ' + (i < step ? 'bg-[#16324F]' : 'bg-[#E3E8EB]')}
+            />
           ))}
         </div>
-
-        <button
-          type="button"
-          onClick={() => setMore((v) => !v)}
-          aria-expanded={more}
-          className="mt-6 flex w-full items-center justify-between rounded-lg border border-dashed border-[#DDE2EA] px-4 py-3 text-left text-[13.5px] font-semibold text-[#4A5567] hover:border-[#B6C6DC] hover:bg-[#F7FAFF]"
-        >
-          <span>
-            지금 거래하는 기공소에 불만족하는 점
-            <span className="ml-2 text-[12.5px] font-medium text-[#98A2B3]">선택 · 알려 주시면 상담이 빨라집니다</span>
-          </span>
-          <span aria-hidden className={'text-[#98A2B3] transition-transform ' + (more ? 'rotate-180' : '')}>⌄</span>
-        </button>
-        <div className={more ? 'mt-3' : 'hidden'}>
-          <p className="text-[12.5px] text-[#98A2B3]">여러 개 골라도 됩니다 · 없으면 비워 두세요</p>
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            {(Object.keys(PAIN_LABEL) as PainPoint[]).map((v) => {
-              const on = painPoints.includes(v);
-              return (
-                <button
-                  key={v}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => togglePain(v)}
-                  className={
-                    'h-10 rounded-full border px-4 text-[13.5px] font-semibold transition ' +
-                    (on
-                      ? 'border-[#1279E8] bg-[#1279E8] text-white'
-                      : 'border-[#DDE2EA] text-[#4A5567] hover:border-[#B6C6DC]')
-                  }
-                >
-                  {PAIN_LABEL[v]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </Section>
-
-      {/*
-        ★ '더 하실 말씀' 칸도 뺐습니다 (사용자 요청 2026-09-04).
-          쓰시는 스캐너·물량·납기는 전화에서 물으면 됩니다 — 빈 칸은
-          "뭘 써야 하지" 하고 멈추게만 합니다.
-      */}
-
-      {/*
-        ★ 동의는 **한 줄**입니다 (사용자 요청 2026-09-04). 전에는 회색
-          상자에 세 줄이었는데, 아무도 안 읽고 폼만 무거워 보였습니다.
-          항목·목적·파기는 처리방침에 다 있고 링크가 바로 옆입니다.
-        ★ 문구는 domain/contact 가 쥡니다 — 화면과 처리방침이 같은 뜻이어야 합니다.
-        ★ 체크박스는 남깁니다. 수가표 보낸 뒤 "검토해 보셨나요" 전화는
-          요청 이행이 아니라 영업 연락이라 동의가 있어야 떳떳하고,
-          agreed_at 한 줄이 나중에 "동의한 적 없다" 에 답합니다.
-      */}
-      <label className="mt-7 flex cursor-pointer items-start gap-2.5">
-        <input
-          type="checkbox"
-          checked={agreed}
-          onChange={(e) => setAgreed(e.target.checked)}
-          className="mt-[3px] h-[17px] w-[17px] shrink-0 accent-[#1279E8]"
-        />
-        {/* ★ '동의합니다 * 처리방침' 은 한 덩어리로 — 줄이 꺾여 '처리방침' 만 다음 줄에 떨어졌습니다 (사용자 지적 2026-09-08) */}
-        <span className="text-[13.5px] leading-relaxed text-[#4A5567]">
-          {CONSENT.line}.{' '}
-          <span className="whitespace-nowrap">
-            <b className="font-bold text-[#1A2130]">동의합니다</b>
-            <span className="text-[#D8453F]"> *</span>
-            <Link
-              href="/privacy"
-              target="_blank"
-              className="ml-2 font-semibold text-[#1279E8] underline underline-offset-2"
-            >
-              처리방침
-            </Link>
-          </span>
+        <span className="text-[13.5px] font-semibold tabular-nums text-[#5B6C7D]">
+          {step} / {TOTAL}
         </span>
-      </label>
+      </div>
 
-      {error && <p className="mt-3 text-[14px] font-semibold text-[#D8453F]">{error}</p>}
+      {/* 높이를 잡아 둡니다 — 질문이 바뀔 때 아래 화면이 들썩이지 않게 */}
+      <div className="mt-8 min-h-[300px]" aria-live="polite">
+        {step === 1 && (
+          <Question title="구강스캐너를 쓰고 계신가요?" hint="누르시면 다음으로 넘어갑니다">
+            <div className="grid gap-2.5">
+              {(Object.keys(SCANNER_LABEL) as ContactScanner[]).map((v) => (
+                <Tap
+                  key={v}
+                  on={scanner === v}
+                  onClick={() => {
+                    setScanner(v);
+                    go(2);
+                  }}
+                >
+                  {SCANNER_LABEL[v]}
+                </Tap>
+              ))}
+            </div>
+          </Question>
+        )}
 
-      <button
-        type="button"
-        onClick={send}
-        disabled={sending}
-        className="mt-5 h-13 w-full rounded-lg bg-[#1279E8] py-4 text-[15.5px] font-extrabold tracking-[-0.02em] text-white hover:bg-[#0F68C9] disabled:bg-[#D5DAE2]"
-      >
-        {sending ? '보내는 중…' : '수가표 요청하기'}
-      </button>
+        {step === 2 && (
+          <Question
+            title="지금 거래하는 기공소에 불만족하는 점이 있으신가요?"
+            hint="여러 개 골라도 됩니다 · 없으면 그냥 다음으로"
+          >
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {(Object.keys(PAIN_LABEL) as PainPoint[]).map((v) => (
+                <Tap key={v} on={painPoints.includes(v)} onClick={() => togglePain(v)} check>
+                  {PAIN_LABEL[v]}
+                </Tap>
+              ))}
+            </div>
+          </Question>
+        )}
+
+        {step === 3 && (
+          <Question title="치과 이름을 알려 주세요">
+            <Input value={clinicName} onChange={setClinicName} placeholder="○○치과의원" autoFocus onEnter={() => clinicName.trim() && go(4)} />
+          </Question>
+        )}
+
+        {step === 4 && (
+          <Question title="수가표를 어디로 보내 드릴까요?">
+            <div className="grid gap-4">
+              <label className="block">
+                <span className="block text-[14.5px] font-bold text-[#3D4E60]">이메일</span>
+                <div className="mt-2">
+                  <Input value={email} onChange={setEmail} placeholder="doctor@clinic.co.kr" type="email" autoFocus />
+                </div>
+              </label>
+              <label className="block">
+                <span className="block text-[14.5px] font-bold text-[#3D4E60]">연락처</span>
+                <div className="mt-2">
+                  <Input value={tel} onChange={setTel} placeholder="010-0000-0000" type="tel" />
+                </div>
+              </label>
+
+              <label className="mt-1 flex cursor-pointer items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-[#1279E8]"
+                />
+                <span className="text-[14px] leading-relaxed text-[#3D4E60]">
+                  {CONSENT.line}.{' '}
+                  <span className="whitespace-nowrap">
+                    <b className="font-bold text-[#14263A]">동의합니다</b>
+                    <Link href="/privacy" target="_blank" className="ml-2 font-semibold text-[#1279E8] underline underline-offset-2">
+                      처리방침
+                    </Link>
+                  </span>
+                </span>
+              </label>
+            </div>
+          </Question>
+        )}
+      </div>
+
+      {error && <p role="alert" className="mt-4 text-[14.5px] font-semibold text-[#D8453F]">{error}</p>}
+
+      <div className="mt-6 flex items-center gap-3">
+        {step > 1 && (
+          <button
+            type="button"
+            onClick={() => go(step - 1)}
+            className={`h-[52px] rounded-lg px-5 text-[15px] font-bold text-[#5B6C7D] hover:text-[#14263A] ${FOCUS}`}
+          >
+            이전
+          </button>
+        )}
+
+        {step === 2 && (
+          <Primary onClick={() => go(3)}>{painPoints.length ? '다음' : '없어요, 다음'}</Primary>
+        )}
+        {step === 3 && (
+          <Primary onClick={() => go(4)} disabled={!clinicName.trim()}>
+            다음
+          </Primary>
+        )}
+        {step === 4 && (
+          <Primary onClick={send} disabled={sending}>
+            {sending ? '보내는 중…' : '수가표 요청하기'}
+          </Primary>
+        )}
+      </div>
     </div>
   );
 }
 
 // ---------- 조각 ----------
 
-/**
- * 한 토막. 번호와 제목, 위에 선.
- *
- * ★ 번호는 "지금 몇 번째인지" 를 보여 줍니다. 두 토막이면 끝이 보여서
- *   사람이 덜 지칩니다 — 끝이 안 보이는 폼은 중간에 닫습니다.
- */
-function Section({
-  no,
-  title,
-  required,
-  optional,
-  first,
-  children,
-}: {
-  no: string;
-  title: string;
-  required?: boolean;
-  optional?: boolean;
-  first?: boolean;
-  children: React.ReactNode;
-}) {
+function Question({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className={first ? '' : 'mt-8 border-t border-[#EEF1F5] pt-7'}>
-      <div className="mb-4 flex items-baseline gap-2.5">
-        <span className="text-[12px] font-extrabold tracking-[0.12em] text-[#1279E8]">{no}</span>
-        <h3 className="text-[15.5px] font-extrabold tracking-[-0.02em] text-[#1A2130]">
-          {title}
-          {required && <span className="ml-1 text-[#D8453F]">*</span>}
-          {optional && <span className="ml-1.5 text-[13px] font-semibold text-[#98A2B3]">선택</span>}
-        </h3>
-      </div>
-      {children}
-    </section>
+    <div>
+      <h3 className="text-balance break-keep text-[22px] font-extrabold leading-[1.35] tracking-[-0.035em] text-[#14263A] sm:text-[24px]">
+        {title}
+      </h3>
+      {hint && <p className="mt-2 text-[14px] text-[#5B6C7D]">{hint}</p>}
+      <div className="mt-6">{children}</div>
+    </div>
   );
 }
 
-function Field({
-  label,
-  required,
-  hint,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <Label required={required}>{label}</Label>
-      <div className="mt-2">{children}</div>
-      {hint && <span className="mt-1.5 block text-[12.5px] text-[#98A2B3]">{hint}</span>}
-    </label>
-  );
-}
-
-function Label({
-  children,
-  required,
-  hint,
-}: {
-  children: React.ReactNode;
-  required?: boolean;
-  hint?: string;
-}) {
-  return (
-    <span className="block text-[14px] font-bold text-[#4A5567]">
-      {children}
-      {required && <span className="ml-1 text-[#D8453F]">*</span>}
-      {hint && <span className="ml-2 text-[12.5px] font-medium text-[#98A2B3]">{hint}</span>}
-    </span>
-  );
-}
-
-/** 하나만 고르는 단추 (스캐너). 용건 단추도 같이 쓰다가 그쪽이 빠졌습니다 */
-function Choice({
+/** 누르는 답. check 면 여러 개 고르는 답이라 오른쪽에 표시가 붙습니다 */
+function Tap({
   on,
   onClick,
-  align = 'center',
+  check = false,
   children,
 }: {
   on: boolean;
   onClick: () => void;
-  align?: 'left' | 'center';
+  check?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -311,12 +244,29 @@ function Choice({
       aria-pressed={on}
       onClick={onClick}
       className={
-        'h-12 rounded-lg border px-4 text-[14px] font-semibold transition ' +
-        (align === 'left' ? 'text-left ' : 'text-center ') +
+        `flex h-[58px] items-center justify-between rounded-xl border px-5 text-left text-[16.5px] font-bold transition-colors ${FOCUS} ` +
         (on
-          ? 'border-[#1279E8] bg-[#F2F7FE] text-[#1279E8] shadow-[0_0_0_3px_rgba(18,121,232,.10)]'
-          : 'border-[#DDE2EA] text-[#4A5567] hover:border-[#B6C6DC]')
+          ? 'border-[#16324F] bg-[#16324F] text-white'
+          : 'border-[#C9D3D9] bg-white text-[#14263A] hover:border-[#16324F]')
       }
+    >
+      {children}
+      {check && (
+        <svg aria-hidden viewBox="0 0 20 20" className={'h-5 w-5 ' + (on ? 'opacity-100' : 'opacity-0')} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 10.5 8 14.5 16 5.5" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function Primary({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`h-[52px] flex-1 rounded-lg bg-[#1279E8] text-[16px] font-extrabold tracking-[-0.02em] text-white hover:bg-[#0F68C9] disabled:bg-[#D5DAE2] ${FOCUS}`}
     >
       {children}
     </button>
@@ -328,19 +278,28 @@ function Input({
   onChange,
   placeholder,
   type = 'text',
+  autoFocus,
+  onEnter,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   type?: string;
+  autoFocus?: boolean;
+  onEnter?: () => void;
 }) {
   return (
     <input
       type={type}
       value={value}
+      autoFocus={autoFocus}
       onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => {
+        // 한글 조합 중의 Enter 는 넘기지 않습니다 — 마지막 글자가 두 번 들어갑니다
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) onEnter?.();
+      }}
       placeholder={placeholder}
-      className="h-12 w-full rounded-lg border border-[#DDE2EA] px-3.5 text-[14.5px] outline-none focus:border-[#1279E8]"
+      className="h-[56px] w-full rounded-xl border border-[#C9D3D9] px-4 text-[17px] outline-none focus:border-[#16324F]"
     />
   );
 }

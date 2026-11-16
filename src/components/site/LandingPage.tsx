@@ -4,24 +4,33 @@
 // 회사 홈페이지. 로그인 안 한 사람이 `/` 로 오면 이 화면입니다.
 // (사용자 요청 2026-08-12 — "모델리스 전문 기공소 느낌의 홈페이지")
 //
+// ★ 2026-11-16 겉모습을 다시 짰습니다 (사용자 "세련되게 다시" → 시안 → "진행해줘").
+//   글은 전과 같고, 자주 묻는 것 한 절이 늘었습니다.
+//
+// ★ 겉모습의 규칙 셋
+//   1) 파랑(#1279E8)은 **누르는 것에만** — 단추와 링크. 꾸밈에는 안 씁니다
+//   2) 면은 로고의 남색(#16324F)과 도자기빛 흰색(#F3F6F7) 둘
+//   3) 상자 대신 **가는 선**으로 나눕니다. 상자는 폼과 가입 칸 둘뿐
+//
 // ★ 지어낸 숫자를 안 씁니다.
 //   "20년 경력 · 거래처 200곳 · 정확도 99%" 같은 것은 홈페이지에 흔하지만,
 //   확인할 수 없는 것을 적어 두면 나중에 지우기도 어렵고 물어보면 곤란해집니다.
 //   대신 **실제로 이 시스템이 하는 일**을 적었습니다 — 그건 전부 사실입니다.
 //
 // ★ 채워 넣으실 곳은 SITE 한 곳에 모아 뒀습니다.
-//   글이 화면 곳곳에 흩어져 있으면 고치다가 하나를 빠뜨립니다.
 //
 // ★ 로그인 버튼이 곧 플랫폼 입구입니다.
 //   홈페이지와 플랫폼을 따로 두지 않았습니다 — 주소가 둘이면 거래처가
 //   어디로 들어가야 하는지 헷갈립니다.
+//
+// ★ 영상 조각(MillingStage)은 손대지 않았습니다.
 // =========================================================
 
 import Link from 'next/link';
 import { SITE_LEGAL } from '@/server/domain/site';
 import ContactForm from '@/components/site/ContactForm';
 import MillingStage from '@/components/site/MillingStage';
-import { SiteArt, type SiteArtName } from '@/components/site/SiteArt';
+import { SitePicto, type SitePictoName } from '@/components/site/SitePicto';
 import DenFlowLogo from '@/components/brand/DenFlowLogo';
 import ChannelTalk from '@/components/site/ChannelTalk';
 import ScrollReveal from '@/components/site/ScrollReveal';
@@ -74,23 +83,36 @@ const SITE = {
   channelTalkKey: '3d578efd-f26e-4d69-a92a-fa4f89a320b9',
 };
 
+const INK = '#14263A';
+const FONT =
+  "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif";
+
+const FOCUS =
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1279E8]';
+
 export default function LandingPage({ loggedIn }: { loggedIn: boolean }) {
   return (
-    <div className="min-h-screen bg-white text-[#1A2130]">
+    <div className="min-h-screen bg-white" style={{ fontFamily: FONT, color: INK }}>
+      {/*
+        ★ 글꼴은 프리텐다드입니다 (2026-11-16). 전에는 보는 기계의 기본 글꼴이라
+          윈도우(맑은 고딕)와 맥이 서로 다르게 보였고, 그래서 제목 크기를 기계마다
+          넘치지 않게 작게 잡아야 했습니다.
+        ★ **홈페이지에만** 받습니다 — 플랫폼 화면은 전과 같습니다.
+        ★ 지금은 바깥(jsDelivr)에서 받습니다. 못 받으면 전의 기본 글꼴로 보입니다.
+          우리 서버로 옮기려면 글꼴 파일을 public/fonts 에 넣고 이 줄을 바꿉니다.
+      */}
+      <link
+        rel="stylesheet"
+        precedence="default"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+      />
+
       {/*
         ★ 스크롤하면 글이 올라오는 효과 (2026-08-18).
-          감추는 일은 CSS 가, 보여 주는 일은 이 조각이 합니다.
-
-        ★ **`<html>` 을 건드리지 않습니다.**
-          처음에는 인라인 스크립트로 `<html>` 에 표시를 달았는데,
-          그 자리는 React 가 그리는 곳이라 서버가 보낸 HTML 과
-          달라집니다. 수화(hydration)가 깨지면서 **첫 화면이 안 보인 채
-          멈췄습니다** — 효과를 붙이려다 홈페이지를 백지로 만들 뻔했습니다.
-          class 를 data 속성으로 바꿔도 똑같이 깨졌습니다.
-          지금은 CSS 의 `@media (scripting: enabled)` 가 그 일을 합니다.
+        ★ **`<html>` 을 건드리지 않습니다** — 수화가 깨져 첫 화면이 백지가 됐던 일이 있습니다.
+          감추는 일은 CSS 의 `@media (scripting: enabled)` 가 합니다.
       */}
       <ScrollReveal />
-
       <Header loggedIn={loggedIn} />
       <Hero />
       <Scope />
@@ -98,15 +120,12 @@ export default function LandingPage({ loggedIn }: { loggedIn: boolean }) {
       <Flow />
       <Products />
       <Platform />
+      <Faq />
       <Contact />
       <Footer />
 
       {/*
-        ★ 상담 버튼은 **이 화면에만** 답니다. 로그인해서 쓰는 플랫폼에는
-          주문마다 대화 칸이 이미 있고, 그게 그 건에 붙어 기록으로
-          남습니다. 채널톡을 거기까지 띄우면 같은 이야기가 두 곳으로
-          갈라집니다. 여기 오는 분은 아직 거래처가 아닙니다.
-
+        ★ 상담 버튼은 **이 화면에만** 답니다. 플랫폼에는 주문마다 대화 칸이 이미 있습니다.
         ★ 키가 비어 있으면 아무것도 안 붙습니다.
       */}
       {SITE.channelTalkKey && <ChannelTalk pluginKey={SITE.channelTalkKey} />}
@@ -114,140 +133,96 @@ export default function LandingPage({ loggedIn }: { loggedIn: boolean }) {
   );
 }
 
+const WRAP = 'mx-auto max-w-[1120px] px-6';
+const H2 = 'text-balance break-keep text-[27px] font-extrabold leading-[1.25] tracking-[-0.04em] sm:text-[36px]';
+
 // ---------- 머리 ----------
 
 function Header({ loggedIn }: { loggedIn: boolean }) {
+  const link = `hidden text-[14.5px] font-semibold text-[#3D4E60] hover:text-[#14263A] sm:block ${FOCUS}`;
   return (
-    <header className="sticky top-0 z-40 border-b border-[#E8EBF0] bg-white/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-[1080px] items-center px-6">
-        <Logo big />
-
-        <nav className="ml-auto flex items-center gap-1 sm:gap-5">
-          <a href="#why" className="hidden text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8] sm:block">
-            모델리스
-          </a>
-          <a href="#flow" className="hidden text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8] sm:block">
-            진행 과정
-          </a>
-          <a href="#products" className="hidden text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8] sm:block">
-            취급 보철
-          </a>
-          <a href="#contact" className="hidden text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8] sm:block">
-            수가표 요청
-          </a>
-
+    <header className="sticky top-0 z-40 border-b border-[#E3E8EB] bg-white/92 backdrop-blur">
+      <div className={`${WRAP} flex h-[68px] items-center`}>
+        <DenFlowLogo markHeight={28} fontSize={21} gap={11} />
+        <nav className="ml-auto flex items-center gap-1 sm:gap-7">
+          <a href="#why" className={link}>모델리스</a>
+          <a href="#flow" className={link}>진행 과정</a>
+          <a href="#products" className={link}>취급 보철</a>
+          <a href="#faq" className={link}>자주 묻는 것</a>
+          {/*
+            ★ 참고 사이트에서 가져온 것 (사용자 2026-11-16): 머리줄의 **채운 단추는 문의**, 로그인은 테두리만.
+              처음 온 분이 누를 것이 제일 눈에 띄어야 하고, 거래처는 로그인을 어차피 찾습니다.
+          */}
           <Link
             href={loggedIn ? '/' : '/login'}
-            className="ml-2 grid h-9 place-items-center rounded-lg bg-[#1279E8] px-4 text-[13.5px] font-bold text-white hover:bg-[#0F68C9]"
+            className={`ml-2 grid h-10 shrink-0 place-items-center whitespace-nowrap rounded-lg border border-[#C9D3D9] px-3 text-[14px] sm:px-4 sm:text-[14.5px] font-bold text-[#14263A] hover:border-[#14263A] ${FOCUS}`}
           >
             {loggedIn ? '내 화면으로' : '로그인'}
           </Link>
+          <a
+            href="#contact"
+            className={`ml-1 grid h-10 shrink-0 place-items-center whitespace-nowrap rounded-lg bg-[#1279E8] px-3 text-[14px] font-bold text-white hover:bg-[#0F68C9] sm:ml-0 sm:px-5 sm:text-[14.5px] ${FOCUS}`}
+          >
+            수가표 요청
+          </a>
         </nav>
       </div>
     </header>
   );
 }
 
-/**
- * ★ 마크도 글자도 공용 조각입니다 (2026-08-18).
- *   전에는 여기만 따로 그린 마크가 있었고(2026-08-14 합침), 그다음엔
- *   글자만 홈페이지가 달랐습니다 — `DS DENTAL LAB` → `Denflow`.
- *   플랫폼과 다른 로고를 홈페이지가 달고 있어도 아무도 모릅니다.
- *   이제 로그인·사이드바와 **같은 조각**을 씁니다.
- *
- * ★ 맨 위와 맨 아래가 이것 하나를 씁니다.
- */
-/**
- * ★ 맨 위는 크게, 맨 아래는 그대로 (사용자 요청 2026-08-18).
- *   머리줄 로고는 **처음 눈이 닿는 곳**이라 간판만 한 크기가 필요합니다.
- *   바닥은 이미 읽고 내려온 자리여서 같이 키우면 무겁습니다.
- *   높이 64px 머리줄에 28px 마크면 위아래로 18px씩 남습니다.
- */
-function Logo({ big = false }: { big?: boolean }) {
-  return big ? (
-    <DenFlowLogo markHeight={28} fontSize={21} gap={11} />
-  ) : (
-    <DenFlowLogo markHeight={22} fontSize={17} />
-  );
-}
-
 // ---------- 첫 화면 ----------
 
-/**
- * ★ 첫 화면을 두 칸으로 나눴습니다 (2026-08-14).
- *   전에는 글만 있고 오른쪽이 통째로 비어 있었습니다. 기공소 홈페이지에
- *   처음 온 사람이 가장 먼저 확인하고 싶은 것은 **뭘로 만드느냐**입니다.
- *   좁은 화면에서는 글이 위, 장면이 아래로 자연스럽게 접힙니다.
- */
 function Hero() {
   return (
-    <section className="relative overflow-hidden border-b border-[#E8EBF0] bg-gradient-to-b from-[#F7FAFF] to-white">
-      <div className="mx-auto grid max-w-[1080px] items-center gap-12 px-6 py-16 sm:py-20 lg:grid-cols-[1fr_minmax(0,360px)] lg:gap-16">
+    <section className="bg-[#F3F6F7]">
+      <div className={`${WRAP} grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-[1fr_minmax(0,360px)] lg:gap-16 lg:py-24`}>
         <div>
-          <p data-reveal className="text-[14px] font-bold tracking-[0.14em] text-[#1279E8]">{SITE.tagline.toUpperCase()}</p>
-
           {/*
-            ★ 첫 줄이 길어서 크기를 줄였습니다 (2026-08-14). 브라우저에서
-              재서 맞춘 값입니다.
-
-              44px 로 두면 두 칸 배치(lg)에서 넘쳐 '간결하게' 한 마디만
-              다음 줄로 떨어집니다. 그 모양이 제일 안 좋습니다.
-
-            ★ 36px 도 아슬아슬했습니다 — 1024px 화면에서 여유가 21px
-              뿐이었습니다. 한글 글꼴은 기계마다 다릅니다(윈도우는 맑은
-              고딕, 맥은 애플 SD 산돌고딕). 여기서 딱 맞는 값은 **저쪽에서
-              넘칩니다.** 재 보고 정할 때는 넉넉한 쪽으로 잡아야 합니다.
+            ★ 첫 줄은 가볍게, 둘째 줄은 무겁게.
+              없어지는 것(인상재·석고 모델)은 가는 글씨로, 얻는 것(보철)은 굵은 글씨로.
+              색으로 한 마디만 칠하던 것을 글씨 굵기로 바꿨습니다.
           */}
-          {/* ★ 제일 큰 글이라 **안 늦춥니다.** 첫 화면의 큰 글이 늦게
-                뜨면 화면 전체가 느린 것처럼 보입니다(LCP) */}
-          <h1
-            data-reveal
-            className="mt-4 text-balance break-keep text-[27px] font-extrabold leading-[1.3] tracking-[-0.045em] sm:text-[34px]"
-          >
-            {/* ★ 치과가 얻는 것으로 (사용자 2026-10-23 "홈페이지 이쁘게") — 전 문구는 기공소 쪽 말이었습니다.
-                  길이는 전 것(16자)보다 짧게 — 위 주석의 넘침 문제를 다시 만들지 않게 */}
-            인상재도, 석고 모델도 없이
-            <br />
-            {/* 폰(375px)에서 한 줄에 들어가게 — '옵니다' 가 '다' 만 떨어졌습니다 */}
-            <span className="text-[#1279E8]">스캔 한 번으로 보철까지</span>
+          <h1 data-reveal className="break-keep text-[27px] leading-[1.22] tracking-[-0.045em] sm:text-[40px] lg:text-[50px]">
+            <span className="block font-light text-[#5B6C7D]">인상재도, 석고 모델도 없이</span>
+            <span className="block font-extrabold">스캔 한 번으로 보철까지</span>
           </h1>
 
           <p
             data-reveal
             style={{ transitionDelay: '90ms' }}
-            className="mt-6 max-w-[520px] text-[15px] leading-relaxed text-[#4A5567]"
+            className="mt-7 max-w-[520px] break-keep text-[15px] leading-[1.75] tracking-[-0.01em] text-[#3D4E60] sm:text-[17px]"
           >
             구강스캐너로 뜬 데이터를 그대로 설계하고 제작합니다.
             <br />
             모델을 뜨러 환자를 다시 부를 일이 없고,
             <br />
-            <b className="font-bold text-[#1A2130]">진행은 화면에서 바로 보입니다.</b>
+            <b className="font-bold text-[#14263A]">진행은 화면에서 바로 보입니다.</b>
           </p>
 
-          <div data-reveal style={{ transitionDelay: '180ms' }} className="mt-9 flex flex-wrap gap-2.5">
+          <div data-reveal style={{ transitionDelay: '180ms' }} className="mt-9 flex flex-wrap gap-3">
             <a
               href="#contact"
-              className="grid h-12 place-items-center rounded-lg bg-[#1279E8] px-7 text-[15px] font-bold text-white hover:bg-[#0F68C9]"
+              className={`grid h-[52px] place-items-center rounded-lg bg-[#1279E8] px-8 text-[16px] font-bold text-white hover:bg-[#0F68C9] ${FOCUS}`}
             >
               수가표 요청하기
             </a>
             <a
               href="#flow"
-              className="grid h-12 place-items-center rounded-lg border border-[#DDE2EA] px-7 text-[15px] font-bold text-[#4A5567] hover:bg-[#F4F6F9]"
+              className={`grid h-[52px] place-items-center rounded-lg border border-[#C9D3D9] bg-white px-8 text-[16px] font-bold text-[#14263A] hover:border-[#14263A] ${FOCUS}`}
             >
               진행 과정 보기
             </a>
           </div>
 
-          {/* ★ 한 줄 약속 셋 — 아래 '취급 범위' 절에 이미 있는 것만 (새 주장 없음) */}
-          <ul data-reveal style={{ transitionDelay: '260ms' }} className="mt-8 flex flex-wrap gap-x-5 gap-y-2">
+          {/* 약속 셋 — 체크 표시 알약 대신 가는 선 위의 세 칸 */}
+          <ul
+            data-reveal
+            style={{ transitionDelay: '260ms' }}
+            className="mt-12 grid max-w-[560px] grid-cols-3 border-t border-[#C9D3D9]"
+          >
             {['스캐너 무관', '모델리스 전 품목', '실시간 진행 공유'].map((t) => (
-              <li key={t} className="flex items-center gap-1.5 text-[13px] font-semibold text-[#4A5567]">
-                <span aria-hidden className="grid h-4 w-4 place-items-center rounded-full bg-[#EAF2FE] text-[#1279E8]">
-                  <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2.5 6.2l2.3 2.3 4.7-5" />
-                  </svg>
-                </span>
+              <li key={t} className="break-keep pr-3 pt-4 text-[13.5px] font-semibold leading-snug text-[#3D4E60] sm:text-[14.5px]">
                 {t}
               </li>
             ))}
@@ -268,25 +243,65 @@ function Hero() {
   );
 }
 
+// ---------- 네 가지 약속 ----------
+
+const PROMISES: { art: SitePictoName; title: string; worry: string; answer: string }[] = [
+  { art: 'scan', title: '스캐너 무관', worry: '장비 바꾸실 필요 없이', answer: '쓰시던 그대로, 파일만' },
+  { art: 'track', title: '실시간 진행상황 공유', worry: '굳이 물어보지 않으셔도', answer: '접수 → 배송 화면에서 바로' },
+  { art: 'bridge', title: '모델리스 전 품목', worry: '크라운·브릿지, 인레이·온레이', answer: '임플란트 보철까지 모델 없이' },
+  { art: 'chart', title: '리메이크 통계 & 분석', worry: '원인 모르고 넘어가지 않게', answer: '매달 모아 분석하고 고칩니다' },
+];
+
+function Scope() {
+  return (
+    <section className="bg-[#16324F]">
+      <div className={`${WRAP} py-16 sm:py-24`}>
+        <h2 data-reveal className={`${H2} text-white lg:text-[44px]`}>
+          {/* ★ 글에는 민트색을 안 씁니다 (사용자 2026-11-16) — 전에는 '덴플로우' 만 민트였습니다 */}
+          스캔에서 세팅까지, 덴플로우
+        </h2>
+
+        {/* 흰 카드 넷 → 남색 위에 선으로 나눈 네 칸. 민트색은 글·그림·선 어디에도 안 씁니다 (사용자 2026-11-16) */}
+        <ul className="mt-12 grid sm:grid-cols-2 lg:mt-16 lg:grid-cols-4">
+          {PROMISES.map((p, i) => (
+            <li
+              key={p.title}
+              data-reveal
+              style={{ transitionDelay: `${i * 80}ms` }}
+              className="border-t border-white/15 py-7 sm:px-6 sm:first:pl-0 lg:border-l lg:border-t-0 lg:py-1 lg:first:border-l-0"
+            >
+              <SitePicto name={p.art} cut="#16324F" className="h-11 w-11 text-white" />
+              <b className="mt-5 flex min-h-[2.6em] items-start text-balance break-keep text-[20px] font-extrabold leading-[1.3] tracking-[-0.035em] text-white">
+                {p.title}
+              </b>
+              <span className="mt-2 block text-[14.5px] leading-relaxed text-[#9DB2C7]">{p.worry}</span>
+              <b className="mt-1 block text-balance break-keep text-[16px] font-bold leading-[1.5] tracking-[-0.02em] text-white">
+                {p.answer}
+              </b>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 // ---------- 왜 모델리스인가 ----------
 
-const REASONS: { art: SiteArtName; title: string; body: string }[] = [
+const REASONS: { title: string; body: string }[] = [
   {
-    art: 'review',
     title: '거치는 단계가 적습니다',
     body:
       '모델을 뜨는 공정에는 인상 채득, 석고 주입, 경화, 트리밍이 들어갑니다. ' +
       '모델리스는 그 단계를 지나치므로 그만큼 날이 줄고, 단계마다 생기던 오차도 함께 사라집니다.',
   },
   {
-    art: 'scan',
     title: '스캔 원본을 그대로 씁니다',
     body:
       '모델을 다시 스캔하면 한 번 베낀 것을 또 베끼는 셈입니다. ' +
       '구강 스캐너가 뜬 데이터를 바로 설계에 올립니다.',
   },
   {
-    art: 'design',
     title: '다시 만들 때 빠릅니다',
     body:
       '원본 데이터가 남아 있어 수정이 필요하면 그 자리에서 다시 설계합니다. ' +
@@ -296,43 +311,33 @@ const REASONS: { art: SiteArtName; title: string; body: string }[] = [
 
 function Why() {
   return (
-    <Section id="why" eyebrow="WHY MODELLESS" title="왜 모델리스인가">
-      <div className="mt-10 grid gap-5 sm:grid-cols-3">
-        {/* ★ 글 카드 → 그림 카드 (사용자 2026-10-23). 왼쪽 위 아이콘, 오른쪽 위 옅은 큰 번호,
-              올리면 위 테두리가 파랗게 — 진행 과정 절의 그림과 같은 선(SiteArt)이라 한 식구로 보입니다 */}
-        {REASONS.map((r, i) => (
-          <div
-            key={r.title}
-            className="group relative overflow-hidden rounded-2xl border border-[#E8EBF0] bg-white p-6 transition hover:-translate-y-0.5 hover:border-[#B6D0F5] hover:shadow-[0_12px_30px_-18px_rgba(18,121,232,0.45)]"
-          >
-            <span aria-hidden className="absolute inset-x-0 top-0 h-[3px] origin-left scale-x-0 bg-[#1279E8] transition-transform duration-300 group-hover:scale-x-100" />
-            <span aria-hidden className="pointer-events-none absolute -right-1 -top-3 select-none text-[72px] font-extrabold leading-none tracking-[-0.06em] text-[#1279E8]/[0.07]">
-              0{i + 1}
-            </span>
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#EAF2FE] text-[#1279E8]">
-              <SiteArt name={r.art} className="h-6 w-6" strokeWidth={1.8} />
-            </span>
-            <h3 className="mt-5 text-[16px] font-extrabold tracking-[-0.02em]">{r.title}</h3>
-            <p className="mt-2.5 text-[13.5px] leading-relaxed text-[#4A5567]">{r.body}</p>
-          </div>
-        ))}
+    <section id="why" className="bg-white">
+      <div className={`${WRAP} grid gap-10 py-18 sm:py-28 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20`}>
+        <h2 data-reveal className={`${H2} lg:sticky lg:top-28 lg:self-start`}>
+          왜 모델리스인가
+        </h2>
+
+        {/* 카드 셋 → 읽는 글 세 토막. 순서가 없는 내용이라 번호를 뺐습니다 */}
+        <ul>
+          {REASONS.map((r, i) => (
+            <li
+              key={r.title}
+              data-reveal
+              style={{ transitionDelay: `${i * 70}ms` }}
+              className="border-t border-[#DDE4E8] py-8 last:border-b"
+            >
+              <h3 className="break-keep text-[20px] font-extrabold tracking-[-0.03em] sm:text-[22px]">{r.title}</h3>
+              <p className="mt-3 max-w-[560px] break-keep text-[15.5px] leading-[1.75] text-[#3D4E60]">{r.body}</p>
+            </li>
+          ))}
+        </ul>
       </div>
-    </Section>
+    </section>
   );
 }
 
 // ---------- 진행 과정 ----------
 
-/**
- * ★ 한 단계에 한 줄만 씁니다 (사용자 요청 2026-08-14 — "설명을 줄이고
- *   간단명료하게"). 진행 과정은 **읽는 곳이 아니라 훑는 곳**입니다.
- *   자세한 것은 수가표를 받고 통화할 때 나옵니다.
- *
- * ★ '사전 검토' 를 스캔 전송 바로 뒤에 넣었습니다 (사용자 요청).
- *   지어낸 단계가 아닙니다 — 실제로 디자인센터가 스캔을 보고
- *   '재스캔' 으로 되돌리는 길이 시스템에 있습니다. 이 단계를 안 적으면
- *   치과 입장에서는 보낸 뒤 감감무소식으로 보입니다.
- */
 const STEPS = [
   { step: '01', art: 'scan', title: '스캔 전송', body: '스캔 파일과 처방을 올립니다.' },
   { step: '02', art: 'review', title: '사전 검토', body: '스캔 상태를 먼저 봅니다. 다시 떠야 하면 그때 알려 드립니다.' },
@@ -341,131 +346,83 @@ const STEPS = [
   { step: '05', art: 'ship', title: '납품', body: '요청하신 날에 맞춰 보냅니다.' },
 ] as const;
 
-/**
- * ★ 칸(타일)에서 **걸음(stepper)** 으로 바꿨습니다 (사용자 요청 2026-08-14 —
- *   "아이콘이 크고 단계별로 직관적으로").
- *
- *   타일 다섯 개는 '다섯 가지' 로 보입니다. 순서가 있는 일인데 순서가
- *   안 읽혔습니다. 동그라미를 선으로 이어 두면 **왼쪽에서 오른쪽으로
- *   흐르는 한 줄**이 됩니다.
- *
- * ★ 아이콘을 27px → 36px 로 키우고 동그라미 안에 넣었습니다.
- *   어두운 바탕이라 선이 얇으면 멀리서 뭉갭니다 — 굵기도 한 단계 올렸습니다.
- *
- * ★ 잇는 선은 **마지막 칸에는 안 그립니다.** 그리면 다음에 뭔가 더
- *   있는 것처럼 보입니다.
- */
+/*
+  ★ 동그라미 + 아이콘 + 잇는 선을 걷어냈습니다 (사용자 2026-11-16 "AI스럽다").
+    칸마다 **속을 채운 픽토그램**(SitePicto)과 작은 번호 — 진짜 순서가 있는 내용이라 번호는 남깁니다.
+    넓은 화면은 굵은 윗선 아래 다섯 칸, 좁은 화면은 숫자 옆에 글이 놓인 다섯 줄.
+*/
 function Flow() {
   return (
-    <Section id="flow" eyebrow="PROCESS" title="스캔을 보내면, 이렇게 갑니다" dark>
-      <ol className="mt-12 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-5 lg:gap-5">
-        {STEPS.map((s, i) => (
-          <li key={s.step} className="relative flex flex-col items-center text-center">
-            {/*
-              다음 걸음으로 잇는 선. 마지막 칸에는 안 그립니다 —
-              그리면 뒤에 뭔가 더 있는 것처럼 보입니다.
+    <section id="flow" className="bg-[#F3F6F7]">
+      <div className={`${WRAP} py-18 sm:py-28`}>
+        <h2 data-reveal className={H2}>
+          스캔을 보내면, 이렇게 갑니다
+        </h2>
 
-              ★ 가로로 늘어설 때(lg)와 세로로 쌓일 때(좁은 화면)의 선이
-                다릅니다. 두 칸씩 놓이는 중간 폭에서는 **아무 선도 안
-                그립니다** — 그 배치에서 아래로 선을 그으면 바로 다음
-                걸음이 아니라 두 칸 건너를 가리킵니다.
-            */}
-            {i < STEPS.length - 1 && (
-              <>
-                {/* 가로 — 동그라미 한가운데 높이 */}
-                <span
-                  aria-hidden
-                  className="absolute left-1/2 top-9 hidden h-px w-full bg-[#33456B] lg:block"
-                />
-                {/* 세로 — 동그라미 아래부터 다음 동그라미 위까지 (72px + 칸 사이 40px) */}
-                <span
-                  aria-hidden
-                  className="absolute left-1/2 top-[72px] h-[calc(100%-32px)] w-px bg-[#33456B] sm:hidden"
-                />
-              </>
-            )}
-
-            <span className="relative z-10 grid h-[72px] w-[72px] place-items-center rounded-full border border-[#33456B] bg-[#1B2438]">
-              <SiteArt name={s.art} className="h-9 w-9 text-[#8FB6F5]" strokeWidth={1.7} />
-            </span>
-
-            <span className="mt-4 text-[12px] font-extrabold tracking-[0.16em] text-[#5B8DE8]">
-              {s.step}
-            </span>
-
-            <h3 className="mt-1.5 text-[17px] font-extrabold tracking-[-0.02em] text-white">
-              {s.title}
-            </h3>
-
-            <p className="mt-2 max-w-[220px] text-[13.5px] leading-relaxed text-[#9FADC7]">
-              {s.body}
-            </p>
-          </li>
-        ))}
-      </ol>
-    </Section>
+        <ol data-reveal style={{ transitionDelay: '100ms' }} className="mt-10 border-t-2 border-[#14263A] lg:mt-14 lg:grid lg:grid-cols-5">
+          {STEPS.map((s) => (
+            <li
+              key={s.step}
+              className="grid grid-cols-[72px_1fr] items-center border-b border-[#C9D3D9] py-6 lg:block lg:border-b-0 lg:border-l lg:px-5 lg:py-0 lg:pt-8 lg:first:border-l-0 lg:first:pl-0"
+            >
+              <SitePicto name={s.art} cut="#F3F6F7" className="h-12 w-12 text-[#16324F] lg:h-14 lg:w-14" />
+              <div className="lg:mt-8">
+                <span className="text-[13.5px] font-bold tabular-nums text-[#8A97A5]">{s.step}</span>
+                <h3 className="mt-0.5 text-[20px] font-extrabold tracking-[-0.03em]">{s.title}</h3>
+                <p className="mt-2 break-keep text-[15px] leading-[1.7] text-[#3D4E60]">{s.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
   );
 }
 
 // ---------- 취급 보철 ----------
 
-/**
- * ★ 여기 적힌 것이 **실제 제품 표와 글자·색까지 같습니다.**
- *   홈페이지에만 있는 품목을 적어 두면 주문 화면에서 못 고르고,
- *   그 전화를 저희가 받습니다.
- *
- * ★ 고정성만 합니다 (사용자 확인 2026-08-14).
- *   덴쳐 같은 가철성 보철은 취급하지 않습니다 — 모델리스 공정과
- *   애초에 맞지 않습니다.
- *
- * ★ 그렇다고 **"안 합니다" 를 화면에 적지는 않습니다.**
- *   한 줄 적어 뒀다가 사용자 요청으로 뺐습니다(2026-08-14).
- *   덧붙이던 안내문 두 줄도 같이 뺐습니다 — 목록만 두는 편이
- *   깔끔하다는 판단입니다. 다시 넣지 마세요.
- */
+/*
+  ★ 색 윗선 + 아이콘 + 목록 세 칸이던 것을 **표**로 바꿨습니다 (사용자 2026-11-16 "너무 AI스럽다").
+    수가표를 받으러 온 분이 보는 자리라, 품목표처럼 읽히는 편이 맞습니다.
+    꾸밈(제품 색·아이콘)은 뺐습니다. 품목 이름은 주문 화면의 제품 표와 같은 글자입니다.
+*/
 const PRODUCTS = [
-  { name: '크라운', art: 'crown', items: ['지르코니아', 'PMMA'], color: '#E0409A', soft: '#FCEAF3' },
-  { name: '인레이', art: 'inlay', items: ['하이브리드', '지르코니아'], color: '#1B63E8', soft: '#EDF3FE' },
-  { name: '임플란트', art: 'implant', items: ['Abut + Zir (SCRP)', 'Abut + Zir (Cementation)', 'Abut + PMMA', '커스텀 어버트먼트'], color: '#7C6BE8', soft: '#EDEBFB' },
+  { name: '크라운', items: ['지르코니아', 'PMMA'] },
+  { name: '인레이', items: ['하이브리드', '지르코니아'] },
+  { name: '임플란트', items: ['Abut + Zir (SCRP)', 'Abut + Zir (Cementation)', 'Abut + PMMA', '커스텀 어버트먼트'] },
 ] as const;
 
 function Products() {
   return (
-    <Section id="products" eyebrow="PRODUCTS" title="취급 보철">
-      <p className="mt-3 text-[14.5px] leading-relaxed text-[#4A5567]">
-        지르코니아 크라운 · 인레이 · 임플란트 보철을 만듭니다. 전부 밀링으로 나옵니다.
-      </p>
+    <section id="products" className="bg-white">
+      <div className={`${WRAP} grid gap-10 py-18 sm:py-28 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20`}>
+        <div className="lg:sticky lg:top-28 lg:self-start">
+          <h2 data-reveal className={H2}>
+            취급 보철
+          </h2>
+          <p data-reveal style={{ transitionDelay: '80ms' }} className="mt-4 max-w-[340px] break-keep text-[16px] leading-[1.75] text-[#3D4E60]">
+            지르코니아 크라운 · 인레이 · 임플란트 보철을 만듭니다. 전부 밀링으로 나옵니다.
+          </p>
+        </div>
 
-      <div className="mt-9 grid gap-5 sm:grid-cols-3">
-        {PRODUCTS.map((p) => (
-          <div key={p.name} className="rounded-xl border border-[#E8EBF0] p-6">
-            <div className="flex items-center gap-3">
-              <span
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-lg"
-                style={{ background: p.soft, color: p.color }}
-              >
-                <SiteArt name={p.art} className="h-6 w-6" />
-              </span>
-              <span
-                className="inline-block rounded-md px-2.5 py-1 text-[14px] font-extrabold"
-                style={{ background: p.soft, color: p.color }}
-              >
-                {p.name}
-              </span>
+        <dl data-reveal style={{ transitionDelay: '120ms' }} className="border-t-2 border-[#14263A]">
+          {PRODUCTS.map((p) => (
+            <div key={p.name} className="grid gap-x-8 gap-y-3 border-b border-[#DDE4E8] py-7 sm:grid-cols-[150px_1fr]">
+              <dt className="text-[21px] font-extrabold tracking-[-0.03em]">{p.name}</dt>
+              <dd>
+                <ul className="grid gap-x-8 gap-y-2.5 sm:grid-cols-2">
+                  {p.items.map((item) => (
+                    <li key={item} className="text-[16px] leading-[1.6] text-[#2B3B4D]">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </dd>
             </div>
-
-            <ul className="mt-4 space-y-2">
-              {p.items.map((item) => (
-                <li key={item} className="flex gap-2 text-[13.5px] text-[#4A5567]">
-                  <span style={{ color: p.color }}>·</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+          ))}
+        </dl>
       </div>
-    </Section>
+    </section>
   );
 }
 
@@ -481,33 +438,109 @@ const PLATFORM = [
 
 function Platform() {
   return (
-    <Section eyebrow="DEN FLOW" title="주문부터 정산까지, 전화 없이">
-      <div className="mt-8 grid gap-8 sm:grid-cols-[1.1fr_1fr] sm:items-center">
-        <ul className="space-y-3.5">
-          {PLATFORM.map((line) => (
-            <li key={line} className="flex gap-3 text-[14.5px] leading-relaxed text-[#4A5567]">
-              <svg className="mt-[3px] h-[17px] w-[17px] shrink-0 text-[#1279E8]" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 10.5 8 14.5 16 5.5" />
-              </svg>
-              {line}
-            </li>
-          ))}
-        </ul>
+    <section className="border-t border-[#E3E8EB] bg-white">
+      <div className={`${WRAP} grid gap-12 py-18 sm:py-28 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-20`}>
+        <div>
+          <h2 data-reveal className={H2}>
+            주문부터 정산까지, 전화 없이
+          </h2>
+          <ul data-reveal style={{ transitionDelay: '80ms' }} className="mt-9">
+            {PLATFORM.map((line) => (
+              <li key={line} className="break-keep border-t border-[#DDE4E8] py-4 text-[16px] text-[#2B3B4D] last:border-b">
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-        <div className="rounded-xl border border-[#E8EBF0] bg-[#F7FAFF] p-7">
-          <p className="text-[14px] font-bold text-[#1A2130]">거래 치과로 등록하시면</p>
-          <p className="mt-2 text-[13.5px] leading-relaxed text-[#4A5567]">
+        <div data-reveal style={{ transitionDelay: '140ms' }} className="rounded-2xl bg-[#16324F] p-8 sm:p-10">
+          <p className="text-[21px] font-extrabold tracking-[-0.03em] text-white">거래 치과로 등록하시면</p>
+          <p className="mt-3 break-keep text-[15.5px] leading-[1.7] text-[#B9C8D8]">
             주문 화면이 바로 열립니다. 가입하시면 확인 후 승인해 드립니다.
           </p>
           <Link
             href="/signup"
-            className="mt-5 grid h-11 place-items-center rounded-lg bg-[#1279E8] text-[14px] font-bold text-white hover:bg-[#0F68C9]"
+            className={`mt-7 grid h-[52px] place-items-center rounded-lg bg-[#1279E8] text-[16px] font-bold text-white hover:bg-[#2A8BF2] ${FOCUS} focus-visible:outline-white`}
           >
             가입 신청
           </Link>
         </div>
       </div>
-    </Section>
+    </section>
+  );
+}
+
+// ---------- 자주 묻는 것 ----------
+
+/*
+  ★ 참고 사이트에서 가져온 것 (사용자 2026-11-16) — 문의 폼 바로 앞의 '첫 주문 전에 묻는 것'.
+    폼 앞에서 망설이는 까닭을 미리 풀어 줍니다.
+
+  ★ 답은 전부 **이 시스템이 실제로 하는 일**만 적었습니다. 새 약속은 없습니다.
+  ★ '며칠' 같은 숫자는 적지 않았습니다 — 밖에 낸 적 없는 숫자라, 정하시면 그때 넣습니다.
+*/
+const FAQ: { q: string; a: string }[] = [
+  {
+    q: '쓰는 스캐너가 달라도 되나요?',
+    a: '됩니다. 스캐너에서 내보낸 파일만 올리시면 됩니다. 장비나 프로그램을 바꾸실 필요가 없습니다.',
+  },
+  {
+    q: '받는 날은 어떻게 정하나요?',
+    a: '주문하실 때 달력에서 받으실 날을 고르십니다. 고를 수 있는 가장 빠른 날이 달력에 보이고, 휴일은 빼고 셉니다.',
+  },
+  {
+    q: '진행 상황은 어떻게 알 수 있나요?',
+    a: '접수부터 배송까지 단계가 화면에 보이고, 단계가 바뀌면 알림이 갑니다. 궁금한 것은 주문마다 있는 대화 칸에 남기시면 됩니다.',
+  },
+  {
+    q: '맞지 않으면 어떻게 하나요?',
+    a: '주문 화면에서 리메이크나 리페어를 바로 신청하실 수 있습니다. 원본 데이터가 남아 있어 그 자리에서 다시 설계합니다.',
+  },
+  {
+    q: '정산은 어떻게 하나요?',
+    a: '한 달에 한 번 정산합니다. 청구서는 화면에서 언제든 다시 보실 수 있습니다.',
+  },
+  {
+    q: '거래를 시작하려면 무엇을 하면 되나요?',
+    a: '수가표를 먼저 받아 보시고, 가입 신청을 하시면 확인 후 승인해 드립니다. 승인되면 주문 화면이 바로 열립니다.',
+  },
+];
+
+function Faq() {
+  return (
+    <section id="faq" className="border-t border-[#E3E8EB] bg-white">
+      <div className={`${WRAP} grid gap-10 py-18 sm:py-28 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20`}>
+        <h2 data-reveal className={`${H2} lg:sticky lg:top-28 lg:self-start`}>
+          첫 주문 전에
+          <br />
+          많이 물으시는 것
+        </h2>
+
+        <div data-reveal style={{ transitionDelay: '80ms' }}>
+          {FAQ.map((f) => (
+            <details key={f.q} className="group border-t border-[#DDE4E8] last:border-b">
+              <summary
+                className={`flex cursor-pointer list-none items-center justify-between gap-6 py-6 text-[18px] font-bold tracking-[-0.025em] sm:text-[19px] [&::-webkit-details-marker]:hidden ${FOCUS}`}
+              >
+                <span className="break-keep">{f.q}</span>
+                <svg
+                  aria-hidden
+                  viewBox="0 0 20 20"
+                  className="h-5 w-5 shrink-0 text-[#5B6C7D] transition-transform duration-200 group-open:rotate-45"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                >
+                  <path d="M10 4v12M4 10h12" />
+                </svg>
+              </summary>
+              <p className="max-w-[560px] break-keep pb-7 text-[15.5px] leading-[1.75] text-[#3D4E60]">{f.a}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -515,35 +548,31 @@ function Platform() {
 
 function Contact() {
   return (
-    <section id="contact" className="border-t border-[#E8EBF0] bg-[#F7FAFF]">
-      <div className="mx-auto max-w-[1080px] px-6 py-18 sm:py-24">
-        <div className="grid gap-10 sm:grid-cols-[0.9fr_1.1fr] sm:items-start">
-          {/* ★ 붙어 따라오는 칸(sticky)이라 통째로 올립니다 —
-                안쪽을 따로 올리면 따라오는 동안 계속 움직입니다 */}
-          <div data-reveal className="sm:sticky sm:top-24">
-            <p className="text-[13px] font-bold tracking-[0.14em] text-[#1279E8]">CONTACT</p>
-            <h2 className="mt-3 text-[26px] font-extrabold leading-[1.3] tracking-[-0.035em] sm:text-[30px]">
+    <section id="contact" className="bg-[#F3F6F7]">
+      <div className={`${WRAP} py-18 sm:py-28`}>
+        <div className="grid gap-10 sm:grid-cols-[0.9fr_1.1fr] sm:items-start lg:gap-16">
+          <div data-reveal className="sm:sticky sm:top-28">
+            <h2 className={H2}>
               수가표부터
               <br />
               받아 보세요
             </h2>
-            <p className="mt-4 text-[14px] leading-relaxed text-[#4A5567]">
+            <p className="mt-5 max-w-[380px] break-keep text-[16px] leading-[1.75] text-[#3D4E60]">
               거래를 정하지 않으셔도 됩니다. 품목별 수가와 납기를 먼저 보시고
               판단하시면 됩니다.
             </p>
 
-            <div className="mt-7 rounded-xl border border-[#DDE7F7] bg-white p-5">
-              <p className="text-[13.5px] font-bold text-[#7C8595]">바로 통화를 원하시면</p>
+            <div className="mt-9 border-t border-[#C9D3D9] pt-5">
+              <p className="text-[14.5px] font-semibold text-[#5B6C7D]">바로 통화를 원하시면</p>
               <a
                 href={`tel:${SITE.tel.replace(/-/g, '')}`}
-                className="mt-1.5 block text-[21px] font-extrabold tracking-[-0.03em] text-[#1A2130] hover:text-[#1279E8]"
+                className={`mt-1 inline-block text-[28px] font-extrabold tabular-nums tracking-[-0.03em] text-[#14263A] hover:text-[#1279E8] ${FOCUS}`}
               >
                 {SITE.tel}
               </a>
             </div>
           </div>
 
-          {/* 폼은 살짝 늦게 — 왼쪽 글이 먼저 읽히고 폼이 따라옵니다 */}
           <div data-reveal style={{ transitionDelay: '110ms' }}>
             <ContactForm />
           </div>
@@ -553,210 +582,31 @@ function Contact() {
   );
 }
 
-// ---------- 취급 범위 · 스캐너 ----------
-
-/*
-  ★ 네 가지 약속 (사용자 요청 2026-08-18, 시안 지르카).
-    어두운 띠 위에 흰 카드 넷 — 제목이 위, 그림이 가운데, 두 줄이 아래.
-    카드 한 장이 **한 호흡**에 읽혀야 합니다. 그래서 문장을 넣지 않고
-    '걱정 한 줄 → 답 한 줄' 로 끊었습니다.
-
-  ★ 다섯에서 넷으로 줄였습니다.
-    넷이면 큰 화면에서 한 줄에 딱 떨어집니다. 다섯은 3+2 로 갈라져
-    마지막 줄이 남는데, 한눈에 보이는 것이 이 자리의 목적입니다.
-
-  ★ 네 가지 모두 **실제로 되는 것**입니다 — 파일만 받으면 되는 것,
-    주문 상태·실시간 대화, 제품 표 그대로, 리메이크 사유 통계
-    (/design/stats). 홈페이지에 적은 것을 화면이 못 하면 그게 제일
-    나쁩니다.
-
-  ★ 남색은 로고 몸통(#16324F), 강조는 로고 꼬리(#14B8A6)입니다.
-    진행 과정 절의 검정(#141B2B)과 일부러 다르게 뒀습니다 — 어두운
-    띠가 둘인데 같은 색이면 같은 절이 두 번 나온 것처럼 보입니다.
-*/
-
-const PROMISES: {
-  art: SiteArtName;
-  title: string;
-  /** 걱정 — 흐리게 */
-  worry: string;
-  /** 답 — 진하게 */
-  answer: string;
-}[] = [
-  {
-    art: 'scan',
-    title: '스캐너 무관',
-    worry: '장비 바꾸실 필요 없이',
-    answer: '쓰시던 그대로, 파일만',
-  },
-  {
-    art: 'track',
-    title: '실시간 진행상황 공유',
-    worry: '굳이 물어보지 않으셔도',
-    answer: '접수 → 배송 화면에서 바로',
-  },
-  {
-    art: 'bridge',
-    title: '모델리스 전 품목',
-    worry: '크라운·브릿지, 인레이·온레이',
-    answer: '임플란트 보철까지 모델 없이',
-  },
-  {
-    art: 'chart',
-    title: '리메이크 통계 & 분석',
-    worry: '원인 모르고 넘어가지 않게',
-    answer: '매달 모아 분석하고 고칩니다',
-  },
-];
-
-function Scope() {
-  return (
-    <section className="bg-[#16324F]">
-      <div className="mx-auto max-w-[1080px] px-6 py-16 sm:py-20">
-        {/*
-          ★ 한 줄로 크게 (사용자 요청 2026-08-18).
-            두 줄로 나눠 두었더니 위가 설명, 아래가 제목이라 눈이 두 번
-            움직였습니다. 한 문장이면 한 번에 읽힙니다.
-
-          ★ 상호만 로고 꼬리색으로 둡니다. 한 줄에 색이 둘이면
-            거기서 끊어 읽게 되는데, 끊기는 자리가 쉼표라 자연스럽습니다.
-
-          ★ 크기를 셋으로 나눴습니다 — 좁은 화면에서 42px 로 두면
-            열네 글자가 넘칩니다. 한글 글꼴은 기계마다 폭이 달라서
-            (윈도우 맑은고딕 · 맥 애플SD산돌고딕) 딱 맞는 값을 하나로
-            잡으면 저쪽에서 넘칩니다. `text-balance` 로 쉼표에서
-            고르게 나뉘도록 뒀습니다.
-        */}
-        <h2
-          data-reveal
-          className="text-balance text-center text-[25px] font-extrabold leading-[1.25] tracking-[-0.04em] text-white sm:text-[34px] lg:text-[42px]"
-        >
-          스캔에서 세팅까지, <span className="text-[#6FD8CB]">덴플로우</span>
-        </h2>
-
-        {/* ★ 큰 화면에서 넷이 한 줄. 한눈에 보이는 것이 이 자리의 목적입니다 */}
-        <ul className="mt-12 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-          {PROMISES.map((p, i) => (
-            <li
-              key={p.title}
-              data-reveal
-              style={{ transitionDelay: `${i * 80}ms` }}
-              className="flex flex-col items-center rounded-2xl bg-white px-5 py-8 text-center"
-            >
-              {/*
-                ★ 제목이 카드에서 제일 먼저 읽히는 것이라 크게 잡았습니다.
-                  다만 '리메이크 통계 & 분석' 은 열두 글자라 248px 카드에서
-                  한 줄에 안 들어갑니다. 한 카드만 두 줄이 되면 그 카드의
-                  그림이 아래로 밀려 넷의 눈높이가 어긋납니다.
-                  그래서 **모든 제목이 두 줄 자리를 차지**하게 뒀습니다
-                  (min-h 2.6em = 1.3줄높이 × 2). 짧은 제목 아래가 조금
-                  비지만, 그림 넷이 나란한 편이 훨씬 잘 읽힙니다.
-              */}
-              <b className="flex min-h-[2.6em] items-center text-balance text-[21px] font-extrabold leading-[1.3] tracking-[-0.04em] text-[#16324F] sm:text-[22px]">
-                {p.title}
-              </b>
-
-              {/*
-                ★ 그림을 키우면서 **선도 같이 굵혔습니다**(1.7 → 1.95).
-                  선 굵기를 그대로 두고 크기만 키우면, 그림이 커질수록
-                  선이 상대적으로 가늘어져 오히려 흐려 보입니다.
-              */}
-              <span className="my-5 grid h-[68px] w-[68px] place-items-center rounded-2xl bg-[#EAF6F4] text-[#0E8C7F]">
-                <SiteArt name={p.art} className="h-10 w-10" strokeWidth={1.95} />
-              </span>
-
-              <span className="text-[14px] font-medium leading-relaxed text-[#7C8595]">
-                {p.worry}
-              </span>
-              <b className="mt-1.5 text-balance text-[16px] font-extrabold leading-[1.45] tracking-[-0.02em] text-[#1A2130]">
-                {p.answer}
-              </b>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
 // ---------- 바닥 ----------
 
 function Footer() {
+  const link = `text-[14px] font-semibold text-[#3D4E60] hover:text-[#14263A] ${FOCUS}`;
   return (
-    <footer className="border-t border-[#E8EBF0] bg-white">
-      <div className="mx-auto flex max-w-[1080px] flex-col gap-4 px-6 py-9 sm:flex-row sm:items-center">
+    <footer className="border-t border-[#E3E8EB] bg-white">
+      <div className={`${WRAP} flex flex-col gap-5 py-10 sm:flex-row sm:items-start`}>
         <div>
-          <Logo />
-          <p className="mt-2.5 text-[13.5px] text-[#98A2B3]">
+          <DenFlowLogo markHeight={22} fontSize={17} />
+          <p className="mt-3 text-[14px] text-[#5B6C7D]">
             {SITE.tagline} · {SITE.tel}
           </p>
-          {/* ★ 사업자 표시 (2026-09-07 등록). 등록 상호는 화면 이름과 다릅니다 — domain/site 의 설명 */}
-          <p className="mt-2 text-[12px] leading-relaxed text-[#B0B8C4]">
+          <p className="mt-2 text-[12.5px] leading-relaxed text-[#8A97A5]">
             {SITE_LEGAL.name} · 대표 {SITE_LEGAL.ceo} · 사업자등록번호 {SITE_LEGAL.bizNo}
             <br />
             {SITE_LEGAL.address}
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-4 sm:ml-auto">
-          <Link href="/terms" className="text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8]">
-            이용약관
-          </Link>
-          <Link href="/privacy" className="text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8]">
-            개인정보 처리방침
-          </Link>
-          <Link href="/login" className="text-[13.5px] font-semibold text-[#4A5567] hover:text-[#1279E8]">
-            로그인
-          </Link>
+        <div className="flex flex-wrap gap-6 sm:ml-auto">
+          <Link href="/terms" className={link}>이용약관</Link>
+          <Link href="/privacy" className={link}>개인정보 처리방침</Link>
+          <Link href="/login" className={link}>로그인</Link>
         </div>
       </div>
     </footer>
-  );
-}
-
-// ---------- 틀 ----------
-
-function Section({
-  id,
-  eyebrow,
-  title,
-  children,
-  dark = false,
-}: {
-  id?: string;
-  eyebrow: string;
-  title: string;
-  children: React.ReactNode;
-  dark?: boolean;
-}) {
-  return (
-    <section id={id} className={dark ? 'bg-[#141B2B]' : 'bg-white'}>
-      {/*
-        ★ 머리글에만 답니다 (2026-08-18).
-          안쪽 내용까지 조각조각 올리면, 한 화면에서 대여섯 개가 따로
-          움직여 어지럽습니다. 절의 제목이 올라오고 내용이 따라오는
-          정도가 읽기에 제일 편합니다.
-      */}
-      <div className="mx-auto max-w-[1080px] px-6 py-18 sm:py-24">
-        <p data-reveal className="text-[13px] font-bold tracking-[0.14em] text-[#1279E8]">
-          {eyebrow}
-        </p>
-        <h2
-          data-reveal
-          style={{ transitionDelay: '80ms' }}
-          className={
-            // ★ text-balance — 폰에서 "이렇게 갑니다" 의 '다' 만 다음 줄로 떨어지던 것 (2026-10-23)
-            // ★ break-keep — 한글은 기본이 글자 단위 줄바꿈이라 '이/렇게' 처럼 낱말 안에서 끊겼습니다
-            'mt-3 text-balance break-keep text-[26px] font-extrabold tracking-[-0.035em] sm:text-[30px] ' +
-            (dark ? 'text-white' : 'text-[#1A2130]')
-          }
-        >
-          {title}
-        </h2>
-        <div data-reveal style={{ transitionDelay: '160ms' }}>
-          {children}
-        </div>
-      </div>
-    </section>
   );
 }
