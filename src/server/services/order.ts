@@ -22,6 +22,7 @@ import {
 import { isAllowedPair, MAX_PER_TOOTH, unpairedAutoTooth, type Placement } from '@/server/domain/duplicate';
 import { computeBridges, type ToothPlacement } from '@/server/domain/bridge';
 import { isValidShade } from '@/server/domain/shade';
+import { resolveOrderOptions } from '@/server/domain/production-option';
 import { checkDueDate, sameDueDate, type DueDatePolicy } from '@/server/domain/due-date';
 import type { HolidayMap } from '@/server/domain/holiday';
 import { canEditSpec, type OrderStatus } from '@/server/domain/order-status';
@@ -318,6 +319,10 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   // ★ 음수·소수·터무니없는 값이 와도 그대로 넣지 않습니다
   const planned = Math.max(0, Math.floor(input.plannedFileCount ?? 0));
 
+  // ★ 주문을 만들기 **전에** 옵션을 정합니다 — 목록을 못 읽으면 아무것도 쓰지 않습니다
+  const orderOptions = await loadOrderOptions(supabase, input.options);
+  if (!orderOptions) return { ok: false, error: OPTIONS_UNREAD };
+
   // 주문 만들기
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -393,14 +398,23 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   await saveBridges(supabase, order.id, savedItems, input, catalog);
 
   // 제작옵션 저장 (명세서 §4.2.8)
-  const optionRows = Object.entries(input.options ?? {}).map(([groupId, valueId]) => ({
+  const optionRows = Object.entries(orderOptions).map(([groupId, valueId]) => ({
     order_id: order.id,
     option_group_id: groupId,
     option_value_id: valueId,
   }));
 
   if (optionRows.length > 0) {
-    await supabase.from('order_options').insert(optionRows);
+    /*
+      ★ 못 넣으면 **조용히 넘어가지 않습니다** (2026-11-18).
+        전에는 결과를 안 봤습니다. 옵션 없는 주문이 남아도 아무도 몰랐습니다.
+        보철물 저장이 실패했을 때와 같이 주문을 되돌리고 알립니다.
+    */
+    const { error: optionError } = await supabase.from('order_options').insert(optionRows);
+    if (optionError) {
+      await supabase.from('orders').delete().eq('id', order.id);
+      return { ok: false, error: `제작옵션 저장에 실패했습니다: ${optionError.message}` };
+    }
   }
 
   /*
@@ -684,6 +698,35 @@ async function saveBridges(
 
 type Row = Record<string, unknown>;
 
+/**
+ * 이 주문에 붙일 제작옵션. 목록을 못 읽으면 null.
+ *
+ * ★ 화면이 보낸 것에 빠진 그룹은 기본값으로 채웁니다 (domain/production-option).
+ * ★ **주문을 만들기 전에** 부릅니다 — 못 읽었으면 아무것도 쓰지 않고 돌려보냅니다.
+ */
+async function loadOrderOptions(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  chosen: Record<string, string> | undefined,
+): Promise<Record<string, string> | null> {
+  const { data, error } = await supabase
+    .from('production_option_groups')
+    .select('id, production_option_values(id, is_default, sort_order)');
+  if (error || !data) return null;
+
+  const groups = (data as { id: string; production_option_values: { id: string; is_default: boolean; sort_order: number }[] | null }[]).map(
+    (g) => ({
+      id: g.id,
+      values: [...(g.production_option_values ?? [])]
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((v) => ({ id: v.id, isDefault: v.is_default })),
+    }),
+  );
+
+  return resolveOrderOptions(groups, chosen);
+}
+
+const OPTIONS_UNREAD = '제작옵션 목록을 읽지 못해 저장하지 않았습니다. 잠시 뒤 다시 해 주세요';
+
 interface OrderSpecSnapshot {
   items: Row[];
   bridges: Row[];
@@ -878,6 +921,10 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
       지운 것은 그대로 사라져 **보철 항목이 0개인 주문**이 남았습니다 —
       화면에는 "저장에 실패했습니다" 만 떴습니다. 이제 못 넣으면 원래대로 돌려놓습니다.
   */
+  // ★ 지우기 전에 옵션 목록부터 — 못 읽으면 손대지 않습니다
+  const orderOptions = await loadOrderOptions(supabase, input.options);
+  if (!orderOptions) return { ok: false, error: OPTIONS_UNREAD };
+
   const before = await snapshotOrderSpec(supabase, input.orderId);
   // ★ 지금 것을 못 읽었으면 **지우지 않습니다** — 되돌릴 것이 없는 채로 지우면 같은 사고입니다
   if (!before) return { ok: false, error: '주문의 지금 내용을 읽지 못해 고치지 않았습니다. 잠시 뒤 다시 해 주세요' };
@@ -928,18 +975,28 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
 
   await saveBridges(supabase, input.orderId, savedItems, input, catalog);
 
-  const optionRows = Object.entries(input.options ?? {}).map(([groupId, valueId]) => ({
+  const optionRows = Object.entries(orderOptions).map(([groupId, valueId]) => ({
     order_id: input.orderId,
     option_group_id: groupId,
     option_value_id: valueId,
   }));
 
+  // ★ 못 넣으면 알립니다 (2026-11-18) — 보철물은 이미 새것으로 들어갔으므로 옵션만 다시 저장하면 됩니다
+  let optionFailure = '';
   if (optionRows.length > 0) {
-    await supabase.from('order_options').insert(optionRows);
+    const { error: optionError } = await supabase.from('order_options').insert(optionRows);
+    if (optionError) optionFailure = optionError.message;
   }
 
   // ★ 고치다 FlowTemp 를 넣었으면 줄을 열고, 뺐으면 (아직 디자인 차례일 때만) 닫습니다
   await syncAutoJob(input.orderId, current.clinic_org_id as string, autoTeeth(input, catalog));
+
+  if (optionFailure) {
+    return {
+      ok: false,
+      error: `보철물은 고쳤지만 제작옵션을 저장하지 못했습니다. 한 번 더 저장해 주세요: ${optionFailure}`,
+    };
+  }
 
   return { ok: true };
 }
