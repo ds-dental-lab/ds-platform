@@ -32,6 +32,7 @@
 import PreviewBuildButton from '@/components/order/PreviewBuildButton';
 import Link from 'next/link';
 import ToothChart from '@/components/dental/ToothChart';
+import { computeBridges } from '@/server/domain/bridge';
 import OrderStatusActions from '@/components/order/OrderStatusActions';
 import OrderChat from '@/components/order/OrderChat';
 import OrderSignal from '@/components/order/OrderSignal';
@@ -233,6 +234,22 @@ export default function OrderDetailScreen({
     catalog: prosthesisCatalog,
   });
   const hasPontic = placements.some((p) => p.isPontic);
+
+  /*
+    ★★ '연결' 꼬리표는 **실제로 이어진 묶음이 있을 때만** 붙입니다
+      (2026-11-18, 사용자 "연결인데 치식에는 연결표기가 없네").
+      전에는 같은 제품의 치아가 둘 이상이면 무조건 붙였습니다. 치과가 연결을 끊어
+      낱개 셋으로 넣은 주문도 '연결' 로 보였고, 바로 위 치식도와 말이 달랐습니다.
+      치식도와 **같은 계산**(computeBridges + 끊어 둔 자리)을 씁니다.
+  */
+  const linkedGroups = computeBridges(placements, order.severed_keys, prosthesisCatalog);
+  const linkLabelOf = (line: { typeCode: string; materialCode: string; teeth: number[] }): string => {
+    const groups = linkedGroups.filter((b) => b.typeCode === line.typeCode && b.materialCode === line.materialCode);
+    if (groups.length === 0) return '';
+    // 줄 전체가 한 묶음이면 '연결' 만. 일부만 이어졌으면 어느 치아인지 적습니다
+    if (groups.length === 1 && groups[0].teeth.length === line.teeth.length) return '연결';
+    return '연결 ' + groups.map((b) => b.teeth.join('-')).join(' · ');
+  };
 
   /*
     ★ 스캔 칸은 **scan 만** 셉니다 (2026-09-04). 전에는 design 이 아닌
@@ -466,12 +483,12 @@ export default function OrderDetailScreen({
                         {line.shadeLabel && ` (${line.shadeLabel})`}
                       </span>
 
-                      {line.teeth.length > 1 && (
+                      {linkLabelOf(line) && (
                         <span
-                          className="rounded-[9px] px-[7px] py-0.5 text-[10.5px] font-bold"
+                          className="whitespace-nowrap rounded-[9px] px-[7px] py-0.5 text-[10.5px] font-bold"
                           style={{ background: color.soft, color: color.line }}
                         >
-                          연결
+                          {linkLabelOf(line)}
                         </span>
                       )}
                     </div>
