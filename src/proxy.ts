@@ -115,7 +115,13 @@ export async function proxy(request: NextRequest) {
       request.cookies.get(ALIVE_KEY)?.value,
     )
   ) {
-    await supabase.auth.signOut();
+    /*
+      ★★ **이 브라우저만** 끊습니다 (2026-11-17, 사용자 "방금 로그인 왜 튕겼니").
+        `signOut()` 은 아무것도 안 주면 **그 계정의 모든 기기**를 끊습니다(scope 'global').
+        '유지 안 함' 으로 들어온 창 하나가 다시 열리면, 같은 계정으로 일하던
+        다른 PC·폰까지 같이 튕겼습니다. 창을 닫은 것은 그 창뿐입니다.
+    */
+    await supabase.auth.signOut({ scope: 'local' });
     signedIn = false;
 
     // 표시도 같이 걷습니다. 안 지우면 다음 요청에서 또 끊으려 듭니다
