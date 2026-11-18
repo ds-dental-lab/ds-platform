@@ -6,6 +6,7 @@
 
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { steadyFetch } from './steady-fetch';
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -14,6 +15,8 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // ★ 읽기가 순간 실패하면 한 번 더 묻고, 안 되면 남깁니다 (2026-11-18, domain/db-retry)
+      global: { fetch: steadyFetch },
       cookies: {
         getAll: () => cookieStore.getAll(),
         setAll: (list) => {

@@ -17,6 +17,7 @@
 import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
+import { steadyFetch } from './steady-fetch';
 
 export function createAdminClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -30,5 +31,7 @@ export function createAdminClient() {
 
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key, {
     auth: { persistSession: false },
+    // ★ 읽기가 순간 실패하면 한 번 더 묻고, 안 되면 남깁니다 (2026-11-18, domain/db-retry)
+    global: { fetch: steadyFetch },
   });
 }
