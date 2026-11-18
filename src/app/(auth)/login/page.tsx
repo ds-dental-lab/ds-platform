@@ -74,7 +74,7 @@ export default function LoginPage() {
     const client = createClient();
 
     if (query.get('switch')) {
-      void client.auth.signOut().then(() => alive && router.refresh());
+      void client.auth.signOut({ scope: 'local' }).then(() => alive && router.refresh());
       return () => {
         alive = false;
       };

@@ -212,5 +212,7 @@ export const config = {
     "/clinic/:path*",
     "/design/:path*",
     "/lab/:path*",
+    // ★ 폰 화면도 여기를 지나야 새 토큰이 쿠키에 심깁니다 (2026-11-18). 빠져 있었습니다
+    "/m/:path*",
   ],
 };

@@ -18,7 +18,8 @@ export default function LogoutButton({ className }: { className?: string } = {})
 
   async function handleLogout() {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    // ★ 이 기기만 끊습니다 (2026-11-18) — 그냥 signOut() 은 같은 계정의 다른 PC·폰까지 끊습니다. 치과는 한 계정을 여러 자리에서 씁니다
+    await supabase.auth.signOut({ scope: 'local' });
 
     // ★ '로그인 상태 유지' 표시도 같이 걷습니다 (SectorShell 과 같은 이유)
     clearedKeepCookies(window.location.protocol === 'https:').forEach((c) => {
