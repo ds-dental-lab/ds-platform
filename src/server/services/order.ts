@@ -774,20 +774,60 @@ async function restoreOrderSpec(
 ): Promise<boolean> {
   if (before.items.length === 0) return true;
 
-  const items = await supabase.from('order_items').insert(before.items);
+  // ★ 이미 있는 줄은 건너뜁니다 (2026-11-18) — 지우다 만 채로 되돌릴 때 남아 있는 줄과 부딪히지 않게
+  const skip = { ignoreDuplicates: true };
+
+  const items = await supabase.from('order_items').upsert(before.items, skip);
   if (items.error) return false;
 
   let ok = true;
   if (before.bridges.length > 0) {
-    ok = !(await supabase.from('order_bridges').insert(before.bridges)).error && ok;
+    ok = !(await supabase.from('order_bridges').upsert(before.bridges, skip)).error && ok;
   }
   if (before.members.length > 0) {
-    ok = !(await supabase.from('order_bridge_members').insert(before.members)).error && ok;
+    ok = !(await supabase.from('order_bridge_members').upsert(before.members, skip)).error && ok;
   }
   if (before.options.length > 0) {
-    ok = !(await supabase.from('order_options').insert(before.options)).error && ok;
+    ok = !(await supabase.from('order_options').upsert(before.options, skip)).error && ok;
   }
   return ok;
+}
+
+/**
+ * 고치기 전의 항목·브릿지·옵션을 걷어 냅니다. 다 걷혔으면 빈 문자열, 아니면 까닭.
+ *
+ * ★★ **지워졌는지를 셉니다** (2026-11-18, 조용히 넘어가는 자리 훑기).
+ *   전에는 세 줄을 지우라고만 하고 결과를 안 봤습니다. 하나라도 안 지워진 채로
+ *   새 항목을 넣으면 **옛것과 새것이 같이 남습니다.**
+ * ★ 문지기에 막힌 지우기는 오류가 아니라 '0줄' 로 옵니다. 그래서 오류만 보지 않고
+ *   지워진 줄 수를 고치기 전 것과 맞춰 봅니다.
+ * ★ 덜 지워졌으면 지운 것을 되돌리고 돌려보냅니다.
+ */
+async function clearOrderSpec(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string,
+  before: OrderSpecSnapshot,
+): Promise<string> {
+  const steps = [
+    { table: 'order_bridges', key: 'id', expected: before.bridges.length },
+    { table: 'order_items', key: 'id', expected: before.items.length },
+    { table: 'order_options', key: 'option_group_id', expected: before.options.length },
+  ] as const;
+
+  for (const step of steps) {
+    const { data, error } = await supabase.from(step.table).delete().eq('order_id', orderId).select(step.key);
+    const removed = (data ?? []).length;
+
+    if (error || removed !== step.expected) {
+      const restored = await restoreOrderSpec(supabase, before);
+      const why = error?.message ?? `${step.expected}줄 중 ${removed}줄만 지워졌습니다`;
+      return restored
+        ? `주문을 고치지 못했습니다. 주문은 고치기 전 그대로입니다: ${why}`
+        : `★ 주문을 고치다 멈췄고 고치기 전으로 되돌리지 못했습니다. 이 화면을 닫지 말고 다시 저장해 주세요: ${why}`;
+    }
+  }
+
+  return '';
 }
 
 export interface UpdateOrderInput extends CreateOrderInput {
@@ -929,9 +969,8 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
   // ★ 지금 것을 못 읽었으면 **지우지 않습니다** — 되돌릴 것이 없는 채로 지우면 같은 사고입니다
   if (!before) return { ok: false, error: '주문의 지금 내용을 읽지 못해 고치지 않았습니다. 잠시 뒤 다시 해 주세요' };
 
-  await supabase.from('order_bridges').delete().eq('order_id', input.orderId);
-  await supabase.from('order_items').delete().eq('order_id', input.orderId);
-  await supabase.from('order_options').delete().eq('order_id', input.orderId);
+  const clearFailure = await clearOrderSpec(supabase, input.orderId, before);
+  if (clearFailure) return { ok: false, error: clearFailure };
 
   const slotCount = new Map<number, number>();
 
