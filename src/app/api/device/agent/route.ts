@@ -29,7 +29,8 @@ export async function POST(request: Request) {
 
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? null;
   if (token) {
-    const device = await deviceFromToken(token);
+    // ★ 기기 확인이 실패해도 판 번호는 답합니다 — 적어 두기만 건너뜁니다 (2026-11-19)
+    const device = await deviceFromToken(token).catch(() => null);
     const version = cleanVersion(body.version);
     if (device && version) {
       await createAdminClient()

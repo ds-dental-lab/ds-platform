@@ -11,15 +11,15 @@
 //   치과에서 그대로 출력됩니다.
 // =========================================================
 
-import { deviceFromToken } from '@/server/repositories/device-link';
+import { deviceFromRequest } from '@/server/repositories/device-link';
 import { matchWaitingJob } from '@/server/repositories/auto-print';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? null;
-  const device = await deviceFromToken(token);
-  if (!device) return Response.json({ ok: false, error: '연결되지 않은 기기입니다' }, { status: 401 });
+  const auth = await deviceFromRequest(request);
+  if (!auth.ok) return auth.refusal;
+  const device = auth.device;
 
   const body = (await request.json().catch(() => ({}))) as { teeth?: unknown; orderId?: unknown };
   const teeth = Array.isArray(body.teeth)

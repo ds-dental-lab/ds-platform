@@ -12,7 +12,7 @@
 //   있어도 치과에는 안 갑니다.
 // =========================================================
 
-import { deviceFromToken } from '@/server/repositories/device-link';
+import { deviceFromRequest } from '@/server/repositories/device-link';
 import { releaseDesign, setDesignStage } from '@/server/repositories/auto-print';
 import { isDesignStage } from '@/server/domain/auto-print';
 
@@ -21,9 +21,9 @@ export const dynamic = 'force-dynamic';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: Request) {
-  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? null;
-  const device = await deviceFromToken(token);
-  if (!device) return Response.json({ ok: false, error: '연결되지 않은 기기입니다' }, { status: 401 });
+  const auth = await deviceFromRequest(request);
+  if (!auth.ok) return auth.refusal;
+  const device = auth.device;
 
   const body = (await request.json().catch(() => ({}))) as {
     orderId?: unknown;

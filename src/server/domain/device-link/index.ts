@@ -194,3 +194,26 @@ export function samePatientName(a: string, b: string): boolean {
   const left = squeeze(a ?? '');
   return left.length > 0 && left === squeeze(b ?? '');
 }
+
+// ---------- 열쇠 검사가 어떻게 끝났나 (2026-11-19) ----------
+
+/**
+ * 'unknown' 은 **없는 기기**(열쇠가 틀렸거나 끊은 기기), 'failed' 는 **확인을 못 한 것**
+ * (기기 표를 읽다가 실패)입니다.
+ *
+ * ★★ 둘을 같은 말로 답하면 안 됩니다. 전에는 읽기 실패도 "연결되지 않은 기기입니다"
+ *   로 나갔습니다. 프린터 쪽 프로그램은 그 말을 **확실한 거절**로 보고 다시 보내지
+ *   않으므로, 서버가 잠깐 아픈 순간의 출력 보고가 버려질 수 있었습니다
+ *   (2026-11-16 한 치과 PC — 연결이 살아 있는데 한 번 거절당한 줄).
+ *
+ * ★ 'failed' 의 문구에는 에이전트가 거절로 읽는 말을 넣지 않습니다
+ *   (print_loop.py 의 REJECTED — 시험이 지킵니다).
+ */
+export type DeviceCheck = 'unknown' | 'failed';
+
+export function deviceRefusal(kind: DeviceCheck): { status: number; error: string } {
+  if (kind === 'failed') {
+    return { status: 503, error: '서버가 기기를 확인하지 못했습니다. 잠시 뒤 다시 묻습니다' };
+  }
+  return { status: 401, error: '연결되지 않은 기기입니다' };
+}

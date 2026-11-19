@@ -8,14 +8,14 @@
 // ★ 열쇠는 Authorization: Bearer <기기 열쇠>.
 // =========================================================
 
-import { deviceFromToken, openScanSlot } from '@/server/repositories/device-link';
+import { deviceFromRequest, openScanSlot } from '@/server/repositories/device-link';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? null;
-  const device = await deviceFromToken(token);
-  if (!device) return Response.json({ ok: false, error: '연결되지 않은 기기입니다' }, { status: 401 });
+  const auth = await deviceFromRequest(request);
+  if (!auth.ok) return auth.refusal;
+  const device = auth.device;
 
   const body = await request.json().catch(() => null);
   const result = await openScanSlot(device, body ?? {});

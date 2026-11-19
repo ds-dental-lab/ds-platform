@@ -7,15 +7,15 @@
 // ★ 하루에 한 번, 밤 실행을 시작할 때만 부릅니다 — 버셀 호출이 늘지 않습니다.
 // ★ 본문(선택): { "hours": 48 } — 이만큼 지난 주문까지.
 // =========================================================
-import { deviceFromToken } from '@/server/repositories/device-link';
+import { deviceFromRequest } from '@/server/repositories/device-link';
 import { listLearnCases } from '@/server/repositories/learn-cases';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? null;
-  const device = await deviceFromToken(token);
-  if (!device) return Response.json({ ok: false, error: '연결되지 않은 기기입니다' }, { status: 401 });
+  const auth = await deviceFromRequest(request);
+  if (!auth.ok) return auth.refusal;
+  const device = auth.device;
 
   let hours: number | undefined;
   try {

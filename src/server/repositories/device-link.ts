@@ -12,7 +12,7 @@
 import 'server-only';
 import { createHash, randomBytes } from 'crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { cleanScanMeta, type ScanMeta } from '@/server/domain/device-link';
+import { cleanScanMeta, deviceRefusal, type DeviceCheck, type ScanMeta } from '@/server/domain/device-link';
 
 const BUCKET = 'order-files';
 
@@ -82,16 +82,32 @@ export async function linkDevice(
   };
 }
 
-/** 헤더의 열쇠가 살아 있는 기기인가 */
+/** 기기 표를 읽지 못했습니다 — '없는 기기' 와 다릅니다 */
+export class DeviceLookupFailed extends Error {
+  constructor(detail: string) {
+    super(`기기 확인 실패: ${detail}`);
+    this.name = 'DeviceLookupFailed';
+  }
+}
+
+/**
+ * 헤더의 열쇠가 살아 있는 기기인가.
+ *
+ * ★ 읽기가 실패하면 null 이 아니라 **던집니다** (2026-11-19). null 은 "없는 기기" 라는
+ *   뜻이라, 실패를 null 로 돌리면 멀쩡한 기기가 거절당합니다.
+ *   길목(/api/device/*)은 deviceFromRequest 가 받아 503 으로 답합니다.
+ */
 export async function deviceFromToken(token: string | null): Promise<LinkedDevice | null> {
   if (!token) return null;
 
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from('clinic_devices')
     .select('id, clinic_org_id, name, revoked_at')
     .eq('token_hash', hashToken(token))
     .maybeSingle();
+
+  if (error) throw new DeviceLookupFailed(error.code ?? error.message);
 
   const row = data as { id: string; clinic_org_id: string; name: string; revoked_at: string | null } | null;
   if (!row || row.revoked_at) return null;
@@ -410,4 +426,33 @@ export async function scannerNavState(): Promise<{ linked: boolean; waiting: num
   ]);
 
   return { linked: (devices.count ?? 0) > 0, waiting: scans.count ?? 0 };
+}
+
+// ---------- 길목 ----------
+
+function refuse(kind: DeviceCheck, headers?: Record<string, string>): Response {
+  const { status, error } = deviceRefusal(kind);
+  return Response.json({ ok: false, error }, { status, headers: { 'cache-control': 'no-store', ...headers } });
+}
+
+/**
+ * /api/device/* 가 맨 먼저 부릅니다. 기기를 주거나, 그대로 돌려줄 거절을 줍니다.
+ *
+ * ★ 확인을 못 한 것(503)과 없는 기기(401)를 가릅니다 — 까닭은 domain 의 deviceRefusal.
+ */
+export async function deviceFromRequest(
+  request: Request,
+  headers?: Record<string, string>,
+): Promise<{ ok: true; device: LinkedDevice } | { ok: false; refusal: Response }> {
+  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? null;
+
+  try {
+    const device = await deviceFromToken(token);
+    if (!device) return { ok: false, refusal: refuse('unknown', headers) };
+    return { ok: true, device };
+  } catch (e) {
+    if (!(e instanceof DeviceLookupFailed)) throw e;
+    console.error(`[device] ${e.message}`);
+    return { ok: false, refusal: refuse('failed', headers) };
+  }
 }

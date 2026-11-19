@@ -11,7 +11,7 @@
 // =========================================================
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { deviceFromToken } from '@/server/repositories/device-link';
+import { deviceFromRequest } from '@/server/repositories/device-link';
 import { AGENT_BUCKET, manifestFor, parseManifest } from '@/server/domain/agent';
 
 export const dynamic = 'force-dynamic';
@@ -19,9 +19,9 @@ export const dynamic = 'force-dynamic';
 const NO_STORE = { 'cache-control': 'no-store' };
 
 export async function POST(request: Request) {
-  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? null;
-  const device = await deviceFromToken(token);
-  if (!device) return Response.json({ ok: false, error: '연결되지 않은 기기입니다' }, { status: 401, headers: NO_STORE });
+  const auth = await deviceFromRequest(request, NO_STORE);
+  if (!auth.ok) return auth.refusal;
+  const device = auth.device;
 
   const admin = createAdminClient();
   const { data: blob } = await admin.storage.from(AGENT_BUCKET).download(manifestFor(device.id));
