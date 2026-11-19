@@ -116,6 +116,7 @@ export default function LandingPage({ loggedIn }: { loggedIn: boolean }) {
       <Header loggedIn={loggedIn} />
       <Hero />
       <Scope />
+      <Trial />
       <Why />
       <Flow />
       <Products />
@@ -220,13 +221,18 @@ function Hero() {
             </a>
           </div>
 
+          {/* ★ 무료 테스트 (사용자 2026-11-19 — "홈페이지에도 무료테스트 강조"). 브로셔와 같은 말입니다 */}
+          <p data-reveal style={{ transitionDelay: '220ms' }} className="mt-5 break-keep text-[15px] leading-[1.6] text-[#3D4E60] sm:text-[16px]">
+            <b className="font-extrabold text-[#14263A]">처음 두 건은 무료 테스트.</b> 맡겨 보시고 결과를 보고 판단하세요.
+          </p>
+
           {/* 약속 셋 — 체크 표시 알약 대신 가는 선 위의 세 칸 */}
           <ul
             data-reveal
             style={{ transitionDelay: '260ms' }}
             className="mt-12 grid max-w-[560px] grid-cols-3 border-t border-[#C9D3D9]"
           >
-            {['스캐너 무관', '모델리스 전 품목', '실시간 진행 공유'].map((t) => (
+            {['스캐너 무관', '실시간 진행 공유', '무료 테스트 2건'].map((t) => (
               <li key={t} className="break-keep pr-3 pt-4 text-[13.5px] font-semibold leading-snug text-[#3D4E60] sm:text-[14.5px]">
                 {t}
               </li>
@@ -286,6 +292,48 @@ function Scope() {
             </li>
           ))}
         </ul>
+      </div>
+    </section>
+  );
+}
+
+// ---------- 무료 테스트 ----------
+//
+// ★ 사용자 2026-11-19 — "홈페이지에도 무료테스트 강조 했으면 좋겠어" (브로셔 새판 A 와 같은 말).
+// ★ 숫자를 크게 둡니다. 상자·동그라미·색 띠 없이 글씨 크기만으로 눈에 띄게 합니다.
+// ★ 조건(어느 품목까지인지 등)은 정해 주신 것이 없어 **적지 않았습니다.** 지어내지 마세요.
+
+function Trial() {
+  return (
+    <section id="trial" className="border-b border-[#E3E8EB] bg-white">
+      <div className={`${WRAP} grid items-center gap-8 py-14 sm:grid-cols-[auto_1fr_auto] sm:gap-12 sm:py-20`}>
+        <p data-reveal className="flex items-baseline gap-3 leading-none">
+          <span className="text-[84px] font-extrabold tabular-nums tracking-[-0.06em] text-[#14263A] sm:text-[112px]">2</span>
+          <span className="text-[30px] font-extrabold tracking-[-0.04em] text-[#14263A] sm:text-[38px]">건 무료</span>
+        </p>
+
+        <div data-reveal style={{ transitionDelay: '80ms' }} className="sm:border-l sm:border-[#C9D3D9] sm:pl-12">
+          <h2 className="break-keep text-[24px] font-extrabold leading-[1.3] tracking-[-0.04em] sm:text-[30px]">
+            처음 두 건은 무료로 맡겨 보세요
+          </h2>
+          <p className="mt-3 max-w-[460px] break-keep text-[16px] leading-[1.75] text-[#3D4E60]">
+            거래를 정하지 않으셔도 됩니다. 스캔 파일만 보내 주시면 만들어 보내 드립니다. 결과를 보고 판단하세요.
+          </p>
+        </div>
+
+        {/*
+          ★ 가입 화면으로 보냅니다 (사용자 2026-11-19 — "무료테스트 누르면 회원가입창으로").
+            무료 테스트는 주문을 넣어야 하는 일이라 어차피 계정이 필요합니다.
+            수가표 폼을 거치면 한 단계가 더 생깁니다. `?trial=1` 은 가입 화면이 안내 한 줄을 띄우는 표시입니다.
+        */}
+        <a
+          data-reveal
+          style={{ transitionDelay: '140ms' }}
+          href="/signup?trial=1"
+          className={`grid h-[52px] place-items-center whitespace-nowrap rounded-lg bg-[#1279E8] px-8 text-[16px] font-bold text-white hover:bg-[#0F68C9] ${FOCUS}`}
+        >
+          무료 테스트 신청
+        </a>
       </div>
     </section>
   );
@@ -486,6 +534,10 @@ function Platform() {
 */
 const FAQ: { q: string; a: string }[] = [
   {
+    q: '무료 테스트는 어떻게 하나요?',
+    a: '처음 두 건은 무료로 만들어 드립니다. 회원가입을 하시면 확인 후 승인해 드리고, 승인되면 바로 주문하실 수 있습니다. 받아 보시고 결과를 보고 거래를 정하시면 됩니다.',
+  },
+  {
     q: '쓰는 스캐너가 달라도 되나요?',
     a: '됩니다. 스캐너에서 내보낸 파일만 올리시면 됩니다. 장비나 프로그램을 바꾸실 필요가 없습니다.',
   },
@@ -565,6 +617,15 @@ function Contact() {
             <p className="mt-5 max-w-[380px] break-keep text-[16px] leading-[1.75] text-[#3D4E60]">
               거래를 정하지 않으셔도 됩니다. 품목별 수가와 납기를 먼저 보시고
               판단하시면 됩니다.
+            </p>
+
+            <p className="mt-6 max-w-[380px] break-keep border-t border-[#C9D3D9] pt-5 text-[16px] leading-[1.7] text-[#3D4E60]">
+              <b className="block text-[19px] font-extrabold tracking-[-0.03em] text-[#14263A]">처음 두 건은 무료 테스트</b>
+              바로 맡겨 보시려면{' '}
+              <a href="/signup?trial=1" className={`font-bold text-[#1279E8] underline underline-offset-2 ${FOCUS}`}>
+                회원가입
+              </a>
+              부터 하시면 됩니다.
             </p>
 
             <div className="mt-9 border-t border-[#C9D3D9] pt-5">

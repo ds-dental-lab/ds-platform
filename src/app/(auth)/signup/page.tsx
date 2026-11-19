@@ -26,7 +26,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -112,6 +112,19 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [mailSent, setMailSent] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  /*
+    ★ 홈페이지의 '무료 테스트 신청' 으로 왔으면 안내 한 줄을 띄웁니다 (사용자 2026-11-19).
+      왜 가입 화면이 떴는지 모르면 여기서 닫습니다.
+    ★ 주소의 표시만 읽습니다. 가입 신청에는 아무것도 싣지 않습니다 — 승인 목록에
+      표시를 남기려면 DB 칸이 필요하고, 그것은 따로 하기로 했습니다.
+  */
+  // ★ 서버가 그릴 때는 false, 브라우저에서만 주소를 읽습니다 — 그려 놓은 것과 어긋나지 않게
+  const fromTrial = useSyncExternalStore(
+    () => () => {},
+    () => new URLSearchParams(window.location.search).get('trial') === '1',
+    () => false,
+  );
 
   const strength = passwordStrength(password);
   // 다 적기 전에는 빨간 말을 안 띄웁니다 — 확인 칸 길이가 비밀번호 이상일 때부터
@@ -215,6 +228,14 @@ export default function SignupPage() {
           </>
         ) : (
           <>
+            {fromTrial && (
+              <p className="auth-trial">
+                <b>처음 두 건은 무료 테스트입니다.</b>
+                <br />
+                가입이 승인되면 바로 주문하실 수 있습니다.
+              </p>
+            )}
+
             {/* ★ 승인이 필요하다는 것을 누르기 전에 알려 줍니다 */}
             <p className="auth-hint">
               가입하면 <b>디자인센터의 승인</b> 뒤에 이용할 수 있습니다. 직원으로
@@ -425,6 +446,11 @@ const css = `
   font-size:12.5px; line-height:1.6; color:#8A6320;
 }
 .auth-hint b{font-weight:700}
+.auth-trial{
+  margin:0 0 12px; padding:12px 14px; border-radius:6px; border:1px solid #C9D3D9; background:#fff;
+  font-size:13.5px; line-height:1.65; color:#3D4E60;
+}
+.auth-trial b{font-weight:800; color:#14263A; font-size:15px}
 .pick-ask{margin:0 0 9px; font-size:12.5px; font-weight:700; color:var(--ink-2)}
 .sector-pick{display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:14px}
 .sector{
