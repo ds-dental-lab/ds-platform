@@ -71,6 +71,55 @@ export function checkPayment(amount: number, unpaid: number): PaymentVerdict {
   return { ok: true };
 }
 
+// ---------- 정산 창에 적는 글자 (2026-11-24) ----------
+
+/**
+ * 금액 칸의 글자를 숫자로. 못 읽으면 NaN.
+ *
+ * ★ 쉼표·빈칸만 뗍니다. 다른 글자가 섞였으면 **읽지 않습니다** —
+ *   '100만' 을 100 으로 읽으면 만 배가 틀립니다.
+ */
+export function parseAmountText(text: string): number {
+  const bare = text.replace(/[,\s]/g, '');
+  if (!/^-?\d+$/.test(bare)) return Number.NaN;
+  return Number(bare);
+}
+
+/**
+ * 금액 칸에 치는 대로 쉼표를 넣습니다 — '2052000' → '2,052,000'.
+ *
+ * ★ 붙은 숫자는 자릿수를 눈으로 못 셉니다. 100만과 1,000만이 한 글자 차이입니다.
+ * ★ 숫자와 맨 앞 '-' 만 남깁니다. 되돌리는 줄(음수)을 적을 수 있어야 합니다.
+ */
+export function formatAmountText(text: string): string {
+  const negative = text.trim().startsWith('-');
+  const digits = text.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+  if (!digits) return negative ? '-' : '';
+  return (negative ? '-' : '') + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/**
+ * 메모에 적은 것이 실은 금액인가. 그렇게 보이면 그 숫자, 아니면 null.
+ *
+ * ★★ 왜 — 2026-11-23, 100만원을 받았는데 금액 칸(미납 전액이 채워져 있음)은
+ *   그대로 두고 **메모 칸에 1000000** 을 적어 전액 입금으로 들어갔습니다.
+ *   청구서가 '완료' 가 됐고, 되돌린 뒤 다시 적어야 했습니다.
+ *
+ * ★ 숫자만(쉼표·빈칸·'원' 까지) 적혀 있고, 금액 칸과 **다를 때만** 묻습니다.
+ *   '8월분' · '3차 분할' 같은 메모는 숫자만이 아니라 안 걸립니다.
+ * ★ 1,000 아래는 안 묻습니다 — '2' · '11' 은 회차나 달일 가능성이 큽니다.
+ */
+export function memoAsAmount(memo: string, amount: number): number | null {
+  const bare = memo.replace(/[,\s]/g, '').replace(/원$/, '');
+  if (!/^\d+$/.test(bare)) return null;
+
+  const value = Number(bare);
+  if (!Number.isSafeInteger(value) || value < 1000) return null;
+  if (value === amount) return null;
+
+  return value;
+}
+
 /**
  * 납부기한 — 발행일이 든 달의 15일. 그날이 지났으면 다음 달 15일.
  *

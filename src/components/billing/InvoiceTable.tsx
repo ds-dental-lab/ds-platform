@@ -28,7 +28,13 @@ import {
   submitCancelInvoice,
   submitIssueCredit,
 } from '@/server/actions/invoice';
-import { INVOICE_STATUS_LABEL, checkCredit } from '@/server/domain/invoice';
+import {
+  INVOICE_STATUS_LABEL,
+  checkCredit,
+  formatAmountText,
+  memoAsAmount,
+  parseAmountText,
+} from '@/server/domain/invoice';
 import { INVOICE_METHOD_LABEL } from '@/server/domain/invoice-method';
 import type { InvoiceRow } from '@/server/repositories/invoice';
 
@@ -346,20 +352,23 @@ function PaymentDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [text, setText] = useState(String(row.unpaid));
+  const [text, setText] = useState(formatAmountText(String(row.unpaid)));
   const [memo, setMemo] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  /** 메모에 적힌 숫자가 금액인지 묻는 중이면 그 숫자 */
+  const [doubt, setDoubt] = useState<number | null>(null);
 
-  const amount = Number(text.replace(/[,\s]/g, ''));
+  const amount = parseAmountText(text);
   const valid = Number.isInteger(amount) && amount !== 0;
   const left = row.unpaid - amount;
 
-  async function save() {
+  async function write(payAmount: number, payMemo: string) {
     setError('');
+    setDoubt(null);
     setSaving(true);
 
-    const result = await submitPayment({ periodId: row.periodId, amount, memo });
+    const result = await submitPayment({ periodId: row.periodId, amount: payAmount, memo: payMemo });
     setSaving(false);
 
     if (!result.ok) {
@@ -368,6 +377,19 @@ function PaymentDialog({
     }
 
     onSaved();
+  }
+
+  /*
+    ★ 메모에 숫자만 적혀 있고 금액 칸과 다르면 **적기 전에 한 번 묻습니다**
+      (2026-11-23 — 100만원이 메모 칸으로 들어가 전액 입금이 됐습니다).
+  */
+  function save() {
+    const looksLike = memoAsAmount(memo, amount);
+    if (looksLike !== null) {
+      setDoubt(looksLike);
+      return;
+    }
+    void write(amount, memo);
   }
 
   return (
@@ -393,7 +415,14 @@ function PaymentDialog({
           <input
             id="pay"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(formatAmountText(e.target.value));
+              setDoubt(null);
+            }}
+            // ★ 창이 뜨면 여기에 커서가 있고 숫자가 통째로 잡혀 있습니다 — 바로 치면 금액이 바뀝니다.
+            //   전에는 커서가 없어 아래 메모 칸을 눌러 금액을 적었습니다 (2026-11-23)
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
             inputMode="numeric"
             className="mt-2 h-11 w-full rounded-md border border-[#DDE2EA] px-3 text-[14px] tabular-nums outline-none focus:border-[#1279E8]"
           />
@@ -418,10 +447,42 @@ function PaymentDialog({
 
           <input
             value={memo}
-            onChange={(e) => setMemo(e.target.value)}
+            onChange={(e) => {
+              setMemo(e.target.value);
+              setDoubt(null);
+            }}
             placeholder="메모 (선택) — 예) 8월분 합산 입금"
             className="mt-3 h-10 w-full rounded-md border border-[#DDE2EA] px-3 text-[14px] outline-none focus:border-[#1279E8]"
           />
+
+          {doubt !== null && (
+            <div className="mt-3 rounded-md border border-[#F2C879] bg-[#FFF8E8] px-3 py-3">
+              <p className="text-[13.5px] font-semibold text-[#1A2130]">
+                메모에 적은 ₩{doubt.toLocaleString('ko-KR')} 이 정산 금액인가요?
+              </p>
+              <p className="mt-1 text-[13px] text-[#4A5567]">
+                지금 금액 칸은 ₩{amount.toLocaleString('ko-KR')} 입니다.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void write(doubt, '')}
+                  disabled={saving}
+                  className="h-9 rounded-md bg-[#1279E8] px-3 text-[13.5px] font-bold text-white hover:bg-[#0F68C9]"
+                >
+                  네, ₩{doubt.toLocaleString('ko-KR')} 으로 적기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void write(amount, memo)}
+                  disabled={saving}
+                  className="h-9 rounded-md border border-[#DDE2EA] bg-white px-3 text-[13.5px] font-semibold text-[#4A5567] hover:border-[#98A2B3]"
+                >
+                  아니요, ₩{amount.toLocaleString('ko-KR')} 그대로
+                </button>
+              </div>
+            </div>
+          )}
 
           {error && <p className="mt-2 text-[13.5px] font-semibold text-[#D8453F]">{error}</p>}
         </div>
