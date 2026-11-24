@@ -410,6 +410,18 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
   // ★ order_files.storage_path 에 unique 가 걸려 있어 같은 경로를 두 번
   //   넣을 수 없습니다. 저장소에서 객체를 복사해 새 경로를 만듭니다.
   //   내려받았다 다시 올리지 않고 서버끼리 복사하므로 STL 이 커도 쌉니다.
+  //
+  // ★★ 하나라도 못 옮기면 **리메이크를 무르고 알립니다** (2026-11-24).
+  //   전에는 실패한 파일을 건너뛰고 "화면에서 보이니 다시 올리면 된다" 고 적어
+  //   뒀지만, 실제로는 **아무 데도 안 보였습니다.** 스캔이 빠진 리메이크가
+  //   접수되면 센터는 볼 것이 없고, 치과는 다 넘어간 줄 압니다.
+  // ★ 무를 때는 이미 복사한 덩어리도 치웁니다 — 안 치우면 주인 없는 파일이 남습니다.
+  const copied: string[] = [];
+  const undoScans = async (name: string, why: string): Promise<RemakeResult> => {
+    if (copied.length > 0) await supabase.storage.from(BUCKET).remove(copied);
+    return undo(`스캔 파일(${name})을`, why);
+  };
+
   for (const file of reuse) {
     const ext = file.storage_path.includes('.') ? file.storage_path.split('.').pop() : '';
     const target = `orders/${remake.id}/${crypto.randomUUID()}_file${ext ? '.' + ext : ''}`;
@@ -418,11 +430,10 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
       .from(BUCKET)
       .copy(file.storage_path, target);
 
-    // 한 장 실패했다고 리메이크 전체를 무르지 않습니다.
-    // 화면에서 어느 파일이 안 넘어왔는지 보이고, 다시 올리면 됩니다.
-    if (copyError) continue;
+    if (copyError) return undoScans(file.file_name, copyError.message);
+    copied.push(target);
 
-    await supabase.from('order_files').insert({
+    const { error: fileError } = await supabase.from('order_files').insert({
       order_id: remake.id,
       kind: 'scan',
       storage_path: target,
@@ -431,6 +442,8 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
       mime_type: file.mime_type,
       uploaded_by: session.user.id,
     });
+
+    if (fileError) return undoScans(file.file_name, fileError.message);
   }
 
   // ---------- 원주문에 흔적 남기기 ----------
