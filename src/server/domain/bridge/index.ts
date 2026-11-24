@@ -272,3 +272,44 @@ export function severedFromBridges(
 
   return severed;
 }
+
+// ---------- 리메이크로 옮기기 (2026-11-24) ----------
+
+/** 리메이크로 옮겨 온 한 줄 — 원주문의 어느 줄에서 왔고, 새 줄은 무엇인가 */
+export interface CarriedItem {
+  parentItemId: string;
+  newItemId: string;
+  typeCode: string;
+  materialCode: string;
+}
+
+/**
+ * 원주문의 브릿지 묶음을 리메이크의 새 줄로 옮깁니다. 돌려주는 것은 새 줄 id 의 묶음들.
+ *
+ * ★★ 왜 — 리메이크는 보철물 줄만 옮기고 **묶음을 안 옮겼습니다.** 브릿지를 다시
+ *   만들어 달라는 주문이 낱개 크라운 여럿으로 들어갔습니다 (2026-11-24 발견 —
+ *   원주문에 묶음이 있던 리메이크 다섯 건이 묶음 0개).
+ *
+ * ★ 규칙으로 다시 계산하지 않고 **원주문의 것을 그대로** 옮깁니다. 다시 계산하면
+ *   치과가 손으로 끊어 둔 연결이 도로 이어집니다.
+ * ★ 부분 리메이크면 고른 줄만 옵니다. 한 묶음에서 **둘 이상** 왔을 때만 묶음입니다.
+ * ★ 리메이크에서 종류·재료를 바꿔 서로 달라졌으면 그 묶음은 안 옮깁니다 —
+ *   다른 재료끼리는 한 덩어리로 못 만듭니다 (canLink 와 같은 뜻).
+ */
+export function carryBridges(parentBridges: string[][], carried: CarriedItem[]): string[][] {
+  const byParent = new Map(carried.map((c) => [c.parentItemId, c]));
+  const out: string[][] = [];
+
+  for (const members of parentBridges) {
+    const here = members.map((id) => byParent.get(id)).filter((c): c is CarriedItem => !!c);
+    if (here.length < 2) continue;
+
+    const first = here[0];
+    const same = here.every((c) => c.typeCode === first.typeCode && c.materialCode === first.materialCode);
+    if (!same) continue;
+
+    out.push(here.map((c) => c.newItemId));
+  }
+
+  return out;
+}

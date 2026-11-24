@@ -394,8 +394,12 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     return { ok: false, error: `보철물 저장에 실패했습니다: ${itemError?.message}` };
   }
 
-  // 브릿지 묶음 저장
-  await saveBridges(supabase, order.id, savedItems, input, catalog);
+  // 브릿지 묶음 저장 — 못 넣으면 주문을 되돌리고 알립니다 (2026-11-24, 제작옵션과 같은 처리)
+  const bridgeFailure = await saveBridges(supabase, order.id, savedItems, input, catalog);
+  if (bridgeFailure) {
+    await supabase.from('orders').delete().eq('id', order.id);
+    return { ok: false, error: `브릿지 연결 저장에 실패했습니다: ${bridgeFailure}` };
+  }
 
   // 제작옵션 저장 (명세서 §4.2.8)
   const optionRows = Object.entries(orderOptions).map(([groupId, valueId]) => ({
@@ -646,6 +650,12 @@ async function buildPatientLabels(
 /**
  * 브릿지는 화면에서 받지 않고 규칙으로 다시 계산합니다.
  * 화면과 저장 결과가 어긋날 수 없게 하려는 것입니다.
+ *
+ * ★ 못 넣으면 **까닭을 돌려줍니다** (2026-11-24). 다 됐으면 빈 글자.
+ *   전에는 결과를 안 봤습니다. 묶음이 빠진 채 저장되면 브릿지가 낱개 크라운으로
+ *   보이고, 청구서도 한 줄이 아니라 낱개로 나갑니다 — 그런데 아무 말도 없었습니다.
+ * ★ 묶음 줄만 들어가고 멤버가 안 들어가면 그 **빈 묶음을 지웁니다.** 남겨 두면
+ *   치아 없는 브릿지가 됩니다.
  */
 async function saveBridges(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -660,7 +670,7 @@ async function saveBridges(
   }>,
   input: CreateOrderInput,
   catalog: ProsthesisCatalog,
-): Promise<void> {
+): Promise<string> {
   const placements: ToothPlacement[] = savedItems.map((row) => ({
     tooth: row.tooth_number,
     typeCode: row.type_code,
@@ -671,13 +681,13 @@ async function saveBridges(
   const bridges = computeBridges(placements, input.severedKeys ?? [], catalog);
 
   for (const bridge of bridges) {
-    const { data: saved } = await supabase
+    const { data: saved, error: bridgeError } = await supabase
       .from('order_bridges')
       .insert({ order_id: orderId, created_by_rule: true })
       .select('id')
       .single();
 
-    if (!saved) continue;
+    if (bridgeError || !saved) return bridgeError?.message ?? '묶음 줄이 들어가지 않았습니다';
 
     const memberIds = savedItems
       .filter(
@@ -689,9 +699,15 @@ async function saveBridges(
       .map((row) => ({ bridge_id: saved.id, order_item_id: row.id }));
 
     if (memberIds.length > 0) {
-      await supabase.from('order_bridge_members').insert(memberIds);
+      const { error: memberError } = await supabase.from('order_bridge_members').insert(memberIds);
+      if (memberError) {
+        await supabase.from('order_bridges').delete().eq('id', saved.id);
+        return memberError.message;
+      }
     }
   }
+
+  return '';
 }
 
 // ---------- 수정 ----------
@@ -704,7 +720,7 @@ type Row = Record<string, unknown>;
  * ★ 화면이 보낸 것에 빠진 그룹은 기본값으로 채웁니다 (domain/production-option).
  * ★ **주문을 만들기 전에** 부릅니다 — 못 읽었으면 아무것도 쓰지 않고 돌려보냅니다.
  */
-async function loadOrderOptions(
+export async function loadOrderOptions(
   supabase: Awaited<ReturnType<typeof createClient>>,
   chosen: Record<string, string> | undefined,
 ): Promise<Record<string, string> | null> {
@@ -725,7 +741,7 @@ async function loadOrderOptions(
   return resolveOrderOptions(groups, chosen);
 }
 
-const OPTIONS_UNREAD = '제작옵션 목록을 읽지 못해 저장하지 않았습니다. 잠시 뒤 다시 해 주세요';
+export const OPTIONS_UNREAD = '제작옵션 목록을 읽지 못해 저장하지 않았습니다. 잠시 뒤 다시 해 주세요';
 
 interface OrderSpecSnapshot {
   items: Row[];
@@ -1012,7 +1028,8 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
     };
   }
 
-  await saveBridges(supabase, input.orderId, savedItems, input, catalog);
+  // ★ 못 넣으면 알립니다 (2026-11-24) — 다시 저장하면 옛것을 지우고 처음부터 다시 넣습니다
+  const bridgeFailure = await saveBridges(supabase, input.orderId, savedItems, input, catalog);
 
   const optionRows = Object.entries(orderOptions).map(([groupId, valueId]) => ({
     order_id: input.orderId,
@@ -1029,6 +1046,13 @@ export async function updateOrder(input: UpdateOrderInput): Promise<UpdateOrderR
 
   // ★ 고치다 FlowTemp 를 넣었으면 줄을 열고, 뺐으면 (아직 디자인 차례일 때만) 닫습니다
   await syncAutoJob(input.orderId, current.clinic_org_id as string, autoTeeth(input, catalog));
+
+  if (bridgeFailure) {
+    return {
+      ok: false,
+      error: `보철물은 고쳤지만 브릿지 연결을 저장하지 못했습니다. 한 번 더 저장해 주세요: ${bridgeFailure}`,
+    };
+  }
 
   if (optionFailure) {
     return {

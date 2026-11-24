@@ -36,6 +36,8 @@ import { getProsthesisCatalog } from '@/server/repositories/prosthesis';
 import { getHolidayMap } from '@/server/repositories/holiday';
 import { isValidShade } from '@/server/domain/shade';
 import { publishOrderCreated } from '@/server/events';
+import { carryBridges } from '@/server/domain/bridge';
+import { loadOrderOptions, OPTIONS_UNREAD } from '@/server/services/order';
 
 const BUCKET = 'order-files';
 
@@ -234,6 +236,46 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
     reuse.push(...fileRows);
   }
 
+  /*
+    ★★ 제작옵션과 브릿지 묶음도 원주문에서 옮깁니다 (2026-11-24).
+
+      전에는 보철물 줄만 옮겼습니다. 그래서 리메이크는 **제작옵션이 비고**
+      (옵션 없는 주문 9건이 전부 리메이크였습니다 — 일반 주문 312건은 전부 있음),
+      **브릿지가 낱개 크라운으로** 들어갔습니다. 나중에 주문을 한 번 고쳐 저장한
+      리메이크만 채워져 있었습니다.
+
+    ★ **주문을 만들기 전에** 읽습니다. 못 읽었으면 아무것도 안 만들고 돌려보냅니다.
+    ★ 옵션은 원주문의 값을 그대로, 원주문에 없는 그룹은 기본값으로 채웁니다.
+  */
+  const { data: parentOptionRows, error: parentOptionError } = await supabase
+    .from('order_options')
+    .select('option_group_id, option_value_id')
+    .eq('order_id', parent.id);
+  if (parentOptionError || !parentOptionRows) return { ok: false, error: OPTIONS_UNREAD };
+
+  const remakeOptions = await loadOrderOptions(
+    supabase,
+    Object.fromEntries(
+      (parentOptionRows as { option_group_id: string; option_value_id: string }[]).map((r) => [
+        r.option_group_id,
+        r.option_value_id,
+      ]),
+    ),
+  );
+  if (!remakeOptions) return { ok: false, error: OPTIONS_UNREAD };
+
+  const { data: parentBridgeRows, error: parentBridgeError } = await supabase
+    .from('order_bridges')
+    .select('id, order_bridge_members(order_item_id)')
+    .eq('order_id', parent.id);
+  if (parentBridgeError || !parentBridgeRows) {
+    return { ok: false, error: '원주문의 브릿지 연결을 읽지 못해 만들지 않았습니다. 잠시 뒤 다시 해 주세요' };
+  }
+
+  const parentBridges = (
+    parentBridgeRows as unknown as { order_bridge_members: { order_item_id: string }[] | null }[]
+  ).map((b) => (b.order_bridge_members ?? []).map((m) => m.order_item_id));
+
   const { data: orderNo, error: noError } = await supabase.rpc('next_order_no');
   if (noError || !orderNo) {
     return { ok: false, error: '주문번호를 만들지 못했습니다' };
@@ -286,11 +328,14 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
   //   원주문 항목은 그대로 두므로, 나중에 정산이 부모와 견주어
   //   차액을 뽑을 수 있습니다 (parent_order_id + tooth_number).
   const changeOf = new Map(changes.map((c) => [c.itemId, c]));
+  const newIdOf = new Map(items.map((item) => [item.id, crypto.randomUUID()]));
 
   const rows = items.map((item) => {
     const c = changeOf.get(item.id);
 
     return {
+    // ★ id 를 여기서 정합니다 — 원주문의 어느 줄에서 왔는지 알아야 묶음을 옮깁니다
+    id: newIdOf.get(item.id),
     order_id: remake.id,
     tooth_number: item.tooth_number,
     slot: item.slot,
@@ -314,6 +359,50 @@ export async function requestRemake(input: RemakeInput): Promise<RemakeResult> {
   if (itemError) {
     await supabase.from('orders').delete().eq('id', remake.id);
     return { ok: false, error: `보철물을 옮기지 못했습니다: ${itemError.message}` };
+  }
+
+  // ---------- 브릿지 묶음 · 제작옵션 ----------
+  //
+  // ★ 못 넣으면 리메이크를 무르고 알립니다 — 묶음이나 옵션이 빠진 채 접수되면
+  //   디자인이 낱개로 나갑니다.
+  const undo = async (what: string, why: string): Promise<RemakeResult> => {
+    await supabase.from('orders').delete().eq('id', remake.id);
+    return { ok: false, error: `${what} 옮기지 못해 리메이크를 만들지 않았습니다. 다시 해 주세요: ${why}` };
+  };
+
+  const carried = carryBridges(
+    parentBridges,
+    rows.map((row, i) => ({
+      parentItemId: items[i].id,
+      newItemId: row.id as string,
+      typeCode: row.type_code,
+      materialCode: row.material_code,
+    })),
+  );
+
+  for (const members of carried) {
+    const { data: bridge, error: bridgeError } = await supabase
+      .from('order_bridges')
+      .insert({ order_id: remake.id, created_by_rule: true })
+      .select('id')
+      .single();
+    if (bridgeError || !bridge) return undo('브릿지 연결을', bridgeError?.message ?? '묶음 줄이 들어가지 않았습니다');
+
+    const { error: memberError } = await supabase
+      .from('order_bridge_members')
+      .insert(members.map((id) => ({ bridge_id: bridge.id, order_item_id: id })));
+    if (memberError) return undo('브릿지 연결을', memberError.message);
+  }
+
+  const remakeOptionRows = Object.entries(remakeOptions).map(([groupId, valueId]) => ({
+    order_id: remake.id,
+    option_group_id: groupId,
+    option_value_id: valueId,
+  }));
+
+  if (remakeOptionRows.length > 0) {
+    const { error: optionError } = await supabase.from('order_options').insert(remakeOptionRows);
+    if (optionError) return undo('제작옵션을', optionError.message);
   }
 
   // ---------- 스캔 파일 재사용 (Q-12) ----------
