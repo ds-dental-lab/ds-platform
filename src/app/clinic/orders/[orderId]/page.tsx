@@ -164,7 +164,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         order.status === 'rescan' ? (
           <RescanBar
             orderId={order.id}
-            scanFiles={order.files.filter((f) => f.kind !== 'design')}
+            /* 스캔만 — 사진·대화 첨부는 재스캔 때 치우지 않습니다 (2026-11-25) */
+            scanFiles={order.files.filter((f) => f.kind === 'scan')}
           />
         ) : null
       }

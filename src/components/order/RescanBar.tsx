@@ -96,7 +96,7 @@ export default function RescanBar({ orderId, scanFiles }: RescanBarProps) {
 
     setOpen(false);
     // 재스캔이 풀려 접수로 돌아갑니다
-    toast(statusChangeMessage('received'));
+    toast(result.warning ?? statusChangeMessage('received'));
     startTransition(() => router.refresh());
   }
 
