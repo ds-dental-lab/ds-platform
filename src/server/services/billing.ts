@@ -138,7 +138,11 @@ export async function closeBillingPeriod(
 
   // ---------- ② 금액 줄 ----------
   // 다시 눌렀을 때 겹치지 않게 비우고 새로 넣습니다 (아직 열려 있어 지울 수 있습니다)
-  await supabase.from('billing_lines').delete().eq('period_id', openPeriodId);
+  //
+  // ★★ **비워졌는지 보고** 넣습니다 (2026-11-24). 전에는 결과를 안 봤습니다.
+  //   옛 줄이 남은 채 새 줄을 넣으면 같은 건이 두 번 잡혀 **청구액이 두 배**로 굳습니다.
+  const leftover = await clearLines(supabase, openPeriodId);
+  if (leftover) return { ok: false, error: leftover };
 
   const rows = settlement.items.flatMap((item) =>
     // 조회에 쓴 단가를 그대로 넘깁니다 — 합계에서 거꾸로 쪼개지 않습니다.
@@ -235,9 +239,37 @@ export async function reopenBillingPeriod(
 
   if (openError) return { ok: false, error: `되돌리지 못했습니다: ${openError.message}` };
 
-  await supabase.from('billing_lines').delete().eq('period_id', period.id);
+  // ★ 못 지웠으면 알립니다 (2026-11-24) — 기간은 이미 열렸고, 다시 발행할 때 한 번 더 비웁니다
+  const leftover = await clearLines(supabase, period.id);
+  if (leftover) return { ok: false, error: `마감은 되돌렸지만 ${leftover}` };
 
   return { ok: true, lines: 0, amount: 0 };
+}
+
+/**
+ * 한 기간의 정산줄을 비웁니다. 다 비웠으면 빈 글자, 아니면 까닭.
+ *
+ * ★ 지우기는 **0줄만 지워도 오류가 아닙니다** — 문지기(RLS·트리거)에 막히면 조용히
+ *   0줄입니다. 그래서 지운 뒤에 **남은 줄을 다시 셉니다.**
+ */
+async function clearLines(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  periodId: string,
+): Promise<string> {
+  const { error } = await supabase.from('billing_lines').delete().eq('period_id', periodId);
+  if (error) return `옛 정산줄을 지우지 못했습니다: ${error.message}`;
+
+  const { count, error: countError } = await supabase
+    .from('billing_lines')
+    .select('id', { count: 'exact', head: true })
+    .eq('period_id', periodId);
+
+  if (countError || count === null) {
+    return `옛 정산줄이 지워졌는지 확인하지 못했습니다. 잠시 뒤 다시 해 주세요${countError ? ': ' + countError.message : ''}`;
+  }
+  if (count > 0) return `옛 정산줄이 ${count}줄 남아 있어 멈췄습니다. 다시 해 주세요`;
+
+  return '';
 }
 
 // ---------- 한꺼번에 마감 ----------
