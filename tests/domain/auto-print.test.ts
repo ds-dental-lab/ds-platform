@@ -721,12 +721,11 @@ describe('센터 손 없이 — 멈춤을 기계가 가릅니다 (사용자 결�
   });
 });
 
-describe('폰 푸시는 손댈 일만 (2026-10-23)', () => {
-  it("'다 나왔다' 는 폰으로 안 보냅니다 — 종 알림·책갈피만", () => {
-    expect(alertPushes('done')).toBe(false);
-  });
-  it('판 비우기·멈춤·스캔·자동 설계 포기는 폰까지', () => {
-    for (const k of ['bed', 'failed', 'design_scan', 'design_ended'] as const) expect(alertPushes(k)).toBe(true);
+describe('FlowTemp 알림은 폰으로 안 보냅니다 (2026-11-26)', () => {
+  it('어느 알림도 폰 푸시가 아니다 — 종 알림·책갈피만', () => {
+    for (const k of ['bed', 'done', 'failed', 'paused', 'design_scan', 'design_ended', 'design_tooth'] as const) {
+      expect(alertPushes(k)).toBe(false);
+    }
   });
 });
 
@@ -771,8 +770,8 @@ describe('출력 중 일시 정지 (2026-10-23)', () => {
     expect(row.status).toBe('일시 정지');
     expect(row.etaAt).toBeNull();
   });
-  it('알림은 폰까지, 이어 하기를 안내', () => {
-    expect(alertPushes('paused')).toBe(true);
+  it('알림은 이어 하기를 안내 (폰 푸시는 없음)', () => {
+    expect(alertPushes('paused')).toBe(false);
     const a = autoAlert('paused', { orderNo: 'O', patientLabel: 'P', productName: 'FlowTemp', reason: '필라멘트' });
     expect(a.body).toContain('이어 하기');
   });
