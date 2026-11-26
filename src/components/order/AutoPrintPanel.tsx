@@ -36,6 +36,7 @@ export default function AutoPrintPanel({
   needsBed,
   canClear,
   designNote = null,
+  troubleNote = null,
   manualSlot = null,
   finishedAt = null,
   canReprint = false,
@@ -51,6 +52,8 @@ export default function AutoPrintPanel({
   canClear: boolean;
   /** 디자인이 멈춘 까닭 — 센터 화면에만 넘어옵니다 */
   designNote?: string | null;
+  /** 지난 멈춤 한 줄 — 센터 화면에만 넘어옵니다 (2026-11-26) */
+  troubleNote?: string | null;
   /** 센터만 — STL 을 손으로 고르는 작은 링크 (AutoPrintSendButton) */
   manualSlot?: ReactNode;
   /** 다 나온 때 (ISO) */
@@ -239,6 +242,12 @@ export default function AutoPrintPanel({
           <p className="text-[12px] font-bold text-[#8A5A12]">디자인 확인 필요 (센터에만 보입니다)</p>
           <p className="mt-1 text-[12px] leading-relaxed text-[#6B4A16]">{designNote}</p>
         </div>
+      ) : null}
+
+      {troubleNote ? (
+        <p className="mt-3 rounded-lg border border-[#E3E7EE] bg-[#F7F8FA] px-3 py-2 text-[12px] leading-relaxed text-[#4A5567]">
+          {troubleNote} <span className="text-[#7C8595]">(센터에만 보입니다)</span>
+        </p>
       ) : null}
 
       {needsBed && canClear ? (

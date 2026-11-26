@@ -1129,3 +1129,33 @@ export function withClinicPc(row: BoardRow, job: AutoJob, online: boolean, pause
         : '덴플로우 에이전트가 꺼져 있어 출력을 못 보냅니다 — PC 와 에이전트를 켜 주세요',
   };
 }
+
+// ---------------------------------------------------------------- 지난 멈춤
+
+/**
+ * 이 주문의 출력이 지금까지 몇 번 멈췄는가 (2026-11-26).
+ *
+ * ★ 다시 걸기·다시 뽑기는 작업 줄의 실패 글과 횟수를 지웁니다 — 새로 시작하는 것이라
+ *   그게 맞습니다. 그런데 그 줄만 보면 "한 번도 안 멈췄다" 로 보입니다. 2026-11-25 시험에서
+ *   첫 출력이 필라멘트 걸림으로 멈췄다 다시 뽑혔는데, 줄만 보고 깨끗하다고 보고했습니다.
+ * ★ 그래서 멈춤은 **지워지지 않는 사건**으로 따로 남기고, 여기서 한 줄로 줄입니다.
+ *   센터 화면에만 보입니다 — 치과가 손댈 일이 아닙니다.
+ */
+export interface AutoTrouble {
+  kind: 'failed' | 'paused';
+  /** 어느 단계에서 (printing·sending·slicing…) */
+  at: string;
+  reason: string;
+  /** ISO */
+  when: string;
+}
+
+export function troubleSummary(troubles: AutoTrouble[]): string | null {
+  if (troubles.length === 0) return null;
+  const failed = troubles.filter((t) => t.kind === 'failed').length;
+  const paused = troubles.length - failed;
+  const counts = [failed ? `멈춤 ${failed}번` : '', paused ? `일시 정지 ${paused}번` : ''].filter(Boolean).join(' · ');
+  const last = [...troubles].sort((a, b) => a.when.localeCompare(b.when))[troubles.length - 1];
+  const reason = last.reason.trim() || '까닭 없음';
+  return `지난 ${counts} — 마지막: ${reason}`;
+}

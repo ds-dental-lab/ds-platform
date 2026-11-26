@@ -286,6 +286,7 @@ export default async function DesignOrderDetailPage({ params }: OrderDetailPageP
             printing={auto.job.step === 'printing' ? auto.board : null}
             canClear={false}
             designNote={auto.designNote}
+            troubleNote={auto.troubleNote}
             /*
               ★ 머리줄의 '자동 출력 보내기' 를 여기 작은 링크로 내렸습니다
                 (사용자 2026-10-15). 평소엔 지켜보기가 알아서 올립니다.

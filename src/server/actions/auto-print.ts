@@ -25,6 +25,7 @@ import {
   jobOfOrder,
   reprintJob,
   retryJob,
+  listTroubles,
 } from '@/server/repositories/auto-print';
 import {
   autoProgress,
@@ -40,6 +41,7 @@ import {
   isDesignStage,
   type AutoJob,
   type BoardRow,
+  troubleSummary,
 } from '@/server/domain/auto-print';
 import { autoPrintLaunchUrl } from '@/server/domain/exocad';
 import { issueExocadToken } from '@/server/exocad/token';
@@ -124,6 +126,17 @@ export interface AutoView {
    * 설계 프로그램 이름이 들어 있을 수 있어 치과 화면에는 null 입니다.
    */
   designNote: string | null;
+  /**
+   * 지난 멈춤 한 줄 — **센터에만** 채웁니다 (2026-11-26).
+   * 다시 걸면 작업 줄의 실패 글이 지워져, 이것이 없으면 깨끗해 보입니다.
+   */
+  troubleNote: string | null;
+}
+
+function troubleNoteOf(troubles: Awaited<ReturnType<typeof listTroubles>>): string | null {
+  // ★ 못 읽은 것을 '없음' 으로 보이지 않게 합니다
+  if (troubles === null) return '지난 멈춤 기록을 읽지 못했습니다';
+  return troubleSummary(troubles);
 }
 
 /** 주문 화면이 쓸 모양. 자동 진행 중이 아니면 null */
@@ -179,6 +192,7 @@ export async function getAutoView(orderId: string): Promise<AutoView | null> {
     needsBed: canClearBed(job),
     board,
     designNote: note,
+    troubleNote: isCenter ? troubleNoteOf(await listTroubles(orderId)) : null,
   };
 }
 

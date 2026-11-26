@@ -35,6 +35,7 @@ import {
   PAUSE_MARK,
   type AutoJob,
   type AutoStep,
+  type AutoTrouble,
   type DesignStage,
   designGroups,
   type DesignGroup,
@@ -290,6 +291,9 @@ export async function moveStep(
   */
   const alert = alertOnMove(row.step, to);
   if (alert) await publishAutoAlert(row.order_id, alert, extra.reason ?? null);
+
+  // ★ 멈춤은 지워지지 않게 따로 남깁니다 — 다시 걸면 위 줄의 실패 글이 사라집니다 (2026-11-26)
+  if (to === 'failed') await recordTrouble(admin, row.order_id, 'failed', row.step, extra.reason ?? '');
 
   // ★ 임시치아만 있는 주문은 다 나오면 그 자리에서 완료 (과금 2안, 2026-10-21)
   if (to === 'done') await completeAutoOnlyOrder(admin, row.order_id);
@@ -950,7 +954,10 @@ export async function reportPrintJob(
     if (error) return { ok: false, error: error.message };
     if (percent !== null) await reportPercent(jobId, percent);
     await writeExtras();
-    if (first) await publishAutoAlert(row.order_id, 'paused', body.paused.trim());
+    if (first) {
+      await publishAutoAlert(row.order_id, 'paused', body.paused.trim());
+      await recordTrouble(admin, row.order_id, 'paused', 'printing', body.paused.trim());
+    }
     return { ok: true };
   }
   if (!body.step && body.resumed === true) {
@@ -1757,4 +1764,51 @@ async function autoTypeCodes(): Promise<Set<string>> {
   const admin = createAdminClient();
   const { data } = await admin.from('prosthesis_types').select('code').eq('auto_pipeline', true);
   return new Set(((data ?? []) as { code: string }[]).map((t) => t.code));
+}
+
+// ---------------------------------------------------------------- 지난 멈춤 (2026-11-26)
+
+const TROUBLE_EVENT = { failed: 'order.auto_print.failed', paused: 'order.auto_print.paused' } as const;
+
+/**
+ * 멈춤을 사건으로 남깁니다. 작업 줄과 달리 다시 걸어도 지워지지 않습니다.
+ * ★ 여기서 실패해도 단계는 이미 넘어갔습니다. 되돌리지 않고 서버 기록에만 남깁니다.
+ */
+async function recordTrouble(
+  admin: ReturnType<typeof createAdminClient>,
+  orderId: string,
+  kind: 'failed' | 'paused',
+  at: string,
+  reason: string,
+): Promise<void> {
+  const { error } = await admin.from('domain_events').insert({
+    event_type: TROUBLE_EVENT[kind],
+    aggregate_type: 'order',
+    aggregate_id: orderId,
+    actor_org_id: null,
+    actor_user_id: null,
+    payload: { at, reason: reason.slice(0, 500) },
+  });
+  if (error) console.error('[auto-print] 멈춤 기록 실패', orderId, kind, error.message);
+}
+
+/** 이 주문의 지난 멈춤 — 오래된 것부터. 못 읽으면 null (없음과 구분합니다) */
+export async function listTroubles(orderId: string): Promise<AutoTrouble[] | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('domain_events')
+    .select('event_type, payload, created_at')
+    .eq('aggregate_id', orderId)
+    .in('event_type', Object.values(TROUBLE_EVENT))
+    .order('created_at')
+    .limit(50);
+  if (error || !data) return null;
+  return (data as { event_type: string; payload: { at?: string; reason?: string } | null; created_at: string }[]).map(
+    (r) => ({
+      kind: r.event_type === TROUBLE_EVENT.paused ? 'paused' : 'failed',
+      at: r.payload?.at ?? '',
+      reason: r.payload?.reason ?? '',
+      when: r.created_at,
+    }),
+  );
 }
